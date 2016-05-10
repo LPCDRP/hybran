@@ -1,0 +1,8 @@
+* Have RATT output valid EMBL files for its annotation (the current release has issues with this)
+
+* Parse RATT's output for non-syntenic regions
+
+* Find ab initio annotations corresponding to the positions where annotation was not transferred
+
+* Combine the annotations files
+   - Need a way to handle feature overlaps
