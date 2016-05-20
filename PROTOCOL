@@ -1,0 +1,38 @@
+# Task:
+
+Given non-syntenic positions from RATT, find the annotations in those positions determined using an ab initio annotation.
+
+# Required Files:
+
+1. gff file of the ab initio annotation (Prokka) (<prokka-input>)
+2. gff file containing non-syntenic positions from RATT (<ratt-input>)
+3. embl file of the RATT annotation (<embl-file>)
+
+# Python scripts to use
+
+1. formatProkkaForBedtools.py
+2. formatRattForBedtools.py
+3. annomerge.py
+
+# Protocol:
+
+1. Using python script 'formatProkkaForBedtools.py' clean the Prokka file to a format compatible to bedtools
+   Syntax: python formatProkkaForBedtools.py <prokka-input> <prokka-output>
+
+2. Using python script 'formatRattForBedtools.py' clean the RATT file to a format compatible to bedtools
+   Syntax: python formatRattForBedtools.py <ratt-input> <ratt-output>
+
+3. Use the script below to find annotations for the non-syntenic positions from RATT, in Prokka
+   bedtools intersect -a <prokka-output> -b <ratt-output> -f 1 > <bedtools-output>
+
+4. If the embl format of the RATT annotation is not valid, use the script below to comnert it to valid embl 
+   ** Author: Sam Modlin
+   sed  's/ ; ; ; ; ;/; SV 1; circular; genomic DNA; HTG; PRO;/g' <input-file> | sed 's/order(join/order/g' | sed 's/complement(order/complement/g' > <output-file>
+
+5. Use the 'annomerge.py' script to merge the annotations for the non-syntenic positions from RATT.
+   Syntax: python annomerge.py -b <bedtools-output> -e <embl-file> -o <output-embl>
+
+
+
+
+
