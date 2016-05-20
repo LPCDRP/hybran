@@ -9,7 +9,7 @@
 # in addition to the merged embl file, in case a merged annotation in gff format
 # is required later.
 
-
+import sys, getopt
 from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 
@@ -42,56 +42,84 @@ def fileModify(query):
 #    gene, etc.)
 # 2. RATT annotation in a valid embl file.
 
-output_raw = open('/home/dgunasek/Work/projects/annomerge/bedtools_output', 'r')
-output_clean = open('/home/dgunasek/Work/projects/annomerge/bedtools_result.gff','w')
-embl_record = SeqIO.read('/home/dgunasek/Work/projects/annomerge/A6.embl', 'embl')
-
-# Read lines from the bedtools output and save them in the output_lines list
-output_lines = []
-for line in output_raw:
-    output_lines.append(line)
+def main(argv):
+    input_bedtools = ''
+    input_embl = ''
+    output_embl = ''
+    output_gff = ''
+    # Annomerge takes as options -b <bedtools_file> -e <embl_file> -o <output_file>
+    # from the commandline. Additionally, it also takes as option -g <ouput_gff>
+    # in case a gff format of the (missing) synteny information from Prokka is
+    # needed
+    try:
+        opts, args = getopt.getopt(argv,"hb:e:o:g:",["bedtools_file=", "embl_file=", "output_file=", "output_gff="])
+    except getopt.GetoptError:
+        print 'annomerge.py -b <input_bedtools_file> -e <input_embl_file> -o <output_file>'
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print 'annomerge.py -b <input_bedtools_file> -e <input_embl_file> -o <output_file>'
+            sys.exit()
+        elif opt in ("-b", "--bedtools_file"):
+            input_bedtools = arg
+        elif opt in ("-e", "--embl_file"):
+            input_embl = arg
+        elif opt in ("-o", "--output_file"):
+            output_embl = arg
+        elif opt in ("-g", "--output_file"):
+            output_gff = arg
+    output_raw = open(input_bedtools, 'r')
+    embl_record = SeqIO.read(input_embl, 'embl')
     
-# Generate the gff format and write to file 
-gff_raw = fileModify(output_lines)
-output_clean.write(gff_raw) 
+    # Read lines from the bedtools output and save them in the output_lines list
+    output_lines = []
+    for line in output_raw:
+        output_lines.append(line)
+        
+    # Generate the gff format and write to file 
+    gff_raw = fileModify(output_lines)
+    
+    overlap_gff = gff_raw.split('\n')
+    for seq in overlap_gff:
+        # Check if line is not empty
+        if len(seq) != 0:
+            seq_components = []
+            seq_components = seq.split('\t')
+        # Build the information from gff format to generate the features for the 
+        # embl file 
+        if seq_components[6] == '-':
+            strand_info = -1
+        elif seq_components[6] == '+':
+            strand_info = 1
+        else:
+            strand_info = 0
+        qualifier_list = seq_components[8].split(';')
+        feature_qualifiers = {}
+        for qual in qualifier_list:
+            add_qual = qual.split('=')
+            feature_qualifiers[add_qual[0]] = add_qual[1]
+        new_feature = SeqFeature(FeatureLocation(int(seq_components[3]), 
+        int(seq_components[4]), strand=strand_info), type=seq_components[2], 
+        qualifiers=feature_qualifiers)
+        # Append features to the existing features (generated using RATT)
+        embl_record.features.append(new_feature)
 
+    SeqIO.write(embl_record, output_embl, 'embl')
 
-overlap_gff = gff_raw.split('\n')
-for seq in overlap_gff:
-    # Check if line is not empty
-    if len(seq) != 0:
-        seq_components = []
-        seq_components = seq.split('\t')
-    # Build the information from gff format to generate the features for the 
-    # embl file 
-    if seq_components[6] == '-':
-        strand_info = -1
-    elif seq_components[6] == '+':
-        strand_info = 1
-    else:
-        strand_info = 0
-    qualifier_list = seq_components[8].split(';')
-    feature_qualifiers = {}
-    for qual in qualifier_list:
-        add_qual = qual.split('=')
-        feature_qualifiers[add_qual[0]] = add_qual[1]
-    new_feature = SeqFeature(FeatureLocation(int(seq_components[3]), 
-    int(seq_components[4]), strand=strand_info), type=seq_components[2], 
-    qualifiers=feature_qualifiers)
-    # Append features to the existing features (generated using RATT)
-    embl_record.features.append(new_feature)
+    # Generated putput files:
+    # 1. gff file containing synteny information that is missing in the RATT 
+    #    annotation, retreived from Prokka using bedtools (bedtools_result.gff)
+    # 2. embl file containing merged synteny information from RATT and Prokka
+    #    (merged_annotation.embl)
 
-SeqIO.write(embl_record, '/home/dgunasek/Work/projects/annomerge/merged_annotation.embl', 'embl')
-
-# Generated putput files:
-# 1. gff file containing synteny information that is missing in the RATT 
-#    annotation, retreived from Prokka using bedtools (bedtools_result.gff)
-# 2. embl file containing merged synteny information from RATT and Prokka
-#    (merged_annotation.embl)
-
-# Close all files
-output_raw.close()
-output_clean.close()
-
-
+    # Close all files
+    output_raw.close()
+    
+    if output_gff:
+        output_clean = open(output_gff,'w')
+        output_clean.write(gff_raw)
+        output_clean.close()
+        
+if __name__ == "__main__":
+   main(sys.argv[1:])
   
