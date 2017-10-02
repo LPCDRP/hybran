@@ -1,3 +1,4 @@
+#/usr/bin/env python
 # Author: Deepika Gunasekaran
 # Title: Merge annotation from Prokka for the positions which ar not annotated by 
 # RATT
@@ -83,11 +84,11 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv,"hr:p:e:l:",["ratt=", "prokka=", "output_embl=", "log_file="])
     except getopt.GetoptError:
-        print 'annomerge_extension.py -r <input_ratt_embl_file> -p <input_prokka_genbank_file> -e <output_embl_file> -l <output_log_file>'
+        print 'annomerge.py -r <input_ratt_embl_file> -p <input_prokka_genbank_file> -e <output_embl_file> -l <output_log_file>'
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'annomerge_extension.py -r <input_ratt_embl_file> -p <input_prokka_genbank_file> -e <output_embl_file> -l <output_log_file>'
+            print 'annomerge.py -r <input_ratt_embl_file> -p <input_prokka_genbank_file> -e <output_embl_file> -l <output_log_file>'
             sys.exit()
         elif opt in ("-r", "--ratt"):
             input_ratt_embl = arg
