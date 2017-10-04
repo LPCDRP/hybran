@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python2.7
 # Author: Deepika Gunasekaran
 # Title: Merge annotation from Prokka for the positions which ar not annotated by 
 # RATT
