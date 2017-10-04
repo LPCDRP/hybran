@@ -109,6 +109,7 @@ def main(argv):
     prokka_cds_pos = {}
     prokka_cds_neg = {}
     ratt_gaps = []
+    prokka = {}
     for rec in ratt_record:
         ratt_features = rec.features
     for rec in prokka_record:
@@ -120,83 +121,92 @@ def main(argv):
     overlap_feature_lengths = {}
     #overlap_feature_overlap_percent = []
     corner_cases = 0
+
+    for feature in prokka_features:
+        start = feature.location.start
+        stop = feature.location.end
+        key = (start, stop)
+        prokka[key] = feature
     for i in intergenic_positions:
         #print(i[2])
-        for feature in prokka_features:
-            prokka_strand = feature.strand
-            if prokka_strand == -1 and i[2] == '-':
-                if int(feature.location.start) in range(i[0],i[1]+1) and int(feature.location.end) in range(i[0],i[1]+1):
-                    #print(feature)
-                    if feature.type not in feature_additions.keys():
-                        feature_additions[feature.type] = 1
-                        feature_lengths[feature.type] = [len(feature.location)]
-                    else:
-                        feature_additions[feature.type] += 1
-                        feature_lengths[feature.type].append(len(feature.location))
-                    #print(len(feature.location))
-                    embl_record.features.append(feature)
-                elif int(feature.location.start) < i[0] and int(feature.location.end) in range(i[0],i[1]+1):
-                    if feature.type not in overlap_features.keys():
-                        overlap_features[feature.type] = 1
-                        overlap_feature_lengths[feature.type] = [len(feature.location)]
-                    else:
-                        overlap_features[feature.type] += 1
-                        overlap_feature_lengths[feature.type].append(len(feature.location))
-                    #overlap_feature_overlap_percent.append((float(len(feature.location))-float(i[0]))/float(len(feature.location)))
-                    p_overlap = (i[0]-int(feature.location.start)/(len(feature.location)))
-                    #print(p_overlap)
-                    #print(feature)
-                elif int(feature.location.start) in range(i[0],i[1]+1) and int(feature.location.end) > i[1]:
-                    if feature.type not in overlap_features.keys():
-                        overlap_features[feature.type] = 1
-                        overlap_feature_lengths[feature.type] = [len(feature.location)]
-                    else:
-                        overlap_features[feature.type] += 1
-                        overlap_feature_lengths[feature.type].append(len(feature.location))
-                    #print(len(feature.location))
-                    #overlap_feature_overlap_percent.append((float(len(feature.location))-i[1])/float(len(feature.location)))
-                    p_overlap = (int(feature.location.start)-i[1])/(len(feature.location))
-                    #print(p_overlap)
-                    #print(feature)
-                elif int(feature.location.start) < i[0] and int(feature.location.end) > i[1]:
-                    corner_cases += 1
-            elif prokka_strand == 1 and i[2] == '+':
-                if int(feature.location.start) in range(i[0],i[1]+1) and int(feature.location.end) in range(i[0],i[1]+1):
-                    #print(feature)
-                    if feature.type not in feature_additions.keys():
-                        feature_additions[feature.type] = 1
-                        feature_lengths[feature.type] = [len(feature.location)]
-                    else:
-                        feature_additions[feature.type] += 1
-                        feature_lengths[feature.type].append(len(feature.location))
-                    embl_record.features.append(feature)
-                elif int(feature.location.start) < i[0] and int(feature.location.end) in range(i[0],i[1]+1):
-                    if feature.type not in overlap_features.keys():
-                        overlap_features[feature.type] = 1
-                        overlap_feature_lengths[feature.type] = [len(feature.location)]
-                    else:
-                        overlap_features[feature.type] += 1
-                        overlap_feature_lengths[feature.type].append(len(feature.location))
-                    #overlap_feature_overlap_percent.append((float(len(feature.location))-i[0])/float(len(feature.location)))
-                    p_overlap = (i[0]-int(feature.location.start)/(len(feature.location)))
-                    #print(p_overlap)
-                    #print(feature)
-                elif int(feature.location.start) in range(i[0],i[1]+1) and int(feature.location.end) > i[1]:
-                    if feature.type not in overlap_features.keys():
-                        overlap_features[feature.type] = 1
-                        overlap_feature_lengths[feature.type] = [len(feature.location)]
-                    else:
-                        overlap_features[feature.type] += 1
-                        overlap_feature_lengths[feature.type].append(len(feature.location))
-                    #print(len(feature.location))
-                    #overlap_feature_overlap_percent.append((float(len(feature.location))-i[1])/float(len(feature.location)))
-                    p_overlap = (int(feature.location.start)-i[1])/(len(feature.location))
-                    #print(p_overlap)
-                    #print(feature)
-                elif int(feature.location.start) < i[0] and int(feature.location.end) > i[1]:
-                    corner_cases += 1
-            else:
-                continue
+        ratt_strand = i[2]
+        feature = prokka[(i[0], i[1])]
+        # for feature in prokka_features:
+        prokka_strand = feature.strand
+        if prokka_strand == -1 and ratt_strand == '-':
+            if int(feature.location.start) in range(i[0],i[1]+1) and int(feature.location.end) in \
+                    range(i[0],i[1]+1):
+                #print(feature)
+                if feature.type not in feature_additions.keys():
+                    feature_additions[feature.type] = 1
+                    feature_lengths[feature.type] = [len(feature.location)]
+                else:
+                    feature_additions[feature.type] += 1
+                    feature_lengths[feature.type].append(len(feature.location))
+                #print(len(feature.location))
+                embl_record.features.append(feature)
+            elif int(feature.location.start) < i[0] and int(feature.location.end) in range(i[0],i[1]+1):
+                if feature.type not in overlap_features.keys():
+                    overlap_features[feature.type] = 1
+                    overlap_feature_lengths[feature.type] = [len(feature.location)]
+                else:
+                    overlap_features[feature.type] += 1
+                    overlap_feature_lengths[feature.type].append(len(feature.location))
+                #overlap_feature_overlap_percent.append((float(len(feature.location))-float(i[0]))/float(len(feature.location)))
+                p_overlap = (i[0]-int(feature.location.start)/(len(feature.location)))
+                #print(p_overlap)
+                #print(feature)
+            elif int(feature.location.start) in range(i[0],i[1]+1) and int(feature.location.end) > i[1]:
+                if feature.type not in overlap_features.keys():
+                    overlap_features[feature.type] = 1
+                    overlap_feature_lengths[feature.type] = [len(feature.location)]
+                else:
+                    overlap_features[feature.type] += 1
+                    overlap_feature_lengths[feature.type].append(len(feature.location))
+                #print(len(feature.location))
+                #overlap_feature_overlap_percent.append((float(len(feature.location))-i[1])/float(len(feature.location)))
+                p_overlap = (int(feature.location.start)-i[1])/(len(feature.location))
+                #print(p_overlap)
+                #print(feature)
+            elif int(feature.location.start) < i[0] and int(feature.location.end) > i[1]:
+                corner_cases += 1
+        elif prokka_strand == 1 and ratt_strand == '+':
+            if int(feature.location.start) in range(i[0],i[1]+1) and int(feature.location.end) in range(i[0],i[1]+1):
+                #print(feature)
+                if feature.type not in feature_additions.keys():
+                    feature_additions[feature.type] = 1
+                    feature_lengths[feature.type] = [len(feature.location)]
+                else:
+                    feature_additions[feature.type] += 1
+                    feature_lengths[feature.type].append(len(feature.location))
+                embl_record.features.append(feature)
+            elif int(feature.location.start) < i[0] and int(feature.location.end) in range(i[0],i[1]+1):
+                if feature.type not in overlap_features.keys():
+                    overlap_features[feature.type] = 1
+                    overlap_feature_lengths[feature.type] = [len(feature.location)]
+                else:
+                    overlap_features[feature.type] += 1
+                    overlap_feature_lengths[feature.type].append(len(feature.location))
+                #overlap_feature_overlap_percent.append((float(len(feature.location))-i[0])/float(len(feature.location)))
+                p_overlap = (i[0]-int(feature.location.start)/(len(feature.location)))
+                #print(p_overlap)
+                #print(feature)
+            elif int(feature.location.start) in range(i[0],i[1]+1) and int(feature.location.end) > i[1]:
+                if feature.type not in overlap_features.keys():
+                    overlap_features[feature.type] = 1
+                    overlap_feature_lengths[feature.type] = [len(feature.location)]
+                else:
+                    overlap_features[feature.type] += 1
+                    overlap_feature_lengths[feature.type].append(len(feature.location))
+                #print(len(feature.location))
+                #overlap_feature_overlap_percent.append((float(len(feature.location))-i[1])/float(len(feature.location)))
+                p_overlap = (int(feature.location.start)-i[1])/(len(feature.location))
+                #print(p_overlap)
+                #print(feature)
+            elif int(feature.location.start) < i[0] and int(feature.location.end) > i[1]:
+                corner_cases += 1
+        # else:
+        #    continue
     #print(feature_additions)
     if output_log:
         output_file = open(output_log, 'w')
