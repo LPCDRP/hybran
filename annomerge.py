@@ -146,9 +146,9 @@ def main(argv):
             output_log = arg
 
     ratt_record = SeqIO.read(input_ratt_embl, 'embl')
-    print('RATT record: ' + str(len(ratt_record.features)))
+    #print('RATT record: ' + str(len(ratt_record.features)))
     prokka_record = SeqIO.read(input_prokka_genbank, 'genbank')
-    print('Prokka record: ' + str(len(prokka_record.features)))
+    #print('Prokka record: ' + str(len(prokka_record.features)))
     embl_record = SeqIO.read(input_ratt_embl, 'embl')
     #print(len(embl_record.features))
     #print('RATT annotation')
@@ -161,10 +161,10 @@ def main(argv):
     ratt_features = ratt_record.features
     prokka_features = prokka_record.features
     prokka_features_dict = generate_feature_dictionary(prokka_features)
-    print('Original Prokka feature length: ' + str(len(prokka_features_dict.keys())))
+    #print('Original Prokka feature length: ' + str(len(prokka_features_dict.keys())))
     prokka_features_not_in_ratt, ratt_overlapping_genes = remove_duplicate_annotations(ratt_features, prokka_features_dict)
-    print('Reduced Prokka feature length: ' + str(len(prokka_features_not_in_ratt.keys())))
-    print('Potential RATT gene overlaps: ' + str(len(ratt_overlapping_genes.keys())))
+    #print('Reduced Prokka feature length: ' + str(len(prokka_features_not_in_ratt.keys())))
+    #print('Potential RATT gene overlaps: ' + str(len(ratt_overlapping_genes.keys())))
     intergenic_ratt, intergenic_positions = get_interregions(input_ratt_embl, intergene_length=1)
     feature_additions = {}
     feature_lengths = {}
