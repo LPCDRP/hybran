@@ -111,8 +111,6 @@ def remove_duplicate_annotations(ratt_features, prokka_features_dictionary):
     return prokka_features_not_in_ratt, ratt_overlapping_genes
 
 
-
-
 # Required input files:
 # 1. RATT annotation in a valid embl file.
 # 2. Prokka annotation in a gff file.
@@ -146,9 +144,9 @@ def main(argv):
             output_log = arg
 
     ratt_record = SeqIO.read(input_ratt_embl, 'embl')
-    #print('RATT record: ' + str(len(ratt_record.features)))
+    print('RATT record: ' + str(len(ratt_record.features)))
     prokka_record = SeqIO.read(input_prokka_genbank, 'genbank')
-    #print('Prokka record: ' + str(len(prokka_record.features)))
+    print('Prokka record: ' + str(len(prokka_record.features)))
     embl_record = SeqIO.read(input_ratt_embl, 'embl')
     #print(len(embl_record.features))
     #print('RATT annotation')
@@ -161,16 +159,16 @@ def main(argv):
     ratt_features = ratt_record.features
     prokka_features = prokka_record.features
     prokka_features_dict = generate_feature_dictionary(prokka_features)
-    #print('Original Prokka feature length: ' + str(len(prokka_features_dict.keys())))
+    print('Original Prokka feature length: ' + str(len(prokka_features_dict.keys())))
     prokka_features_not_in_ratt, ratt_overlapping_genes = remove_duplicate_annotations(ratt_features, prokka_features_dict)
-    #print('Reduced Prokka feature length: ' + str(len(prokka_features_not_in_ratt.keys())))
-    #print('Potential RATT gene overlaps: ' + str(len(ratt_overlapping_genes.keys())))
+    print('Reduced Prokka feature length: ' + str(len(prokka_features_not_in_ratt.keys())))
+    print('Potential RATT gene overlaps: ' + str(len(ratt_overlapping_genes.keys())))
     intergenic_ratt, intergenic_positions = get_interregions(input_ratt_embl, intergene_length=1)
     feature_additions = {}
     feature_lengths = {}
     overlap_features = {}
     overlap_feature_lengths = {}
-    #overlap_feature_overlap_percent = []
+    overlap_feature_overlap_percent = []
     corner_cases = 0
     for i in intergenic_positions:
         # Variable definitions
@@ -178,6 +176,7 @@ def main(argv):
         ratt_end = i[1]
         ratt_strand = i[2]
         for feature_position in prokka_features_dict.keys():
+            feature = prokka_features_dict[feature_position]
             prokka_strand = feature_position[2]
             prokka_start = feature_position[0]
             prokka_end = feature_position[1]
@@ -200,31 +199,32 @@ def main(argv):
                         feature_additions[feature.type] += 1
                         feature_lengths[feature.type].append(len(feature.location))
                     embl_record.features.append(feature)
-
-               #elif int(prokka_start) < ratt_start and int(prokka_end) in ratt_pos_range:
-                    #if feature.type not in overlap_features.keys():
-                        #overlap_features[feature.type] = 1
-                        #overlap_feature_lengths[feature.type] = [len(feature.location)]
-                    #else:
-                        #overlap_features[feature.type] += 1
-                        #overlap_feature_lengths[feature.type].append(len(feature.location))
-                    #overlap_percent = (float(len(feature.location)) - float(ratt_start)) / float(len(feature.location))
-                    #overlap_feature_overlap_percent.append(overlap_percent)
-                    #p_overlap = (ratt_start - int(prokka_start) / (len(feature.location)))
-                #elif int(prokka_start) in ratt_pos_range and int(prokka_end) > ratt_end:
-                    #if feature.type not in overlap_features.keys():
-                        #overlap_features[feature.type] = 1
-                        #overlap_feature_lengths[feature.type] = [len(feature.location)]
-                    #else:
-                        #overlap_features[feature.type] += 1
-                        #overlap_feature_lengths[feature.type].append(len(feature.location))
-                    #overlap_percent = (float(len(feature.location))-ratt_end)/float(len(feature.location))
-                    #overlap_feature_overlap_percent.append(overlap_percent)
-                    #p_overlap = (int(prokka_start)-ratt_end)/(len(feature.location))
-                #elif int(prokka_start) < ratt_start and int(prokka_end) > ratt_end:
-                    #corner_cases += 1
-            # else:
-            #    continue
+                # If the Prokka feature overlaps with the RATT feature 
+                elif prokka_start < ratt_start and prokka_end in ratt_pos_range:
+                # or (prokka_start in ratt_pos_range and prokka_end > ratt_end):
+                    if feature.type not in overlap_features.keys():
+                        overlap_features[feature.type] = 1
+                        overlap_feature_lengths[feature.type] = [len(feature.location)]
+                    else:
+                        overlap_features[feature.type] += 1
+                        overlap_feature_lengths[feature.type].append(len(feature.location))
+                    overlap_percent = (ratt_start-prokka_start)/float(len(feature.location))
+                    if overlap_percent < 0.99999:
+                        overlap_feature_overlap_percent.append(overlap_percent)
+                elif prokka_start in ratt_pos_range and prokka_end > ratt_end:
+                    if feature.type not in overlap_features.keys():
+                        overlap_features[feature.type] = 1
+                        overlap_feature_lengths[feature.type] = [len(feature.location)]
+                    else:
+                        overlap_features[feature.type] += 1
+                        overlap_feature_lengths[feature.type].append(len(feature.location))
+                    overlap_percent = (prokka_end-ratt_end)/float(len(feature.location))
+	            if overlap_percent < 0.999999:
+                        overlap_feature_overlap_percent.append(overlap_percent)
+                    break
+                elif int(prokka_start) < ratt_start and int(prokka_end) > ratt_end:
+                    corner_cases += 1
+                    
     #print(feature_additions)
     if output_log:
         output_file = open(output_log, 'w')
@@ -238,15 +238,15 @@ def main(argv):
     if output_embl:
         print('Writing Output EMBL file')
         SeqIO.write(embl_record, output_embl, 'embl')
-    #for f in overlap_feature_lengths.keys():
-        #print(str('Feature: ' + f + '\n'))
-        #print(str('Number of ' + f + ': ' + str(overlap_features[f]) + '\n'))
-        #print(str('Min length: ' + str(min(overlap_feature_lengths[f])) + '\n'))
-        #print(str('Max length: ' + str(max(overlap_feature_lengths[f])) + '\n'))
-        #print(str('Median length: ' + str(median(overlap_feature_lengths[f])) + '\n'))
-    #print(str('Corner cases: ' + str(corner_cases) + '\n'))
-    #for i in overlap_feature_overlap_percent:
-        #print(i)
+    for f in overlap_feature_lengths.keys():
+        print(str('Feature: ' + f + '\n'))
+        print(str('Number of ' + f + ': ' + str(overlap_features[f]) + '\n'))
+        print(str('Min length: ' + str(min(overlap_feature_lengths[f])) + '\n'))
+        print(str('Max length: ' + str(max(overlap_feature_lengths[f])) + '\n'))
+        print(str('Median length: ' + str(median(overlap_feature_lengths[f])) + '\n'))
+    print(str('Corner cases: ' + str(corner_cases) + '\n'))
+    for i in overlap_feature_overlap_percent:
+        print(i)
 
 
 if __name__ == "__main__":
