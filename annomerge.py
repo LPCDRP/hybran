@@ -13,8 +13,9 @@ import sys, getopt
 from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 from Bio.SeqRecord import SeqRecord
-from numpy import median
 import collections
+from numpy import median
+
 
 #################################################################################
 # Copyright(C) 2009 Iddo Friedberg & Ian MC Fleming
@@ -27,19 +28,28 @@ def get_interregions(genbank_path,intergene_length=1):
     cds_list_minus = []
     intergenic_records = []
     intergenic_positions = []
+    pre_intergene = {}    
+    post_intergene = {}
     # Loop over the genome file, get the CDS features on each of the strands
     for feature in seq_record.features:
-#        if feature.type == 'CDS':
+        if feature.type == 'mRNA':
+            continue
         mystart = feature.location.start.position
         myend = feature.location.end.position
         if feature.strand == -1:
             cds_list_minus.append((mystart,myend,-1))
+            pre_intergene[(myend,-1)] = feature
+            post_intergene[(mystart,-1)] = feature
         elif feature.strand == 1:
             cds_list_plus.append((mystart,myend,1))
+            pre_intergene[(myend,1)] = feature
+            post_intergene[(mystart,1)] = feature
         else:
             sys.stderr.write("No strand indicated %d-%d. Assuming +\n" %
                                   (mystart, myend))
             cds_list_plus.append((mystart,myend,1))
+            pre_intergene[(myend,1)] = feature
+            post_intergene[(mystart,1)] = feature
     cds_list_plus = sorted(cds_list_plus)
     cds_list_minus = sorted(cds_list_minus)
     for i,pospair in enumerate(cds_list_plus[1:]):
@@ -67,22 +77,26 @@ def get_interregions(genbank_path,intergene_length=1):
                   description="%s %d-%d %s" % (seq_record.name, last_end+1,
                                                         this_start,strand_string)))
             intergenic_positions.append((last_end+1,this_start,strand_string))
-    return intergenic_records, intergenic_positions
+    return intergenic_records, intergenic_positions, pre_intergene, post_intergene
 #####################################################################################
 
 
 def generate_feature_dictionary(feature_list):
-# This function takes as input a list of features and returns a dictionary with the key as a tuple of
-# feature start and stop positions and the value as the feature.
+# This function takes as input a list of features and returns a dictionary with the 
+# key as a tuple of feature start and stop positions and the value as the feature.
     feature_dict = {}
     for feature in feature_list:
-        feature_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
+        feature_key = (int(feature.location.start), int(feature.location.end), 
+                       int(feature.location.strand))
         feature_dict[feature_key] = feature
     sorted_feature_dict = collections.OrderedDict(sorted(feature_dict.items()))
     return sorted_feature_dict
 
 
 def remove_duplicate_annotations(ratt_features, prokka_features_dictionary):
+# This function prunes and selects the features that are relevant in Prokka and 
+# discards features in Prokka that are annotated by RATT by taking into account the 
+# gene name and the position of the features                                                                     
     prokka_features_not_in_ratt = prokka_features_dictionary.copy()
     ratt_overlapping_genes = {}
     for ratt_feature in ratt_features:
@@ -111,19 +125,49 @@ def remove_duplicate_annotations(ratt_features, prokka_features_dictionary):
     return prokka_features_not_in_ratt, ratt_overlapping_genes
 
 
+def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation, prokka_annotation):
+    ratt_feature_start = ratt_annotation.location.start
+    ratt_feature_end = ratt_annotation.location.end
+    prokka_feature_start = prokka_annotation.location.start
+    prokka_feature_end = prokka_annotation.location.end
+    included = False
+    # Check if feature types are the same. If not add feature to EMBL record
+    if ratt_annotation.type != prokka_annotation.type:
+        embl_file.features.append(prokka_annotation)
+        included = True
+    # Check if gene names match and if they don't or if gene names are missing, keep both
+    elif 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in prokka_annotation.qualifiers.keys():
+        if ratt_annotation.qualifiers['gene'] != prokka_annotation.qualifiers['gene']:
+            embl_file.features.append(prokka_annotation)
+            included = True
+        # If gene names are the same and the lengths of the genes are comparable between RATT and Prokka annotation (difference in length of less than/equal to 10 bps), the RATT annotation is prefered
+        elif ratt_annotation.qualifiers['gene'] == prokka_annotation.qualifiers['gene'] and abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 10:
+            embl_file.features.append(prokka_annotation)
+            included = True
+        # If gene tag is missing and the product is not a hypothetical protein, check to see if the products are the same between RATT and Prokka and if they are and if the lengths of the protein coding genes are comparable between RATT and Prokka (difference in length is less than/equal to 10 bps), the RATT annotation is prefered
+    elif 'gene' not in ratt_annotation.qualifiers.keys() or 'gene' not in prokka_annotation.qualifiers.keys():
+        if ratt_annotation.qualifiers['product'] == 'hypothetical protein' or prokka_annotation.qualifiers['product'] == 'hypothetical protein':
+            embl_file.features.append(prokka_annotation)
+            included = True
+        elif ratt_annotation.qualifiers['product'] == prokka_annotation.qualifiers['product'] and abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 10:
+            embl_file.features.append(prokka_annotation)
+            included = True
+    return embl_file, included
+    
+
+
 # Required input files:
 # 1. RATT annotation in a valid embl file.
-# 2. Prokka annotation in a gff file.
+# 2. Prokka annotation in a genbank file.
 
 def main(argv):
     input_ratt_embl = ''
     input_prokka_genbank = ''
     output_embl = ''
-    #output_gff = ''
     output_log = ''
     # Annomerge takes as options -r <input_ratt_embl_file> -p <input_prokka_genbank_file> -o <output_file>
     # from the commandline. Additionally, it also takes as option -l <ouput_log_file>
-    # in case a lof file is required for troubleshooting. The log file output stats about the features that
+    # in case a log file is required for troubleshooting. The log file output stats about the features that
     # are added to the RATT annotation
     try:
         opts, args = getopt.getopt(argv,"hr:p:e:l:",["ratt=", "prokka=", "output_embl=", "log_file="])
@@ -132,7 +176,9 @@ def main(argv):
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
+            print 'Usage:'
             print 'annomerge.py -r <input_ratt_embl_file> -p <input_prokka_genbank_file> -e <output_embl_file> -l <output_log_file>'
+            print 'If -l and -e options are not specified the defaults filenames annomerge.embl and annomerge.log are used'
             sys.exit()
         elif opt in ("-r", "--ratt"):
             input_ratt_embl = arg
@@ -144,110 +190,102 @@ def main(argv):
             output_log = arg
 
     ratt_record = SeqIO.read(input_ratt_embl, 'embl')
-    print('RATT record: ' + str(len(ratt_record.features)))
     prokka_record = SeqIO.read(input_prokka_genbank, 'genbank')
-    print('Prokka record: ' + str(len(prokka_record.features)))
     embl_record = SeqIO.read(input_ratt_embl, 'embl')
-    #print(len(embl_record.features))
-    #print('RATT annotation')
-    ratt_cds_pos = {}
-    ratt_cds_neg = {}
-    prokka_cds_pos = {}
-    prokka_cds_neg = {}
-    ratt_gaps = []
-    prokka = {}
+
+    ###########################################################
+    ####### Creating a dictionary with feature location #######
+    ############### as key and index as value #################
+    ###########################################################
+    
+    ratt_annotation_mapping = {} # Used for resolving annotations of overlapping features between RATT and Prokka
+    for index, feature in enumerate(embl_record.features):
+        start = feature.location.start
+        end = feature.location.end
+        ratt_annotation_mapping[(start,end)] = index
+    
     ratt_features = ratt_record.features
     prokka_features = prokka_record.features
     prokka_features_dict = generate_feature_dictionary(prokka_features)
-    print('Original Prokka feature length: ' + str(len(prokka_features_dict.keys())))
     prokka_features_not_in_ratt, ratt_overlapping_genes = remove_duplicate_annotations(ratt_features, prokka_features_dict)
-    print('Reduced Prokka feature length: ' + str(len(prokka_features_not_in_ratt.keys())))
-    print('Potential RATT gene overlaps: ' + str(len(ratt_overlapping_genes.keys())))
-    intergenic_ratt, intergenic_positions = get_interregions(input_ratt_embl, intergene_length=1)
+    intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = get_interregions(input_ratt_embl, intergene_length=1)
+    sorted_intergenic_positions = sorted(intergenic_positions)
     feature_additions = {}
     feature_lengths = {}
-    overlap_features = {}
-    overlap_feature_lengths = {}
-    overlap_feature_overlap_percent = []
-    corner_cases = 0
-    for i in intergenic_positions:
+    #print('Candidate prokka features: ' + str(len(prokka_features_not_in_ratt.keys())))
+    for i in sorted_intergenic_positions:
         # Variable definitions
-        ratt_start = i[0]
-        ratt_end = i[1]
+        ratt_unannotated_region_start = i[0]
+        ratt_unannotated_region_end = i[1]
         ratt_strand = i[2]
-        for feature_position in prokka_features_dict.keys():
-            feature = prokka_features_dict[feature_position]
+        for feature_position in prokka_features_not_in_ratt.keys():
+            prokka_feature = prokka_features_not_in_ratt[feature_position]
             prokka_strand = feature_position[2]
-            prokka_start = feature_position[0]
-            prokka_end = feature_position[1]
-            ratt_pos_range = range(ratt_start, ratt_end + 1)
+            prokka_feature_start = feature_position[0]
+            prokka_feature_end = feature_position[1]
+            ratt_unannotated_region_range = range(ratt_unannotated_region_start, ratt_unannotated_region_end + 1)
             if (prokka_strand == -1 and ratt_strand == '-') or (prokka_strand == 1 and ratt_strand == '+'):
-                # If Prokka feature is location before the start of the intergenic region, pop the key from the dictionary
-                if (prokka_start < ratt_start) and (prokka_end < ratt_start):
-                    prokka_features_dict.pop((prokka_start,prokka_end,prokka_strand), None)
+                # If Prokka feature is location before the start of the intergenic region, pop the key from the dictionary and continue loop
+                if (prokka_feature_start < ratt_unannotated_region_start) and (prokka_feature_end < ratt_unannotated_region_start):
+                    prokka_features_not_in_ratt.pop((prokka_feature_start,prokka_feature_end,prokka_strand), None)
                     continue
                 # Else if the prokka feature location is after the end of the intergenic region, break out of the inner loop
-                elif (prokka_start > ratt_end) and (prokka_end > ratt_end):
+                elif (prokka_feature_start > ratt_unannotated_region_end) and (prokka_feature_end > ratt_unannotated_region_end):
                     break
                 # If the PROKKA feature is contained in the RATT feature
-                elif prokka_start in ratt_pos_range and prokka_end in ratt_pos_range:
-                    feature = prokka_features_dict[feature_position]
-                    if feature.type not in feature_additions.keys():
-                        feature_additions[feature.type] = 1
-                        feature_lengths[feature.type] = [len(feature.location)]
+                elif prokka_feature_start in ratt_unannotated_region_range and prokka_feature_end in ratt_unannotated_region_range:
+                    # The if-else condition below is to keep track of the features added from Prokka for the log file
+                    if prokka_feature.type not in feature_additions.keys():
+                        feature_additions[prokka_feature.type] = 1
+                        feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
                     else:
-                        feature_additions[feature.type] += 1
-                        feature_lengths[feature.type].append(len(feature.location))
-                    embl_record.features.append(feature)
-                # If the Prokka feature overlaps with the RATT feature 
-                elif prokka_start < ratt_start and prokka_end in ratt_pos_range:
-                # or (prokka_start in ratt_pos_range and prokka_end > ratt_end):
-                    if feature.type not in overlap_features.keys():
-                        overlap_features[feature.type] = 1
-                        overlap_feature_lengths[feature.type] = [len(feature.location)]
+                        feature_additions[prokka_feature.type] += 1
+                        feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
+                    embl_record.features.append(prokka_feature)
+                # If the Prokka feature overlaps with two RATT features
+                elif prokka_feature_start < ratt_unannotated_region_start and prokka_feature_end > ratt_unannotated_region_end:
+                    if prokka_feature_start == 0 and prokka_feature_end > 1000000: # This is to exclude large feature (i.e. the feature which contains the whole/ a huge part of the genome)
+                        break
+                    embl_record.features.append(prokka_feature)
+                    # The if-else condition below is to keep track of the features added from Prokka for the log file
+                    if prokka_feature.type not in feature_additions.keys():
+                        feature_additions[prokka_feature.type] = 1
+                        feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
                     else:
-                        overlap_features[feature.type] += 1
-                        overlap_feature_lengths[feature.type].append(len(feature.location))
-                    overlap_percent = (ratt_start-prokka_start)/float(len(feature.location))
-                    if overlap_percent < 0.99999:
-                        overlap_feature_overlap_percent.append(overlap_percent)
-                elif prokka_start in ratt_pos_range and prokka_end > ratt_end:
-                    if feature.type not in overlap_features.keys():
-                        overlap_features[feature.type] = 1
-                        overlap_feature_lengths[feature.type] = [len(feature.location)]
-                    else:
-                        overlap_features[feature.type] += 1
-                        overlap_feature_lengths[feature.type].append(len(feature.location))
-                    overlap_percent = (prokka_end-ratt_end)/float(len(feature.location))
-	            if overlap_percent < 0.999999:
-                        overlap_feature_overlap_percent.append(overlap_percent)
-                    break
-                elif int(prokka_start) < ratt_start and int(prokka_end) > ratt_end:
-                    corner_cases += 1
+                        feature_additions[prokka_feature.type] += 1
+                        feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
+                # If the Prokka feature overlaps with one RATT feature
+                else:
+                    if (prokka_feature_start < ratt_unannotated_region_start) and (prokka_feature_end in ratt_unannotated_region_range): 
+                        ratt_overlapping_feature = ratt_pre_intergene[(ratt_unannotated_region_start-1,prokka_strand)]
+                    elif (prokka_feature_start in ratt_unannotated_region_range) and prokka_feature_end > ratt_unannotated_region_end:
+                        ratt_overlapping_feature = ratt_post_intergene[(ratt_unannotated_region_end,prokka_strand)]
+                    embl_record, included = check_inclusion_criteria(ratt_annotation_mapping, embl_record, ratt_overlapping_feature, prokka_feature)
+                    if included: # To check if Prokka feature passed the inclusion criteria and was integrated into the EMBL file
+                    # The if-else condition below is to keep track of the features added from Prokka for the log file
+                        if prokka_feature.type not in feature_additions.keys():
+                            feature_additions[prokka_feature.type] = 1
+                            feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
+                        else:
+                            feature_additions[prokka_feature.type] += 1
+                            feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
                     
-    #print(feature_additions)
+
     if output_log:
         output_file = open(output_log, 'w')
-        for f in feature_lengths.keys():
-            output_file.write(str('Feature: ' + f + '\n'))
-            output_file.write(str('Number of ' + f + ': ' + str(feature_additions[f]) + '\n'))
-            output_file.write(str('Min length: ' + str(min(feature_lengths[f])) + '\n'))
-            output_file.write(str('Max length: ' + str(max(feature_lengths[f])) + '\n'))
-            output_file.write(str('Median length: ' + str(median(feature_lengths[f])) + '\n'))
-    #print(len(embl_record.features))
+    else:
+        output_file = open('annomerge.log', 'w')
+    for f in feature_lengths.keys():
+        output_file.write(str('Feature: ' + f + '\n'))
+        output_file.write(str('Number of ' + f + ': ' + str(feature_additions[f]) + '\n'))
+        output_file.write(str('Min length: ' + str(min(feature_lengths[f])) + '\n'))
+        output_file.write(str('Max length: ' + str(max(feature_lengths[f])) + '\n'))
+        output_file.write(str('Median length: ' + str(median(feature_lengths[f])) + '\n'))
+    
     if output_embl:
-        print('Writing Output EMBL file')
         SeqIO.write(embl_record, output_embl, 'embl')
-    for f in overlap_feature_lengths.keys():
-        print(str('Feature: ' + f + '\n'))
-        print(str('Number of ' + f + ': ' + str(overlap_features[f]) + '\n'))
-        print(str('Min length: ' + str(min(overlap_feature_lengths[f])) + '\n'))
-        print(str('Max length: ' + str(max(overlap_feature_lengths[f])) + '\n'))
-        print(str('Median length: ' + str(median(overlap_feature_lengths[f])) + '\n'))
-    print(str('Corner cases: ' + str(corner_cases) + '\n'))
-    for i in overlap_feature_overlap_percent:
-        print(i)
-
+    else:
+        SeqIO.write(embl_record, 'annomerge.embl', 'embl')
 
 if __name__ == "__main__":
    main(sys.argv[1:])
