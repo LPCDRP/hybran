@@ -5,17 +5,24 @@
 
 finalembl ?= ittas-man-h37-tss-merge.embl
 
-tblsource ?= $(GROUPHOME)/resources/H37Rv-mannotation-computation.tbl      #reference feature table
-#note: the above default tbl filename will need to be updated 
+#reference feature table
+#note: this default tbl filename will need to be updated 
 #once Allyssa has finished the latest version
+tblsource ?= $(GROUPHOME)/resources/H37Rv-mannotation-computation.tbl      
 
 fastasource := $(GROUPHOME)/resources/H37Rv-NC_000962.3.fasta
-tssdir := $(GROUPHOME)/resources/tss-csv-data/    				#path to TSS data
+
+#path to TSS data
+tssdir := $(GROUPHOME)/resources/tss-csv-data/
+
 templatesource := $(GROUPHOME)/resources/tbl2asn-template.sbt
 
 tempdir = tbl2asn-space/
-temptable = sequence.tbl           #these two must have the same prefix
+
+#these two must have the same prefix
+temptable = sequence.tbl           
 tempfasta = sequence.fsa
+
 tempasn = sequence.sqn
 tempembl = temp-ittas-man-h37.embl
 
