@@ -3,30 +3,34 @@
 #call like this:
 #make -i -f tbl2tssembl.mk
 
+#Variables
 finalembl ?= ittas-man-h37-tss-merge.embl
 
-tblsource ?= $(GROUPHOME)/resources/H37Rv-mannotation-computation.tbl      #reference feature table
-#note: the above default tbl filename will need to be updated 
-#once Allyssa has finished the latest version
-
+#reference feature table
+tblsource ?= $(GROUPHOME)/resources/H37Rv-hypotheticome.tbl
 fastasource := $(GROUPHOME)/resources/H37Rv-NC_000962.3.fasta
-tssdir := $(GROUPHOME)/resources/tss-csv-data/    				#path to TSS data
 templatesource := $(GROUPHOME)/resources/tbl2asn-template.sbt
 
+#path to TSS data
+tssdir := $(GROUPHOME)/resources/tss-csv-data/
+
 tempdir = tbl2asn-space/
-temptable = sequence.tbl           #these two must have the same prefix
+temptable = sequence.tbl           
 tempfasta = sequence.fsa
 tempasn = sequence.sqn
 tempembl = temp-ittas-man-h37.embl
 
 fastaheader = >NC_000962.3 Mycobacterium tuberculosis H37Rv, complete genome
+tblheader = >Feature NC_000962.3 Table1
 
+
+#Recipies
 all : $(finalembl)
 
 #adds TSS data to embl file of reference genome
 $(finalembl) : $(tempdir)$(tempembl)
-	tssmerger -r '$<' -o '$(finalembl)' -c '$(tssdir)'
 	#python tssmerger.py -r '$<' -o '$(finalembl)' -c '$(tssdir)'  #test version
+	tssmerger -r '$<' -o '$(finalembl)' -c '$(tssdir)'
 	rm -rf $(tempdir)
 
 #create embl from asn 
@@ -39,16 +43,28 @@ $(tempdir)$(tempasn) : $(templatesource) $(tempdir)$(tempfasta) $(tempdir)$(temp
 
 #create tbl file from source
 $(tempdir)$(temptable) : $(tblsource) $(tempdir)
-	cp $< $@
+	cp $< $(tempdir)tablemid1
+	#need to add the header, or update it if one is already present
+	firstline = $(head -n 1 $<)
+	if [[ "$(firstline)" == >* ]]
+	then
+		sed '1d' $(tempdir)tablemid1 > $(tempdir)tablemid2
+		sed -i '1s/^/$(tblheader)\n/' $(tempdir)tablemid2
+		rm $(tempdir)tablemid1
+		mv $(tempdir)tablemid2 $(tempdir)tablemid1
+	else
+		sed -i '1s/^/$(tblheader)\n/' $(tempdir)tablemid1
+	fi
+	mv $(tempdir)tablemid1 $@
 
 #create fasta file from source
 $(tempdir)$(tempfasta) : $(fastasource) $(tempdir) 
 	cp $< $(tempdir)sedin
 	sed '1d' $(tempdir)sedin > $(tempdir)sedout
 	sed -i '1s/^/$(fastaheader)\n/' $(tempdir)sedout
-	mv $(tempdir)sedout $@
 	rm $(tempdir)sedin
-
+	mv $(tempdir)sedout $@
+	
 #create temp directory
 $(tempdir) : 
 	mkdir $@
