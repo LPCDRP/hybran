@@ -148,7 +148,7 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
             embl_file.features.append(prokka_annotation)
             included = True
         # If gene tag is missing and the product is not a hypothetical protein, check to see if the products are the same between RATT and Prokka and if they are and if the lengths of the protein coding genes are comparable between RATT and Prokka (difference in length is less than/equal to 10 bps), the RATT annotation is prefered
-    elif 'gene' not in ratt_annotation.qualifiers.keys() or 'gene' not in prokka_annotation.qualifiers.keys():
+    elif ('gene' not in ratt_annotation.qualifiers.keys() or 'gene' not in prokka_annotation.qualifiers.keys()) and ('product' in ratt_annotation.qualifiers.keys() and 'product' in prokka_annotation.qualifiers.keys()):
         if ratt_annotation.qualifiers['product'] == 'hypothetical protein' or prokka_annotation.qualifiers['product'] == 'hypothetical protein':
             embl_file.features.append(prokka_annotation)
             included = True
@@ -215,9 +215,12 @@ def main():
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
         if len(ratt_contig_features) == 0:
+            print("NO RATT ANNOTATION")
             feature_additions = {}
             feature_lengths = {}
             annomerge_records.append(prokka_contig_record)
+            print("Annomerge record length")
+            print(len(annomerge_records))
             for prokka_feature in prokka_contig_features:
                 if prokka_feature.type not in feature_additions.keys():
                     feature_additions[prokka_feature.type] = 1
@@ -235,13 +238,17 @@ def main():
             annomerge_contig_record = prokka_contig_record
             continue
         elif len(prokka_contig_features) == 0:
+            print("NO PROKKA ANNOTATION")
             annomerge_contig_record = ratt_contig_record
             prokka_contig_features = ratt_contig_features
             annomerge_records.append(prokka_contig_record)
+            print(len(prokka_contig_feature))
             output_file.write('Contig Number: ' + str(i+1) + '\n')
             output_file.write('No Annotation to add from Prokka')            
             for ratt_contig_feature in ratt_contig_features:
                 prokka_contig_features.append(ratt_contig_feature)
+            print(len(ratt_contig_features))
+            print(len(annomerge_records))
         else:
             # Initializing annomerge gbf record to hold information such as id, etc from prokka but populating the features from RATT
             annomerge_contig_record = prokka_contig_record
