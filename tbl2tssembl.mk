@@ -8,13 +8,14 @@ finalembl ?= ittas-man-h37-tss-merge.embl
 
 #reference feature table
 tblsource ?= $(GROUPHOME)/resources/H37Rv-hypotheticome.tbl
+#tblsource ?= /home/dconkleg/H37Rv-mannotation-computation.tbl
 fastasource := $(GROUPHOME)/resources/H37Rv-NC_000962.3.fasta
 templatesource := $(GROUPHOME)/resources/tbl2asn-template.sbt
 
 #path to TSS data
 tssdir := $(GROUPHOME)/resources/tss-csv-data/
 
-tempdir = tbl2asn-space/
+tempdir = temp-tbl2asn-in/
 temptable = sequence.tbl           
 tempfasta = sequence.fsa
 tempasn = sequence.sqn
@@ -43,17 +44,17 @@ $(tempdir)$(tempasn) : $(templatesource) $(tempdir)$(tempfasta) $(tempdir)$(temp
 
 #create tbl file from source
 $(tempdir)$(temptable) : $(tblsource) $(tempdir)
-	cp $< $(tempdir)tablemid1
+	#cp $< $(tempdir)tablemid1
+	sed 's/EC number/EC_number/' $<	> $(tempdir)tablemid1;\
 	#need to add the header, or update it if one is already present
-	firstline = $(head -n 1 $<)
-	if [[ "$(firstline)" == >* ]]
-	then
-		sed '1d' $(tempdir)tablemid1 > $(tempdir)tablemid2
-		sed -i '1s/^/$(tblheader)\n/' $(tempdir)tablemid2
-		rm $(tempdir)tablemid1
-		mv $(tempdir)tablemid2 $(tempdir)tablemid1
-	else
-		sed -i '1s/^/$(tblheader)\n/' $(tempdir)tablemid1
+	if [[ '$(head -n 1 $<)' == >* ]];\
+	then\
+		sed '1d' $(tempdir)tablemid1 > $(tempdir)tablemid2;\
+		sed -i '1s/^/$(tblheader)\n/' $(tempdir)tablemid2;\
+		rm $(tempdir)tablemid1;\
+		mv $(tempdir)tablemid2 $(tempdir)tablemid1;\
+	else\
+		sed -i '1s/^/$(tblheader)\n/' $(tempdir)tablemid1;\
 	fi
 	mv $(tempdir)tablemid1 $@
 
