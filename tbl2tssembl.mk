@@ -2,7 +2,7 @@
 #Uses tbl file and csv files with TSS data
 #call like this:
 #make -i -f tbl2tssembl.mk
-
+.ONE_SHELL:
 #Variables
 finalembl ?= ittas-man-h37-tss-merge.embl
 
@@ -47,25 +47,26 @@ $(tempdir)$(temptable) : $(tblsource) $(tempdir)
 	#cp $< $(tempdir)tablemid1
 	sed 's/EC number/EC_number/' $<	> $(tempdir)tablemid1;\
 	#need to add the header, or update it if one is already present
-	if [[ '$(head -n 1 $<)' == >* ]];\
-	then\
-		sed '1d' $(tempdir)tablemid1 > $(tempdir)tablemid2;\
-		sed -i '1s/^/$(tblheader)\n/' $(tempdir)tablemid2;\
-		rm $(tempdir)tablemid1;\
-		mv $(tempdir)tablemid2 $(tempdir)tablemid1;\
-	else\
-		sed -i '1s/^/$(tblheader)\n/' $(tempdir)tablemid1;\
+	#if [[ "$$(head -n 1 $<)" == >* ]];\
+	if grep -Fxq ">" $<; \
+	then \
+		sed '1d' $(tempdir)tablemid1 > $(tempdir)tablemid2; \
+		sed -i '1s/^/>Feature NC_000962.3 Table1\n/' $(tempdir)tablemid2; \
+		rm $(tempdir)tablemid1; \
+		mv $(tempdir)tablemid2 $(tempdir)tablemid1; \
+	else \
+		sed -i '1s/^/>Feature NC_000962.3 Table1\n/' $(tempdir)tablemid1; \
 	fi
 	mv $(tempdir)tablemid1 $@
 
 #create fasta file from source
-$(tempdir)$(tempfasta) : $(fastasource) $(tempdir) 
+$(tempdir)$(tempfasta) : $(fastasource) $(tempdir)
 	cp $< $(tempdir)sedin
 	sed '1d' $(tempdir)sedin > $(tempdir)sedout
-	sed -i '1s/^/$(fastaheader)\n/' $(tempdir)sedout
+	sed -i '1s/^/>NC_000962.3 Mycobacterium tuberculosis H37Rv, complete genome\n/' $(tempdir)sedout
 	rm $(tempdir)sedin
 	mv $(tempdir)sedout $@
 	
 #create temp directory
-$(tempdir) : 
-	mkdir $@
+$(tempdir): 
+	mkdir -p $@
