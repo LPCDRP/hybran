@@ -27,13 +27,15 @@ def main():
     id_entry = embl_record.id
     for feature in embl_record.features:
         if feature.type == 'CDS':
-            fasta_header = '>gi|' + id_entry + '|gb|' + id_entry + '|' + feature.qualifiers['locus_tag'][0]
+            #fasta_header = '>gi|' + id_entry + '|gb|' + id_entry + '|' + feature.qualifiers['locus_tag'][0]
             if 'product' in feature.qualifiers.keys() and 'translation' in feature.qualifiers.keys():
                 product_list = ' '.join(feature.qualifiers['product'])
                 if 'gene' in feature.qualifiers.keys():
+                    fasta_header = '>1 ' + '~~~' + feature.qualifiers['gene'][0] + '~~~' + product_list
                     gene_list = ' '.join(feature.qualifiers['gene'])
                     fasta_header = fasta_header + ' ' + gene_list + ' ' + product_list + '\n'
                 else:
+                    fasta_header = '>1 ' + '~~~' + feature.qualifiers['locus_tag'][0] + '~~~' + product_list
                     fasta_header = fasta_header + ' ' + product_list + '\n'
                 output_file.write(fasta_header)
                 output_file.write(feature.qualifiers['translation'][0])
