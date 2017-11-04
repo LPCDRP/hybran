@@ -112,11 +112,11 @@ def identify_merged_genes(ratt_features):
         return
     for feature in ratt_features:
         #print(feature.location)
-        if feature.location.strand not in ratt_annotations.keys():
+        if feature.location.strand not in ratt_annotations.keys() and feature.type == 'CDS':
             ratt_annotations[feature.location.strand] = [(int(feature.location.start),int(feature.location.end))]
             ratt_merged_genes[feature.location.strand] = []
             ratt_unmerged_genes[feature.location.strand] = []
-        else:
+        elif feature.type == 'CDS':
             ratt_annotations[feature.location.strand].append((int(feature.location.start),int(feature.location.end)))
     for strand in ratt_annotations.keys():
         for gene_location in ratt_annotations[strand]:
@@ -152,11 +152,11 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                 continue
             merged_genes_in_strand = merged_genes[feature.location.strand]
             feature_location = (int(feature.location.start),int(feature.location.end))
-            if feature_location in merged_genes_in_strand:
+            if feature_location in merged_genes_in_strand and feature.type == 'CDS':
                 if feature_location not in features_from_ratt.keys():
                     features_from_ratt[feature_location] = [feature]
                     genes_from_ratt[feature_location] = [feature.qualifiers['locus_tag'][0]]
-                else:
+                elif feature.type == 'CDS':
                     features_from_ratt[feature_location].append(feature)
                     genes_from_ratt[feature_location].append(feature.qualifiers['locus_tag'][0])
     else:
@@ -168,7 +168,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             feature_location = (int(feature.location.start),int(feature.location.end))
             #check_feature_loc = FeatureLocation(int(feature.location.start),int(feature.location.end))
             #check_feature_loc.strand = feature.strand
-            if feature_location in merged_genes_in_strand:
+            if feature_location in merged_genes_in_strand and feature.type == 'CDS':
                 #print(feature)
                 merged_genes[feature.location.strand].remove(feature_location)
                 merged_features_addition.append(feature)
@@ -179,11 +179,11 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                 continue
             merged_genes_in_strand = merged_genes[feature.location.strand]
             feature_location = (int(feature.location.start),int(feature.location.end))
-            if feature_location in merged_genes_in_strand:
+            if feature_location in merged_genes_in_strand and feature.type == 'CDS':
                 if feature_location not in features_from_ratt.keys():
                     features_from_ratt[feature_location] = [feature]
                     genes_from_ratt[feature_location] = [feature.qualifiers['locus_tag'][0]]
-                else:
+                elif feature.type == 'CDS':
                     features_from_ratt[feature_location].append(feature)
                     genes_from_ratt[feature_location].append(feature.qualifiers['locus_tag'][0])
     for location in features_from_ratt.keys():
