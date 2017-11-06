@@ -187,6 +187,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                     features_from_ratt[feature_location].append(feature)
                     genes_from_ratt[feature_location].append(feature.qualifiers['locus_tag'][0])
     for location in features_from_ratt.keys():
+        #print(features_from_ratt[location])
         new_feature = features_from_ratt[location][0]
         #print(genes_from_ratt[location])
         merged_features_string = ",".join(genes_from_ratt[location])
@@ -194,9 +195,9 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
         new_gene_name = rename_locus(new_feature.qualifiers['locus_tag'][0], new_feature.location.strand)
         new_feature.qualifiers['locus_tag'] = [new_gene_name]
         if 'note' in new_feature.qualifiers.keys():
-            new_feature.qualifiers['note'].append('The genes ' + merged_features_string + ' in H37Rv(NC_) are merged in this isolate (annotation from RATT)')
+            new_feature.qualifiers['note'].append('The genes ' + merged_features_string + ' in H37Rv(NC_000962.3) are merged in this isolate (annotation from RATT)')
         else:
-            new_feature.qualifiers['note'] = ['The genes ' + merged_features_string + ' are merged in this isolate (annotation from RATT)']
+            new_feature.qualifiers['note'] = ['The genes ' + merged_features_string + ' in H37Rv(NC_000962.3) are merged in this isolate (annotation from RATT)']
         merged_features_addition.append(new_feature)
         #print(location)
         merged_genes[new_feature.location.strand].remove(location)
