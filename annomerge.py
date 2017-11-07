@@ -137,6 +137,7 @@ def identify_merged_genes(ratt_features):
 
 def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features):
     check_positions_for_annotation = dict(merged_genes)
+    merged_gene_locus = {}
     merged_features_addition = []
     features_from_ratt = {}
     genes_from_ratt = {}
@@ -145,6 +146,11 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     for feature in ratt_features:
         if (int(feature.location.start),int(feature.location.end)) not in check_positions_for_annotation[feature.strand]:
             final_ratt_features.append(feature)
+        elif ((int(feature.location.start),int(feature.location.end)) in check_positions_for_annotation[feature.strand]) and (int(feature.location.start),int(feature.location.end)) not in merged_gene_locus.keys():
+            merged_gene_locus[int(feature.location.start),int(feature.location.end)] = [feature.qualifiers['locus_tag'][0]]
+        elif ((int(feature.location.start),int(feature.location.end)) in check_positions_for_annotation[feature.strand]) and (int(feature.location.start),int(feature.location.end)) in merged_gene_locus.keys():
+            merged_gene_locus[int(feature.location.start),int(feature.location.end)].append(feature.qualifiers['locus_tag'][0])
+    #print(merged_gene_locus)
     if len(prokka_features) == 0:
         #print('NO ANNOTATION FOR MERGED GENES IN PROKKA')
         for feature in ratt_features:
@@ -170,7 +176,13 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             #check_feature_loc.strand = feature.strand
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
                 #print(feature)
+                merged_features_string = ",".join(merged_gene_locus[feature_location])
+                if 'note' not in feature.qualifiers.keys():
+                    feature.qualifiers['note'] = ['The genes ' + merged_features_string + ' in H37Rv(NC_000962.3) are merged in this isolate (annotation from Prokka)']
+                else:
+                    feature.qualifiers['note'].append('The genes ' + merged_features_string + ' in H37Rv(NC_000962.3) are merged in this isolate (annotation from Prokka)')
                 merged_genes[feature.location.strand].remove(feature_location)
+                #print(feature)
                 merged_features_addition.append(feature)
             else:
                 final_prokka_features.append(feature)
@@ -304,7 +316,7 @@ def main():
     parser = argparse.ArgumentParser(description='Merging annotation from RATT and Prokka', epilog='Isolate ID must be specified OR Explicit file paths for RATT and Prokka annotation must be specified')
     parser.add_argument('-i', '--isolate', help='Isolate ID')
     parser.add_argument('-o', '--output', help='Output file in Genbank format', default='annomerge.gbf')
-    parser.add_argument('-l', '--log_file', help='Log file with information on features added from prokka', default='annomerge.log')
+    parser.add_argument('-l', '--log_file', help='Log file with information on features added from prokka', default='annomerge_annotation.log')
     parser.add_argument('-r', '--ratt_annotation', nargs='*', help='RATT annotation file(s) (i.e. .final.embl) file(s)')
     parser.add_argument('-p', '--prokka_annotation', help='Prokka annotation Genbank file')
     args = parser.parse_args()
@@ -352,6 +364,7 @@ def main():
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
+        #print(merged_genes)
         if check_prokka:
             merged_features, corner_cases, corner_cases_explicit, ratt_contig_features_mod, prokka_contig_features_mod = get_annotation_for_merged_genes(merged_genes, prokka_contig_features, ratt_contig_features)
             #print(len(ratt_contig_features))
