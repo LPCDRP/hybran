@@ -54,7 +54,7 @@ def get_interregions(embl_record,intergene_length=1):
     post_intergene = {}
     # Loop over the genome file, get the CDS features on each of the strands
     for feature in seq_record.features:
-        if feature.type == 'mRNA':
+        if feature.type == 'mRNA' or feature.type == 'gene':
             continue
         mystart = feature.location.start.position
         myend = feature.location.end.position
@@ -169,7 +169,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             #check_feature_loc = FeatureLocation(int(feature.location.start),int(feature.location.end))
             #check_feature_loc.strand = feature.strand
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
-                #print(feature)
+                print(feature)
                 merged_genes[feature.location.strand].remove(feature_location)
                 merged_features_addition.append(feature)
             else:
@@ -353,25 +353,28 @@ def main():
         prokka_contig_features = prokka_contig_record.features
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
         if check_prokka:
-            merged_features, corner_cases, corner_cases_explicit, ratt_contig_features, prokka_contig_features = get_annotation_for_merged_genes(merged_genes, prokka_contig_features, ratt_contig_features)
+            merged_features, corner_cases, corner_cases_explicit, ratt_contig_features_mod, prokka_contig_features_mod = get_annotation_for_merged_genes(merged_genes, prokka_contig_features, ratt_contig_features)
+            #print(len(ratt_contig_features))
+            #print(len(ratt_contig_features_mod))
             if corner_cases:
                 print('MERGED GENES: Corner cases')
                 for strand in corner_cases_explicit.keys():
                     if len(corner_cases_explicit[strand]) > 0:
                         print(args.isolate + ' '.join(corner_cases_explicit[strand]))
         else:
+            #print(len(merged_features))
             merged_features = []
-        if len(ratt_contig_features) == 0:
+        if len(ratt_contig_features_mod) == 0:
             print("NO RATT ANNOTATION")
             feature_additions = {}
             feature_lengths = {}
             if len(merged_features) > 0:
                 for feature in merged_features:
-                    prokka_contig_features.append(feature)
+                    prokka_contig_features_mod.append(feature)
             annomerge_records.append(prokka_contig_record)
             print("Annomerge record length")
             print(len(annomerge_records))
-            for prokka_feature in prokka_contig_features:
+            for prokka_feature in prokka_contig_features_mod:
                 if prokka_feature.type not in feature_additions.keys():
                     feature_additions[prokka_feature.type] = 1
                     feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
@@ -387,29 +390,31 @@ def main():
                 output_file.write(str('Median length: ' + str(median(feature_lengths[f])) + '\n'))
             annomerge_contig_record = prokka_contig_record
             continue
-        elif len(prokka_contig_features) == 0:
+        elif len(prokka_contig_features_mod) == 0:
             print("NO PROKKA ANNOTATION")
             annomerge_contig_record = ratt_contig_record
-            prokka_contig_features = ratt_contig_features
+            prokka_contig_features_mod = ratt_contig_features_mod
             if len(merged_features) > 0:
                 for feature in merged_features:
-                    prokka_contig_features.append(feature)
+                    prokka_contig_features_mod.append(feature)
             annomerge_records.append(prokka_contig_record)
-            print(len(prokka_contig_feature))
+            print(len(prokka_contig_features_mod))
             output_file.write('Contig Number: ' + str(i+1) + '\n')
             output_file.write('No Annotation to add from Prokka')            
             for ratt_contig_feature in ratt_contig_features:
-                prokka_contig_features.append(ratt_contig_feature)
-            print(len(ratt_contig_features))
+                prokka_contig_features_mod.append(ratt_contig_features_mod)
+            print(len(ratt_contig_features_mod))
             print(len(annomerge_records))
         else:
             # Initializing annomerge gbf record to hold information such as id, etc from prokka but populating the features from RATT
             annomerge_contig_record = prokka_contig_record
-            annomerge_contig_record.features = ratt_contig_features
+            annomerge_contig_record.features = ratt_contig_features_mod
+            #print(len(annomerge_contig_record.features))
             annomerge_contig_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab initio annotation from Prokka'
-            if len(merged_features) > 0:
-                for feature in merged_features:
-                    annomerge_contig_record.features.append(feature)
+            #if len(merged_features) > 0:
+            #    for feature in merged_features:
+            #        annomerge_contig_record.features.append(feature)
+            #print(len(annomerge_contig_record.features))
             ###########################################################
             ####### Creating a dictionary with feature location #######
             ############### as key and index as value #################
@@ -420,8 +425,9 @@ def main():
                 end = feature.location.end
                 ratt_annotation_mapping[(start,end)] = index
             prokka_annotation_mapping = {}
-    
-            prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
+            ratt_contig_record_mod = ratt_contig_record
+            ratt_contig_record_mod.features = ratt_contig_features_mod 
+            prokka_features_dict = generate_feature_dictionary(prokka_contig_features_mod)
             prokka_features_not_in_ratt, ratt_overlapping_genes = remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = get_interregions(ratt_contig_record, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
@@ -483,8 +489,14 @@ def main():
                                 else:
                                     feature_additions[prokka_feature.type] += 1
                                     feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
+            #print(len(annomerge_contig_record.features))
+            if len(merged_features) > 0:
+                #print('MERGED FEATURES')
+                for feature in merged_features:
+                    #print(feature)
+                    annomerge_contig_record.features.append(feature)
+            #print(len(annomerge_contig_record.features))
             annomerge_records.append(annomerge_contig_record)
-
             output_file.write('Contig Number: ' + str(i+1) + '\n')
             for f in feature_lengths.keys():
                 output_file.write(str('Feature: ' + f + '\n'))
