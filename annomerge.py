@@ -169,7 +169,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             #check_feature_loc = FeatureLocation(int(feature.location.start),int(feature.location.end))
             #check_feature_loc.strand = feature.strand
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
-                print(feature)
+                #print(feature)
                 merged_genes[feature.location.strand].remove(feature_location)
                 merged_features_addition.append(feature)
             else:
