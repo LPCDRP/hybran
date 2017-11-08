@@ -22,16 +22,18 @@ import os
 def rename_locus(gene, strand):
     # This function checks names of existing locus tags in H37Rv and names the newly merged gene ensuring that the new
     # name does not conflict with existing locus tags
-    char_start = 65
+    char_start = 65 # ASCII conversion of 'A'
     gene_name = gene[:6]
     #print(gene)
     #print(gene_name)
     #print(strand)
     if strand == '-1' or strand == '-' or strand == -1:
+        # Adding in 'c' to denote gene is located in the complementary strand
         new_gene_name = gene_name + chr(char_start) + 'c'
     else:
         new_gene_name = gene_name + chr(char_start)
     while new_gene_name in genes_in_rv:
+        # If the assigned new gene name is in H37Rv, increment the alphabet suffix
         char_start += 1
         if strand == '-1' or strand == '-' or strand == -1:
             new_gene_name = gene_name + chr(char_start) + 'c'
@@ -106,29 +108,36 @@ def get_interregions(embl_record,intergene_length=1):
 
 
 def identify_merged_genes(ratt_features):
-    ratt_annotations = {}
+    # This function takes as input a list features annotated in RATT and identifies instances of merged CDS annotations.
+    # The function returns a Boolean value (True if such instances are identified) and a dictionary with the strand as
+    # the key and locations of the merged genes as values
+    ratt_annotations = {}   # This dictionary holds 2 keys '-1' and '+1' denoting the strand and locations of all CDS
+    # annotations in RATT for each strand
     ratt_unmerged_genes = {}
     ratt_merged_genes = {}
     merged_genes = False
     if len(ratt_features) == 0:
         return
     for feature in ratt_features:
-        #print(feature.location)
+        # Getting all locations of CDS annotations and storing them in ratt_annotations
         if feature.location.strand not in ratt_annotations.keys() and feature.type == 'CDS':
-            ratt_annotations[feature.location.strand] = [(int(feature.location.start),int(feature.location.end))]
+            ratt_annotations[feature.location.strand] = [(int(feature.location.start), int(feature.location.end))]
             ratt_merged_genes[feature.location.strand] = []
             ratt_unmerged_genes[feature.location.strand] = []
         elif feature.type == 'CDS':
-            ratt_annotations[feature.location.strand].append((int(feature.location.start),int(feature.location.end)))
+            ratt_annotations[feature.location.strand].append((int(feature.location.start), int(feature.location.end)))
     for strand in ratt_annotations.keys():
         for gene_location in ratt_annotations[strand]:
             if gene_location not in ratt_unmerged_genes[strand] and gene_location not in ratt_merged_genes[strand]:
+                # First instance of the CDS location
                 ratt_unmerged_genes[strand].append(gene_location)
             elif gene_location in ratt_unmerged_genes[strand] and gene_location not in ratt_merged_genes[strand]:
+                # Identified duplicate CDS location annotation
                 ratt_merged_genes[strand].append(gene_location)
                 ratt_unmerged_genes[strand].remove(gene_location)
                 merged_genes = True
             elif gene_location not in ratt_unmerged_genes[strand] and gene_location in ratt_merged_genes[strand]:
+                # To account for instances where more than 1 gene is merged
                 merged_genes = True
                 continue
             else:
@@ -138,6 +147,10 @@ def identify_merged_genes(ratt_features):
 
 
 def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features):
+    # This function takes as input the dictionary of merged genes from the identify_merged_genes function, a list of
+    # Prokka features and a list of RATT features and returns annotation for the merged genes from,
+    # Prokka: If the genes are annotated as merged in both RATT and Prokka
+    # 
     check_positions_for_annotation = dict(merged_genes)
     merged_gene_locus = {}
     merged_features_addition = []
