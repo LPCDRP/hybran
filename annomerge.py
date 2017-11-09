@@ -345,11 +345,16 @@ def check_for_dnaA(feature_list):
         if feature_dictionary[cds].type != 'CDS':
             continue
         if feature_dictionary[cds].qualifiers['locus_tag'][0] != 'Rv0001':
-            print(feature_dictionary[cds])
+            #print(feature_dictionary[cds])
             print('DnaA is not the first gene in this genome. Possible circularization error')
             sys.exit()
-        else:
+        elif feature_dictionary[cds].qualifiers['locus_tag'][0] == 'Rv0001' and \
+                int(feature_dictionary[cds].location.start) == 0:
+            #print(int(feature_dictionary[cds].location.start))
             break
+        else:
+            print('DnaA is the first gene in this genome. But the position is off')
+            sys.exit()
     return
 
 
