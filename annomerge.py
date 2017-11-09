@@ -58,7 +58,7 @@ def get_interregions(embl_record,intergene_length=1):
     post_intergene = {}
     # Loop over the genome file, get the CDS features on each of the strands
     for feature in seq_record.features:
-        if feature.type == 'mRNA' or feature.type == 'gene':
+        if feature.type != 'CDS':
             continue
         mystart = feature.location.start.position
         myend = feature.location.end.position
@@ -117,7 +117,7 @@ def identify_merged_genes(ratt_features):
     ratt_merged_genes = {}
     merged_genes = False
     if len(ratt_features) == 0:
-        return
+        return [], merged_genes
     for feature in ratt_features:
         # Getting all locations of CDS annotations and storing them in ratt_annotations
         if feature.location.strand not in ratt_annotations.keys() and feature.type == 'CDS':
@@ -150,7 +150,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     # This function takes as input the dictionary of merged genes from the identify_merged_genes function, a list of
     # Prokka features and a list of RATT features and returns annotation for the merged genes from,
     # Prokka: If the genes are annotated as merged in both RATT and Prokka
-    # 
+    # RATT: If Prokka does not annotate these genes as merged
     check_positions_for_annotation = dict(merged_genes)
     merged_gene_locus = {}
     merged_features_addition = []
@@ -158,28 +158,41 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     genes_from_ratt = {}
     final_ratt_features = []
     final_prokka_features = []
+    locus_to_remove_gene_tags = []
     for feature in ratt_features:
-        if (int(feature.location.start),int(feature.location.end)) not in \
-                check_positions_for_annotation[feature.strand]:
+        # Identify CDS tags that should not be included in final_ratt_features
+        if feature.type != 'CDS':
+            continue
+        ratt_feature_location = (int(feature.location.start), int(feature.location.end))
+        if ratt_feature_location not in check_positions_for_annotation[feature.strand]:
             final_ratt_features.append(feature)
-        elif ((int(feature.location.start),int(feature.location.end)) in
-                  check_positions_for_annotation[feature.strand]) and \
-                        (int(feature.location.start),int(feature.location.end)) not in merged_gene_locus.keys():
-            merged_gene_locus[int(feature.location.start),int(feature.location.end)] = \
-                [feature.qualifiers['locus_tag'][0]]
-        elif ((int(feature.location.start),int(feature.location.end)) in
-                  check_positions_for_annotation[feature.strand]) and \
-                        (int(feature.location.start),int(feature.location.end)) in merged_gene_locus.keys():
-            merged_gene_locus[int(feature.location.start),
-                              int(feature.location.end)].append(feature.qualifiers['locus_tag'][0])
-    #print(merged_gene_locus)
+        elif ratt_feature_location in check_positions_for_annotation[feature.strand] and \
+                        ratt_feature_location not in merged_gene_locus.keys():
+            merged_gene_locus[ratt_feature_location] = [feature.qualifiers['locus_tag'][0]]
+            locus_to_remove_gene_tags.append(feature.qualifiers['locus_tag'][0])
+        elif ratt_feature_location in check_positions_for_annotation[feature.strand] and \
+                        ratt_feature_location in merged_gene_locus.keys():
+            merged_gene_locus[ratt_feature_location].append(feature.qualifiers['locus_tag'][0])
+            locus_to_remove_gene_tags.append(feature.qualifiers['locus_tag'][0])
+    for other_features in ratt_features:
+        # Identifies 'gene' tags which corresponds to merged CDSs and does not include them in the final annotation
+        if other_features.type == 'CDS':
+            continue
+        elif other_features.type == 'gene':
+            if 'locus_tag' in other_features.qualifiers.keys():
+                if other_features.qualifiers['locus_tag'][0] not in locus_to_remove_gene_tags:
+                    final_ratt_features.append(other_features)
+            else:
+                print('This gene feature does not have a locus tag annotation in RATT')
+                print(other_features)
+        else:
+            final_ratt_features.append(other_features)
     if len(prokka_features) == 0:
-        #print('NO ANNOTATION FOR MERGED GENES IN PROKKA')
         for feature in ratt_features:
             if len(merged_genes[feature.location.strand]) == 0:
                 continue
             merged_genes_in_strand = merged_genes[feature.location.strand]
-            feature_location = (int(feature.location.start),int(feature.location.end))
+            feature_location = (int(feature.location.start), int(feature.location.end))
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
                 if feature_location not in features_from_ratt.keys():
                     features_from_ratt[feature_location] = [feature]
@@ -193,11 +206,8 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                 final_prokka_features.append(feature)
                 continue
             merged_genes_in_strand = merged_genes[feature.location.strand]
-            feature_location = (int(feature.location.start),int(feature.location.end))
-            #check_feature_loc = FeatureLocation(int(feature.location.start),int(feature.location.end))
-            #check_feature_loc.strand = feature.strand
+            feature_location = (int(feature.location.start), int(feature.location.end))
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
-                #print(feature)
                 merged_features_string = ",".join(merged_gene_locus[feature_location])
                 if 'note' not in feature.qualifiers.keys():
                     feature.qualifiers['note'] = ['The genes ' + merged_features_string +
@@ -208,7 +218,6 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                                                       ' in H37Rv(NC_000962.3) are merged in this isolate '
                                                       '(annotation from Prokka)')
                 merged_genes[feature.location.strand].remove(feature_location)
-                #print(feature)
                 merged_features_addition.append(feature)
             else:
                 final_prokka_features.append(feature)
@@ -216,7 +225,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             if len(merged_genes[feature.location.strand]) == 0:
                 continue
             merged_genes_in_strand = merged_genes[feature.location.strand]
-            feature_location = (int(feature.location.start),int(feature.location.end))
+            feature_location = (int(feature.location.start), int(feature.location.end))
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
                 if feature_location not in features_from_ratt.keys():
                     features_from_ratt[feature_location] = [feature]
@@ -225,11 +234,8 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                     features_from_ratt[feature_location].append(feature)
                     genes_from_ratt[feature_location].append(feature.qualifiers['locus_tag'][0])
     for location in features_from_ratt.keys():
-        #print(features_from_ratt[location])
         new_feature = features_from_ratt[location][0]
-        #print(genes_from_ratt[location])
         merged_features_string = ",".join(genes_from_ratt[location])
-        #print(new_feature.qualifiers['locus_tag'][0])
         new_gene_name = rename_locus(new_feature.qualifiers['locus_tag'][0], new_feature.location.strand)
         new_feature.qualifiers['locus_tag'] = [new_gene_name]
         if 'note' in new_feature.qualifiers.keys():
@@ -241,23 +247,17 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                                               ' in H37Rv(NC_000962.3) are merged in this isolate '
                                               '(annotation from RATT)']
         merged_features_addition.append(new_feature)
-        #print(location)
         merged_genes[new_feature.location.strand].remove(location)
     if len(merged_genes[-1]) > 0 or len(merged_genes[1]) > 0:
-        #print('Corner_cases')
         corner_cases = True
     else:
         corner_cases = False
-    #print(len(ratt_features))
-    #print(len(final_ratt_features))
-    #print(len(prokka_features))
-    #print(len(final_prokka_features))
     return merged_features_addition, corner_cases, merged_genes, final_ratt_features, final_prokka_features 
 
 
 def generate_feature_dictionary(feature_list):
-# This function takes as input a list of features and returns a dictionary with the 
-# key as a tuple of feature start and stop positions and the value as the feature.
+    # This function takes as input a list of features and returns a dictionary with the
+    # key as a tuple of feature start and stop positions and the value as the feature.
     feature_dict = {}
     for feature in feature_list:
         feature_key = (int(feature.location.start), int(feature.location.end), 
@@ -276,8 +276,8 @@ def remove_duplicate_annotations(ratt_features, prokka_features_dictionary):
     for ratt_feature in ratt_features:
         if ratt_feature.type == 'gene' or ratt_feature.type == 'mRNA':
             continue
-        ratt_start = ratt_feature.location.start
-        ratt_end = ratt_feature.location.end
+        ratt_start = int(ratt_feature.location.start)
+        ratt_end = int(ratt_feature.location.end)
         ratt_strand = ratt_feature.location.strand
         prokka_duplicate_removed = False
         for prokka_feature_position in prokka_features_dictionary.keys():
@@ -296,15 +296,15 @@ def remove_duplicate_annotations(ratt_features, prokka_features_dictionary):
                     prokka_features_not_in_ratt.pop((prokka_start,prokka_end,prokka_strand), None)
                     prokka_duplicate_removed = True
         if not prokka_duplicate_removed and ratt_feature.type != 'mRNA':
-            ratt_overlapping_genes[(ratt_start,ratt_end,ratt_strand)] = ratt_feature
+            ratt_overlapping_genes[(ratt_start, ratt_end, ratt_strand)] = ratt_feature
     return prokka_features_not_in_ratt, ratt_overlapping_genes
 
 
 def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation, prokka_annotation):
-    ratt_feature_start = ratt_annotation.location.start
-    ratt_feature_end = ratt_annotation.location.end
-    prokka_feature_start = prokka_annotation.location.start
-    prokka_feature_end = prokka_annotation.location.end
+    ratt_feature_start = int(ratt_annotation.location.start)
+    ratt_feature_end = int(ratt_annotation.location.end)
+    prokka_feature_start = int(prokka_annotation.location.start)
+    prokka_feature_end = int(prokka_annotation.location.end)
     included = False
     # Check if feature types are the same. If not add feature to EMBL record
     if ratt_annotation.type != prokka_annotation.type:
@@ -336,7 +336,34 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
             embl_file.features.append(prokka_annotation)
             included = True
     return embl_file, included
-    
+
+
+def check_for_dnaA(feature_list):
+    # This function takes as input a list of features and checks if the genome was circularized
+    feature_dictionary = generate_feature_dictionary(feature_list)
+    for cds in feature_dictionary.keys():
+        if feature_dictionary[cds].type != 'CDS':
+            continue
+        if feature_dictionary[cds].qualifiers['locus_tag'][0] != 'Rv0001':
+            print(feature_dictionary[cds])
+            print('DnaA is not the first gene in this genome. Possible circularization error')
+            sys.exit()
+        else:
+            break
+    return
+
+
+def isolate_valid_ratt_annotations(feature_list):
+    # This function takes as input a list of features and checks if the length of the CDSs are divisible by 3. If not,
+    # it outputs the features to stdout and removes them from the valid_ratt_annotations
+    valid_features = []
+    for feature in feature_list:
+        if feature.type == 'CDS' and (len(feature.location) % 3) != 0:
+            print(feature)
+        else:
+            valid_features.append(feature)
+    return valid_features
+
 
 
 # Required inputs:
@@ -359,6 +386,8 @@ def main():
     parser.add_argument('-o', '--output', help='Output file in Genbank format', default='annomerge.gbf')
     parser.add_argument('-l', '--log_file', help='Log file with information on features added from prokka',
                         default='annomerge_annotation.log')
+    parser.add_argument('-m', '--merged_genes', help='Merged genes file in genbank format',
+                        default='merged_genes.gbf')
     parser.add_argument('-r', '--ratt_annotation', nargs='*', help='RATT annotation file(s) (i.e. .final.embl) file(s)')
     parser.add_argument('-p', '--prokka_annotation', help='Prokka annotation Genbank file')
     args = parser.parse_args()
@@ -388,6 +417,7 @@ def main():
         for ratt_input in input_ratt_files:
             if not os.path.isfile(ratt_input):
                 sys.exit('Invalid file path for RATT annotation')
+    output_merged_genes = args.merged_genes
     output_genbank = args.output
     output_log =  args.log_file
     output_file = open(output_log, 'w+')
@@ -399,40 +429,45 @@ def main():
     genes_in_rv_raw = open(genes_in_rv_file, 'r').readlines()
     for line in genes_in_rv_raw:
         locus_tag = line.split()[0]
-        #print(locus_tag)
         genes_in_rv.append(locus_tag)
-    for i in range(0,len(input_ratt_files)):
+    for i in range(0, len(input_ratt_files)):
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
         prokka_contig_record = prokka_records[i]
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
+        if i == 0:
+            check_for_dnaA(ratt_contig_features)
+        ratt_contig_features = isolate_valid_ratt_annotations(ratt_contig_features)
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
-        #print(merged_genes)
         if check_prokka:
             merged_features, corner_cases, corner_cases_explicit, ratt_contig_features_mod, \
             prokka_contig_features_mod = get_annotation_for_merged_genes(merged_genes, prokka_contig_features,
                                                                          ratt_contig_features)
-            #print(len(ratt_contig_features))
-            #print(len(ratt_contig_features_mod))
+            ratt_contig_features = ratt_contig_features_mod
+            prokka_contig_features = prokka_contig_features_mod
+            merged_features_record = prokka_contig_record[:]
+            merged_features_record.features = merged_features
             if corner_cases:
                 print('MERGED GENES: Corner cases')
                 for strand in corner_cases_explicit.keys():
                     if len(corner_cases_explicit[strand]) > 0:
                         print(args.isolate + ' '.join(corner_cases_explicit[strand]))
         else:
-            #print(len(merged_features))
             merged_features = []
-        if len(ratt_contig_features_mod) == 0:
-            print("NO RATT ANNOTATION")
+        if len(merged_features) > 0 and i ==0:
+            SeqIO.write(merged_features_record, output_merged_genes, 'genbank')
+        if len(ratt_contig_features) == 0:
+            print("NO RATT ANNOTATION FOR CONTIG " + str(i+1))
             feature_additions = {}
             feature_lengths = {}
             if len(merged_features) > 0:
                 for feature in merged_features:
-                    prokka_contig_features_mod.append(feature)
+                    prokka_contig_features.append(feature)
+            prokka_contig_record.features = prokka_contig_features
             annomerge_records.append(prokka_contig_record)
-            print("Annomerge record length")
-            print(len(annomerge_records))
-            for prokka_feature in prokka_contig_features_mod:
+            #print("Annomerge record length")
+            #print(len(annomerge_records))
+            for prokka_feature in prokka_contig_record.features:
                 if prokka_feature.type not in feature_additions.keys():
                     feature_additions[prokka_feature.type] = 1
                     feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
@@ -446,38 +481,26 @@ def main():
                 output_file.write(str('Min length: ' + str(min(feature_lengths[f])) + '\n'))
                 output_file.write(str('Max length: ' + str(max(feature_lengths[f])) + '\n'))
                 output_file.write(str('Median length: ' + str(median(feature_lengths[f])) + '\n'))
-            annomerge_contig_record = prokka_contig_record
+            #annomerge_contig_record = prokka_contig_record
             continue
-        elif len(prokka_contig_features_mod) == 0:
-            print("NO PROKKA ANNOTATION")
-            annomerge_contig_record = ratt_contig_record
-            prokka_contig_features_mod = ratt_contig_features_mod
+        elif len(prokka_contig_features) == 0:
+            print("NO PROKKA ANNOTATION FOR CONTIG " + str(i+1))
+            #annomerge_contig_record = ratt_contig_record
+            prokka_contig_features = ratt_contig_features
             if len(merged_features) > 0:
                 for feature in merged_features:
-                    prokka_contig_features_mod.append(feature)
-            annomerge_records.append(prokka_contig_record)
-            print(len(prokka_contig_features_mod))
+                    prokka_contig_features.append(feature)
             output_file.write('Contig Number: ' + str(i+1) + '\n')
-            output_file.write('No Annotation to add from Prokka')            
-            for ratt_contig_feature in ratt_contig_features:
-                prokka_contig_features_mod.append(ratt_contig_features_mod)
-            print(len(ratt_contig_features_mod))
-            print(len(annomerge_records))
+            output_file.write('No Annotation to add from Prokka')
+            prokka_contig_record.features = prokka_contig_features
+            annomerge_records.append(prokka_contig_record)
         else:
             # Initializing annomerge gbf record to hold information such as id, etc from prokka but populating the
             # features from RATT
-            annomerge_contig_record = prokka_contig_record
-            annomerge_contig_record.features = ratt_contig_features_mod
-            for f in annomerge_contig_record.features:
-                if f.type == 'CDS' and 'locus_tag' not in f.qualifiers.keys():
-                    print(f)
-            #print(len(annomerge_contig_record.features))
+            annomerge_contig_record = prokka_contig_record[:]
+            annomerge_contig_record.features = ratt_contig_features
             annomerge_contig_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab ' \
                                                              'initio annotation from Prokka'
-            #if len(merged_features) > 0:
-            #    for feature in merged_features:
-            #        annomerge_contig_record.features.append(feature)
-            #print(len(annomerge_contig_record.features))
             ###########################################################
             ####### Creating a dictionary with feature location #######
             ############### as key and index as value #################
@@ -485,17 +508,17 @@ def main():
             ratt_annotation_mapping = {} # Used for resolving annotations of overlapping features between RATT and
             # Prokka
             for index, feature in enumerate(ratt_contig_record.features):
-                start = feature.location.start
-                end = feature.location.end
-                ratt_annotation_mapping[(start,end)] = index
+                start = int(feature.location.start)
+                end = int(feature.location.end)
+                ratt_annotation_mapping[(start, end)] = index
             prokka_annotation_mapping = {}
-            ratt_contig_record_mod = ratt_contig_record
-            ratt_contig_record_mod.features = ratt_contig_features_mod 
-            prokka_features_dict = generate_feature_dictionary(prokka_contig_features_mod)
+            ratt_contig_record_mod = ratt_contig_record[:]
+            ratt_contig_record_mod.features = ratt_contig_features
+            prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
             prokka_features_not_in_ratt, ratt_overlapping_genes = \
                 remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
-                get_interregions(ratt_contig_record, intergene_length=1)
+                get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
             feature_additions = {}
             feature_lengths = {}
@@ -575,13 +598,9 @@ def main():
                                 else:
                                     feature_additions[prokka_feature.type] += 1
                                     feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
-            #print(len(annomerge_contig_record.features))
             if len(merged_features) > 0:
-                #print('MERGED FEATURES')
                 for feature in merged_features:
-                    #print(feature)
                     annomerge_contig_record.features.append(feature)
-            #print(len(annomerge_contig_record.features))
             annomerge_records.append(annomerge_contig_record)
             output_file.write('Contig Number: ' + str(i+1) + '\n')
             for f in feature_lengths.keys():
@@ -595,4 +614,3 @@ def main():
 
 if __name__ == "__main__":
    main()
-  
