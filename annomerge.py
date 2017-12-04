@@ -615,7 +615,70 @@ def main():
                 output_file.write(str('Max length: ' + str(max(feature_lengths[f])) + '\n'))
                 output_file.write(str('Median length: ' + str(median(feature_lengths[f])) + '\n'))
     output_file.write(str('Number of merged genes: ' + str(len(merged_features)) + '\n'))
-    SeqIO.write(annomerge_records, output_genbank, 'genbank')
+
+    ###############################################################################################
+    ######## Post-processing of genbank file to remove duplicates and rename locus_tag for ########
+    ################################### Prokka annotations ########################################
+    ###############################################################################################
+    prokka_record_fp = file_path + 'prokka-noreference/' + args.isolate + '.gbf'
+    prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
+    counter = 0
+    annomerge_records_post_processed = []
+    for rec_num in range(0,len(annomerge_records)):
+        prokka_rec = annomerge_records[rec_num]
+        prokka_noref_rec = prokka_record_noref[rec_num]
+        prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features)
+        raw_features = prokka_rec.features[:]
+        #print(len(raw_features))
+        prokka_rec.features = []
+        added_cds = {}
+        #print(merged_features)
+        for feature in raw_features:
+            if feature.type != 'CDS':
+                prokka_rec.features.append(feature)
+            elif feature.type == 'CDS' and 'note' in feature.qualifiers.keys():
+                if 'merged in this isolate' in feature.qualifiers['note'][0]:
+                    feature.qualifiers.pop('gene')
+                    loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
+                    added_cds[loc_key] = feature
+                    prokka_rec.features.append(feature)
+            if feature.type == 'CDS' and feature.qualifiers['locus_tag'][0][0] == 'L' and 'gene' in feature.qualifiers.keys():
+                if '_' in feature.qualifiers['gene'][0]:
+                    counter += 1
+                    loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
+                    if loc_key in added_cds.keys():
+                        continue
+                    new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                    prokka_noref_dict[loc_key].qualifiers['locus_tag'] = [new_locus_tag]
+                    new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                    prokka_noref_dict[loc_key].qualifiers['protein_id'] = [new_protein_id]
+                    added_cds[loc_key] = prokka_noref_dict[loc_key]
+                    prokka_rec.features.append(prokka_noref_dict[loc_key])
+                else:
+                    feature.qualifiers['locus_tag'] = feature.qualifiers['gene']
+                    feature.qualifiers.pop('gene')
+                    loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
+                    added_cds[loc_key] = feature
+                    prokka_rec.features.append(feature)
+            elif feature.type == 'CDS':
+                loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
+                if loc_key not in added_cds.keys():
+                    added_cds[loc_key] = feature
+                    prokka_rec.features.append(feature)
+                elif added_cds[loc_key].qualifiers['locus_tag'] == feature.qualifiers['locus_tag']:
+                    continue
+                else:
+                    #print('Duplicate feature')
+                    #print(added_cds[loc_key]) 
+                    #print(feature)
+                    prokka_rec.features.append(feature)
+            #else:
+                #print(feature)
+        #print(len(prokka_rec.features))
+        #print(len(added_cds.keys()))
+        annomerge_records_post_processed.append(prokka_rec)
+    #print(counter)
+    SeqIO.write(annomerge_records_post_processed, output_genbank, 'genbank')
 
 if __name__ == "__main__":
    main()
