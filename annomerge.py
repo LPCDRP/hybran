@@ -648,12 +648,22 @@ def main():
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                     if loc_key in added_cds.keys():
                         continue
-                    new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
-                    prokka_noref_dict[loc_key].qualifiers['locus_tag'] = [new_locus_tag]
-                    new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
-                    prokka_noref_dict[loc_key].qualifiers['protein_id'] = [new_protein_id]
-                    added_cds[loc_key] = prokka_noref_dict[loc_key]
-                    prokka_rec.features.append(prokka_noref_dict[loc_key])
+                    feature_noref = prokka_noref_dict[loc_key]
+                    if 'gene' in feature_noref.qualifiers.keys() and '_' in feature_noref.qualifiers['gene'][0]:
+                        new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                        feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
+                        new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                        feature_noref.qualifiers['protein_id'] = [new_protein_id]
+                    elif 'gene' in feature_noref.qualifiers.keys() and '_' not in feature_noref.qualifiers['gene'][0]:
+                        feature_noref.qualifiers['locus_tag'] = feature_noref.qualifiers['gene']
+                        feature_noref.qualifiers.pop('gene')
+                    else:
+                        new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                        feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
+                        new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]      
+                        feature_noref.qualifiers['protein_id'] = [new_protein_id]
+                    added_cds[loc_key] = feature_noref
+                    prokka_rec.features.append(feature_noref)
                 else:
                     feature.qualifiers['locus_tag'] = feature.qualifiers['gene']
                     feature.qualifiers.pop('gene')
