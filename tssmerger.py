@@ -73,22 +73,16 @@ def tssaddotate(reference_genome_embl, csvfile, tsscol, strandcol,  out_put,
 
     # add TSS data as new features
     with open(csvfile) as the_file:
-        reader = csv.DictReader(the_file, delimiter='	')
+        reader = csv.DictReader(the_file, delimiter='\t')
         for row in reader:       		                            # each row in the csv file should be a new TSS
                 if row[tsscol] != '':						    	# avoids blank entries in csv
 
                     # determine TSS's genome location
                     tssstart = int(row[tsscol]) - 1                 # -1 for python counting
-                    if flipstrand:
-                        if str(row[strandcol]) == '-':
-                            tssstrand = -1
-                        else:
-                            tssstrand = 1
+                    if str(row[strandcol]) == '+':
+                        tssstrand = 1
                     else:
-                        if str(row[strandcol]) == '-':
-                            tssstrand = 1
-                        else:
-                            tssstrand = -1
+                        tssstrand = -1
 
                     # creates the new feature to store the TSS
                     tp1 = ExactPosition(tssstart)
@@ -221,7 +215,7 @@ def addotatcaller(inemble='ittas-man-h37.embl', csvpath='csvdata/', outemble='it
                 csvfile=(csvpath + 'mod_cortez13_starv_RPKM_tss_antisense.csv'),
                 out_put='catotat30.embl', sameref=1,
                 tsscol='Starvation Expressed Strongest Peak Height Antisense TSS Genome Position',
-                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=True,
+                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=False,
                 usrnote='Expressed During Starvation', dontsort=1)
 
     # call 31
@@ -229,7 +223,7 @@ def addotatcaller(inemble='ittas-man-h37.embl', csvpath='csvdata/', outemble='it
                 csvfile=(csvpath + 'mod_cortez13_starv_RPKM_tss_antisense.csv'),
                 out_put='catotat31.embl', sameref=1,
                 tsscol='Starvation Expressed 2nd Antisense TSS Genome Position',
-                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=True,
+                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=False,
                 usrnote='Expressed During Starvation', dontsort=1)
 
     # call 32
@@ -237,7 +231,7 @@ def addotatcaller(inemble='ittas-man-h37.embl', csvpath='csvdata/', outemble='it
                 csvfile=(csvpath + 'mod_cortez13_starv_RPKM_tss_antisense.csv'),
                 out_put='catotat32.embl', sameref=1,
                 tsscol='Starvation Expressed 3rd Antisense TSS Genome Position',
-                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=True,
+                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=False,
                 usrnote='Expressed During Starvation', dontsort=1)
 
     # calls 33-35
@@ -249,7 +243,7 @@ def addotatcaller(inemble='ittas-man-h37.embl', csvpath='csvdata/', outemble='it
                     csvfile=(csvpath + 'mod_cortez13_starv_RPKM_tss_antisense.csv'),
                     out_put=out_file, sameref=1, tsscol=t_col,
                     strandcol='Starvation Expressed Antisense TSS Strand',
-                    flipstrand=True, usrnote='Expressed During Starvation', dontsort=1)
+                    flipstrand=False, usrnote='Expressed During Starvation', dontsort=1)
 
     # this last call uses a different source paper:
     # Pubmed: 26536359
