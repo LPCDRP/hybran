@@ -15,6 +15,7 @@ from Bio.Blast.Applications import NcbiblastpCommandline
 import os
 import sys
 import argparse
+from argparse import RawTextHelpFormatter
 
 
 def genesLocusTagParser(file_path=None):
@@ -189,11 +190,11 @@ def main():
     # top blast hits and distribution of amino acid % identity will not be printed/saved to file. The defaults for -iden
     # and -cov options are 85% and 99% respectively, where -id
 
-    ###fp_annotation = os.environ['GROUPHOME'] + '/data/annotation'
-    ###h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-NC_000962.3.fasta'
+    fp_annotation = os.environ['GROUPHOME'] + '/data/annotation'
+    h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-NC_000962.3.fasta'
 
-    fp_annotation = 'test_update_annotation'
-    h37rv_protein_fasta = 'test_update_annotation/H37Rv-CDS-NC_000962.3.fasta'
+    ###fp_annotation = 'test_update_annotation'
+    ###h37rv_protein_fasta = 'test_update_annotation/H37Rv-CDS-NC_000962.3.fasta'
     purge_directory = True
 
     ####################################################################################################################
@@ -201,21 +202,22 @@ def main():
     ####################################################################################################################
 
     parser = argparse.ArgumentParser(description='Update annotation files from annomerge with H37Rv genes',
-                                     epilog='Optional arguments --isolate, --annotation_directory and '
-                                            '--output_directory')
+                                     epilog='Optional arguments --isolate, --annotation_directory, --output_directory, '
+                                            '--identity and --coverage', formatter_class=RawTextHelpFormatter)
     parser.add_argument('-i', '--isolate', help='Isolate ID (optional)', default='all')
     parser.add_argument('-d', '--annotation_directory', help='Path for annotation directory (optional)',
                         default=fp_annotation)
     parser.add_argument('-o', '--output_directory', help='If filepath for output_directory is specified, intermediate '
                                                          'output files with top blast hits and distribution of amino '
-                                                         'acid % identity will be printed/saved to path', default=None)
-    parser.add_argument('-iden', '--identity', help='Threshold for % amino acid sequence identity to a H37Rv protein to'
-                                                    ' be considered a confident hit. Annotation is transfered from the'
-                                                    ' top hit to H37Rv if sequence identity is above this threshold. '
-                                                    'Default = 85%', default=85)
+                                                         'acid percent identity will be printed/saved to path',
+                        default=None)
+    parser.add_argument('-iden', '--identity', help='Threshold for percentage amino acid sequence identity to a H37Rv '
+                                                    'protein to be considered a confident hit. Annotation is '
+                                                    'transferred from the top hit to H37Rv if sequence identity is '
+                                                    'above this threshold. Default = 85', default=85)
     parser.add_argument('-cov', '--coverage', help='Threshold for sequence coverage of hit to H37Rv to be considered a '
                                                    'confident hit. Annotation is transferred from the top hit to H37Rv '
-                                                   'if coverage of hit to H37Rv is above this threshold. Default = 99%',
+                                                   'if coverage of hit to H37Rv is above this threshold. Default = 99',
                         default=99)
     global args
     global output_dir_name
