@@ -994,8 +994,7 @@ def main():
     # default locations for the -g and -l options are 'isolate_id'/annomerge/'isolate_id'.gbf and
     # 'isolate_id'/annomerge/'isolate_id'.log
     parser = argparse.ArgumentParser(description='Merging annotation from RATT and Prokka',
-                                     epilog='Isolate ID must be specified OR Explicit file paths for RATT and Prokka '
-                                            'annotation must be specified')
+                                     epilog='Isolate ID must be specified')
     parser.add_argument('-i', '--isolate', help='Isolate ID')
     parser.add_argument('-o', '--output', help='Output file in Genbank format', default='annomerge.gbf')
     parser.add_argument('-l', '--log_file', help='Log file with information on features added from prokka',
@@ -1003,7 +1002,7 @@ def main():
     parser.add_argument('-m', '--merged_genes', help='Merged genes file in genbank format',
                         default='merged_genes.gbf')
     parser.add_argument('-illumina', '--illumina', help='Set this flag to true if isolate has no circularized contigs '
-                                                        'or if dnaA needs not be verified',
+                                                        'or if dnaA need not be verified',
                         default=False)
     args = parser.parse_args()
 
