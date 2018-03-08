@@ -1233,8 +1233,8 @@ def main():
                                     feature_additions[prokka_feature.type] += 1
                                     feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
             if len(merged_features) > 0:
-                for feature in merged_features:
-                    annomerge_contig_record.features.append(feature)
+                for feature_1 in merged_features:
+                    annomerge_contig_record.features.append(feature_1)
             for feature in prokka_features_to_add:
                 annomerge_contig_record.features.append(feature)
             annomerge_records.append(annomerge_contig_record)
@@ -1258,7 +1258,20 @@ def main():
         prokka_rec = annomerge_records[rec_num]
         prokka_noref_rec = prokka_record_noref[rec_num]
         prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features)
-        raw_features = prokka_rec.features[:]
+        raw_features_unflattened = prokka_rec.features[:]
+        raw_features = []
+        for f_type in raw_features_unflattened:
+            if 'Bio.SeqFeature.SeqFeature' in str(type(f_type)):
+                raw_features.append(f_type)
+            elif 'list' in str(type(f_type)) and len(f_type) > 0:
+                for sub_feature in f_type:
+                    if 'Bio.SeqFeature.SeqFeature' not in str(type(sub_feature)):
+                        continue
+                    else:
+                        raw_features.append(sub_feature)
+            else:
+                continue
+        print(len(raw_features))
         prokka_rec.features = []
         added_cds = {}
         for feature in raw_features:
@@ -1469,6 +1482,7 @@ def main():
             if feature.type == 'CDS':
                 annomerge_cds += 1
                 locus_tag = feature.qualifiers['locus_tag'][0]
+                #print(locus_tag)
                 if locus_tag[:2] == 'Rv':
                     all_rv_genes_in_isolate.append(locus_tag)
                     if 'gene' not in feature.qualifiers.keys() and locus_tag in rv_to_gene_name.keys():
@@ -1499,9 +1513,10 @@ def main():
 #        output_file.write('Number of MTB genes added to Fasta file from this isolate: ' +
 #                          str(len(set(mtb_genes_added_to_isolate))) + '\n')
 #        output_file.write(str('Number of merged genes: ' + str(len(merged_features)) + '\n'))
-        output_file.write(str('Min length of CDSs: ' + str(min(cds_lengths)) + '\n'))
-        output_file.write(str('Max length of CDSs: ' + str(max(cds_lengths)) + '\n'))
-        output_file.write(str('Median length of CDSs: ' + str(median(cds_lengths)) + '\n'))
+        if len(cds_lengths) != 0:
+            output_file.write(str('Min length of CDSs: ' + str(min(cds_lengths)) + '\n'))
+            output_file.write(str('Max length of CDSs: ' + str(max(cds_lengths)) + '\n'))
+            output_file.write(str('Median length of CDSs: ' + str(median(cds_lengths)) + '\n'))
         annomerge_records_post_processed.append(prokka_rec)
     SeqIO.write(annomerge_records_post_processed, output_genbank, 'genbank')
 
