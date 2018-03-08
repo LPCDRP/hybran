@@ -1469,7 +1469,6 @@ def main():
             if feature.type == 'CDS':
                 annomerge_cds += 1
                 locus_tag = feature.qualifiers['locus_tag'][0]
-                print(locus_tag)
                 if locus_tag[:2] == 'Rv':
                     all_rv_genes_in_isolate.append(locus_tag)
                     if 'gene' not in feature.qualifiers.keys() and locus_tag in rv_to_gene_name.keys():
