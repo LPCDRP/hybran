@@ -40,23 +40,14 @@ $(tempdir)$(tempembl) : $(tempdir)$(tempasn)
 
 #create asn from tbl
 $(tempdir)$(tempasn) : $(templatesource) $(tempdir)$(tempfasta) $(tempdir)$(temptable)
-	tbl2asn -t $< -p $(tempdir) -r $(tempdir)
+	tbl2asn -k m -t $< -p $(tempdir) -r $(tempdir)
 
 #create tbl file from source
 $(tempdir)$(temptable) : $(tblsource) $(tempdir)
 	#cp $< $(tempdir)tablemid1
 	sed 's/EC number/EC_number/' $<	> $(tempdir)tablemid1;\
-	#need to add the header, or update it if one is already present
-	#if [[ "$$(head -n 1 $<)" == >* ]];\
-	if grep -Fxq ">" $<; \
-	then \
-		sed '1d' $(tempdir)tablemid1 > $(tempdir)tablemid2; \
-		sed -i '1s/^/>Feature NC_000962.3 Table1\n/' $(tempdir)tablemid2; \
-		rm $(tempdir)tablemid1; \
-		mv $(tempdir)tablemid2 $(tempdir)tablemid1; \
-	else \
-		sed -i '1s/^/>Feature NC_000962.3 Table1\n/' $(tempdir)tablemid1; \
-	fi
+	sed -i '1d' $(tempdir)tablemid1;\
+	sed -i '1s/^/>Feature NC_000962.3 Table1\n/' $(tempdir)tablemid1; \
 	mv $(tempdir)tablemid1 $@
 
 #create fasta file from source
