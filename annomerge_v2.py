@@ -1055,7 +1055,10 @@ def main():
             check_for_dnaA(ratt_contig_features)
         if args.illumina:
             print('DnaA might not be the first element. Circularization is not checked')
-        error_correction_fp = ratt_correction_files[0]
+        if len(ratt_correction_files) == 0:
+            error_correction_fp = ratt_correction_files[0]
+        else:
+            error_correction_fp = ratt_correction_files[i]
         global ratt_corrected_genes
         ratt_corrected_genes = get_ratt_corrected_genes(error_correction_fp)
         ratt_contig_features, prokka_features_to_add = isolate_valid_ratt_annotations(ratt_contig_features,
