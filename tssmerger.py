@@ -110,8 +110,15 @@ def tssaddotate(reference_genome_embl, csvfile, tsscol, strandcol,  out_put,
                     # adds the feature to the recod object
                     ref_genome.features.append(my_feature)
 
-    # sorts features by start location in genome, unless told not to
+    # sorts features by start location in genome, unless told not to, also fixes translation attribute of CDSs
     if dontsort == 0:
+        for cds in ref_genome.features:
+            if cds.type == 'CDS' and 'pseudogene' not in cds.qualifiers:
+                genesequence = cds.extract(ref_genome.seq)
+                if len(genesequence)%3 != 0:
+                    print(cds.qualifiers['locus_tag'])
+                    print(len(genesequence))
+                cds.qualifiers['translation'] = genesequence.translate(table="Bacterial")
         ref_genome.features.sort(key=operator.attrgetter("location.start"))
 
     # write out new file containing added annotations
