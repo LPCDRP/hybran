@@ -1271,7 +1271,6 @@ def main():
                         raw_features.append(sub_feature)
             else:
                 continue
-        print(len(raw_features))
         prokka_rec.features = []
         added_cds = {}
         for feature in raw_features:
@@ -1322,58 +1321,58 @@ def main():
                     continue
                 else:
                     prokka_rec.features.append(feature)
-        ###############################################################################################
-        ####################### Blasting unannotated CDSs from Prokka with H37Rv ######################
-        ###############################################################################################
+#        ###############################################################################################
+#        ####################### Blasting unannotated CDSs from Prokka with H37Rv ######################
+#        ###############################################################################################
         h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-NC_000962.3.fasta'
         mtb_fasta = os.environ['GROUPHOME'] + '/data/depot/hypotheticome-clinical/mtb-novel-genes.fasta'
-        pickle_fp = os.environ['GROUPHOME'] + '/data/depot/hypotheticome-clinical/'
-        pickle_files = [pickle_file for pickle_file in os.listdir(pickle_fp) if pickle_file.endswith('pickle')]
-        mtb_key_pickles = [mtb_pickle for mtb_pickle in pickle_files if mtb_pickle.startswith('mtb-key')]
-        isolate_pickles = [isolate_pickle for isolate_pickle in pickle_files if isolate_pickle.startswith('isolate_genes_dict')]
-        pickled_dates = []
-        date_stamped_pickles = {}
-        make_pickle = False
-        for mtb_pickle in mtb_key_pickles:
-            pickle_ingredient = mtb_pickle.split('-')[-1]
-            if pickle_ingredient == 'key.pickle':
-                continue
-            else:
-                pickled_date = pickle_ingredient.split('.')[0]
-                pickled_dates.append(pickled_date)
-                date_stamped_pickles[pickled_date] = mtb_pickle
-        now = datetime.datetime.now().strftime('%y%m%d')
-        if now in pickled_dates:
-            use_pickle = date_stamped_pickles[now]
-        else:
-            make_pickle = True
-            youngest = max(dt for dt in pickled_dates if dt < now)
-            use_pickle = date_stamped_pickles[youngest]
-        mtb_key_fp = pickle_fp + use_pickle
-        isolate_pickled_dates = []
-        isolate_date_stamped_pickles = {}
-        make_isolate_pickle = False
-        for isolate_pickle in isolate_pickles:
-            if '-' in isolate_pickle:
-                pickle_ingredient = isolate_pickle.split('-')[-1]
-                pickled_date = pickle_ingredient.split('.')[0]
-                isolate_pickled_dates.append(pickled_date)
-                isolate_date_stamped_pickles[pickled_date] = isolate_pickle
-        if now in isolate_pickled_dates:
-            use_isolate_pickle = isolate_date_stamped_pickles[now]
-        elif len(isolate_pickled_dates) == 0:
-            make_isolate_pickle = True
-            use_isolate_pickle = 'isolate_genes_dict.pickle'
-        else:
-            make_isolate_pickle = True
-            youngest_isolate = max(dt for dt in isolate_pickled_dates if dt < now)
-            use_isolate_pickle = isolate_date_stamped_pickles[youngest_isolate]
-        old_mtb_hits = []
-        isolate_genes_fp = pickle_fp + use_isolate_pickle
-        mtb_key_load = pickle.load(open(mtb_key_fp))
-        mtb_key = mtb_key_load.copy()
-        isolate_genes_dict_load = pickle.load(open(isolate_genes_fp))
-        isolate_genes_dict = isolate_genes_dict_load.copy()
+#        pickle_fp = os.environ['GROUPHOME'] + '/data/depot/hypotheticome-clinical/'
+#        pickle_files = [pickle_file for pickle_file in os.listdir(pickle_fp) if pickle_file.endswith('pickle')]
+#        mtb_key_pickles = [mtb_pickle for mtb_pickle in pickle_files if mtb_pickle.startswith('mtb-key')]
+#        isolate_pickles = [isolate_pickle for isolate_pickle in pickle_files if isolate_pickle.startswith('isolate_genes_dict')]
+#        pickled_dates = []
+#        date_stamped_pickles = {}
+#        make_pickle = False
+#        for mtb_pickle in mtb_key_pickles:
+#            pickle_ingredient = mtb_pickle.split('-')[-1]
+#            if pickle_ingredient == 'key.pickle':
+#                continue
+#            else:
+#                pickled_date = pickle_ingredient.split('.')[0]
+#                pickled_dates.append(pickled_date)
+#                date_stamped_pickles[pickled_date] = mtb_pickle
+#        now = datetime.datetime.now().strftime('%y%m%d')
+#        if now in pickled_dates:
+#            use_pickle = date_stamped_pickles[now]
+#        else:
+#            make_pickle = True
+#            youngest = max(dt for dt in pickled_dates if dt < now)
+#            use_pickle = date_stamped_pickles[youngest]
+#        mtb_key_fp = pickle_fp + use_pickle
+#        isolate_pickled_dates = []
+#        isolate_date_stamped_pickles = {}
+#        make_isolate_pickle = False
+#       for isolate_pickle in isolate_pickles:
+#            if '-' in isolate_pickle:
+#                pickle_ingredient = isolate_pickle.split('-')[-1]
+#                pickled_date = pickle_ingredient.split('.')[0]
+#                isolate_pickled_dates.append(pickled_date)
+#                isolate_date_stamped_pickles[pickled_date] = isolate_pickle
+#        if now in isolate_pickled_dates:
+#            use_isolate_pickle = isolate_date_stamped_pickles[now]
+#        elif len(isolate_pickled_dates) == 0:
+#            make_isolate_pickle = True
+#            use_isolate_pickle = 'isolate_genes_dict.pickle'
+#        else:
+#            make_isolate_pickle = True
+#            youngest_isolate = max(dt for dt in isolate_pickled_dates if dt < now)
+#            use_isolate_pickle = isolate_date_stamped_pickles[youngest_isolate]
+#        old_mtb_hits = []
+#        isolate_genes_fp = pickle_fp + use_isolate_pickle
+#        mtb_key_load = pickle.load(open(mtb_key_fp))
+#        mtb_key = mtb_key_load.copy()
+#        isolate_genes_dict_load = pickle.load(open(isolate_genes_fp))
+#        isolate_genes_dict = isolate_genes_dict_load.copy()
 #        print(sorted(mtb_key.keys()))
 #        print(isolate_genes_dict[args.isolate])
         # Inverting key-value pair in dictionary
@@ -1386,76 +1385,76 @@ def main():
                                           ('gene' in feature.qualifiers.keys() and
                                            '_' in feature.qualifiers['gene'][0] and
                                            'L2_' in feature.qualifiers['locus_tag'][0])):
-                old_locus_tag = feature.qualifiers['locus_tag'][0]
+#                old_locus_tag = feature.qualifiers['locus_tag'][0]
                 query_sequence = feature.qualifiers['translation'][0]
-                blast_command = NcbiblastpCommandline(subject=h37rv_protein_fasta,
-                                                      outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-                stdout, stderr = blast_command(stdin=query_sequence)
-                top_hit, all_hits, notes = identify_top_hits(stdout)
-                if top_hit is None:
-                    blast_to_mtb = NcbiblastpCommandline(subject=mtb_fasta, outfmt='"7 qseqid qlen sseqid slen qlen'
-                                                                                   ' length pident qcovs"')
-                    stdout_2, stderr_2 = blast_to_mtb(stdin=query_sequence)
-                    mtb_hit, all_hits_mtb = identify_top_hits(stdout_2, mtb=True)
-                    mtb_key_element = [args.isolate, feature.qualifiers['locus_tag'][0]]
-                    if mtb_hit is not None:
-                        old_mtb_hits.append(mtb_hit)
-                        mtb_genes_added_to_isolate.append(mtb_hit)
-                        feature.qualifiers['locus_tag'] = [mtb_hit]
-                        for gene in all_hits_mtb.keys():
-                            note = 'locus_tag:' + gene + ':' + str(all_hits_mtb[gene])
-                            if 'note' in feature.qualifiers.keys():
-                                feature.qualifiers['note'].append(note)
-                            else:
-                                feature.qualifiers['note'] = [note]
-                        mtb_key[mtb_hit].append(mtb_key_element)
+#                blast_command = NcbiblastpCommandline(subject=h37rv_protein_fasta,
+#                                                      outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
+#                stdout, stderr = blast_command(stdin=query_sequence)
+#                top_hit, all_hits, notes = identify_top_hits(stdout)
+#                if top_hit is None:
+                blast_to_mtb = NcbiblastpCommandline(subject=mtb_fasta, outfmt='"7 qseqid qlen sseqid slen qlen length'
+                                                                               ' pident qcovs"')
+                stdout_2, stderr_2 = blast_to_mtb(stdin=query_sequence)
+                mtb_hit, all_hits_mtb = identify_top_hits(stdout_2, mtb=True)
+#                mtb_key_element = [args.isolate, feature.qualifiers['locus_tag'][0]]
+#                if mtb_hit is not None:
+#                     old_mtb_hits.append(mtb_hit)
+#                        mtb_genes_added_to_isolate.append(mtb_hit)
+#                        feature.qualifiers['locus_tag'] = [mtb_hit]
+                for gene in all_hits_mtb.keys():
+                    note = 'locus_tag:' + gene + ':' + str(all_hits_mtb[gene])
+                    if 'note' in feature.qualifiers.keys():
+                        feature.qualifiers['note'].append(note)
                     else:
-                        last_added_mtb_key = sorted(mtb_key.keys())[-1]
-                        new_mtb = int(last_added_mtb_key.split('MTB')[1])
-                        new_mtb_key = 'MTB' + "%04g" % (new_mtb + 1)
-                        feature.qualifiers['locus_tag'] = [new_mtb_key]
-                        mtb_genes_added_to_isolate.append(new_mtb_key)
-                        mtb_key[new_mtb_key] = mtb_key_element
-                        mtb_fasta_sequence_key = '>' + new_mtb_key + ' ' + args.isolate + ':' + old_locus_tag + '\n'
-                        mtb_fasta_sequence = query_sequence
-                        with open(mtb_fasta, 'a') as mtb_fasta_file:
-                            mtb_fasta_file.write('\n')
-                            mtb_fasta_file.write(mtb_fasta_sequence_key)
-                            mtb_fasta_file.write(mtb_fasta_sequence)
-                else:
-                    add_gene_name = False
-                    if top_hit in rv_to_gene_name.keys():
-                        gene_name = rv_to_gene_name[top_hit]
-                        add_gene_name = True
-                    locus_tag = top_hit
-                    feature.qualifiers['locus_tag'] = [locus_tag]
-                    if add_gene_name:
-                        feature.qualifiers['gene'] = [gene_name]
-                    for gene in all_hits.keys():
-                        note = 'locus_tag:' + gene + ':' + str(all_hits[gene])
-                        if 'note' in feature.qualifiers.keys():
-                            feature.qualifiers['note'].append(note)
-                        else:
-                            feature.qualifiers['note'] = [note]
-                if len(notes.keys()) > 0:
-                    for gene in notes.keys():
-                        note = 'locus_tag:' + gene + ':' + str(notes[gene])
-                        if 'note' in feature.qualifiers.keys():
-                            feature.qualifiers['note'].append(note)
-                        else:
-                            feature.qualifiers['note'] = [note]
-        all_mtb_gene = list(set().union(old_mtb_hits, mtb_genes_added_to_isolate))
-        isolate_genes_dict[args.isolate] = mtb_genes_added_to_isolate
-        if make_pickle:
-            new_pickle_fp = pickle_fp + 'mtb-key-' + now + '.pickle'
-            pickle.dump(mtb_key, open(new_pickle_fp, 'wb'))
-        else:
-            pickle.dump(mtb_key, open(mtb_key_fp, 'wb'))
-        if make_isolate_pickle:
-            new_isolate_pickle_fp = pickle_fp + 'isolate_genes_dict-' + now + '.pickle'
-            pickle.dump(isolate_genes_dict, open(new_isolate_pickle_fp, 'wb'))
-        else:
-            pickle.dump(isolate_genes_dict, open(isolate_genes_fp, 'wb'))
+                        feature.qualifiers['note'] = [note]
+#                    mtb_key[mtb_hit].append(mtb_key_element)
+#                    else:
+#                        last_added_mtb_key = sorted(mtb_key.keys())[-1]
+#                        new_mtb = int(last_added_mtb_key.split('MTB')[1])
+#                        new_mtb_key = 'MTB' + "%04g" % (new_mtb + 1)
+#                        feature.qualifiers['locus_tag'] = [new_mtb_key]
+#                        mtb_genes_added_to_isolate.append(new_mtb_key)
+#                        mtb_key[new_mtb_key] = mtb_key_element
+#                        mtb_fasta_sequence_key = '>' + new_mtb_key + ' ' + args.isolate + ':' + old_locus_tag + '\n'
+#                        mtb_fasta_sequence = query_sequence
+#                        with open(mtb_fasta, 'a') as mtb_fasta_file:
+#                            mtb_fasta_file.write('\n')
+#                            mtb_fasta_file.write(mtb_fasta_sequence_key)
+#                            mtb_fasta_file.write(mtb_fasta_sequence)
+#                else:
+#                    add_gene_name = False
+#                    if top_hit in rv_to_gene_name.keys():
+#                        gene_name = rv_to_gene_name[top_hit]
+#                        add_gene_name = True
+#                    locus_tag = top_hit
+#                    feature.qualifiers['locus_tag'] = [locus_tag]
+#                    if add_gene_name:
+#                        feature.qualifiers['gene'] = [gene_name]
+#                    for gene in all_hits.keys():
+#                        note = 'locus_tag:' + gene + ':' + str(all_hits[gene])
+#                        if 'note' in feature.qualifiers.keys():
+#                            feature.qualifiers['note'].append(note)
+#                        else:
+#                            feature.qualifiers['note'] = [note]
+#                if len(notes.keys()) > 0:
+#                    for gene in notes.keys():
+#                        note = 'locus_tag:' + gene + ':' + str(notes[gene])
+#                        if 'note' in feature.qualifiers.keys():
+#                            feature.qualifiers['note'].append(note)
+#                        else:
+#                            feature.qualifiers['note'] = [note]
+#        all_mtb_gene = list(set().union(old_mtb_hits, mtb_genes_added_to_isolate))
+#        isolate_genes_dict[args.isolate] = mtb_genes_added_to_isolate
+#        if make_pickle:
+#            new_pickle_fp = pickle_fp + 'mtb-key-' + now + '.pickle'
+#            pickle.dump(mtb_key, open(new_pickle_fp, 'wb'))
+#        else:
+#            pickle.dump(mtb_key, open(mtb_key_fp, 'wb'))
+#        if make_isolate_pickle:
+#            new_isolate_pickle_fp = pickle_fp + 'isolate_genes_dict-' + now + '.pickle'
+#            pickle.dump(isolate_genes_dict, open(new_isolate_pickle_fp, 'wb'))
+#        else:
+#            pickle.dump(isolate_genes_dict, open(isolate_genes_fp, 'wb'))
 #        pickle.dump(isolate_genes_dict, open(isolate_genes_fp, 'wb'))
 #        mtb_key_mod = pickle.load(open(mtb_key_fp))
 #        print(sorted(mtb_key_mod.keys()))
@@ -1466,7 +1465,7 @@ def main():
         ###############################################################################################
         for feature in prokka_rec.features:
             if feature.type == 'CDS' and 'translation' not in feature.qualifiers.keys():
-                feature_sequence = translate(feature.extract(record_sequence))
+                feature_sequence = translate(feature.extract(record_sequence), to_stop=True)
                 feature.qualifiers['translation'] = [feature_sequence]
 
         ###############################################################################################
@@ -1482,19 +1481,26 @@ def main():
             if feature.type == 'CDS':
                 annomerge_cds += 1
                 locus_tag = feature.qualifiers['locus_tag'][0]
-                #print(locus_tag)
+#                print(locus_tag)
                 if locus_tag[:2] == 'Rv':
                     all_rv_genes_in_isolate.append(locus_tag)
                     if 'gene' not in feature.qualifiers.keys() and locus_tag in rv_to_gene_name.keys():
                         feature.qualifiers['gene'] = [rv_to_gene_name[locus_tag]]
-                elif locus_tag[:2] != 'Rv' and locus_tag[:3] != 'MTB':
-                    if locus_tag in gene_name_to_rv.keys():
-                        feature.qualifiers['gene'] = [locus_tag]
-                        feature.qualifiers['locus_tag'] = [gene_name_to_rv[locus_tag]]
-                        all_rv_genes_in_isolate.append(gene_name_to_rv[locus_tag])
-                    else:
-                        non_mtb_genes.append(locus_tag)
+                else:
+                    if 'gene' in feature.qualifiers.keys() and feature.qualifiers['gene'][0] in gene_name_to_rv.keys():
+#                        print(feature.qualifiers['gene'][0])
+                        feature.qualifiers['locus_tag'] = [gene_name_to_rv[feature.qualifiers['gene'][0]]]
                 new_locus_tag = feature.qualifiers['locus_tag'][0]
+                if 'gene' not in feature.qualifiers.keys():
+                    feature.qualifiers['gene'] = [new_locus_tag]
+#                elif locus_tag[:2] != 'Rv' and locus_tag[:3] != 'MTB':
+#                    if locus_tag in gene_name_to_rv.keys():
+#                        feature.qualifiers['gene'] = [locus_tag]
+#                        feature.qualifiers['locus_tag'] = [gene_name_to_rv[locus_tag]]
+#                        all_rv_genes_in_isolate.append(gene_name_to_rv[locus_tag])
+#                    else:
+#                        non_mtb_genes.append(locus_tag)
+#                print(new_locus_tag)
                 if new_locus_tag in essential_genes:
                     rv_length = essential_genes_length[new_locus_tag]
                     feature_length = len(feature.qualifiers['translation'][0])
@@ -1507,7 +1513,7 @@ def main():
         output_file.write('Number of CDSs in isolate: ' + str(annomerge_cds) + '\n')
         output_file.write('Number of CDSs transferred from RATT: ' + str(cds_from_ratt) + '\n')
         output_file.write('Number of CDSs transferred from Prokka: ' + str(annomerge_cds-cds_from_ratt) + '\n')
-        output_file.write('Number of novel genes in isolate: ' + str(len(set(all_mtb_gene))) + '\n')
+#        output_file.write('Number of novel genes in isolate: ' + str(len(set(all_mtb_gene))) + '\n')
 #        output_file.write('Number of MTB genes transferred from Fasta file in this isolate: ' +
 #                          str(len(set(old_mtb_hits))) + '\n')
 #        output_file.write('Number of MTB genes added to Fasta file from this isolate: ' +
