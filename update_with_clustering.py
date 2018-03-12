@@ -8,7 +8,7 @@ from Bio.SeqRecord import SeqRecord
 from collections import OrderedDict
 
 GROUPHOME = os.environ['GROUPHOME']
-
+underscore_re = re.compile('_[0-9]$')
 
 def parse_clustered_proteins():
 
@@ -46,9 +46,7 @@ def parse_clustered_proteins():
         genes = list(set(sorted([gene[1] for gene in gene_cluster_list])))
         locus_tags = list(set(sorted([locus[0] for locus in gene_cluster_list if locus[0]])))
         return genes, locus_tags
-
     def find_underscores(gene_cluster_list):
-        underscore_re = re.compile('_[0-9]$')
         for tup in gene_cluster_list:
             if underscore_re.search(tup[1]):
                 return True
@@ -85,14 +83,21 @@ def parse_clustered_proteins():
     same_genes_cluster_w_ltags = {}
     underscores = {}
     l_tag_only_clusters = {}
+    unique_genes_list = []
     with open(clustered_proteins, 'r') as clustered_proteins_file:
         for line in clustered_proteins_file:
             isolates_ids = line.rstrip('\n').split('\t')
+
             representative_seq_id = isolates_ids[0].split(': ')[1]
             rep_isolate = representative_seq_id.split('-L')[0]
             rep_seq_id = 'L' + representative_seq_id.split('-L')[1]
             representative_ltag_gene_tup = gffs[rep_isolate][rep_seq_id]
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
+            # Getting clusters with only 1 gene that is an L tag or an underscore
+            if len(isolates_ids) == 1 and \
+                    (representative_ltag_gene_tup[0].startswith('L') or
+                     underscore_re.search(representative_ltag_gene_tup[0])):
+                unique_genes_list.append([rep_isolate] + list(representative_ltag_gene_tup))
 
             representative_fasta_list.append([rep_isolate] + list(representative_ltag_gene_tup))
             gene_cluster[representative] = []
@@ -131,7 +136,8 @@ def parse_clustered_proteins():
             if all(locus[0].startswith('L') for locus in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
 
-    return different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, underscores, l_tag_only_clusters
+    return different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, underscores, l_tag_only_clusters, \
+        unique_genes_list
 
 
 if __name__ == '__main__':
