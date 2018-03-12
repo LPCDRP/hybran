@@ -8,9 +8,39 @@ from Bio.SeqRecord import SeqRecord
 from collections import OrderedDict
 
 GROUPHOME = os.environ['GROUPHOME']
-underscore_re = re.compile('_[0-9]$')
+
+
+def write_fasta(list_of_ids, output_name):
+    def get_sequence(isolate, locus_tag):
+        genbank_file = GROUPHOME + '/data/depot/annotation/' + isolate + '/annomerge/' + isolate + '.gbk'
+        features = SeqIO.read(genbank_file, 'genbank').features
+        for feature in features:
+            if feature.type == 'CDS' and features.qualifiers['locus_tag'][0] == locus_tag:
+                seq = feature.qualifiers['translation']
+                return seq
+
+    list_of_records = []
+    for rep in list_of_ids:
+        if type(rep) is str:
+            isolate_id = rep.split(',')[0]
+            locus = rep.split(',')[1]
+            gene = rep.split(',')[2]
+        elif type(rep) is list:
+            isolate_id = rep[0]
+            locus = rep[1]
+            gene = rep[2]
+
+        sequence = get_sequence(isolate_id, locus)
+        seq_record = SeqRecord(sequence, id=isolate_id, description='|'.join([locus, gene]))
+        list_of_records.append(seq_record)
+
+    with open(output_name, 'w') as fasta_output:
+        for s in list_of_records:
+            SeqIO.write(s, fasta_output, 'fasta')
+
 
 def parse_clustered_proteins():
+    underscore_re = re.compile('_[0-9]$')
 
     # Private Function #
     ##################################################################################################################
@@ -46,31 +76,11 @@ def parse_clustered_proteins():
         genes = list(set(sorted([gene[1] for gene in gene_cluster_list])))
         locus_tags = list(set(sorted([locus[0] for locus in gene_cluster_list if locus[0]])))
         return genes, locus_tags
+
     def find_underscores(gene_cluster_list):
         for tup in gene_cluster_list:
             if underscore_re.search(tup[1]):
                 return True
-
-    def write_fasta(list_of_ids):
-        def get_sequence(isolate, locus_tag):
-            genbank_file = GROUPHOME + '/data/depot/annotation/' + isolate + '/annomerge/' + isolate + '.gbk'
-            features = SeqIO.read(genbank_file, 'genbank').features
-            for feature in features:
-                if feature.type == 'CDS' and features.qualifiers['locus_tag'][0] == locus_tag:
-                    seq = feature.qualifiers['translation']
-                    return seq
-        list_of_records = []
-        for rep in list_of_ids:
-            isolate_id = rep.split(',')[0]
-            locus = rep.split(',')[1]
-            gene = rep.split(',')[2]
-            sequence = get_sequence(isolate_id, locus)
-            seq_record = SeqRecord(sequence, id=isolate_id, description='|'.join([locus, gene]))
-            list_of_records.append(seq_record)
-        with open('representative-clusters.fasta', 'w') as fasta_output:
-            for s in list_of_records:
-                SeqIO.write(s, fasta_output, 'fasta')
-
 
     ##################################################################################################################
 
@@ -135,7 +145,8 @@ def parse_clustered_proteins():
             # L tag only clusters
             if all(locus[0].startswith('L') for locus in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
-
+    with open('gene-clusters-dictionary.pickle', 'w') as gene_pickle:
+        pickle.dump(gene_cluster, gene_pickle)
     return different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, underscores, l_tag_only_clusters, \
         unique_genes_list
 
