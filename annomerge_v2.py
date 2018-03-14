@@ -714,7 +714,26 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
             non_cds_features.append(feature)
     prokka_cds_dict = get_prokka_cds(prokka_annotations, only_rv=True)
     valid_cds, to_add_from_prokka = get_nonoverlapping_ratt_features(unbroken_cds, prokka_cds_dict)
-    valid_features = valid_cds
+    valid_features = []
+    print("Valid CDSs before checking coverage: " + str(len(valid_cds)))
+    for cds_feature in valid_cds:
+        feature_sequence = translate(cds_feature.extract(record_sequence), to_stop=True)
+        cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
+        if cds_locus_tag not in h37rv_protein_lengths.keys():
+            cds_feature.qualifiers['translation'] = [feature_sequence]
+            valid_features.append(cds_feature)
+            continue
+        else:
+            h37rv_cds_length = h37rv_protein_lengths[cds_locus_tag]
+            if (float(len(feature_sequence))/float(h37rv_cds_length) > 0.95) and (float(h37rv_cds_length)/float(len(feature_sequence)) > 0.95):  
+                cds_feature.qualifiers['translation'] = [feature_sequence]
+                valid_features.append(cds_feature)
+#            else:
+#                print(cds_locus_tag)
+#                print(feature_sequence)
+#                print(len(feature_sequence))
+#                print(h37rv_cds_length)
+    print("Valid CDSs after checking coverage: " + str(len(valid_features)))
     for non_cds in non_cds_features:
         valid_features.append(non_cds)
     for gene_key in to_add_from_prokka.keys():
@@ -1037,6 +1056,8 @@ def main():
     output_file = open(output_log, 'w+')
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
     annomerge_records = []
+    h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-NC_000962.3.fasta'
+    global h37rv_protein_lengths
     global genes_in_rv
     genes_in_rv = []
     genes_in_rv_file = os.environ['GROUPHOME'] + '/resources/H37rv_proteincoding_genes.txt'
@@ -1044,8 +1065,10 @@ def main():
     for line in genes_in_rv_raw:
         locus_tag = line.split()[0]
         genes_in_rv.append(locus_tag)
+    h37rv_protein_lengths = get_lengths_of_genes(genes_in_rv, h37rv_protein_fasta)
     for i in range(0, len(input_ratt_files)):
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
+        global record_sequence
         record_sequence = ratt_contig_record.seq
         prokka_contig_record = prokka_records[i]
         ratt_contig_features = ratt_contig_record.features
