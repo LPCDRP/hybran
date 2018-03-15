@@ -739,7 +739,9 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
     for cds_feature in valid_cds:
         feature_sequence = translate(cds_feature.extract(record_sequence), to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
-        if feature_sequence[0] not in valid_amino_acids:
+        #print(cds_locus_tag)
+        #print(feature_sequence)
+        if len(feature_sequence) == 0 or feature_sequence[0] not in valid_amino_acids:
             continue
         else:
             add_sequence = blast_feature_sequence_to_rv(str(feature_sequence), cds_locus_tag)
