@@ -683,13 +683,15 @@ def get_prokka_cds(all_annotations_prokka, only_rv=False):
     return prokka_cds_dict
 
 
-def blast_feature_sequence_to_rv(query, locus_tag):
+def blast_feature_sequence_to_rv(query, locus_tag, to_print=False):
     #add_annotation = False
     if locus_tag in h37rv_sequences.keys():
         subject_fp = '/tmp/' + locus_tag + '.fasta'
         blast_to_rv = NcbiblastpCommandline(subject=subject_fp, outfmt='"7 qseqid qlen sseqid slen qlen length'
                                                                                ' pident qcovs"')
         stdout, stderr = blast_to_rv(stdin=query)
+        if to_print:
+            print(stdout)
         hit, all_hits, note = identify_top_hits(stdout)
         if hit == locus_tag:
             add_annotation = True
@@ -747,24 +749,8 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
                 cds_feature.qualifiers['translation'] = [str(feature_sequence)]
                 valid_features.append(cds_feature)
             else:
-#                print('Gene ' + cds_locus_tag + ' not transferred from RATT as it does not meet threshold for sequence '
-#                                                'identity and coverage')
                 continue
-#        if cds_locus_tag not in h37rv_protein_lengths.keys():
-#            cds_feature.qualifiers['translation'] = [feature_sequence]
-#            valid_features.append(cds_feature)
-#            continue
-#        else:
-#            h37rv_cds_length = h37rv_protein_lengths[cds_locus_tag]
-#            if (float(len(feature_sequence))/float(h37rv_cds_length) > 0.95) and \
-#                    (float(h37rv_cds_length)/float(len(feature_sequence)) > 0.95):
-#                cds_feature.qualifiers['translation'] = [feature_sequence]
-#                valid_features.append(cds_feature)
-#            else:
-#                print(cds_locus_tag)
-#                print(feature_sequence)
-#                print(len(feature_sequence))
-#                print(h37rv_cds_length)
+
     print("Valid CDSs after checking coverage: " + str(len(valid_features)))
     for non_cds in non_cds_features:
         valid_features.append(non_cds)
@@ -900,19 +886,23 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     included = False
     # Check if feature types are the same. If not add feature to EMBL record
     if ratt_annotation.type != prokka_annotation.type:
-        embl_file.features.append(prokka_annotation)
+        if prokka_annotation.type == 'CDS':
+            mod_prokka_annotation = validate_prokka_feature_annotation(prokka_annotation, prokka_noref_dictionary)
+        else:
+            mod_prokka_annotation = prokka_annotation
+        embl_file.features.append(mod_prokka_annotation)
         included = True
     # Check if gene names match and if they don't or if gene names are missing, keep both
     elif 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in prokka_annotation.qualifiers.keys():
         if ratt_annotation.qualifiers['gene'] != prokka_annotation.qualifiers['gene']:
-            mod_prokka_annotation = validate_prokka_feature_annotation(prokka_annotation)
+            mod_prokka_annotation = validate_prokka_feature_annotation(prokka_annotation, prokka_noref_dictionary)
             embl_file.features.append(mod_prokka_annotation)
             included = True
         # If gene names are the same and the lengths of the genes are comparable between RATT and Prokka annotation
         # (difference in length of less than/equal to 10 bps), the RATT annotation is prefered
         elif ratt_annotation.qualifiers['gene'] == prokka_annotation.qualifiers['gene'] and \
                         abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 10:
-            mod_prokka_annotation = validate_prokka_feature_annotation(prokka_annotation)
+            mod_prokka_annotation = validate_prokka_feature_annotation(prokka_annotation, prokka_noref_dictionary)
             embl_file.features.append(mod_prokka_annotation)
             included = True
         # If gene tag is missing and the product is not a hypothetical protein, check to see if the products are the
@@ -923,12 +913,12 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
             ('product' in ratt_annotation.qualifiers.keys() and 'product' in prokka_annotation.qualifiers.keys()):
         if ratt_annotation.qualifiers['product'] == 'hypothetical protein' or \
                         prokka_annotation.qualifiers['product'] == 'hypothetical protein':
-            mod_prokka_annotation = validate_prokka_feature_annotation(prokka_annotation)
+            mod_prokka_annotation = validate_prokka_feature_annotation(prokka_annotation, prokka_noref_dictionary)
             embl_file.features.append(mod_prokka_annotation)
             included = True
         elif ratt_annotation.qualifiers['product'] == prokka_annotation.qualifiers['product'] and \
                         abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 10:
-            mod_prokka_annotation = validate_prokka_feature_annotation(prokka_annotation)
+            mod_prokka_annotation = validate_prokka_feature_annotation(prokka_annotation, prokka_noref_dictionary)
             embl_file.features.append(mod_prokka_annotation)
             included = True
     return embl_file, included
@@ -1053,8 +1043,9 @@ def get_rv_sequences_from_fasta(h37rv_fasta_fp):
     return rv_sequence_dict
 
 
-def validate_prokka_feature_annotation(feature):
+def validate_prokka_feature_annotation(feature, prokka_noref):
     mod_feature = feature
+    loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
     if feature.type != 'CDS':
         return mod_feature
     if 'gene' not in feature.qualifiers.keys():
@@ -1063,6 +1054,8 @@ def validate_prokka_feature_annotation(feature):
         feature_seq = str(feature.qualifiers['translation'][0])
         if feature.qualifiers['gene'][0][:2] == 'Rv':
             locus_tag = feature.qualifiers['gene'][0]
+#            print('Blasting ' + locus_tag + 'to H37Rv')
+            prokka_blast_list.append(locus_tag)
             retain_rv_annotation = blast_feature_sequence_to_rv(feature_seq, locus_tag)
             if retain_rv_annotation:
                 mod_feature = feature
@@ -1070,13 +1063,15 @@ def validate_prokka_feature_annotation(feature):
                 mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
         elif feature.qualifiers['gene'][0] in gene_name_to_rv.keys():
             locus_tag = gene_name_to_rv[feature.qualifiers['gene'][0]]
+#            print('Blasting ' + locus_tag + 'to H37Rv')
+            prokka_blast_list.append(locus_tag)
             retain_rv_annotation = blast_feature_sequence_to_rv(feature_seq, locus_tag)
             if retain_rv_annotation:
                 mod_feature = feature
             else:
                 mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
         else:
-            mod_feature = feature
+            mod_feature = prokka_noref[loc_key]
     return mod_feature
 
 
@@ -1133,6 +1128,8 @@ def main():
     global output_file
     output_file = open(output_log, 'w+')
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
+    prokka_record_fp = file_path + 'prokka-noreference/' + args.isolate + '.gbf'
+    prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
     annomerge_records = []
     h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-fullheader-NC_000962.3.fasta'
     global h37rv_sequences
@@ -1150,6 +1147,9 @@ def main():
 #    print(len(prokka_records))
     for i in range(0, len(input_ratt_files)):
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
+        prokka_noref_rec = prokka_record_noref[i]
+        global prokka_noref_dictionary
+        prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features)
         global record_sequence
         record_sequence = ratt_contig_record.seq
         prokka_contig_record = prokka_records[i]
@@ -1241,6 +1241,12 @@ def main():
             # features from RATT
             annomerge_contig_record = prokka_contig_record[:]
             annomerge_contig_record.features = ratt_contig_features
+            num_feat = 0
+            for test_f in annomerge_contig_record.features:
+                if test_f.type == 'CDS':
+                    num_feat += 1
+#            print('Number of features before adding Prokka')
+#            print(num_feat)
             annomerge_contig_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab ' \
                                                              'initio annotation from Prokka'
             ###########################################################
@@ -1256,7 +1262,13 @@ def main():
             prokka_annotation_mapping = {}
             ratt_contig_record_mod = ratt_contig_record[:]
             ratt_contig_record_mod.features = ratt_contig_features
-            print(len(ratt_contig_record_mod.features))
+#            print(len(ratt_contig_record_mod.features))
+            added_from_ratt = []
+            global prokka_blast_list
+            prokka_blast_list = []
+            for feat in ratt_contig_record_mod.features:
+                if feat.type == 'CDS':
+                    added_from_ratt.append(feat.qualifiers['locus_tag'][0])
             prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
             prokka_features_not_in_ratt, ratt_overlapping_genes = \
                 remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
@@ -1301,7 +1313,8 @@ def main():
                             else:
                                 feature_additions[prokka_feature.type] += 1
                                 feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
-                            mod_prokka_feature = validate_prokka_feature_annotation(prokka_feature)
+                            mod_prokka_feature = validate_prokka_feature_annotation(prokka_feature,
+                                                                                    prokka_noref_dictionary)
                             annomerge_contig_record.features.append(mod_prokka_feature)
                         # If the Prokka feature overlaps with two RATT features
                         elif prokka_feature_start < ratt_unannotated_region_start and \
@@ -1311,7 +1324,8 @@ def main():
                                 break
                             #print('Overlaps with 2 RATT genes')
                             #print(prokka_feature)
-                            mod_prokka_feature = validate_prokka_feature_annotation(prokka_feature)
+                            mod_prokka_feature = validate_prokka_feature_annotation(prokka_feature,
+                                                                                    prokka_noref_dictionary)
                             annomerge_contig_record.features.append(mod_prokka_feature)
                             # The if-else condition below is to keep track of the features added from Prokka for the
                             # log file
@@ -1351,16 +1365,26 @@ def main():
             if len(merged_features) > 0:
                 for feature_1 in merged_features:
                     annomerge_contig_record.features.append(feature_1)
-            for feature in prokka_features_to_add:
-                annomerge_contig_record.features.append(feature)
+
+            unflattened_features = prokka_features_to_add
+            flattened_features = []
+            for feature_type in unflattened_features:
+                if 'Bio.SeqFeature.SeqFeature' in str(type(feature_type)):
+                    flattened_features.append(feature_type)
+                elif 'list' in str(type(feature_type)) and len(feature_type) > 0:
+                    for sub_feature in feature_type:
+                        if 'Bio.SeqFeature.SeqFeature' not in str(type(sub_feature)):
+                            continue
+                        else:
+                            flattened_features.append(sub_feature)
+                else:
+                    continue
+#            print('Prokka_features_to_add')
+#            print(len(flattened_features))
+            for feature in flattened_features:
+                mod_feature = validate_prokka_feature_annotation(feature, prokka_noref_dictionary)
+                annomerge_contig_record.features.append(mod_feature)
             annomerge_records.append(annomerge_contig_record)
-#            output_file.write('Contig Number: ' + str(i + 1) + '\n')
-#            for f in feature_lengths.keys():
-#                output_file.write(str('Feature: ' + f + '\n'))
-#                output_file.write(str('Number of ' + f + ': ' + str(feature_additions[f]) + '\n'))
-#                output_file.write(str('Min length: ' + str(min(feature_lengths[f])) + '\n'))
-#                output_file.write(str('Max length: ' + str(max(feature_lengths[f])) + '\n'))
-#                output_file.write(str('Median length: ' + str(median(feature_lengths[f])) + '\n'))
 
     ###############################################################################################
     ######## Post-processing of genbank file to remove duplicates and rename locus_tag for ########
@@ -1390,6 +1414,10 @@ def main():
         prokka_rec.features = []
         added_cds = {}
         for feature in raw_features:
+#            if feature.type == 'CDS':
+#                check_locus = feature.qualifiers['locus_tag'][0]
+#                if check_locus not in added_from_ratt and check_locus not in prokka_blast_list:
+#                    print(check_locus)
             if feature.type != 'CDS':
                 prokka_rec.features.append(feature)
             elif feature.type == 'CDS' and 'note' in feature.qualifiers.keys():
@@ -1407,6 +1435,7 @@ def main():
                     if loc_key in added_cds.keys():
                         continue
                     feature_noref = prokka_noref_dict[loc_key]
+#                    print(feature_noref)
                     if 'gene' in feature_noref.qualifiers.keys() and '_' in feature_noref.qualifiers['gene'][0]:
                         new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
                         feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
@@ -1423,8 +1452,10 @@ def main():
                     added_cds[loc_key] = feature_noref
                     prokka_rec.features.append(feature_noref)
                 else:
-                    feature.qualifiers['locus_tag'] = feature.qualifiers['gene']
-                    feature.qualifiers.pop('gene')
+                    #print(feature)
+#                    feature.qualifiers['locus_tag'] = feature.qualifiers['gene']
+#                    feature.qualifiers.pop('gene')
+                    #print(feature)
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                     added_cds[loc_key] = feature
                     prokka_rec.features.append(feature)
@@ -1440,60 +1471,9 @@ def main():
 #        ###############################################################################################
 #        ####################### Blasting unannotated CDSs from Prokka with H37Rv ######################
 #        ###############################################################################################
-#        h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-NC_000962.3.fasta'
         mtb_fasta = os.environ['GROUPHOME'] + '/data/depot/hypotheticome-clinical/mtb-novel-genes.fasta'
-#        pickle_fp = os.environ['GROUPHOME'] + '/data/depot/hypotheticome-clinical/'
-#        pickle_files = [pickle_file for pickle_file in os.listdir(pickle_fp) if pickle_file.endswith('pickle')]
-#        mtb_key_pickles = [mtb_pickle for mtb_pickle in pickle_files if mtb_pickle.startswith('mtb-key')]
-#        isolate_pickles = [isolate_pickle for isolate_pickle in pickle_files if isolate_pickle.startswith('isolate_genes_dict')]
-#        pickled_dates = []
-#        date_stamped_pickles = {}
-#        make_pickle = False
-#        for mtb_pickle in mtb_key_pickles:
-#            pickle_ingredient = mtb_pickle.split('-')[-1]
-#            if pickle_ingredient == 'key.pickle':
-#                continue
-#            else:
-#                pickled_date = pickle_ingredient.split('.')[0]
-#                pickled_dates.append(pickled_date)
-#                date_stamped_pickles[pickled_date] = mtb_pickle
-#        now = datetime.datetime.now().strftime('%y%m%d')
-#        if now in pickled_dates:
-#            use_pickle = date_stamped_pickles[now]
-#        else:
-#            make_pickle = True
-#            youngest = max(dt for dt in pickled_dates if dt < now)
-#            use_pickle = date_stamped_pickles[youngest]
-#        mtb_key_fp = pickle_fp + use_pickle
-#        isolate_pickled_dates = []
-#        isolate_date_stamped_pickles = {}
-#        make_isolate_pickle = False
-#       for isolate_pickle in isolate_pickles:
-#            if '-' in isolate_pickle:
-#                pickle_ingredient = isolate_pickle.split('-')[-1]
-#                pickled_date = pickle_ingredient.split('.')[0]
-#                isolate_pickled_dates.append(pickled_date)
-#                isolate_date_stamped_pickles[pickled_date] = isolate_pickle
-#        if now in isolate_pickled_dates:
-#            use_isolate_pickle = isolate_date_stamped_pickles[now]
-#        elif len(isolate_pickled_dates) == 0:
-#            make_isolate_pickle = True
-#            use_isolate_pickle = 'isolate_genes_dict.pickle'
-#        else:
-#            make_isolate_pickle = True
-#            youngest_isolate = max(dt for dt in isolate_pickled_dates if dt < now)
-#            use_isolate_pickle = isolate_date_stamped_pickles[youngest_isolate]
-#        old_mtb_hits = []
-#        isolate_genes_fp = pickle_fp + use_isolate_pickle
-#        mtb_key_load = pickle.load(open(mtb_key_fp))
-#        mtb_key = mtb_key_load.copy()
-#        isolate_genes_dict_load = pickle.load(open(isolate_genes_fp))
-#        isolate_genes_dict = isolate_genes_dict_load.copy()
-#        print(sorted(mtb_key.keys()))
-#        print(isolate_genes_dict[args.isolate])
         # Inverting key-value pair in dictionary
         rv_to_gene_name = dict((rv, gene_name) for gene_name, rv in gene_name_to_rv.iteritems())
-        mtb_genes_added_to_isolate = []
         for feature in prokka_rec.features:
             if feature.type == 'CDS' and (('gene' not in feature.qualifiers.keys() and
                                           ('L_' in feature.qualifiers['locus_tag'][0] or
@@ -1501,81 +1481,18 @@ def main():
                                           ('gene' in feature.qualifiers.keys() and
                                            '_' in feature.qualifiers['gene'][0] and
                                            'L2_' in feature.qualifiers['locus_tag'][0])):
-#                old_locus_tag = feature.qualifiers['locus_tag'][0]
                 query_sequence = feature.qualifiers['translation'][0]
-#                blast_command = NcbiblastpCommandline(subject=h37rv_protein_fasta,
-#                                                      outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-#                stdout, stderr = blast_command(stdin=query_sequence)
-#                top_hit, all_hits, notes = identify_top_hits(stdout)
-#                if top_hit is None:
                 blast_to_mtb = NcbiblastpCommandline(subject=mtb_fasta, outfmt='"7 qseqid qlen sseqid slen qlen length'
                                                                                ' pident qcovs"')
                 stdout_2, stderr_2 = blast_to_mtb(stdin=query_sequence)
                 mtb_hit, all_hits_mtb = identify_top_hits(stdout_2, mtb=True)
-#                mtb_key_element = [args.isolate, feature.qualifiers['locus_tag'][0]]
-#                if mtb_hit is not None:
-#                     old_mtb_hits.append(mtb_hit)
-#                        mtb_genes_added_to_isolate.append(mtb_hit)
-#                        feature.qualifiers['locus_tag'] = [mtb_hit]
                 for gene in all_hits_mtb.keys():
                     note = 'locus_tag:' + gene + ':' + str(all_hits_mtb[gene])
                     if 'note' in feature.qualifiers.keys():
                         feature.qualifiers['note'].append(note)
                     else:
                         feature.qualifiers['note'] = [note]
-#                    mtb_key[mtb_hit].append(mtb_key_element)
-#                    else:
-#                        last_added_mtb_key = sorted(mtb_key.keys())[-1]
-#                        new_mtb = int(last_added_mtb_key.split('MTB')[1])
-#                        new_mtb_key = 'MTB' + "%04g" % (new_mtb + 1)
-#                        feature.qualifiers['locus_tag'] = [new_mtb_key]
-#                        mtb_genes_added_to_isolate.append(new_mtb_key)
-#                        mtb_key[new_mtb_key] = mtb_key_element
-#                        mtb_fasta_sequence_key = '>' + new_mtb_key + ' ' + args.isolate + ':' + old_locus_tag + '\n'
-#                        mtb_fasta_sequence = query_sequence
-#                        with open(mtb_fasta, 'a') as mtb_fasta_file:
-#                            mtb_fasta_file.write('\n')
-#                            mtb_fasta_file.write(mtb_fasta_sequence_key)
-#                            mtb_fasta_file.write(mtb_fasta_sequence)
-#                else:
-#                    add_gene_name = False
-#                    if top_hit in rv_to_gene_name.keys():
-#                        gene_name = rv_to_gene_name[top_hit]
-#                        add_gene_name = True
-#                    locus_tag = top_hit
-#                    feature.qualifiers['locus_tag'] = [locus_tag]
-#                    if add_gene_name:
-#                        feature.qualifiers['gene'] = [gene_name]
-#                    for gene in all_hits.keys():
-#                        note = 'locus_tag:' + gene + ':' + str(all_hits[gene])
-#                        if 'note' in feature.qualifiers.keys():
-#                            feature.qualifiers['note'].append(note)
-#                        else:
-#                            feature.qualifiers['note'] = [note]
-#                if len(notes.keys()) > 0:
-#                    for gene in notes.keys():
-#                        note = 'locus_tag:' + gene + ':' + str(notes[gene])
-#                        if 'note' in feature.qualifiers.keys():
-#                            feature.qualifiers['note'].append(note)
-#                        else:
-#                            feature.qualifiers['note'] = [note]
-#        all_mtb_gene = list(set().union(old_mtb_hits, mtb_genes_added_to_isolate))
-#        isolate_genes_dict[args.isolate] = mtb_genes_added_to_isolate
-#        if make_pickle:
-#            new_pickle_fp = pickle_fp + 'mtb-key-' + now + '.pickle'
-#            pickle.dump(mtb_key, open(new_pickle_fp, 'wb'))
-#        else:
-#            pickle.dump(mtb_key, open(mtb_key_fp, 'wb'))
-#        if make_isolate_pickle:
-#            new_isolate_pickle_fp = pickle_fp + 'isolate_genes_dict-' + now + '.pickle'
-#            pickle.dump(isolate_genes_dict, open(new_isolate_pickle_fp, 'wb'))
-#        else:
-#            pickle.dump(isolate_genes_dict, open(isolate_genes_fp, 'wb'))
-#        pickle.dump(isolate_genes_dict, open(isolate_genes_fp, 'wb'))
-#        mtb_key_mod = pickle.load(open(mtb_key_fp))
-#        print(sorted(mtb_key_mod.keys()))
-#        isolate_genes_dict_mod = pickle.load(open(isolate_genes_fp))
-#        print(isolate_genes_dict_mod[args.isolate])
+
         ###############################################################################################
         ####################### Adding translated sequence to RATT annotations  #######################
         ###############################################################################################
@@ -1589,7 +1506,6 @@ def main():
         ###############################################################################################
         essential_genes = get_essential_genes()
         all_rv_genes_in_isolate = []
-        non_mtb_genes = []
         essential_genes_length = get_lengths_of_genes(essential_genes, h37rv_protein_fasta)
         annomerge_cds = 0
         cds_lengths = []
@@ -1597,26 +1513,13 @@ def main():
             if feature.type == 'CDS':
                 annomerge_cds += 1
                 locus_tag = feature.qualifiers['locus_tag'][0]
-#                print(locus_tag)
                 if locus_tag[:2] == 'Rv':
                     all_rv_genes_in_isolate.append(locus_tag)
                     if 'gene' not in feature.qualifiers.keys() and locus_tag in rv_to_gene_name.keys():
                         feature.qualifiers['gene'] = [rv_to_gene_name[locus_tag]]
-#                else:
-#                    if 'gene' in feature.qualifiers.keys() and feature.qualifiers['gene'][0] in gene_name_to_rv.keys():
-#                        print(feature.qualifiers['gene'][0])
-#                        feature.qualifiers['locus_tag'] = [gene_name_to_rv[feature.qualifiers['gene'][0]]]
                 new_locus_tag = feature.qualifiers['locus_tag'][0]
                 if 'gene' not in feature.qualifiers.keys():
                     feature.qualifiers['gene'] = [new_locus_tag]
-#                elif locus_tag[:2] != 'Rv' and locus_tag[:3] != 'MTB':
-#                    if locus_tag in gene_name_to_rv.keys():
-#                        feature.qualifiers['gene'] = [locus_tag]
-#                        feature.qualifiers['locus_tag'] = [gene_name_to_rv[locus_tag]]
-#                        all_rv_genes_in_isolate.append(gene_name_to_rv[locus_tag])
-#                    else:
-#                        non_mtb_genes.append(locus_tag)
-#                print(new_locus_tag)
                 if new_locus_tag in essential_genes:
                     rv_length = essential_genes_length[new_locus_tag]
                     feature_length = len(feature.qualifiers['translation'][0])
@@ -1629,12 +1532,7 @@ def main():
         output_file.write('Number of CDSs in isolate: ' + str(annomerge_cds) + '\n')
         output_file.write('Number of CDSs transferred from RATT: ' + str(cds_from_ratt) + '\n')
         output_file.write('Number of CDSs transferred from Prokka: ' + str(annomerge_cds-cds_from_ratt) + '\n')
-#        output_file.write('Number of novel genes in isolate: ' + str(len(set(all_mtb_gene))) + '\n')
-#        output_file.write('Number of MTB genes transferred from Fasta file in this isolate: ' +
-#                          str(len(set(old_mtb_hits))) + '\n')
-#        output_file.write('Number of MTB genes added to Fasta file from this isolate: ' +
-#                          str(len(set(mtb_genes_added_to_isolate))) + '\n')
-#        output_file.write(str('Number of merged genes: ' + str(len(merged_features)) + '\n'))
+
         if len(cds_lengths) != 0:
             output_file.write(str('Min length of CDSs: ' + str(min(cds_lengths)) + '\n'))
             output_file.write(str('Max length of CDSs: ' + str(max(cds_lengths)) + '\n'))
