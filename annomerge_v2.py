@@ -684,13 +684,15 @@ def get_prokka_cds(all_annotations_prokka, only_rv=False):
 
 
 def blast_feature_sequence_to_rv(query, locus_tag):
-    add_annotation = False
+    #add_annotation = False
     if locus_tag in h37rv_sequences.keys():
         subject_fp = '/tmp/' + locus_tag + '.fasta'
         blast_to_rv = NcbiblastpCommandline(subject=subject_fp, outfmt='"7 qseqid qlen sseqid slen qlen length'
                                                                                ' pident qcovs"')
         stdout, stderr = blast_to_rv(stdin=query)
         hit, all_hits, note = identify_top_hits(stdout)
+        print(locus_tag)
+        print(stdout)
         if hit == locus_tag:
             add_annotation = True
         else:
@@ -739,8 +741,6 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
     for cds_feature in valid_cds:
         feature_sequence = translate(cds_feature.extract(record_sequence), to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
-        #print(cds_locus_tag)
-        #print(feature_sequence)
         if len(feature_sequence) == 0 or feature_sequence[0] not in valid_amino_acids:
             continue
         else:
@@ -1020,39 +1020,33 @@ def get_essential_genes():
 
 def get_lengths_of_genes(genes_list, fasta_fp, fasta_conversion=False):
     fasta_dict = {}
-    fasta_raw = open(fasta_fp, 'r').readlines()
-    for line in range(0, len(fasta_raw)):
-        if fasta_raw[line][0] == '>':
-            header = fasta_raw[line][1:]
-            header_elements = header.strip().split(' ')
-            rv_id = header_elements[0].split('|')[-1]
-            sequence = fasta_raw[line+1].strip()
-            if not fasta_conversion:
-                fasta_dict[rv_id] = len(sequence)
-            else:
-                fasta_dict[rv_id] = len(sequence)*3
+    fasta_records = SeqIO.parse(fasta_fp, 'fasta')
+    for record in fasta_records:
+        header_raw = record.description
+        header_elements = header_raw.strip().split(' [locus_tag=')[1]
+        rv_id = header_elements.split(']')[0]
+        sequence = str(record.seq)
+        if not fasta_conversion:
+            fasta_dict[rv_id] = len(sequence)
         else:
-            continue
+            fasta_dict[rv_id] = len(sequence) * 3
     return fasta_dict
 
 
 def get_rv_sequences_from_fasta(h37rv_fasta_fp):
     rv_sequence_dict = {}
-    raw_fasta = open(h37rv_fasta_fp, 'r').readlines()
-    for line_number in range(0, len(raw_fasta)):
-        if len(raw_fasta[line_number]) <= 1:
-            continue
-        elif raw_fasta[line_number][0] == '>':
-            rv_header = raw_fasta[line_number].split(' ')[0]
-            rv = rv_header.split('|')[-1]
-            rv_seq = raw_fasta[line_number+1].strip()
-            rv_sequence_dict[rv] = rv_seq
-            fp = '/tmp/' + rv + '.fasta'
-            header = '>' + rv + '\n'
-            seq = rv_seq
-            with open(fp, 'w') as fasta_file:
-                fasta_file.write(header)
-                fasta_file.write(seq)
+    fasta_records = SeqIO.parse(h37rv_fasta_fp, 'fasta')
+    for record in fasta_records:
+        header_raw = record.description
+        header_elements = header_raw.strip().split(' [locus_tag=')[1]
+        rv = header_elements.split(']')[0]
+        rv_seq = str(record.seq)
+        fp = '/tmp/' + rv + '.fasta'
+        header = '>' + rv + '\n'
+        seq = rv_seq
+        with open(fp, 'w') as fasta_file:
+            fasta_file.write(header)
+            fasta_file.write(seq)
     return rv_sequence_dict
 
 
@@ -1137,7 +1131,7 @@ def main():
     output_file = open(output_log, 'w+')
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
     annomerge_records = []
-    h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-NC_000962.3.fasta'
+    h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-fullheader-NC_000962.3.fasta'
     global h37rv_sequences
     h37rv_sequences = get_rv_sequences_from_fasta(h37rv_protein_fasta)
     global h37rv_protein_lengths
@@ -1149,6 +1143,8 @@ def main():
         locus_tag = line.split()[0]
         genes_in_rv.append(locus_tag)
     h37rv_protein_lengths = get_lengths_of_genes(genes_in_rv, h37rv_protein_fasta)
+#    print(input_ratt_files)
+#    print(len(prokka_records))
     for i in range(0, len(input_ratt_files)):
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
         global record_sequence
@@ -1441,7 +1437,7 @@ def main():
 #        ###############################################################################################
 #        ####################### Blasting unannotated CDSs from Prokka with H37Rv ######################
 #        ###############################################################################################
-        h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-NC_000962.3.fasta'
+#        h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-NC_000962.3.fasta'
         mtb_fasta = os.environ['GROUPHOME'] + '/data/depot/hypotheticome-clinical/mtb-novel-genes.fasta'
 #        pickle_fp = os.environ['GROUPHOME'] + '/data/depot/hypotheticome-clinical/'
 #        pickle_files = [pickle_file for pickle_file in os.listdir(pickle_fp) if pickle_file.endswith('pickle')]
