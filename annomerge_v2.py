@@ -691,8 +691,6 @@ def blast_feature_sequence_to_rv(query, locus_tag):
                                                                                ' pident qcovs"')
         stdout, stderr = blast_to_rv(stdin=query)
         hit, all_hits, note = identify_top_hits(stdout)
-        print(locus_tag)
-        print(stdout)
         if hit == locus_tag:
             add_annotation = True
         else:
@@ -748,6 +746,10 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
             if add_sequence:
                 cds_feature.qualifiers['translation'] = [str(feature_sequence)]
                 valid_features.append(cds_feature)
+            else:
+#                print('Gene ' + cds_locus_tag + ' not transferred from RATT as it does not meet threshold for sequence '
+#                                                'identity and coverage')
+                continue
 #        if cds_locus_tag not in h37rv_protein_lengths.keys():
 #            cds_feature.qualifiers['translation'] = [feature_sequence]
 #            valid_features.append(cds_feature)
@@ -1044,6 +1046,7 @@ def get_rv_sequences_from_fasta(h37rv_fasta_fp):
         fp = '/tmp/' + rv + '.fasta'
         header = '>' + rv + '\n'
         seq = rv_seq
+        rv_sequence_dict[rv] = seq
         with open(fp, 'w') as fasta_file:
             fasta_file.write(header)
             fasta_file.write(seq)
