@@ -734,11 +734,13 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
             unbroken_cds.append(feature)
         else:
             non_cds_features.append(feature)
-    prokka_cds_dict = get_prokka_cds(prokka_annotations, only_rv=True)
-    valid_cds, to_add_from_prokka = get_nonoverlapping_ratt_features(unbroken_cds, prokka_cds_dict)
+#    prokka_cds_dict = get_prokka_cds(prokka_annotations, only_rv=True)
+#    valid_cds, to_add_from_prokka = get_nonoverlapping_ratt_features(unbroken_cds, prokka_cds_dict)
+#    print(len(unbroken_cds))
+#    print(len(valid_cds))
     valid_features = []
-    print("Valid CDSs before checking coverage: " + str(len(valid_cds)))
-    for cds_feature in valid_cds:
+    print("Valid CDSs before checking coverage: " + str(len(unbroken_cds)))
+    for cds_feature in unbroken_cds:
         feature_sequence = translate(cds_feature.extract(record_sequence), to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
         if len(feature_sequence) == 0 or feature_sequence[0] not in valid_amino_acids:
@@ -752,32 +754,32 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
                 continue
 
     print("Valid CDSs after checking coverage: " + str(len(valid_features)))
-    for non_cds in non_cds_features:
-        valid_features.append(non_cds)
-    for gene_key in to_add_from_prokka.keys():
-        prokka_cds_to_add.append(to_add_from_prokka[gene_key][0])
-        locus_tag = gene_key.split(':')[0]
-        prokka_added[locus_tag] = [gene_key]
-    for gene in genes_from_prokka.keys():
-        prokka_gene_features = {}
-        gene_name = genes_from_prokka[gene]
-        if gene_name in prokka_cds_dict.keys():
-            prokka_gene_features[gene] = prokka_cds_dict[gene_name]
-        elif gene in prokka_cds_dict.keys():
-            prokka_gene_features[gene] = prokka_cds_dict[gene]
-        else:
-            continue
-        for feature in prokka_gene_features[gene]:
-            feature_key = ':'.join([gene, str(feature.location.start), str(feature.location.end),
-                                    str(feature.location.strand)])
-            if gene in prokka_added.keys() and feature_key in prokka_added[gene]:
-                continue
-            elif gene in prokka_added.keys() and feature_key not in prokka_added[gene]:
-                prokka_cds_to_add.append(feature)
-                prokka_added[gene].append(feature_key)
-            else:
-                prokka_cds_to_add.append(feature)
-                prokka_added[gene] = [feature_key]
+#    for non_cds in non_cds_features:
+#        valid_features.append(non_cds)
+#    for gene_key in to_add_from_prokka.keys():
+#        prokka_cds_to_add.append(to_add_from_prokka[gene_key][0])
+#        locus_tag = gene_key.split(':')[0]
+#        prokka_added[locus_tag] = [gene_key]
+#    for gene in genes_from_prokka.keys():
+#        prokka_gene_features = {}
+#        gene_name = genes_from_prokka[gene]
+#        if gene_name in prokka_cds_dict.keys():
+#            prokka_gene_features[gene] = prokka_cds_dict[gene_name]
+#        elif gene in prokka_cds_dict.keys():
+#            prokka_gene_features[gene] = prokka_cds_dict[gene]
+#        else:
+#            continue
+#       for feature in prokka_gene_features[gene]:
+#           feature_key = ':'.join([gene, str(feature.location.start), str(feature.location.end),
+#                                    str(feature.location.strand)])
+#            if gene in prokka_added.keys() and feature_key in prokka_added[gene]:
+#                continue
+#            elif gene in prokka_added.keys() and feature_key not in prokka_added[gene]:
+#                prokka_cds_to_add.append(feature)
+#                prokka_added[gene].append(feature_key)
+#            else:
+#                prokka_cds_to_add.append(feature)
+#                prokka_added[gene] = [feature_key]
     return valid_features, prokka_cds_to_add
 
 
@@ -1060,7 +1062,10 @@ def validate_prokka_feature_annotation(feature, prokka_noref):
             if retain_rv_annotation:
                 mod_feature = feature
             else:
-                mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
+                #print(mod_feature)
+                #mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
+                #print(prokka_noref[loc_key])
+                mod_feature = prokka_noref[loc_key]
         elif feature.qualifiers['gene'][0] in gene_name_to_rv.keys():
             locus_tag = gene_name_to_rv[feature.qualifiers['gene'][0]]
 #            print('Blasting ' + locus_tag + 'to H37Rv')
@@ -1069,9 +1074,12 @@ def validate_prokka_feature_annotation(feature, prokka_noref):
             if retain_rv_annotation:
                 mod_feature = feature
             else:
-                mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
+                #print(mod_feature)
+                #mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
+                #print(prokka_noref[loc_key])
+                mod_feature = prokka_noref[loc_key]
         else:
-            mod_feature = prokka_noref[loc_key]
+            mod_feature = feature
     return mod_feature
 
 
@@ -1136,6 +1144,8 @@ def main():
     h37rv_sequences = get_rv_sequences_from_fasta(h37rv_protein_fasta)
     global h37rv_protein_lengths
     global genes_in_rv
+    global gene_name_to_rv
+    gene_name_to_rv = genes_locus_tag_parser()
     genes_in_rv = []
     genes_in_rv_file = os.environ['GROUPHOME'] + '/resources/H37rv_proteincoding_genes.txt'
     genes_in_rv_raw = open(genes_in_rv_file, 'r').readlines()
@@ -1365,25 +1375,6 @@ def main():
             if len(merged_features) > 0:
                 for feature_1 in merged_features:
                     annomerge_contig_record.features.append(feature_1)
-
-            unflattened_features = prokka_features_to_add
-            flattened_features = []
-            for feature_type in unflattened_features:
-                if 'Bio.SeqFeature.SeqFeature' in str(type(feature_type)):
-                    flattened_features.append(feature_type)
-                elif 'list' in str(type(feature_type)) and len(feature_type) > 0:
-                    for sub_feature in feature_type:
-                        if 'Bio.SeqFeature.SeqFeature' not in str(type(sub_feature)):
-                            continue
-                        else:
-                            flattened_features.append(sub_feature)
-                else:
-                    continue
-#            print('Prokka_features_to_add')
-#            print(len(flattened_features))
-            for feature in flattened_features:
-                mod_feature = validate_prokka_feature_annotation(feature, prokka_noref_dictionary)
-                annomerge_contig_record.features.append(mod_feature)
             annomerge_records.append(annomerge_contig_record)
 
     ###############################################################################################
@@ -1435,7 +1426,6 @@ def main():
                     if loc_key in added_cds.keys():
                         continue
                     feature_noref = prokka_noref_dict[loc_key]
-#                    print(feature_noref)
                     if 'gene' in feature_noref.qualifiers.keys() and '_' in feature_noref.qualifiers['gene'][0]:
                         new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
                         feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
