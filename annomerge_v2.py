@@ -22,6 +22,7 @@ from Bio.SeqRecord import SeqRecord
 import collections
 from numpy import median
 import os
+import tempfile
 import pickle
 import datetime
 
@@ -686,7 +687,8 @@ def get_prokka_cds(all_annotations_prokka, only_rv=False):
 def blast_feature_sequence_to_rv(query, locus_tag, to_print=False):
     #add_annotation = False
     if locus_tag in h37rv_sequences.keys():
-        subject_fp = '/tmp/' + locus_tag + '.fasta'
+        #subject_fp = os.getcwd() + '/annomerge_tmp/' + locus_tag + '.fasta'
+        subject_fp = rv_temp_fasta_dict[locus_tag]
         blast_to_rv = NcbiblastpCommandline(subject=subject_fp, outfmt='"7 qseqid qlen sseqid slen qlen length'
                                                                                ' pident qcovs"')
         stdout, stderr = blast_to_rv(stdin=query)
@@ -1069,13 +1071,18 @@ def get_rv_sequences_from_fasta(h37rv_fasta_fp):
         rv_seq = str(record.seq)
         #rv = record.id
         rv_id = record.description.split('~~~')[1]
-        fp = '/tmp/' + rv_id + '.fasta'
+        fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
+        rv_temp_fasta_dict[rv_id] = fp.name
+        #print(fp.name)
+        #fp = os.getcwd() + '/annomerge_tmp/' + rv_id + '.fasta'
         header = '>' + rv_id + '\n'
         seq = rv_seq
         rv_sequence_dict[rv_id] = seq
-        with open(fp, 'w') as fasta_file:
-            fasta_file.write(header)
-            fasta_file.write(seq)
+        fp.write(header)
+        fp.write(seq)
+        #with open(fp, 'w') as fasta_file:
+            #fasta_file.write(header)
+            #fasta_file.write(seq)
     return rv_sequence_dict
 
 
@@ -1277,6 +1284,8 @@ def main():
     annomerge_records = []
     h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-updated.fasta'
     global h37rv_sequences
+    global rv_temp_fasta_dict
+    rv_temp_fasta_dict = {}
     h37rv_sequences = get_rv_sequences_from_fasta(h37rv_protein_fasta)
     global h37rv_protein_lengths
     global genes_in_rv
@@ -1326,7 +1335,7 @@ def main():
                 cds_from_ratt += 1
             else:
                 ratt_contig_non_cds.append(feature)
-        print('RATT non-CDS: ' + str(len(ratt_contig_non_cds)))
+#        print('RATT non-CDS: ' + str(len(ratt_contig_non_cds)))
         ratt_contig_features = get_ordered_features(ratt_contig_features)
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
         if check_prokka:
@@ -1855,7 +1864,7 @@ def main():
                     elif noref_feat_start > fill_pos[0] and noref_feat_end < fill_pos[1]:
                         if noref_feat.qualifiers['product'][0] == 'hypothetical protein':
                             continue
-                        print(fill_pos)
+                        #print(fill_pos)
                         if 'gene' in noref_feat.qualifiers.keys() and '_' in noref_feat.qualifiers['gene'][0]:
                             noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
                         elif 'gene' not in noref_feat.qualifiers.keys():
@@ -1865,7 +1874,7 @@ def main():
                             noref_feat.qualifiers['note'].append(add_noref_note)
                         else:
                             noref_feat.qualifiers['note'] = [add_noref_note]
-                        print(noref_feat)
+                        #print(noref_feat)
                         add_features_from_prokka_noref.append(noref_feat)
                         prokka_rec.features.append(noref_feat)
                         annomerge_cds += 1
@@ -1878,8 +1887,10 @@ def main():
         output_file.write('Contig number: ' + str(i + 1) + '\n')
         output_file.write('Number of CDSs in isolate: ' + str(annomerge_cds) + '\n')
         output_file.write('Number of CDSs transferred from RATT: ' + str(cds_from_ratt) + '\n')
-        output_file.write('Number of CDSs transferred from Prokka: ' + str(annomerge_cds-cds_from_ratt-len(add_features_from_prokka_noref)) + '\n')
-        output_file.write('Number of CDSs transferred from Prokka noreference: ' + str(len(add_features_from_prokka_noref)) + '\n')
+        output_file.write('Number of CDSs transferred from Prokka: ' +
+                          str(annomerge_cds-cds_from_ratt-len(add_features_from_prokka_noref)) + '\n')
+        output_file.write('Number of CDSs transferred from Prokka noreference: ' +
+                          str(len(add_features_from_prokka_noref)) + '\n')
 
         if len(cds_lengths) != 0:
             output_file.write(str('Min length of CDSs: ' + str(min(cds_lengths)) + '\n'))
@@ -1888,6 +1899,8 @@ def main():
 
         annomerge_records_post_processed.append(prokka_rec)
     SeqIO.write(annomerge_records_post_processed, output_genbank, 'genbank')
+    for temp_file in rv_temp_fasta_dict.values():
+        os.unlink(temp_file)
 
 
 if __name__ == "__main__":
