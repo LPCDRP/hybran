@@ -1052,7 +1052,8 @@ def get_lengths_of_genes(genes_list, fasta_fp, fasta_conversion=False):
     fasta_dict = {}
     fasta_records = SeqIO.parse(fasta_fp, 'fasta')
     for record in fasta_records:
-        rv_id = record.id
+        rv_id = record.description.split('~~~')[1]
+        #rv_id = record.id
         sequence = str(record.seq)
         if not fasta_conversion:
             fasta_dict[rv_id] = len(sequence)
@@ -1066,11 +1067,12 @@ def get_rv_sequences_from_fasta(h37rv_fasta_fp):
     fasta_records = SeqIO.parse(h37rv_fasta_fp, 'fasta')
     for record in fasta_records:
         rv_seq = str(record.seq)
-        rv = record.id
-        fp = '/tmp/' + rv + '.fasta'
-        header = '>' + rv + '\n'
+        #rv = record.id
+        rv_id = record.description.split('~~~')[1]
+        fp = '/tmp/' + rv_id + '.fasta'
+        header = '>' + rv_id + '\n'
         seq = rv_seq
-        rv_sequence_dict[rv] = seq
+        rv_sequence_dict[rv_id] = seq
         with open(fp, 'w') as fasta_file:
             fasta_file.write(header)
             fasta_file.write(seq)
@@ -1800,29 +1802,72 @@ def main():
                 cds_lengths.append(feature_length)
 #                if '_' in feature.qualifiers['gene'][0]:
 #                    print(feature.qualifiers['gene'][0])
+        ########################### Get remaining unannotated region ###################################################
+        #        print('Before ordering: ' + str(len(prokka_rec.features)))
+        ordered_features_final = get_ordered_features(prokka_rec.features)
+        #        print('After ordering: ' + str(len(ordered_features_final)))
+        prokka_rec.features = ordered_features_final
+        records, positions, pre, post = get_interregions(prokka_rec, intergene_length=1)
+        positions_lengths = [len(p) for p in records]
+        if len(positions_lengths) != 0:
+            output_file.write(
+                str('Minimum length of unannotated region: ' + str(min(positions_lengths)) + '\n'))
+            output_file.write(
+                str('Maximum length of unannotated region: ' + str(max(positions_lengths)) + '\n'))
+            output_file.write(
+                str('Median length of unannotated region: ' + str(median(positions_lengths)) + '\n'))
+            # output_file.write(str('Total length of unannotated region: ' + str(sum(positions_lengths)) + '\n'))
+        # print(positions_lengths)
+#        max_unannotated = max(positions_lengths)
+#        for ind, pl in enumerate(positions_lengths):
+#            if pl == max_unannotated:
+#                print(positions[ind])
+        add_features_from_prokka_noref = []
+        sorted_positions = sorted(positions)
+        prokka_noref_features_sorted = get_ordered_features(prokka_noref_rec.features)
+        for fill_pos in sorted_positions:
+            if fill_pos[2] == '+':
+                fill_pos_strand = 1
+            else:
+                fill_pos_strand = -1
+            for noref_feat in prokka_noref_features_sorted:
+                noref_feat_start = int(noref_feat.location.start)
+                noref_feat_end = int(noref_feat.location.end)
+                noref_feat_strand = int(noref_feat.location.strand)
+                if noref_feat_strand != fill_pos_strand:
+                    continue
+                elif noref_feat.type != 'CDS':
+                    continue
+                elif noref_feat_start > fill_pos[1] and noref_feat_end > fill_pos[1]:
+                    break
+                elif noref_feat_start < fill_pos[0] and noref_feat_end < fill_pos[0]:
+                    continue
+                elif noref_feat_start > fill_pos[0] and noref_feat_end < fill_pos[1]:
+                    #print(fill_pos)
+                    if 'gene' in noref_feat.qualifiers.keys() and '_' in noref_feat.qualifiers['gene'][0]:
+                        noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
+                    elif 'gene' not in noref_feat.qualifiers.keys():
+                        noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
+                    #print(noref_feat)
+                    add_features_from_prokka_noref.append(noref_feat)
+                    prokka_rec.features.append(noref_feat)
+                    annomerge_cds += 1
+                    cds_length_nrf = len(noref_feat.qualifiers['translation'][0])
+                    cds_lengths.append(cds_length_nrf)
+        print('To add from noref: ' + str(len(add_features_from_prokka_noref)))
+
         print('Number of CDSs annomerge: ' + str(annomerge_cds))
         output_file.write('Contig number: ' + str(i + 1) + '\n')
         output_file.write('Number of CDSs in isolate: ' + str(annomerge_cds) + '\n')
         output_file.write('Number of CDSs transferred from RATT: ' + str(cds_from_ratt) + '\n')
-        output_file.write('Number of CDSs transferred from Prokka: ' + str(annomerge_cds-cds_from_ratt) + '\n')
+        output_file.write('Number of CDSs transferred from Prokka: ' + str(annomerge_cds-cds_from_ratt-len(add_features_from_prokka_noref)) + '\n')
+        output_file.write('Number of CDSs transferred from Prokka noreference: ' + str(len(add_features_from_prokka_noref)) + '\n')
 
         if len(cds_lengths) != 0:
             output_file.write(str('Min length of CDSs: ' + str(min(cds_lengths)) + '\n'))
             output_file.write(str('Max length of CDSs: ' + str(max(cds_lengths)) + '\n'))
             output_file.write(str('Median length of CDSs: ' + str(median(cds_lengths)) + '\n'))
-        ########################### Get remaining unannotated region ###################################################
-#        print('Before ordering: ' + str(len(prokka_rec.features)))
-        ordered_features_final = get_ordered_features(prokka_rec.features)
-#        print('After ordering: ' + str(len(ordered_features_final)))
-        prokka_rec.features = ordered_features_final
-        records, positions, pre, post = get_interregions(prokka_rec, intergene_length=1)
-        positions_lengths = [len(p) for p in records]
-        if len(positions_lengths) != 0:
-            output_file.write(str('Minimum length of unannotated region: ' + str(min(positions_lengths)) + '\n'))
-            output_file.write(str('Maximum length of unannotated region: ' + str(max(positions_lengths)) + '\n'))
-            output_file.write(str('Median length of unannotated region: ' + str(median(positions_lengths)) + '\n'))
-            #output_file.write(str('Total length of unannotated region: ' + str(sum(positions_lengths)) + '\n'))
-        #print(positions_lengths)
+
         annomerge_records_post_processed.append(prokka_rec)
     SeqIO.write(annomerge_records_post_processed, output_genbank, 'genbank')
 
