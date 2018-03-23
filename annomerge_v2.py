@@ -1152,7 +1152,11 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
                 #print(mod_feature)
                 #mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
                 #print(prokka_noref[loc_key])
-                mod_feature = prokka_noref[loc_key]
+                do_not_add_prokka = False
+                if loc_key not in prokka_noref.keys():
+                    mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
+                else:
+                    mod_feature = prokka_noref[loc_key]
 #                if 'gene' in mod_feature.qualifiers.keys():
 #                    print(mod_feature.qualifiers['gene'])
             #print(mod_feature)
@@ -1208,12 +1212,14 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
                         #print(ratt_coverage_measure)
                         #print(prokka_coverage_measure)
             else:
-                #print(mod_feature)
-                #mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
-                #print(prokka_noref[loc_key])
-                mod_feature = prokka_noref[loc_key]
-#                if 'gene' in mod_feature.qualifiers.keys():
-#                    print(mod_feature.qualifiers['gene'])
+                # print(mod_feature)
+                # mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
+                # print(prokka_noref[loc_key])
+                do_not_add_prokka = False
+                if loc_key not in prokka_noref.keys():
+                    mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
+                else:
+                    mod_feature = prokka_noref[loc_key]
         else:
             mod_feature = feature
 #            if 'gene' in mod_feature.qualifiers.keys():
@@ -1683,7 +1689,10 @@ def main():
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                     if loc_key in added_cds.keys():
                         continue
-                    feature_noref = prokka_noref_dict[loc_key]
+                    if loc_key in prokka_noref_dict.keys():
+                        feature_noref = prokka_noref_dict[loc_key]
+                    else:
+                        feature_noref = feature
                     if 'gene' in feature_noref.qualifiers.keys() and '_' in feature_noref.qualifiers['gene'][0]:
                         #print(feature_noref.qualifiers['gene'])
                         new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
