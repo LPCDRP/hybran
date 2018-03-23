@@ -1238,6 +1238,10 @@ def main():
     parser.add_argument('-illumina', '--illumina', help='Set this flag to true if isolate has no circularized contigs '
                                                         'or if dnaA need not be verified',
                         default=False)
+    parser.add_argument('-fill_gaps', '--fill_gaps', help='Set this flag to false if gaps in reference based '
+                                                          'annotations from RATT and Prokka should NOT be filled from '
+                                                          'Prokka no-reference run',
+                        default=True)
     args = parser.parse_args()
 
     if args.isolate is None:
@@ -1263,6 +1267,7 @@ def main():
         sys.exit('Expecting Prokka annotation file but found none')
     output_merged_genes = args.merged_genes
     output_genbank = args.output
+    add_noref_annotations = args.fill_gaps
     output_log = args.log_file
     global output_file
     output_file = open(output_log, 'w+')
@@ -1315,9 +1320,13 @@ def main():
                                                                                       prokka_contig_features)
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
         cds_from_ratt = 0
+        ratt_contig_non_cds = []
         for feature in ratt_contig_features:
             if feature.type == 'CDS':
                 cds_from_ratt += 1
+            else:
+                ratt_contig_non_cds.append(feature)
+        print('RATT non-CDS: ' + str(len(ratt_contig_non_cds)))
         ratt_contig_features = get_ordered_features(ratt_contig_features)
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
         if check_prokka:
@@ -1574,7 +1583,7 @@ def main():
                 add_prokka_contig_record.features.append(prokka_feature_append)
             for ratt_feature_append in ratt_contig_features_dict.values():
                 add_prokka_contig_record.features.append(ratt_feature_append)
-            for non_cds in non_cds_ratt:
+            for non_cds in ratt_contig_non_cds:
                 add_prokka_contig_record.features.append(non_cds)
             #print('Annomerge features:')
             #print(len(annomerge_contig_record.features))
@@ -1804,58 +1813,67 @@ def main():
 #                    print(feature.qualifiers['gene'][0])
         ########################### Get remaining unannotated region ###################################################
         #        print('Before ordering: ' + str(len(prokka_rec.features)))
-        ordered_features_final = get_ordered_features(prokka_rec.features)
-        #        print('After ordering: ' + str(len(ordered_features_final)))
-        prokka_rec.features = ordered_features_final
-        records, positions, pre, post = get_interregions(prokka_rec, intergene_length=1)
-        positions_lengths = [len(p) for p in records]
-        if len(positions_lengths) != 0:
-            output_file.write(
-                str('Minimum length of unannotated region: ' + str(min(positions_lengths)) + '\n'))
-            output_file.write(
-                str('Maximum length of unannotated region: ' + str(max(positions_lengths)) + '\n'))
-            output_file.write(
-                str('Median length of unannotated region: ' + str(median(positions_lengths)) + '\n'))
-            # output_file.write(str('Total length of unannotated region: ' + str(sum(positions_lengths)) + '\n'))
-        # print(positions_lengths)
-#        max_unannotated = max(positions_lengths)
-#        for ind, pl in enumerate(positions_lengths):
-#            if pl == max_unannotated:
-#                print(positions[ind])
-        add_features_from_prokka_noref = []
-        sorted_positions = sorted(positions)
-        prokka_noref_features_sorted = get_ordered_features(prokka_noref_rec.features)
-        for fill_pos in sorted_positions:
-            if fill_pos[2] == '+':
-                fill_pos_strand = 1
-            else:
-                fill_pos_strand = -1
-            for noref_feat in prokka_noref_features_sorted:
-                noref_feat_start = int(noref_feat.location.start)
-                noref_feat_end = int(noref_feat.location.end)
-                noref_feat_strand = int(noref_feat.location.strand)
-                if noref_feat_strand != fill_pos_strand:
-                    continue
-                elif noref_feat.type != 'CDS':
-                    continue
-                elif noref_feat_start > fill_pos[1] and noref_feat_end > fill_pos[1]:
-                    break
-                elif noref_feat_start < fill_pos[0] and noref_feat_end < fill_pos[0]:
-                    continue
-                elif noref_feat_start > fill_pos[0] and noref_feat_end < fill_pos[1]:
-                    #print(fill_pos)
-                    if 'gene' in noref_feat.qualifiers.keys() and '_' in noref_feat.qualifiers['gene'][0]:
-                        noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
-                    elif 'gene' not in noref_feat.qualifiers.keys():
-                        noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
-                    #print(noref_feat)
-                    add_features_from_prokka_noref.append(noref_feat)
-                    prokka_rec.features.append(noref_feat)
-                    annomerge_cds += 1
-                    cds_length_nrf = len(noref_feat.qualifiers['translation'][0])
-                    cds_lengths.append(cds_length_nrf)
-        print('To add from noref: ' + str(len(add_features_from_prokka_noref)))
-
+        if add_noref_annotations:
+            ordered_features_final = get_ordered_features(prokka_rec.features)
+            #        print('After ordering: ' + str(len(ordered_features_final)))
+            prokka_rec.features = ordered_features_final
+            records, positions, pre, post = get_interregions(prokka_rec, intergene_length=1)
+            positions_lengths = [len(p) for p in records]
+            if len(positions_lengths) != 0:
+                output_file.write(
+                    str('Minimum length of unannotated region: ' + str(min(positions_lengths)) + '\n'))
+                output_file.write(
+                    str('Maximum length of unannotated region: ' + str(max(positions_lengths)) + '\n'))
+                output_file.write(
+                    str('Median length of unannotated region: ' + str(median(positions_lengths)) + '\n'))
+                # output_file.write(str('Total length of unannotated region: ' + str(sum(positions_lengths)) + '\n'))
+            # print(positions_lengths)
+#           max_unannotated = max(positions_lengths)
+#           for ind, pl in enumerate(positions_lengths):
+#               if pl == max_unannotated:
+#                   print(positions[ind])
+            add_features_from_prokka_noref = []
+            sorted_positions = sorted(positions)
+            prokka_noref_features_sorted = get_ordered_features(prokka_noref_rec.features)
+            for fill_pos in sorted_positions:
+                if fill_pos[2] == '+':
+                    fill_pos_strand = 1
+                else:
+                    fill_pos_strand = -1
+                for noref_feat in prokka_noref_features_sorted:
+                    noref_feat_start = int(noref_feat.location.start)
+                    noref_feat_end = int(noref_feat.location.end)
+                    noref_feat_strand = int(noref_feat.location.strand)
+                    if noref_feat_strand != fill_pos_strand:
+                        continue
+                    elif noref_feat.type != 'CDS':
+                        continue
+                    elif noref_feat_start > fill_pos[1] and noref_feat_end > fill_pos[1]:
+                        break
+                    elif noref_feat_start < fill_pos[0] and noref_feat_end < fill_pos[0]:
+                        continue
+                    elif noref_feat_start > fill_pos[0] and noref_feat_end < fill_pos[1]:
+                        if noref_feat.qualifiers['product'][0] == 'hypothetical protein':
+                            continue
+                        print(fill_pos)
+                        if 'gene' in noref_feat.qualifiers.keys() and '_' in noref_feat.qualifiers['gene'][0]:
+                            noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
+                        elif 'gene' not in noref_feat.qualifiers.keys():
+                            noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
+                        add_noref_note = 'This annotation is added from Prokka no-reference run'
+                        if 'note' in noref_feat.qualifiers.keys():
+                            noref_feat.qualifiers['note'].append(add_noref_note)
+                        else:
+                            noref_feat.qualifiers['note'] = [add_noref_note]
+                        print(noref_feat)
+                        add_features_from_prokka_noref.append(noref_feat)
+                        prokka_rec.features.append(noref_feat)
+                        annomerge_cds += 1
+                        cds_length_nrf = len(noref_feat.qualifiers['translation'][0])
+                        cds_lengths.append(cds_length_nrf)
+            print('To add from noref: ' + str(len(add_features_from_prokka_noref)))
+        sorted_final = get_ordered_features(prokka_rec.features)
+        prokka_rec.features = sorted_final
         print('Number of CDSs annomerge: ' + str(annomerge_cds))
         output_file.write('Contig number: ' + str(i + 1) + '\n')
         output_file.write('Number of CDSs in isolate: ' + str(annomerge_cds) + '\n')
