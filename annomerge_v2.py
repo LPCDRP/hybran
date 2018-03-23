@@ -70,7 +70,7 @@ def remove_duplicate_cds(feature_list):
     return unique_feature_list
 
 
-def generate_feature_dictionary(feature_list):
+def generate_feature_dictionary(feature_list, feature_type = 'all'):
     # This function takes as input a list of features and returns a dictionary with the key as a tuple of feature
     # start and stop positions and the value as the feature.
     """
@@ -78,9 +78,15 @@ def generate_feature_dictionary(feature_list):
     :return: sorted dictionary ordered by the genomic position i.e. feature location
     """
     feature_dict = {}
-    for feature in feature_list:
-        feature_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-        feature_dict[feature_key] = feature
+    if feature_type == 'all':
+        for feature in feature_list:
+            feature_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
+            feature_dict[feature_key] = feature
+    else:
+        for feature in feature_list:
+            if feature.type == feature_type:
+                feature_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
+                feature_dict[feature_key] = feature
     sorted_feature_dict = collections.OrderedDict(sorted(feature_dict.items()))
     return sorted_feature_dict
 
@@ -1089,6 +1095,7 @@ def get_rv_sequences_from_fasta(h37rv_fasta_fp):
 def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, ratt_features=[], ratt_locations={}):
     do_not_add_prokka = False
     mod_feature = feature
+    print(feature)
     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
     if feature.type != 'CDS':
         return mod_feature, do_not_add_prokka
@@ -1314,7 +1321,7 @@ def main():
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
         prokka_noref_rec = prokka_record_noref[i]
         global prokka_noref_dictionary
-        prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features)
+        prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features, feature_type='CDS')
         global record_sequence
         record_sequence = ratt_contig_record.seq
         prokka_contig_record = prokka_records[i]
@@ -1645,7 +1652,7 @@ def main():
         prokka_rec = annomerge_records[rec_num]
         #print(len(prokka_rec.features))
         prokka_noref_rec = prokka_record_noref[rec_num]
-        prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features)
+        prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features, feature_type='CDS')
         raw_features_unflattened = prokka_rec.features[:]
         raw_features = []
         for f_type in raw_features_unflattened:
