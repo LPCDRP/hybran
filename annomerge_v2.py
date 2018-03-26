@@ -916,8 +916,9 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
                                                                                        ratt_features=ratt_genes_check,
                                                                                        ratt_locations=
                                                                                        ratt_gene_location)
-            embl_file.features.append(mod_prokka_annotation)
-            included = True
+            if not invalid_prokka:
+                embl_file.features.append(mod_prokka_annotation)
+                included = True
         # If gene names are the same and the lengths of the genes are comparable between RATT and Prokka annotation
         # (difference in length of less than/equal to 10 bps), the RATT annotation is prefered
         elif ratt_annotation.qualifiers['gene'] == prokka_annotation.qualifiers['gene'] and \
