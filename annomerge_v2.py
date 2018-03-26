@@ -70,7 +70,7 @@ def remove_duplicate_cds(feature_list):
     return unique_feature_list
 
 
-def generate_feature_dictionary(feature_list, feature_type = 'all'):
+def generate_feature_dictionary(feature_list):
     # This function takes as input a list of features and returns a dictionary with the key as a tuple of feature
     # start and stop positions and the value as the feature.
     """
@@ -78,15 +78,9 @@ def generate_feature_dictionary(feature_list, feature_type = 'all'):
     :return: sorted dictionary ordered by the genomic position i.e. feature location
     """
     feature_dict = {}
-    if feature_type == 'all':
-        for feature in feature_list:
-            feature_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-            feature_dict[feature_key] = feature
-    else:
-        for feature in feature_list:
-            if feature.type == feature_type:
-                feature_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-                feature_dict[feature_key] = feature
+    for feature in feature_list:
+        feature_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
+        feature_dict[feature_key] = feature
     sorted_feature_dict = collections.OrderedDict(sorted(feature_dict.items()))
     return sorted_feature_dict
 
@@ -1095,7 +1089,6 @@ def get_rv_sequences_from_fasta(h37rv_fasta_fp):
 def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, ratt_features=[], ratt_locations={}):
     do_not_add_prokka = False
     mod_feature = feature
-    print(feature)
     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
     if feature.type != 'CDS':
         return mod_feature, do_not_add_prokka
@@ -1156,14 +1149,22 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
                         #print(ratt_coverage_measure)
                         #print(prokka_coverage_measure)
             else:
+                #if loc_key not in prokka_noref.keys():
+                    #print('Location not in Prokka no reference')
+                    #print(mod_feature)
                 #print(mod_feature)
                 #mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
                 #print(prokka_noref[loc_key])
-                do_not_add_prokka = False
-                if loc_key not in prokka_noref.keys():
+                if loc_key in prokka_noref.keys():
+                    mod_feature = prokka_noref[loc_key]
+                    if 'gene' in mod_feature.qualifiers.keys():
+                        if 'gene_synonym' in mod_feature.qualifiers.keys():
+                            mod_feature.qualifiers['gene_synonym'].append(mod_feature.qualifiers['gene'])
+                        else:
+                            mod_feature.qualifiers['gene_synonym'] = mod_feature.qualifiers['gene']
                     mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
                 else:
-                    mod_feature = prokka_noref[loc_key]
+                    mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
 #                if 'gene' in mod_feature.qualifiers.keys():
 #                    print(mod_feature.qualifiers['gene'])
             #print(mod_feature)
@@ -1219,14 +1220,22 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
                         #print(ratt_coverage_measure)
                         #print(prokka_coverage_measure)
             else:
-                # print(mod_feature)
-                # mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
-                # print(prokka_noref[loc_key])
-                do_not_add_prokka = False
-                if loc_key not in prokka_noref.keys():
+                #print(mod_feature)
+                #mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
+                #print(prokka_noref[loc_key])
+                #mod_feature = prokka_noref[loc_key]
+                if loc_key in prokka_noref.keys():
+                    mod_feature = prokka_noref[loc_key]
+                    if 'gene' in mod_feature.qualifiers.keys():
+                        if 'gene_synonym' in mod_feature.qualifiers.keys():
+                            mod_feature.qualifiers['gene_synonym'].append(mod_feature.qualifiers['gene'])
+                        else:
+                            mod_feature.qualifiers['gene_synonym'] = mod_feature.qualifiers['gene']
                     mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
                 else:
-                    mod_feature = prokka_noref[loc_key]
+                    mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
+#                if 'gene' in mod_feature.qualifiers.keys():
+#                    print(mod_feature.qualifiers['gene'])
         else:
             mod_feature = feature
 #            if 'gene' in mod_feature.qualifiers.keys():
@@ -1321,7 +1330,7 @@ def main():
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
         prokka_noref_rec = prokka_record_noref[i]
         global prokka_noref_dictionary
-        prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features, feature_type='CDS')
+        prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features)
         global record_sequence
         record_sequence = ratt_contig_record.seq
         prokka_contig_record = prokka_records[i]
@@ -1652,7 +1661,7 @@ def main():
         prokka_rec = annomerge_records[rec_num]
         #print(len(prokka_rec.features))
         prokka_noref_rec = prokka_record_noref[rec_num]
-        prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features, feature_type='CDS')
+        prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features)
         raw_features_unflattened = prokka_rec.features[:]
         raw_features = []
         for f_type in raw_features_unflattened:
@@ -1696,8 +1705,17 @@ def main():
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                     if loc_key in added_cds.keys():
                         continue
+                    #if loc_key not in prokka_noref_dict.keys():
+                        #print('Feature location not in prokka noref: Main 1')
+                        #print(feature)
                     if loc_key in prokka_noref_dict.keys():
                         feature_noref = prokka_noref_dict[loc_key]
+                        if 'gene' in feature_noref.qualifiers.keys():
+                            if 'gene_synonym' in feature_noref.qualifiers.keys():
+                                feature_noref.qualifiers['gene_synonym'].append(feature_noref.qualifiers['gene'])
+                            else:
+                                feature_noref.qualifiers['gene_synonym'] = feature_noref.qualifiers['gene']
+                            feature_noref.qualifiers['gene'] = feature_noref.qualifiers['locus_tag']
                     else:
                         feature_noref = feature
                     if 'gene' in feature_noref.qualifiers.keys() and '_' in feature_noref.qualifiers['gene'][0]:
@@ -1706,6 +1724,7 @@ def main():
                         feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
                         new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
                         feature_noref.qualifiers['protein_id'] = [new_protein_id]
+                        feature_noref.qualifiers['gene'] = feature_noref.qualifiers['locus_tag']
 #                    elif 'gene' in feature_noref.qualifiers.keys() and '_' not in feature_noref.qualifiers['gene'][0]:
 #                        feature_noref.qualifiers['locus_tag'] = feature_noref.qualifiers['gene']
 #                        feature_noref.qualifiers.pop('gene')
