@@ -15,6 +15,7 @@ __status__ = "Development"
 
 import sys
 import argparse
+import Bio
 from Bio import SeqIO
 from Bio.Seq import translate
 from Bio.Blast.Applications import NcbiblastpCommandline
@@ -1244,6 +1245,34 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
     return mod_feature, do_not_add_prokka
 
 
+def blast_ratt_rv_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_feature):
+    same_gene = False
+    fp = tempfile.NamedTemporaryFile(suffix='_ratt.fasta', delete=False)
+    header = '>' + str(ratt_overlap_feature.qualifiers['locus_tag'][0]) + '\n'
+    seq = str(ratt_overlap_feature.qualifiers['translation'][0])
+    fp.write(header)
+    fp.write(seq)
+    fp.close()
+    remove_temp_file_list.append(fp.name)
+    prokka_seq = str(prokka_overlap_feature.qualifiers['translation'][0])
+    try:
+        blast_to_ratt_rv = NcbiblastpCommandline(subject=fp.name, outfmt='"7 qseqid qlen sseqid slen qlen length pident'
+                                                                         ' qcovs"')
+        stdout_rv, stderr_rv = blast_to_ratt_rv(stdin=prokka_seq)
+        is_hit = True
+    except Bio.Application.ApplicationError:
+        #print('BLAST CANNOT BE PERFORMED')
+        is_hit = False
+    if is_hit:
+        hit, all_hits, note = identify_top_hits(stdout_rv)
+        if len(all_hits) == 0:
+            same_gene = False
+        else:
+            same_gene = True
+    os.unlink(fp.name)
+    return same_gene
+
+
 # Required inputs:
 # 1. Isolate ID
 # Optional inputs:
@@ -1317,6 +1346,8 @@ def main():
     global prokka_blast_results
     ratt_blast_results = {}
     prokka_blast_results = {}
+    global remove_temp_file_list
+    remove_temp_file_list = []
     gene_name_to_rv = genes_locus_tag_parser()
     genes_in_rv = []
     genes_in_rv_file = os.environ['GROUPHOME'] + '/resources/H37rv_proteincoding_genes.txt'
@@ -1582,6 +1613,19 @@ def main():
                                                               int(ratt_overlapping_feature.location.strand))
                             overlapping_ratt_locations = {ratt_overlapping_feature.qualifiers['locus_tag'][0]:
                                                               ratt_overlapping_feature_loc}
+                            ######### If Prokka feature is annotated as an L_tag and not a gene, blast it with #########
+                            ######### overlapping Rv and then Blast it with H37Rv to get the closer hit ################
+                            if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
+                                check_if_same_gene = blast_ratt_rv_with_prokka_ltag(ratt_overlapping_feature,
+                                                                                    prokka_feature)
+                                if check_if_same_gene:
+                                    #print(prokka_feature)
+                                    prokka_feature.qualifiers['gene'] = ratt_overlapping_feature.qualifiers['locus_tag']
+                                    #print(prokka_feature)
+                                ### DO SOMETHING HERE ###
+                                #print(prokka_feature.qualifiers['gene'])
+                            #print(str(prokka_feature.qualifiers['locus_tag'][0]) + '\n')
+
                             #print('Original Prokka Feature')
                             #print(prokka_feature)
                             #print(prokka_feature)
