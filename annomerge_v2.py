@@ -1379,16 +1379,20 @@ def main():
             error_correction_fp = ratt_correction_files[i]
         global ratt_corrected_genes
         ratt_corrected_genes = get_ratt_corrected_genes(error_correction_fp)
+        ratt_contig_non_cds = []
+        for feature in ratt_contig_features:
+            if feature.type != 'CDS':
+                ratt_contig_non_cds.append(feature)
         ratt_contig_features, prokka_features_to_add = isolate_valid_ratt_annotations(ratt_contig_features,
                                                                                       prokka_contig_features)
+        print(len(ratt_contig_features))
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
+        print(len(ratt_contig_features))
         cds_from_ratt = 0
-        ratt_contig_non_cds = []
         for feature in ratt_contig_features:
             if feature.type == 'CDS':
                 cds_from_ratt += 1
-            else:
-                ratt_contig_non_cds.append(feature)
+        print(len(ratt_contig_non_cds))
 #        print('RATT non-CDS: ' + str(len(ratt_contig_non_cds)))
         ratt_contig_features = get_ordered_features(ratt_contig_features)
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
