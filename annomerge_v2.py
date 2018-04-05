@@ -798,7 +798,9 @@ def remove_duplicate_annotations(ratt_features, prokka_features_dictionary):
     prokka_features_not_in_ratt = prokka_features_dictionary.copy()
     ratt_overlapping_genes = {}
     for ratt_feature in ratt_features:
-        if ratt_feature.type == 'gene' or ratt_feature.type == 'mRNA':
+        #if ratt_feature.type == 'gene' or ratt_feature.type == 'mRNA':
+        #    continue
+        if ratt_feature.type != 'CDS':
             continue
         ratt_start = int(ratt_feature.location.start)
         ratt_end = int(ratt_feature.location.end)
@@ -1295,11 +1297,11 @@ def main():
     parser.add_argument('-m', '--merged_genes', help='Merged genes file in genbank format',
                         default='merged_genes.gbf')
     parser.add_argument('-illumina', '--illumina', help='Set this flag to true if isolate has no circularized contigs '
-                                                        'or if dnaA need not be verified',
+                                                        'or if dnaA need not be verified', type=bool,
                         default=False)
     parser.add_argument('-fill_gaps', '--fill_gaps', help='Set this flag to false if gaps in reference based '
                                                           'annotations from RATT and Prokka should NOT be filled from '
-                                                          'Prokka no-reference run',
+                                                          'Prokka no-reference run', type=bool,
                         default=True)
     args = parser.parse_args()
 
@@ -1380,14 +1382,14 @@ def main():
         global ratt_corrected_genes
         ratt_corrected_genes = get_ratt_corrected_genes(error_correction_fp)
         ratt_contig_non_cds = []
-        for feature in ratt_contig_features:
-            if feature.type != 'CDS':
-                ratt_contig_non_cds.append(feature)
+        #for feature in ratt_contig_features:
+        #    if feature.type != 'CDS':
+        #        ratt_contig_non_cds.append(feature)
         ratt_contig_features, prokka_features_to_add = isolate_valid_ratt_annotations(ratt_contig_features,
                                                                                       prokka_contig_features)
-        print(len(ratt_contig_features))
+        #print(len(ratt_contig_features))
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
-        print(len(ratt_contig_features))
+        #print(len(ratt_contig_features))
         cds_from_ratt = 0
         for feature in ratt_contig_features:
             if feature.type == 'CDS':
@@ -1504,6 +1506,7 @@ def main():
             prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
             prokka_features_not_in_ratt, ratt_overlapping_genes = \
                 remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
+            print(len(prokka_features_not_in_ratt.keys()))
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
@@ -1600,6 +1603,7 @@ def main():
                                 feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
                         # If the Prokka feature overlaps with one RATT feature
                         else:
+                            does_not_overlap = False
                             if (prokka_feature_start < ratt_unannotated_region_start) and \
                                     (prokka_feature_end in ratt_unannotated_region_range):
                                 ratt_overlapping_feature = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
@@ -1608,53 +1612,57 @@ def main():
                                     prokka_feature_end > ratt_unannotated_region_end:
                                 ratt_overlapping_feature = ratt_post_intergene[(ratt_unannotated_region_end,
                                                                                 prokka_strand)]
+                            else:
+                                does_not_overlap = True
+                                print(prokka_feature)
 #                            print('Overlaps with 1 ratt')
 #                            print(ratt_overlapping_feature)
 #                            print(ratt_overlapping_feature.qualifiers['locus_tag'])
-                            overlapping_ratt_locus_tags = [ratt_overlapping_feature.qualifiers['locus_tag'][0]]
-                            ratt_overlapping_feature_loc = (int(ratt_overlapping_feature.location.start),
-                                                              int(ratt_overlapping_feature.location.end),
-                                                              int(ratt_overlapping_feature.location.strand))
-                            overlapping_ratt_locations = {ratt_overlapping_feature.qualifiers['locus_tag'][0]:
+                            if not does_not_overlap:
+                                overlapping_ratt_locus_tags = [ratt_overlapping_feature.qualifiers['locus_tag'][0]]
+                                ratt_overlapping_feature_loc = (int(ratt_overlapping_feature.location.start),
+                                                                int(ratt_overlapping_feature.location.end),
+                                                                int(ratt_overlapping_feature.location.strand))
+                                overlapping_ratt_locations = {ratt_overlapping_feature.qualifiers['locus_tag'][0]:
                                                               ratt_overlapping_feature_loc}
-                            ######### If Prokka feature is annotated as an L_tag and not a gene, blast it with #########
-                            ######### overlapping Rv and then Blast it with H37Rv to get the closer hit ################
-                            if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
-                                check_if_same_gene = blast_ratt_rv_with_prokka_ltag(ratt_overlapping_feature,
+                                ######### If Prokka feature is annotated as an L_tag and not a gene, blast it with #########
+                                ######### overlapping Rv and then Blast it with H37Rv to get the closer hit ################
+                                if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
+                                    check_if_same_gene = blast_ratt_rv_with_prokka_ltag(ratt_overlapping_feature,
                                                                                     prokka_feature)
-                                if check_if_same_gene:
-                                    #print(prokka_feature)
-                                    prokka_feature.qualifiers['gene'] = ratt_overlapping_feature.qualifiers['locus_tag']
-                                    #print(prokka_feature)
-                                ### DO SOMETHING HERE ###
-                                #print(prokka_feature.qualifiers['gene'])
-                            #print(str(prokka_feature.qualifiers['locus_tag'][0]) + '\n')
+                                    if check_if_same_gene:
+                                        #print(prokka_feature)
+                                        prokka_feature.qualifiers['gene'] = ratt_overlapping_feature.qualifiers['locus_tag']
+                                        #print(prokka_feature)
+                                    ### DO SOMETHING HERE ###
+                                    #print(prokka_feature.qualifiers['gene'])
+                                #print(str(prokka_feature.qualifiers['locus_tag'][0]) + '\n')
 
-                            #print('Original Prokka Feature')
-                            #print(prokka_feature)
-                            #print(prokka_feature)
-                            #annomerge_contig_record, included = check_inclusion_criteria(ratt_annotation_mapping,
-                            #                                                             annomerge_contig_record,
-                            #                                                             ratt_overlapping_feature,
-                            #                                                             prokka_feature,
-                            #                                                             overlapping_ratt_locus_tags,
-                            #                                                             overlapping_ratt_locations)
-                            add_prokka_contig_record, included = check_inclusion_criteria(ratt_annotation_mapping,
-                                                                                         add_prokka_contig_record,
-                                                                                         ratt_overlapping_feature,
-                                                                                         prokka_feature,
-                                                                                         overlapping_ratt_locus_tags,
-                                                                                         overlapping_ratt_locations)
-                            if included:  # To check if Prokka feature passed the inclusion criteria and was integrated
-                                # into the EMBL file
-                                # The if-else condition below is to keep track of the features added from Prokka for the
-                                # log file
-                                if prokka_feature.type not in feature_additions.keys():
-                                    feature_additions[prokka_feature.type] = 1
-                                    feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
-                                else:
-                                    feature_additions[prokka_feature.type] += 1
-                                    feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
+                                #print('Original Prokka Feature')
+                                #print(prokka_feature)
+                                #print(prokka_feature)
+                                #annomerge_contig_record, included = check_inclusion_criteria(ratt_annotation_mapping,
+                                #                                                             annomerge_contig_record,
+                                #                                                             ratt_overlapping_feature,
+                                #                                                             prokka_feature,
+                                #                                                             overlapping_ratt_locus_tags,
+                                #                                                             overlapping_ratt_locations)
+                                add_prokka_contig_record, included = check_inclusion_criteria(ratt_annotation_mapping,
+                                                                                              add_prokka_contig_record,
+                                                                                              ratt_overlapping_feature,
+                                                                                              prokka_feature,
+                                                                                              overlapping_ratt_locus_tags,
+                                                                                              overlapping_ratt_locations)
+                                if included:  # To check if Prokka feature passed the inclusion criteria and was integrated
+                                    # into the EMBL file
+                                    # The if-else condition below is to keep track of the features added from Prokka for the
+                                    # log file
+                                    if prokka_feature.type not in feature_additions.keys():
+                                        feature_additions[prokka_feature.type] = 1
+                                        feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
+                                    else:
+                                        feature_additions[prokka_feature.type] += 1
+                                        feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
             if len(merged_features) > 0:
                 for feature_1 in merged_features:
                     #annomerge_contig_record.features.append(feature_1)
