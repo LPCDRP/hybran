@@ -1704,7 +1704,52 @@ def main():
 #            feature_list_cp1 = [f.qualifiers['locus_tag'][0] for f in add_prokka_contig_record.features]
 #            print(len(feature_list_cp1))
             #annomerge_records.append(annomerge_contig_record)
+#            annomerge_records.append(add_prokka_contig_record)
+            records_ref, positions_ref, pre_ref, post_ref = get_interregions(add_prokka_contig_record,
+                                                                             intergene_length=1)
+            add_features_from_prokka_ref = []
+            sorted_positions_ref = sorted(positions_ref)
+            prokka_ref_features_sorted = get_ordered_features(prokka_contig_features)
+            for fill_pos in sorted_positions_ref:
+                if fill_pos[2] == '+':
+                    fill_pos_strand = 1
+                else:
+                    fill_pos_strand = -1
+                for ref_feat in prokka_ref_features_sorted:
+                    ref_feat_start = int(ref_feat.location.start)
+                    ref_feat_end = int(ref_feat.location.end)
+                    ref_feat_strand = int(ref_feat.location.strand)
+                    if ref_feat_strand != fill_pos_strand:
+                        continue
+                    elif ref_feat.type != 'CDS':
+                        continue
+                    elif ref_feat_start > fill_pos[1] and ref_feat_end > fill_pos[1]:
+                        break
+                    elif ref_feat_start < fill_pos[0] and ref_feat_end < fill_pos[0]:
+                        continue
+                    elif ref_feat_start > fill_pos[0] and ref_feat_end < fill_pos[1]:
+                        if ref_feat.qualifiers['product'][0] == 'hypothetical protein':
+                            continue
+                        if 'gene' in ref_feat.qualifiers.keys() and '_' in ref_feat.qualifiers['gene'][0]:
+                            ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
+                        elif 'gene' not in ref_feat.qualifiers.keys():
+                            ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
+                        else:
+                            mod_ref_feat, invalid_ref_feat = validate_prokka_feature_annotation(ref_feat,
+                                                                                                prokka_noref_dictionary)
+                            ref_feat = mod_ref_feat
+                        add_ref_note = 'This annotation is added from Prokka reference run'
+                        if 'note' in ref_feat.qualifiers.keys():
+                            ref_feat.qualifiers['note'].append(add_ref_note)
+                        else:
+                            ref_feat.qualifiers['note'] = [add_ref_note]
+                        add_features_from_prokka_ref.append(ref_feat)
+
+            for prokka_ref_feat in add_features_from_prokka_ref:
+                add_prokka_contig_record.features.append(prokka_ref_feat)
             annomerge_records.append(add_prokka_contig_record)
+            print('To add from ref: ' + str(len(add_features_from_prokka_ref)))
+
 
     ###############################################################################################
     ######## Post-processing of genbank file to remove duplicates and rename locus_tag for ########
@@ -1973,6 +2018,18 @@ def main():
                         cds_length_nrf = len(noref_feat.qualifiers['translation'][0])
                         cds_lengths.append(cds_length_nrf)
             print('To add from noref: ' + str(len(add_features_from_prokka_noref)))
+
+        ########################## Removing gene names assigned based on domains #######################################
+        print('FInal feature annotation verification')
+        for feature_final in prokka_rec.features:
+            if 'inference' in feature_final.qualifiers.keys():
+                is_domain = False
+                for infer in feature_final.qualifiers['inference']:
+                    if infer.startswith('protein motif'):
+                        is_domain = True
+                        break
+                if is_domain:
+                    feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
         sorted_final = get_ordered_features(prokka_rec.features)
         prokka_rec.features = sorted_final
         print('Number of CDSs annomerge: ' + str(annomerge_cds))
