@@ -206,7 +206,7 @@ def identify_merged_genes(ratt_features):
     ratt_annotations = {}   # This dictionary holds 2 keys '-1' and '+1' denoting the strand and locations of all CDS
     # annotations in RATT for each strand
     ratt_unmerged_genes = {}
-    ratt_merged_genes = {}
+    ratt_merged_genes = {-1: [], 1: []}
     merged_genes = False
     if len(ratt_features) == 0:
         return [], merged_genes
@@ -722,11 +722,10 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
     prokka_added = {}
     broken_cds = []
     for feature in feature_list:
-        if feature.type == 'CDS' and (len(feature.location) % 3) != 0:
-            print('Nucleotide sequence is not divisible by 3')
-            print(feature)
+        #if feature.type is None or feature.location is None:
+        #    continue
         # Identify features with 'joins'
-        elif feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
+        if feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
             locus_tag = feature.qualifiers['locus_tag'][0]
             gene_name = locus_tag
             if locus_tag not in broken_cds:
@@ -736,6 +735,12 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
             if locus_tag not in genes_from_prokka.keys():
                 genes_from_prokka[locus_tag] = gene_name
             num_joins += 1
+        elif feature.type == 'CDS' and feature.location is None:
+            print('Invalid CDS: Location of CDS is missing')
+            print(feature)
+        elif feature.type == 'CDS' and (len(feature.location) % 3) != 0:
+            print('Nucleotide sequence is not divisible by 3')
+            print(feature)
         elif feature.type == 'CDS':
             unbroken_cds.append(feature)
         else:
@@ -1361,6 +1366,7 @@ def main():
 #    print(input_ratt_files)
 #    print(len(prokka_records))
     for i in range(0, len(input_ratt_files)):
+        print('Contig ' + str(i+1))
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
         prokka_noref_rec = prokka_record_noref[i]
         global prokka_noref_dictionary
@@ -1375,12 +1381,15 @@ def main():
             check_for_dnaA(ratt_contig_features)
         if args.illumina:
             print('DnaA might not be the first element. Circularization is not checked')
+        global ratt_corrected_genes
         if len(ratt_correction_files) == 1:
             error_correction_fp = ratt_correction_files[0]
         else:
-            error_correction_fp = ratt_correction_files[i]
-        global ratt_corrected_genes
-        ratt_corrected_genes = get_ratt_corrected_genes(error_correction_fp)
+            try:
+                error_correction_fp = ratt_correction_files[i]
+                ratt_corrected_genes = get_ratt_corrected_genes(error_correction_fp)
+            except IndexError:
+                ratt_corrected_genes = []
         ratt_contig_non_cds = []
         #for feature in ratt_contig_features:
         #    if feature.type != 'CDS':
@@ -2021,7 +2030,10 @@ def main():
 
         ########################## Removing gene names assigned based on domains #######################################
         print('FInal feature annotation verification')
+        added_ltags = []
         for feature_final in prokka_rec.features:
+            if feature_final.type != 'CDS':
+                continue
             if 'inference' in feature_final.qualifiers.keys():
                 is_domain = False
                 for infer in feature_final.qualifiers['inference']:
@@ -2030,6 +2042,22 @@ def main():
                         break
                 if is_domain:
                     feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
+            # Check if same locus tag is annotated with 2 different sequences
+            final_feature_name = feature_final.qualifiers['locus_tag'][0]
+            if final_feature_name in added_ltags and (final_feature_name.startswith('L_') or
+                                                      final_feature_name.startswith('L2_')):
+                prev_ltag = final_feature_name.split('_')[1]
+                ltag = final_feature_name.split('_')[0][-1]
+                if ltag == 'L':
+                    renamed_ltag = 'L2_' + str(prev_ltag)
+                else:
+                    add_digit = int(ltag) + 1
+                    renamed_ltag = 'L' + str(add_digit) + '_' + str(prev_ltag)
+                #feature_final.qualifiers['gene'] = [renamed_ltag]
+                feature_final.qualifiers['locus_tag'] = [renamed_ltag]
+            if 'gene' not in feature_final.qualifiers.keys():
+                feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
+            added_ltags.append(feature_final.qualifiers['locus_tag'][0])
         sorted_final = get_ordered_features(prokka_rec.features)
         prokka_rec.features = sorted_final
         print('Number of CDSs annomerge: ' + str(annomerge_cds))
