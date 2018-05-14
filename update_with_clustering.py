@@ -428,8 +428,9 @@ def main():
             gene_to_add = key_elements_sgc[1]
         elif key_elements_sgc[2].startswith('Rv'):
             gene_to_add = key_elements_sgc[2]
-        elif (key_elements_sgc[1].startswith('L_') and key_elements_sgc[2].startswith('L_')) or \
-                (key_elements_sgc[1].startswith('L2_') and key_elements_sgc[2].startswith('L2_')):
+#        elif (key_elements_sgc[1].startswith('L_') and key_elements_sgc[2].startswith('L_')) or \
+#                (key_elements_sgc[1].startswith('L2_') and key_elements_sgc[2].startswith('L2_')):
+        elif (key_elements_sgc[1].startswith('L') and key_elements_sgc[2].startswith('L')):
             rep_ltag = True
             rep_ltag_keys.append(key_sgc)
         else:
@@ -438,8 +439,9 @@ def main():
         if not rep_ltag:
             genes_in_cluster = single_gene_cluster_complete[key_sgc]
             for gene in genes_in_cluster:
-                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
-                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
+#                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
+#                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
+                if (gene[1].startswith('L') and gene[2].startswith('L')):
                     update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
                 else:
                     continue
@@ -448,8 +450,9 @@ def main():
             genes_in_cluster = single_gene_cluster_complete[key_sgc]
             gene_to_add = ''
             for gene in genes_in_cluster:
-                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
-                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
+#                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
+#                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
+                if (gene[1].startswith('L') and gene[2].startswith('L')):
                     continue
                 else:
                     if not gene[1].startswith('L'):
@@ -463,8 +466,9 @@ def main():
                 update_log.write(genes_in_cluster + '\n')
             else:
                 for gene in genes_in_cluster:
-                    if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
-                            (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
+#                    if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
+#                            (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
+                    if (gene[1].startswith('L') and gene[2].startswith('L')):
                         update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
                     else:
                         continue
@@ -530,25 +534,25 @@ def main():
             update_log.write('Assigned existing Rv or MTB' + '\n')
             update_log.write(name_to_assign + '\n')
         for gene_in_cluster in candidate_novel_gene_cluster_complete[rep_gene]:
-            gene_in_cluster_seq = get_sequence(gene_in_cluster[0], gene_in_cluster[1])
-            blast_to_rep = NcbiblastpCommandline(subject=rep_temp_fasta,
-                                                 outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-            stdout_rep, stderr_rep = blast_to_rep(stdin=gene_in_cluster_seq)
-            top_hit_rep, all_hits_rep = identify_top_hits(stdout_rep)
-            if top_hit_rep is None:
-                update_log.write('Gene in cluster does not pass threshold of identity with representative sequence' +
-                                 '\n')
-                update_log.write(rep_isolate_id + '\n')
-                update_log.write(rep_locus + '\n')
-                update_log.write(rep_sequence + '\n')
-                update_log.write(rep_temp_fasta + '\n')
-                update_log.write(gene_in_cluster[0] + '\n')
-                update_log.write(gene_in_cluster[1] + '\n')
-                update_log.write(gene_in_cluster_seq + '\n')
-                rep_seq_id = '|'.join([rep_isolate_id, rep_locus])
-                gene_seq_id = '|'.join([gene_in_cluster[0], gene_in_cluster[1]])
-                with open(l_tag_verify_fp, 'a+') as verify_ltag:
-                    verify_ltag.write(rep_seq_id + '\t' + gene_seq_id + '\n')
+#            gene_in_cluster_seq = get_sequence(gene_in_cluster[0], gene_in_cluster[1])
+#            blast_to_rep = NcbiblastpCommandline(subject=rep_temp_fasta,
+#                                                 outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
+#            stdout_rep, stderr_rep = blast_to_rep(stdin=gene_in_cluster_seq)
+#            top_hit_rep, all_hits_rep = identify_top_hits(stdout_rep)
+#            if top_hit_rep is None:
+#                update_log.write('Gene in cluster does not pass threshold of identity with representative sequence' +
+#                                 '\n')
+#                update_log.write(rep_isolate_id + '\n')
+#                update_log.write(rep_locus + '\n')
+#                update_log.write(rep_sequence + '\n')
+#                update_log.write(rep_temp_fasta + '\n')
+#                update_log.write(gene_in_cluster[0] + '\n')
+#                update_log.write(gene_in_cluster[1] + '\n')
+#                update_log.write(gene_in_cluster_seq + '\n')
+#                rep_seq_id = '|'.join([rep_isolate_id, rep_locus])
+#                gene_seq_id = '|'.join([gene_in_cluster[0], gene_in_cluster[1]])
+#                with open(l_tag_verify_fp, 'a+') as verify_ltag:
+#                    verify_ltag.write(rep_seq_id + '\t' + gene_seq_id + '\n')
             update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
             #else:
             #    update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
