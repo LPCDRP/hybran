@@ -68,7 +68,7 @@ def write_fasta(list_of_ids, output_name):
             SeqIO.write(s, fasta_output, 'fasta')
 
 
-def parse_clustered_proteins():
+def parse_clustered_proteins(pangenome_dir):
     underscore_re = re.compile('_[0-9]$')
 
     # Private Function #
@@ -76,6 +76,8 @@ def parse_clustered_proteins():
     def gff_dict():
         gff_dictionary = {}
         annotation_dir = GROUPHOME + '/data/depot/annotation/'
+        isolate_fasta_list = os.listdir(GROUPHOME + '/data/genomes/')
+        isolate_list = [isolate_id.split('.')[0] for isolate_id in isolate_fasta_list if isolate_id.endswith('.fasta')]
         for isolate in os.listdir(annotation_dir):
             gff = isolate + '/annomerge/' + isolate + '.gff'
             if isolate not in isolate_list and 'H37Rv' not in isolate:
@@ -116,7 +118,7 @@ def parse_clustered_proteins():
     ##################################################################################################################
 
     gffs = gff_dict()
-    pangenome_dir = GROUPHOME + '/data/depot/annotation/pangenome_04-16-18/'
+#    pangenome_dir = GROUPHOME + '/data/depot/annotation/pangenome_04-16-18/'
     #pangenome_dir = '/home/dgunasek/projects/annomerge/pangenome_test/'
     clustered_proteins = pangenome_dir + 'clustered_proteins'
     representative_fasta_list = []
@@ -303,8 +305,10 @@ def cluster_annotation_presence(cluster_list):
 
 
 def main():
+#    print('Im HERE')
     h37rv_protein_fasta = GROUPHOME + '/resources/H37Rv-CDS-updated.fasta'
-    mtb_genes_fp = GROUPHOME + '/data/depot/hypotheticome-clinical/mtb_genes.fasta'
+#    mtb_genes_fp = GROUPHOME + '/data/depot/hypotheticome-clinical/mtb_genes.fasta'
+    mtb_genes_fp = '/home/dgunasek/projects/annomerge/mtb_genes.fasta'
     isolate_fasta_list = os.listdir(GROUPHOME + '/data/genomes/')
     global isolate_list
     isolate_list = [isolate_id.split('.')[0] for isolate_id in isolate_fasta_list if isolate_id.endswith('.fasta')]
@@ -316,209 +320,25 @@ def main():
     global isolate_update_dictionary
     isolate_update_dictionary = {}
     assignment_keys = {}
+    pangenome_dir = GROUPHOME + '/data/depot/annotation/pangenome/'
     multi_gene_cluster, single_gene_cluster, partial_gene_cluster, candidate_novel_gene_cluster, unique_gene_cluster = \
-        parse_clustered_proteins()
+        parse_clustered_proteins(pangenome_dir)
+    #print(multi_gene_cluster.keys()[:5])
+    #print(multi_gene_cluster.values()[:5])
     update_log.write('Number of clusters with partial genes: ' + str(len(partial_gene_cluster.keys())) + '\n')
-
-
-    # 1. Handling clusters with only one Rv/gene name in cluster
-    # 1. If cluster has candidate novel genes (L_***** or L2_*****) clustered together with a H37Rv annotation, update
-    #  all candidate novel genes in this cluster with the H37Rv gene name.
-    rep_ltag_keys = []
-    update_log.write('Number of clusters with single genes: ' + str(len(single_gene_cluster.keys())) + '\n')
-    for key_sgc in single_gene_cluster:
-        rep_ltag = False
-        key_elements_sgc = key_sgc.split(',')
-        if key_elements_sgc[1].startswith('Rv'):
-            gene_to_add = key_elements_sgc[1]
-        elif key_elements_sgc[2].startswith('Rv'):
-            gene_to_add = key_elements_sgc[2]
-        elif (key_elements_sgc[1].startswith('L_') and key_elements_sgc[2].startswith('L_')) or \
-                (key_elements_sgc[1].startswith('L2_') and key_elements_sgc[2].startswith('L2_')):
-            rep_ltag = True
-            rep_ltag_keys.append(key_sgc)
-        else:
-            gene_to_add = key_elements_sgc[2]
-        # If representative sequence is an Rv and not an L-tag
-        if not rep_ltag:
-            genes_in_cluster = single_gene_cluster[key_sgc]
-            for gene in genes_in_cluster:
-                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
-                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
-                    update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
-                else:
-                    continue
-        # If representative sequence is a L-tag
-        else:
-            genes_in_cluster = single_gene_cluster[key_sgc]
-            gene_to_add = ''
-            for gene in genes_in_cluster:
-                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
-                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
-                    continue
-                else:
-                    if not gene[1].startswith('L'):
-                        gene_to_add = gene[1]
-                    else:
-                        gene_to_add = gene[2]
-                    break
-            if len(gene_to_add) == 0:
-                update_log.write('No Rv found in this cluster' + '\n')
-                update_log.write(key_sgc + '\n')
-                update_log.write(genes_in_cluster + '\n')
-            else:
-                for gene in genes_in_cluster:
-                    if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
-                            (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
-                        update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
-                    else:
-                        continue
-
-
-    # 2. If a cluster has only candidate novel genes (with no gene names), then BLAST representative sequence to H37Rv
-    # and if there is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster
-    # is annotated with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes
-    # in the cluster.
-    update_log.write('Number of clusters with only L-tags genes: ' + str(len(candidate_novel_gene_cluster.keys())) +
-                     '\n')
-    for rep_gene in candidate_novel_gene_cluster.keys():
-        l_tag_verify_fp = '/home/dgunasek/projects/annomerge/verify_ltag_clusters.tsv'
-        rep_isolate_id = rep_gene.split(',')[0]
-        rep_locus = rep_gene.split(',')[1]
-        rep_gene_name = rep_gene.split(',')[2]
-        rep_sequence = get_sequence(rep_isolate_id, rep_locus)
-        # Writing representative amino acid sequence to a temp file to check if all genes in cluster share identity with
-        #  this sequence
-        rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
-        rep_temp_fasta = rep_fp.name
-        rep_sequence_object = Seq(rep_sequence)
-        rep_record = SeqRecord(rep_sequence_object, id='|'.join([rep_isolate_id, rep_locus, rep_gene_name]))
-        with open(rep_temp_fasta, 'w') as fasta_tmp:
-            SeqIO.write(rep_record, fasta_tmp, 'fasta') ###
-        # Blasting representative sequence with H37Rv
-        blast_command = NcbiblastpCommandline(subject=rv_temp_fasta,
-                                              outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-        stdout, stderr = blast_command(stdin=rep_sequence)
-        top_hit, all_hits = identify_top_hits(stdout)
-        assign_mtb = False
-        name_to_assign = ''
-        if top_hit is None:
-            assign_mtb = True
-            if os.path.exists(mtb_genes_fp):
-                fasta_records = SeqIO.parse(mtb_genes_fp, 'fasta')
-                for mtb_record in fasta_records:
-                    mtb_id = mtb_record.description.split(' ')[0]
-                    mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-
-                blast_command_2 = NcbiblastpCommandline(subject=mtb_genes_fp,
-                                                        outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-                stdout_2, stderr = blast_command_2(stdin=rep_sequence)
-                top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
-                if top_hit_mtb is None:
-                    assign_mtb = True
-                else:
-                    assign_mtb = False
-                    name_to_assign = top_hit_mtb
-        else:
-            name_to_assign = top_hit
-        if assign_mtb:
-            mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
-            mtb_increment = mtb_increment + 1
-            sequence_object = Seq(rep_sequence)
-            seq_record = SeqRecord(sequence_object, id=mtb_id)
-            with open(mtb_genes_fp, 'a') as mtb_fasta:
-                SeqIO.write(seq_record, mtb_fasta, 'fasta')
-            name_to_assign = mtb_id
-            update_log.write('Assigned new mtb id' + '\n')
-            update_log.write(name_to_assign + '\n')
-        else:
-            update_log.write('Assigned existing Rv or MTB' + '\n')
-            update_log.write(name_to_assign + '\n')
-        for gene_in_cluster in candidate_novel_gene_cluster[rep_gene]:
-            gene_in_cluster_seq = get_sequence(gene_in_cluster[0], gene_in_cluster[1])
-            blast_to_rep = NcbiblastpCommandline(subject=rep_temp_fasta,
-                                                 outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-            stdout_rep, stderr_rep = blast_to_rep(stdin=gene_in_cluster_seq)
-            top_hit_rep, all_hits_rep = identify_top_hits(stdout_rep)
-            if top_hit_rep is None:
-                update_log.write('Gene in cluster does not pass threshold of identity with representative sequence' +
-                                 '\n')
-                update_log.write(rep_isolate_id + '\n')
-                update_log.write(rep_locus + '\n')
-                update_log.write(rep_sequence + '\n')
-                update_log.write(rep_temp_fasta + '\n')
-                update_log.write(gene_in_cluster[0] + '\n')
-                update_log.write(gene_in_cluster[1] + '\n')
-                update_log.write(gene_in_cluster_seq + '\n')
-                rep_seq_id = '|'.join([rep_isolate_id, rep_locus])
-                gene_seq_id = '|'.join([gene_in_cluster[0], gene_in_cluster[1]])
-                with open(l_tag_verify_fp, 'a+') as verify_ltag:
-                    verify_ltag.write(rep_seq_id + '\t' + gene_seq_id + '\n')
-            update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
-            #else:
-            #    update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
-        os.unlink(rep_temp_fasta)
-    update_log.close()
-
-
-    # 3. If a cluster has only one gene (with no gene names), then BLAST representative sequence to H37Rv and if there
-    # is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster is annotated
-    #  with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes in the
-    # cluster.
-    update_log.write('Number of singleton clusters with single genes: ' + str(len(unique_gene_cluster)) + '\n')
-    for single_gene in unique_gene_cluster:
-        isolate_id = single_gene[0]
-        locus_tag = single_gene[1]
-        gene_name = single_gene[2]
-        if gene_name.startswith('L') and locus_tag.startswith('L'):
-            gene_sequence = get_sequence(isolate_id, locus_tag)
-            blast_command = NcbiblastpCommandline(subject=rv_temp_fasta,
-                                                  outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-            stdout, stderr = blast_command(stdin=gene_sequence)
-            top_hit, all_hits = identify_top_hits(stdout)
-            assign_mtb = False
-            name_to_assign = ''
-            if top_hit is None:
-                assign_mtb = True
-                if os.path.exists(mtb_genes_fp):
-                    fasta_records = SeqIO.parse(mtb_genes_fp, 'fasta')
-                    for mtb_record in fasta_records:
-                        mtb_id = mtb_record.description.split(' ')[0]
-                        mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-
-                    blast_command_2 = NcbiblastpCommandline(subject=mtb_genes_fp,
-                                                            outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-                    stdout_2, stderr = blast_command_2(stdin=gene_sequence)
-                    top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
-                    if top_hit_mtb is None:
-                        assign_mtb = True
-                    else:
-                        assign_mtb = False
-                        name_to_assign = top_hit_mtb
-            else:
-                name_to_assign = top_hit
-            if assign_mtb:
-                mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
-                mtb_increment = mtb_increment + 1
-                sequence_object = Seq(gene_sequence)
-                seq_record = SeqRecord(sequence_object, id=mtb_id)
-                with open(mtb_genes_fp, 'a') as mtb_fasta:
-                    SeqIO.write(seq_record, mtb_fasta, 'fasta')
-                name_to_assign = mtb_id
-                update_log.write('Assigned new mtb id' + '\n')
-                update_log.write(name_to_assign + '\n')
-            else:
-                update_log.write('Assigned existing Rv or MTB' + '\n')
-                update_log.write(name_to_assign + '\n')
-            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
-        else:
-            continue
-
+    candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
+    single_gene_cluster_complete = single_gene_cluster.copy()
     # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
     # and annotate L_tag with the top hit.
     mgc_output = open('multi_gene_clusters.tsv', 'w')
     #print('Possible num multiclusters: ' + str(len(multi_gene_cluster.keys())))
-    for gene in multi_gene_cluster:
+    #print('Num multi genes = ' + str(len(multi_gene_cluster.keys())))
+    
+    num_multi = 0
+    for gene in multi_gene_cluster.keys():
+        num_multi += 1
+        #print(num_multi) 
+        #print(gene)
         output_line = ''
         unassigned_l_tags = []
         true_multi_cluster = False
@@ -530,6 +350,7 @@ def main():
                 unassigned_l_tags.append(gene_in_cluster)
             else:
                 true_multi_cluster = True
+        #print(true_multi_cluster)
         if true_multi_cluster:
             output_line = output_line + gene
             for gene_in_cluster in multi_gene_cluster[gene]:
@@ -587,16 +408,211 @@ def main():
                     update_dictionary_ltag_assignments(unannotated_gene_isolate, unannotated_gene_locus, name_to_assign)
                 os.unlink(fasta_fp_to_blast)
         else:
+            if len(unassigned_l_tags) > 0:
+                #print(unassigned_l_tags)
+                single_gene_cluster_complete[gene] = multi_gene_cluster[gene]
+                #print(len(candidate_novel_gene_cluster_complete.keys()))
             continue
             ##### TO DO: Assign consistent gene names and Locus tags to all annotations in cluster #####
     mgc_output.close()
 
+    # 1. Handling clusters with only one Rv/gene name in cluster
+    # 1. If cluster has candidate novel genes (L_***** or L2_*****) clustered together with a H37Rv annotation, update
+    #  all candidate novel genes in this cluster with the H37Rv gene name.
+    rep_ltag_keys = []
+    update_log.write('Number of clusters with single genes: ' + str(len(single_gene_cluster_complete.keys())) + '\n')
+    for key_sgc in single_gene_cluster_complete:
+        rep_ltag = False
+        key_elements_sgc = key_sgc.split(',')
+        if key_elements_sgc[1].startswith('Rv'):
+            gene_to_add = key_elements_sgc[1]
+        elif key_elements_sgc[2].startswith('Rv'):
+            gene_to_add = key_elements_sgc[2]
+        elif (key_elements_sgc[1].startswith('L_') and key_elements_sgc[2].startswith('L_')) or \
+                (key_elements_sgc[1].startswith('L2_') and key_elements_sgc[2].startswith('L2_')):
+            rep_ltag = True
+            rep_ltag_keys.append(key_sgc)
+        else:
+            gene_to_add = key_elements_sgc[2]
+        # If representative sequence is an Rv and not an L-tag
+        if not rep_ltag:
+            genes_in_cluster = single_gene_cluster_complete[key_sgc]
+            for gene in genes_in_cluster:
+                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
+                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
+                    update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
+                else:
+                    continue
+        # If representative sequence is a L-tag
+        else:
+            genes_in_cluster = single_gene_cluster_complete[key_sgc]
+            gene_to_add = ''
+            for gene in genes_in_cluster:
+                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
+                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
+                    continue
+                else:
+                    if not gene[1].startswith('L'):
+                        gene_to_add = gene[1]
+                    else:
+                        gene_to_add = gene[2]
+                    break
+            if len(gene_to_add) == 0:
+                update_log.write('No Rv found in this cluster' + '\n')
+                update_log.write(key_sgc + '\n')
+                update_log.write(genes_in_cluster + '\n')
+            else:
+                for gene in genes_in_cluster:
+                    if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
+                            (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
+                        update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
+                    else:
+                        continue
+
+
+    # 2. If a cluster has only candidate novel genes (with no gene names), then BLAST representative sequence to H37Rv
+    # and if there is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster
+    # is annotated with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes
+    # in the cluster.
+    update_log.write('Number of clusters with only L-tags genes: ' + str(len(candidate_novel_gene_cluster_complete.keys())) +
+                     '\n')
+    for rep_gene in candidate_novel_gene_cluster_complete.keys():
+        l_tag_verify_fp = '/home/dgunasek/projects/annomerge/verify_ltag_clusters.tsv'
+        rep_isolate_id = rep_gene.split(',')[0]
+        rep_locus = rep_gene.split(',')[1]
+        rep_gene_name = rep_gene.split(',')[2]
+        rep_sequence = get_sequence(rep_isolate_id, rep_locus)
+        # Writing representative amino acid sequence to a temp file to check if all genes in cluster share identity with
+        #  this sequence
+        rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
+        rep_temp_fasta = rep_fp.name
+        rep_sequence_object = Seq(rep_sequence)
+        rep_record = SeqRecord(rep_sequence_object, id='|'.join([rep_isolate_id, rep_locus, rep_gene_name]))
+        with open(rep_temp_fasta, 'w') as fasta_tmp:
+            SeqIO.write(rep_record, fasta_tmp, 'fasta') ###
+        # Blasting representative sequence with H37Rv
+        blast_command = NcbiblastpCommandline(subject=rv_temp_fasta,
+                                              outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
+        stdout, stderr = blast_command(stdin=rep_sequence)
+        top_hit, all_hits = identify_top_hits(stdout)
+        assign_mtb = False
+        name_to_assign = ''
+        if top_hit is None:
+            assign_mtb = True
+            if os.path.exists(mtb_genes_fp):
+                fasta_records = SeqIO.parse(mtb_genes_fp, 'fasta')
+                for mtb_record in fasta_records:
+                    mtb_id = mtb_record.description.split(' ')[0]
+                    mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
+
+                blast_command_2 = NcbiblastpCommandline(subject=mtb_genes_fp,
+                                                        outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
+                stdout_2, stderr = blast_command_2(stdin=rep_sequence)
+                top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
+                if top_hit_mtb is None:
+                    assign_mtb = True
+                else:
+                    assign_mtb = False
+                    name_to_assign = top_hit_mtb
+        else:
+            name_to_assign = top_hit
+        if assign_mtb:
+            mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
+            mtb_increment = mtb_increment + 1
+            sequence_object = Seq(rep_sequence)
+            seq_record = SeqRecord(sequence_object, id=mtb_id)
+            with open(mtb_genes_fp, 'a') as mtb_fasta:
+                SeqIO.write(seq_record, mtb_fasta, 'fasta')
+            name_to_assign = mtb_id
+            update_log.write('Assigned new mtb id' + '\n')
+            update_log.write(name_to_assign + '\n')
+        else:
+            update_log.write('Assigned existing Rv or MTB' + '\n')
+            update_log.write(name_to_assign + '\n')
+        for gene_in_cluster in candidate_novel_gene_cluster_complete[rep_gene]:
+            gene_in_cluster_seq = get_sequence(gene_in_cluster[0], gene_in_cluster[1])
+            blast_to_rep = NcbiblastpCommandline(subject=rep_temp_fasta,
+                                                 outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
+            stdout_rep, stderr_rep = blast_to_rep(stdin=gene_in_cluster_seq)
+            top_hit_rep, all_hits_rep = identify_top_hits(stdout_rep)
+            if top_hit_rep is None:
+                update_log.write('Gene in cluster does not pass threshold of identity with representative sequence' +
+                                 '\n')
+                update_log.write(rep_isolate_id + '\n')
+                update_log.write(rep_locus + '\n')
+                update_log.write(rep_sequence + '\n')
+                update_log.write(rep_temp_fasta + '\n')
+                update_log.write(gene_in_cluster[0] + '\n')
+                update_log.write(gene_in_cluster[1] + '\n')
+                update_log.write(gene_in_cluster_seq + '\n')
+                rep_seq_id = '|'.join([rep_isolate_id, rep_locus])
+                gene_seq_id = '|'.join([gene_in_cluster[0], gene_in_cluster[1]])
+                with open(l_tag_verify_fp, 'a+') as verify_ltag:
+                    verify_ltag.write(rep_seq_id + '\t' + gene_seq_id + '\n')
+            update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
+            #else:
+            #    update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
+        os.unlink(rep_temp_fasta)
+
+
+    # 3. If a cluster has only one gene (with no gene names), then BLAST representative sequence to H37Rv and if there
+    # is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster is annotated
+    #  with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes in the
+    # cluster.
+    update_log.write('Number of singleton clusters with single genes: ' + str(len(unique_gene_cluster)) + '\n')
+    for single_gene in unique_gene_cluster:
+        isolate_id = single_gene[0]
+        locus_tag = single_gene[1]
+        gene_name = single_gene[2]
+        if gene_name.startswith('L') and locus_tag.startswith('L'):
+            gene_sequence = get_sequence(isolate_id, locus_tag)
+            blast_command = NcbiblastpCommandline(subject=rv_temp_fasta,
+                                                  outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
+            stdout, stderr = blast_command(stdin=gene_sequence)
+            top_hit, all_hits = identify_top_hits(stdout)
+            assign_mtb = False
+            name_to_assign = ''
+            if top_hit is None:
+                assign_mtb = True
+                if os.path.exists(mtb_genes_fp):
+                    fasta_records = SeqIO.parse(mtb_genes_fp, 'fasta')
+                    for mtb_record in fasta_records:
+                        mtb_id = mtb_record.description.split(' ')[0]
+                        mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
+
+                    blast_command_2 = NcbiblastpCommandline(subject=mtb_genes_fp,
+                                                            outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
+                    stdout_2, stderr = blast_command_2(stdin=gene_sequence)
+                    top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
+                    if top_hit_mtb is None:
+                        assign_mtb = True
+                    else:
+                        assign_mtb = False
+                        name_to_assign = top_hit_mtb
+            else:
+                name_to_assign = top_hit
+            if assign_mtb:
+                mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
+                mtb_increment = mtb_increment + 1
+                sequence_object = Seq(gene_sequence)
+                seq_record = SeqRecord(sequence_object, id=mtb_id)
+                with open(mtb_genes_fp, 'a') as mtb_fasta:
+                    SeqIO.write(seq_record, mtb_fasta, 'fasta')
+                name_to_assign = mtb_id
+                update_log.write('Assigned new mtb id' + '\n')
+                update_log.write(name_to_assign + '\n')
+            else:
+                update_log.write('Assigned existing Rv or MTB' + '\n')
+                update_log.write(name_to_assign + '\n')
+            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
+        else:
+            continue
+
+    update_log.close()
     os.unlink(rv_temp_fasta)
     pickle_fp = '/home/dgunasek/projects/annomerge/isolate_gene_name.pickle'
     with open(pickle_fp, 'wb') as pickle_file:
         pickle.dump(isolate_update_dictionary, pickle_file)
-
-
 
 
 if __name__ == '__main__':
