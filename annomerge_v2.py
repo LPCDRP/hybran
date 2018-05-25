@@ -356,9 +356,9 @@ def check_corresponding_prokka_annotation(overlapping_gene_info, prokka_cds):
     ratt_gene_end = overlapping_gene_info[2]
     ratt_gene_strand = overlapping_gene_info[3]
     return_feature_dict = {}
-    prokka_cds_keys = '\t'.join(prokka_cds.keys())
+    prokka_cds_keys_str = '\t'.join(prokka_cds.keys())
     # This ensures partial hits in Prokka i.e. Rv####_1, etc is considered
-    if locus_tag not in prokka_cds.keys() and locus_tag in prokka_cds_keys:
+    if locus_tag not in prokka_cds.keys() and locus_tag in prokka_cds_keys_str:
         found_corresponding_prokka_annotation = True
         same_location = False
         return_feature = None
@@ -712,8 +712,8 @@ def blast_feature_sequence_to_rv(query, locus_tag, to_print=False):
 def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
     # This function takes as input a list of features and checks if the length of the CDSs are divisible by 3. If not,
     # it outputs the features to stdout and removes them from the valid_ratt_annotations
-    global valid_amino_acids
-    valid_amino_acids = ['M', 'V', 'L']
+#    global valid_amino_acids
+#    valid_amino_acids = ['M', 'V', 'L']
     unbroken_cds = []
     genes_from_prokka = {}
     num_joins = 0
@@ -722,8 +722,6 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
     prokka_added = {}
     broken_cds = []
     for feature in feature_list:
-        #if feature.type is None or feature.location is None:
-        #    continue
         # Identify features with 'joins'
         if feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
             locus_tag = feature.qualifiers['locus_tag'][0]
@@ -745,16 +743,12 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
             unbroken_cds.append(feature)
         else:
             non_cds_features.append(feature)
-#    prokka_cds_dict = get_prokka_cds(prokka_annotations, only_rv=True)
-#    valid_cds, to_add_from_prokka = get_nonoverlapping_ratt_features(unbroken_cds, prokka_cds_dict)
-#    print(len(unbroken_cds))
-#    print(len(valid_cds))
     valid_features = []
     print("Valid CDSs before checking coverage: " + str(len(unbroken_cds)))
     for cds_feature in unbroken_cds:
-        feature_sequence = translate(cds_feature.extract(record_sequence), to_stop=True)
+        feature_sequence = translate(cds_feature.extract(record_sequence), table=11, to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
-        if len(feature_sequence) == 0 or feature_sequence[0] not in valid_amino_acids:
+        if len(feature_sequence) == 0:
             continue
         else:
             add_sequence, blast_stats = blast_feature_sequence_to_rv(str(feature_sequence), cds_locus_tag)
@@ -767,32 +761,6 @@ def isolate_valid_ratt_annotations(feature_list, prokka_annotations):
                 continue
 
     print("Valid CDSs after checking coverage: " + str(len(valid_features)))
-#    for non_cds in non_cds_features:
-#        valid_features.append(non_cds)
-#    for gene_key in to_add_from_prokka.keys():
-#        prokka_cds_to_add.append(to_add_from_prokka[gene_key][0])
-#        locus_tag = gene_key.split(':')[0]
-#        prokka_added[locus_tag] = [gene_key]
-#    for gene in genes_from_prokka.keys():
-#        prokka_gene_features = {}
-#        gene_name = genes_from_prokka[gene]
-#        if gene_name in prokka_cds_dict.keys():
-#            prokka_gene_features[gene] = prokka_cds_dict[gene_name]
-#        elif gene in prokka_cds_dict.keys():
-#            prokka_gene_features[gene] = prokka_cds_dict[gene]
-#        else:
-#            continue
-#       for feature in prokka_gene_features[gene]:
-#           feature_key = ':'.join([gene, str(feature.location.start), str(feature.location.end),
-#                                    str(feature.location.strand)])
-#            if gene in prokka_added.keys() and feature_key in prokka_added[gene]:
-#                continue
-#            elif gene in prokka_added.keys() and feature_key not in prokka_added[gene]:
-#                prokka_cds_to_add.append(feature)
-#                prokka_added[gene].append(feature_key)
-#            else:
-#                prokka_cds_to_add.append(feature)
-#                prokka_added[gene] = [feature_key]
     return valid_features, prokka_cds_to_add
 
 
@@ -1918,8 +1886,9 @@ def main():
         ###############################################################################################
         for feature in prokka_rec.features:
             if feature.type == 'CDS' and 'translation' not in feature.qualifiers.keys():
-                feature_sequence = translate(feature.extract(record_sequence), to_stop=True)
+                feature_sequence = translate(feature.extract(record_sequence), table=11, to_stop=True)
                 feature.qualifiers['translation'] = [feature_sequence]
+                
 
         ###############################################################################################
         ########################## Verifying annotations for essential genes  #########################
@@ -2020,7 +1989,8 @@ def main():
                             noref_feat.qualifiers['note'].append(add_noref_note)
                         else:
                             noref_feat.qualifiers['note'] = [add_noref_note]
-                        #print(noref_feat)
+                        print(noref_feat)
+                        print(noref_feat.qualifiers['translation'][0])
                         add_features_from_prokka_noref.append(noref_feat)
                         prokka_rec.features.append(noref_feat)
                         annomerge_cds += 1
