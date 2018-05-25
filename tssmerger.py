@@ -10,6 +10,9 @@ import os        	                            # imports os to remove temporary f
 import argparse                                 # imports arparse so ursers or makefiles can specify in/out filenames
 
 
+GROUPHOME = os.environ['GROUPHOME']
+
+
 def tssaddotate(reference_genome_embl, csvfile, tsscol, strandcol,  out_put,
                 csvauthors='Teresa Cortes, Olga T. Schubert, Graham Rose, Kristine B. Arnvig, '
                            + 'Inaki aki Comas, Ruedi Aebersold, and Douglas B. Young',
@@ -84,6 +87,8 @@ def tssaddotate(reference_genome_embl, csvfile, tsscol, strandcol,  out_put,
                     else:
                         tssstrand = -1
 
+                    if flipstrand:
+                        tssstrand = tssstrand * -1  # flips strand if told to by addodate. needed for antisense strand
                     # creates the new feature to store the TSS
                     tp1 = ExactPosition(tssstart)
                     tp2 = ExactPosition(tssstart + 1)
@@ -222,24 +227,24 @@ def addotatcaller(inemble='ittas-man-h37.embl', csvpath='csvdata/', outemble='it
                 csvfile=(csvpath + 'mod_cortez13_starv_RPKM_tss_antisense.csv'),
                 out_put='catotat30.embl', sameref=1,
                 tsscol='Starvation Expressed Strongest Peak Height Antisense TSS Genome Position',
-                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=False,
-                usrnote='Expressed During Starvation', dontsort=1)
+                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=True,
+                usrnote='Expressed During Starvation, Antisense', dontsort=1)
 
     # call 31
     tssaddotate(reference_genome_embl='catotat30.embl',
                 csvfile=(csvpath + 'mod_cortez13_starv_RPKM_tss_antisense.csv'),
                 out_put='catotat31.embl', sameref=1,
                 tsscol='Starvation Expressed 2nd Antisense TSS Genome Position',
-                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=False,
-                usrnote='Expressed During Starvation', dontsort=1)
+                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=True,
+                usrnote='Expressed During Starvation, Antisense', dontsort=1)
 
     # call 32
     tssaddotate(reference_genome_embl='catotat31.embl',
                 csvfile=(csvpath + 'mod_cortez13_starv_RPKM_tss_antisense.csv'),
                 out_put='catotat32.embl', sameref=1,
                 tsscol='Starvation Expressed 3rd Antisense TSS Genome Position',
-                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=False,
-                usrnote='Expressed During Starvation', dontsort=1)
+                strandcol='Starvation Expressed Antisense TSS Strand', flipstrand=True,
+                usrnote='Expressed During Starvation, Antisense', dontsort=1)
 
     # calls 33-35
     for filedex in range(1, 4):
@@ -250,7 +255,7 @@ def addotatcaller(inemble='ittas-man-h37.embl', csvpath='csvdata/', outemble='it
                     csvfile=(csvpath + 'mod_cortez13_starv_RPKM_tss_antisense.csv'),
                     out_put=out_file, sameref=1, tsscol=t_col,
                     strandcol='Starvation Expressed Antisense TSS Strand',
-                    flipstrand=False, usrnote='Expressed During Starvation', dontsort=1)
+                    flipstrand=True, usrnote='Expressed During Starvation, Antisense', dontsort=1)
 
     # this last call uses a different source paper:
     # Pubmed: 26536359
@@ -345,7 +350,8 @@ def main():
                                      epilog='Transcription Start Site data comes from specific csv files')
     parser.add_argument('-r', '--reference', help='Input Reference embl File', default='ittas-man-h37.embl')
     parser.add_argument('-o', '--output', help='Output embl file', default='ittas-man-h37-tss-merge.embl')
-    parser.add_argument('-c', '--csvdir', help='Directory with csv files with TSS data', default='csvdata/')
+    parser.add_argument('-c', '--csvdir', help='Directory with csv files with TSS data',
+                        default=GROUPHOME+'/tss-csv-data/')
     args = parser.parse_args()
 
     print(args.reference)
