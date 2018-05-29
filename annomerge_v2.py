@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __author__ = "Deepika Gunasekaran"
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __maintainer__ = "Deepika Gunasekaran"
 __email__ = "dgunasekaran@sdsu.edu"
 __status__ = "Development"
@@ -20,6 +20,7 @@ from Bio import SeqIO
 from Bio.Seq import translate
 from Bio.Blast.Applications import NcbiblastpCommandline
 from Bio.SeqRecord import SeqRecord
+from Bio.SeqFeature import FeatureLocation, ExactPosition
 import collections
 from numpy import median
 import os
@@ -1248,6 +1249,59 @@ def blast_ratt_rv_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_feature)
     return same_gene
 
 
+def correct_start_coords_prokka(prokka_record, correction_dict):
+    # This function parses through prokka records and corrects start coordingates for cases where Prodigal
+    # annotates these incorrectly
+    prokka_rec_seq = prokka_record.seq
+    modified_prokka_record = prokka_record[:]
+    modified_prokka_record.features = []
+    gene_rv_dict = genes_locus_tag_parser()
+    modified_features = []
+    for feature_prokka in prokka_record.features:
+        rv_id = ''
+        if feature_prokka.type == 'CDS' and 'gene' not in feature_prokka.qualifiers.keys():
+            rv_id = ''
+        elif feature_prokka.type == 'CDS' and 'gene' in feature_prokka.qualifiers.keys():
+            if feature_prokka.qualifiers['gene'][0].startswith('Rv'):
+                rv_id = feature_prokka.qualifiers['gene'][0]
+            else:
+                if '_' in feature_prokka.qualifiers['gene'][0]:
+                    gene_name = feature_prokka.qualifiers['gene'][0].split('_')[0]
+                else:
+                    gene_name = feature_prokka.qualifiers['gene'][0]
+                if gene_name in gene_rv_dict.keys():
+                    rv_id = gene_rv_dict[gene_name]
+                else:
+                    rv_id = ''
+        else:
+            rv_id = ''
+        if feature_prokka.type == 'CDS' and len(rv_id) > 0:
+            if rv_id in correction_dict.keys() and correction_dict[rv_id]['length'] == len(feature_prokka):
+#                if len(feature_prokka) % 3 != 0:
+#                    print(feature_prokka)
+                mod_feature = feature_prokka
+                mod_start = int(feature_prokka.location.start) + correction_dict[rv_id]['start_change'] + 1
+                mod_end = int(feature_prokka.location.end)
+                mod_strand = int(feature_prokka.location.strand)
+                mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end), strand=mod_strand)
+                mod_feature.qualifiers['translation'][0] = str(translate(mod_feature.extract(prokka_rec_seq), table=11, to_stop=True))
+                modified_features.append(mod_feature)
+                #modified_prokka_record.features.append(mod_feature)
+#                if len(mod_feature) % 3 != 0:
+#                    print(feature_prokka)
+#                    print(mod_feature)
+            else:
+                #modified_prokka_record.features.append(feature_prokka)
+                modified_features.append(feature_prokka)
+        else:
+            #modified_prokka_record.features.append(feature_prokka)
+            modified_features.append(feature_prokka)
+    modified_prokka_record.features = get_ordered_features(modified_features)
+#    print(len(prokka_record.features))
+#    print(len(modified_prokka_record.features))
+    return modified_prokka_record
+
+
 # Required inputs:
 # 1. Isolate ID
 # Optional inputs:
@@ -1331,17 +1385,21 @@ def main():
         locus_tag = line.split()[0]
         genes_in_rv.append(locus_tag)
     h37rv_protein_lengths = get_lengths_of_genes(genes_in_rv, h37rv_protein_fasta)
+    prodigal_correction_fp = os.environ['GROUPHOME'] + '/data/depot/annotation/resources/prodigal_start_correction.p'
+    prodigal_correction_dict = pickle.load(open(prodigal_correction_fp, "rb" ))
 #    print(input_ratt_files)
 #    print(len(prokka_records))
     for i in range(0, len(input_ratt_files)):
         print('Contig ' + str(i+1))
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
-        prokka_noref_rec = prokka_record_noref[i]
+        prokka_noref_rec_pre = prokka_record_noref[i]
+        prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict)
         global prokka_noref_dictionary
         prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features)
         global record_sequence
         record_sequence = ratt_contig_record.seq
-        prokka_contig_record = prokka_records[i]
+        prokka_contig_record_pre = prokka_records[i]
+        prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, prodigal_correction_dict)
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
         prokka_rv_features, prokka_non_rv_features = get_prokka_features_with_gene_name(prokka_contig_features)
@@ -1737,9 +1795,11 @@ def main():
     #counter = 0
     annomerge_records_post_processed = []
     for rec_num in range(0, len(annomerge_records)):
-        prokka_rec = annomerge_records[rec_num]
+        prokka_rec_pre = annomerge_records[rec_num]
+        prokka_rec = correct_start_coords_prokka(prokka_rec_pre, prodigal_correction_dict)
         #print(len(prokka_rec.features))
-        prokka_noref_rec = prokka_record_noref[rec_num]
+        prokka_noref_rec_pre = prokka_record_noref[rec_num]
+        prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict)
         prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features)
         raw_features_unflattened = prokka_rec.features[:]
         raw_features = []
@@ -1989,8 +2049,8 @@ def main():
                             noref_feat.qualifiers['note'].append(add_noref_note)
                         else:
                             noref_feat.qualifiers['note'] = [add_noref_note]
-                        print(noref_feat)
-                        print(noref_feat.qualifiers['translation'][0])
+#                        print(noref_feat)
+#                        print(noref_feat.qualifiers['translation'][0])
                         add_features_from_prokka_noref.append(noref_feat)
                         prokka_rec.features.append(noref_feat)
                         annomerge_cds += 1
@@ -2004,6 +2064,7 @@ def main():
         for feature_final in prokka_rec.features:
             if feature_final.type != 'CDS':
                 continue
+#            print(feature_final.qualifiers['locus_tag'][0])
             if 'inference' in feature_final.qualifiers.keys():
                 is_domain = False
                 for infer in feature_final.qualifiers['inference']:
