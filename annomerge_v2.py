@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __author__ = "Deepika Gunasekaran"
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 __maintainer__ = "Deepika Gunasekaran"
 __email__ = "dgunasekaran@sdsu.edu"
 __status__ = "Development"
@@ -16,6 +16,7 @@ __status__ = "Development"
 import sys
 import argparse
 import Bio
+from BCBio import GFF
 from Bio import SeqIO
 from Bio.Seq import translate
 from Bio.Blast.Applications import NcbiblastpCommandline
@@ -1254,6 +1255,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict):
     # annotates these incorrectly
     prokka_rec_seq = prokka_record.seq
     modified_prokka_record = prokka_record[:]
+    modified_prokka_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab initio annotation from Prokka'
     modified_prokka_record.features = []
     gene_rv_dict = genes_locus_tag_parser()
     modified_features = []
@@ -1318,7 +1320,8 @@ def main():
     parser = argparse.ArgumentParser(description='Merging annotation from RATT and Prokka',
                                      epilog='Isolate ID must be specified')
     parser.add_argument('-i', '--isolate', help='Isolate ID')
-    parser.add_argument('-o', '--output', help='Output file in Genbank format', default='annomerge.gbf')
+    parser.add_argument('-o', '--output', help='Output file in Genbank format', default='annomerge.gbk')
+#    parser.add_argument('-g', '--gff', help='Output file in GFF format', default='annomerge.gff')
     parser.add_argument('-l', '--log_file', help='Log file with information on features added from prokka',
                         default='annomerge.log')
     parser.add_argument('-m', '--merged_genes', help='Merged genes file in genbank format',
@@ -1355,6 +1358,7 @@ def main():
         sys.exit('Expecting Prokka annotation file but found none')
     output_merged_genes = args.merged_genes
     output_genbank = args.output
+#    output_gff = args.gff
     add_noref_annotations = args.fill_gaps
     output_log = args.log_file
     global output_file
@@ -1417,9 +1421,10 @@ def main():
             except IndexError:
                 ratt_corrected_genes = []
         ratt_contig_non_cds = []
-        #for feature in ratt_contig_features:
-        #    if feature.type != 'CDS':
-        #        ratt_contig_non_cds.append(feature)
+        for feature in ratt_contig_features:
+            if feature.type == 'mRNA':
+                ratt_contig_non_cds.append(feature)
+        print(len(ratt_contig_non_cds))
         ratt_contig_features, prokka_features_to_add = isolate_valid_ratt_annotations(ratt_contig_features,
                                                                                       prokka_contig_features)
         #print(len(ratt_contig_features))
@@ -2107,6 +2112,8 @@ def main():
 
         annomerge_records_post_processed.append(prokka_rec)
     SeqIO.write(annomerge_records_post_processed, output_genbank, 'genbank')
+#    with open(output_gff, "w") as gff_handle:
+#        GFF.write(annomerge_records_post_processed, gff_handle, include_fasta=True)
     for temp_file in rv_temp_fasta_dict.values():
         os.unlink(temp_file)
 
