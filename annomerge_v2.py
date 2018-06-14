@@ -19,7 +19,7 @@ import Bio
 from BCBio import GFF
 from Bio import SeqIO
 from Bio.Seq import translate
-from Bio.Blast.Applications import NcbiblastpCommandline
+from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import FeatureLocation, ExactPosition
 import collections
@@ -1250,16 +1250,41 @@ def blast_ratt_rv_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_feature)
     return same_gene
 
 
-def correct_start_coords_prokka(prokka_record, correction_dict):
+def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict):
     # This function parses through prokka records and corrects start coordingates for cases where Prodigal
     # annotates these incorrectly
+    #print(len(prokka_record.features))
     prokka_rec_seq = prokka_record.seq
     modified_prokka_record = prokka_record[:]
     modified_prokka_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab initio annotation from Prokka'
     modified_prokka_record.features = []
     gene_rv_dict = genes_locus_tag_parser()
     modified_features = []
+    # Write Rv genes to temp file
+    rv_temp_nuc_fasta_dict = {}
+    rv_temp_prom_fasta_dict = {}
+    for rv in correction_dict.keys():
+        rv_feature = rv_cds_dict[rv]
+        rv_feat_seq = str(rv_seq)[int(rv_feature.location.start):int(rv_feature.location.end)]
+        rv_prom_seq = str(rv_seq)[int(rv_feature.location.start)-40:int(rv_feature.location.start)]
+        fp = tempfile.NamedTemporaryFile(suffix='_nuc.fasta', delete=False)
+        fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta', delete=False)
+        rv_temp_nuc_fasta_dict[rv] = fp.name
+        rv_temp_prom_fasta_dict[rv] = fp_prom.name
+        header = '>' + rv + '\n'
+        seq = rv_feat_seq + '\n'
+        fp.write(header)
+        fp.write(seq)
+        header_prom = '>' + rv + '_prom\n'
+        seq_prom = rv_prom_seq + '\n'
+        fp_prom.write(header_prom)
+        fp_prom.write(seq_prom)
+        fp.close()
+        fp_prom.close()
     for feature_prokka in prokka_record.features:
+        if feature_prokka.type != 'CDS':
+            modified_features.append(feature_prokka)
+            continue
         rv_id = ''
         if feature_prokka.type == 'CDS' and 'gene' not in feature_prokka.qualifiers.keys():
             rv_id = ''
@@ -1278,30 +1303,246 @@ def correct_start_coords_prokka(prokka_record, correction_dict):
         else:
             rv_id = ''
         if feature_prokka.type == 'CDS' and len(rv_id) > 0:
-            if rv_id in correction_dict.keys() and correction_dict[rv_id]['length'] == len(feature_prokka):
-#                if len(feature_prokka) % 3 != 0:
-#                    print(feature_prokka)
-                mod_feature = feature_prokka
-                mod_start = int(feature_prokka.location.start) + correction_dict[rv_id]['start_change'] + 1
-                mod_end = int(feature_prokka.location.end)
-                mod_strand = int(feature_prokka.location.strand)
-                mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end), strand=mod_strand)
-                mod_feature.qualifiers['translation'][0] = str(translate(mod_feature.extract(prokka_rec_seq), table=11, to_stop=True))
-                modified_features.append(mod_feature)
-                #modified_prokka_record.features.append(mod_feature)
-#                if len(mod_feature) % 3 != 0:
-#                    print(feature_prokka)
-#                    print(mod_feature)
+            original_start = int(feature_prokka.location.start)
+            original_end = int(feature_prokka.location.end)
+            original_strand = int(feature_prokka.location.strand)
+            original_location = FeatureLocation(ExactPosition(original_start), ExactPosition(original_end), strand=original_strand)
+            if rv_id in correction_dict.keys():
+                # If Prokka annotation of gene is in a different strand, prodigal start coordinates are considered
+                # as is
+                query_temp = tempfile.NamedTemporaryFile(suffix='_query_nuc.fasta', delete=False)
+                query_fp = query_temp.name
+                #print(rv_cds_dict[rv_id])
+                #print(feature_prokka)
+                #print(int(rv_cds_dict[rv_id].location.start))
+                rv_nuc_seq = str(rv_seq)[int(rv_cds_dict[rv_id].location.start):int(rv_cds_dict[rv_id].location.end)]
+                #print(rv_nuc_seq)
+                prokka_nuc_seq = str(fasta_seq)[int(feature_prokka.location.start):int(feature_prokka.location.end)]
+                q_header = '>' + rv_id + '_query\n'
+                query_temp.write(q_header)
+                query_temp.write(prokka_nuc_seq)
+                query_temp.write('\n')
+                #print(prokka_nuc_seq)
+                blast_to_rv = NcbiblastnCommandline(subject=rv_temp_nuc_fasta_dict[rv_id], outfmt='"7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"')
+                stdout, stderr = blast_to_rv(prokka_nuc_seq)
+                stdout_elements = stdout.split('\n')
+#                if rv_id == 'Rv1089':
+#                    print(stdout)
+#                    print(feature_prokka.location.strand)
+#                    print(rv_cds_dict[rv_id].location.strand)
+                blast_length = len(stdout_elements)
+                blast_counter = 0
+                for line in stdout_elements:
+                    if line.startswith('#') or len(line) == 0:
+                        blast_counter += 1
+                        continue
+                    else:
+                        line_elements = line.strip().split('\t')
+                        #print(line_elements)
+                        if int(line_elements[6]) < int(line_elements[8]):
+                            if int(feature_prokka.location.start) < 40 or int(rv_cds_dict[rv_id].location.start) < 40:
+                                #print(feature_prokka)
+                                change_start = int(line_elements[8]) - int(line_elements[6])
+                                mod_feature = feature_prokka
+                                mod_start = int(feature_prokka.location.start) - change_start
+                                mod_end = int(feature_prokka.location.end)
+                                mod_strand = int(feature_prokka.location.strand)
+                                mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end), strand=mod_strand)
+                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=True)
+                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=False)
+                                if len(mod_feature_seq) == len(check_feature_seq) - 1:
+                                    mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
+                                    modified_features.append(mod_feature)
+                                else:
+                                    print('Modified feature location incorrect')
+                                    print(stdout)
+                                    print(check_feature_seq)
+                                    print(mod_feature_seq)
+                                    feature_prokka.location = original_location
+                                    print(feature_prokka.qualifiers['translation'][0])
+                                    print(feature_prokka)
+                                    modified_features.append(feature_prokka)
+                                #print(mod_feature)
+                            else:
+                                change_start = int(line_elements[8]) - int(line_elements[6])
+                                rv_feature = rv_cds_dict[rv_id]
+                                rv_prom_end = int(rv_feature.location.start)
+                                rv_prom_start = int(rv_feature.location.start) - 40
+                                rv_prom_location = FeatureLocation(ExactPosition(rv_prom_start), ExactPosition(rv_prom_end), strand=int(rv_feature.location.strand))
+                                rv_prom_seq = rv_prom_location.extract(rv_seq)
+                                #print('H37Rv feature promoter sequence')
+                                #print(int(rv_feature.location.start))
+                                #print(rv_prom_seq)
+                                #feature_prokka_prom_end = int(feature_prokka.location.start)
+                                #feature_prokka_prom_start = int(feature_prokka.location.start) - 40
+                                #prokka_prom_location = FeatureLocation(ExactPosition(feature_prokka_prom_start), ExactPosition(feature_prokka_prom_end), strand=int(feature_prokka.location.strand))
+                                mod_prokka_start = int(feature_prokka.location.start) - change_start
+                                #print(mod_prokka_start)
+                                prokka_prom_start = mod_prokka_start - 40
+                                prokka_prom_location = FeatureLocation(ExactPosition(prokka_prom_start), ExactPosition(mod_prokka_start), strand=int(feature_prokka.location.strand))
+                                feature_prokka_prom_seq = prokka_prom_location.extract(fasta_seq)
+                                #print('Prokka feature promoter sequence')
+                                #print(int(feature_prokka.location.start))
+                                #print(feature_prokka_prom_seq)
+                                blast_to_rv_prom = NcbiblastnCommandline(subject=rv_temp_prom_fasta_dict[rv_id], outfmt='"7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore gaps"')
+                                stdout_2, stderr_2 = blast_to_rv_prom(stdin=str(feature_prokka_prom_seq))
+                                prom_blast_elements = stdout_2.split('\n')
+                                prom_blast = len(prom_blast_elements)
+                                prom_counter = 0
+                                for line in prom_blast_elements:
+                                    if line.startswith('#') or len(line) == 0:
+                                        prom_counter += 1
+                                        continue
+                                    else:
+                                        line_elements = line.strip().split('\t')
+                                        if float(line_elements[2]) == 100.0 and int(line_elements[12]) == 0:
+                                            #print(feature_prokka)
+                                            #change_start = int(line_elements[8]) - int(line_elements[6])
+                                            mod_feature = feature_prokka
+                                            mod_start = int(feature_prokka.location.start) - change_start
+                                            mod_end = int(feature_prokka.location.end)
+                                            mod_strand = int(feature_prokka.location.strand)
+                                            mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end), strand=mod_strand)
+                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=True)
+                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=False)
+                                            if len(mod_feature_seq) == len(check_feature_seq) - 1:
+                                                mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
+                                                modified_features.append(mod_feature)
+                                            else:
+                                                print('Modified feature location incorrect')
+                                                print(stdout_2)
+                                                print(check_feature_seq)
+                                                print(mod_feature_seq)
+                                                feature_prokka.location = original_location
+                                                print(feature_prokka.qualifiers['translation'][0])
+                                                print(feature_prokka)
+                                                modified_features.append(feature_prokka)
+                                            #mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
+                                            #modified_features.append(mod_feature)
+                                            #print(mod_feature)
+                                        else:
+                                            modified_features.append(feature_prokka)
+                                if prom_blast == prom_counter:
+                                    modified_features.append(feature_prokka)
+                        elif int(line_elements[6]) > int(line_elements[8]):
+                            #print(stdout)
+                            #print('Prokka')
+                            #print(feature_prokka)
+                            #print('H37Rv')
+                            #print(rv_cds_dict[rv_id])
+                            if int(feature_prokka.location.start) < 40 or int(rv_cds_dict[rv_id].location.start) < 40:
+                                #print(feature_prokka)
+                                change_start = int(line_elements[6]) - int(line_elements[8])
+                                mod_feature = feature_prokka
+                                mod_start = int(feature_prokka.location.start) + change_start
+                                #print('Modified start')
+                                #print(mod_start)
+                                mod_end = int(feature_prokka.location.end)
+                                mod_strand = int(feature_prokka.location.strand)
+                                mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end), strand=mod_strand)
+                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=True)
+                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=False)
+                                if len(mod_feature_seq) == len(check_feature_seq) - 1:
+                                    mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
+                                    modified_features.append(mod_feature)
+                                else:
+                                    print('Modified feature location incorrect')
+                                    print(stdout)
+                                    print(check_feature_seq)
+                                    print(mod_feature_seq)
+                                    feature_prokka.location = original_location
+                                    print(feature_prokka.qualifiers['translation'][0])
+                                    print(feature_prokka)
+                                    modified_features.append(feature_prokka)
+                                #mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
+                                #modified_features.append(mod_feature)
+                                #print(mod_feature)
+                            else:
+                                change_start = int(line_elements[6]) - int(line_elements[8])
+                                rv_feature = rv_cds_dict[rv_id]
+                                rv_prom_end = int(rv_feature.location.start)
+                                rv_prom_start = int(rv_feature.location.start) - 40
+                                rv_prom_location = FeatureLocation(ExactPosition(rv_prom_start), ExactPosition(rv_prom_end), strand=int(rv_feature.location.strand))
+                                rv_prom_seq = rv_prom_location.extract(rv_seq)
+                                #print('H37Rv feature promoter sequence')
+                                #print(int(rv_feature.location.start))
+                                #print(rv_prom_seq)
+                                #feature_prokka_prom_end = int(feature_prokka.location.start)
+                                #feature_prokka_prom_start = int(feature_prokka.location.start) - 40
+                                #prokka_prom_location = FeatureLocation(ExactPosition(feature_prokka_prom_start), ExactPosition(feature_prokka_prom_end), strand=int(feature_prokka.location.strand))
+                                mod_prokka_start = int(feature_prokka.location.start) + change_start
+                                #print('Modified start')
+                                #print(mod_prokka_start)
+                                prokka_prom_start = mod_prokka_start - 40
+                                prokka_prom_location = FeatureLocation(ExactPosition(prokka_prom_start), ExactPosition(mod_prokka_start), strand=int(feature_prokka.location.strand))
+                                feature_prokka_prom_seq = prokka_prom_location.extract(fasta_seq)
+                                blast_to_rv_prom = NcbiblastnCommandline(subject=rv_temp_prom_fasta_dict[rv_id], outfmt='"7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore gaps"')
+                                stdout_2, stderr_2 = blast_to_rv_prom(stdin=str(feature_prokka_prom_seq))
+                                prom_blast_elements = stdout_2.split('\n')
+                                prom_blast = len(prom_blast_elements)
+                                prom_counter = 0
+                                for line in prom_blast_elements:
+                                    if line.startswith('#') or len(line) == 0:
+                                        prom_counter += 1
+                                        continue
+                                    else:
+                                        line_elements = line.strip().split('\t')
+                                        if float(line_elements[2]) == 100.0 and int(line_elements[12]) == 0:
+                                            #print(feature_prokka)
+                                            #change_start = int(line_elements[8]) - int(line_elements[6])
+                                            mod_feature = feature_prokka
+                                            mod_start = int(feature_prokka.location.start) + change_start
+                                            mod_end = int(feature_prokka.location.end)
+                                            mod_strand = int(feature_prokka.location.strand)
+                                            mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end), strand=mod_strand)
+                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=True)
+                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=False)
+                                            if len(mod_feature_seq) == len(check_feature_seq) - 1:
+                                                mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
+                                                modified_features.append(mod_feature)
+                                            else:
+                                                print('Modified feature location incorrect')
+                                                print(stdout_2)
+                                                print(check_feature_seq)
+                                                print(mod_feature_seq)
+                                                feature_prokka.location = original_location
+                                                print(feature_prokka.qualifiers['translation'][0])
+                                                print(feature_prokka)
+                                                modified_features.append(feature_prokka)
+                                            #mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
+                                            #modified_features.append(mod_feature)
+                                            #print(mod_feature)
+                                        else:
+                                            modified_features.append(feature_prokka)
+                                if prom_blast == prom_counter:
+                                    modified_features.append(feature_prokka)
+                        else:
+                            # The start and stop are the same in both Blast and H37Rv i.e. Prodigal start location is correct
+                            modified_features.append(feature_prokka)
+                if blast_length == blast_counter:
+                    modified_features.append(feature_prokka)
             else:
-                #modified_prokka_record.features.append(feature_prokka)
                 modified_features.append(feature_prokka)
         else:
-            #modified_prokka_record.features.append(feature_prokka)
             modified_features.append(feature_prokka)
+    for temp_file in rv_temp_nuc_fasta_dict.values():
+        os.unlink(temp_file)
+    for temp_file in rv_temp_prom_fasta_dict.values():
+        os.unlink(temp_file)
     modified_prokka_record.features = get_ordered_features(modified_features)
-#    print(len(prokka_record.features))
-#    print(len(modified_prokka_record.features))
+    #print(len(modified_prokka_record.features))
     return modified_prokka_record
+
+
+def get_feature_by_rv(rec):
+    cds_dict = {}
+    for feature in rec.features:
+        if feature.type != 'CDS':
+            continue
+        else:
+            rv = feature.qualifiers['locus_tag'][0]
+            cds_dict[rv] = feature
+    return cds_dict
 
 
 # Required inputs:
@@ -1391,19 +1632,25 @@ def main():
     h37rv_protein_lengths = get_lengths_of_genes(genes_in_rv, h37rv_protein_fasta)
     prodigal_correction_fp = os.environ['GROUPHOME'] + '/data/depot/annotation/resources/prodigal_start_correction.p'
     prodigal_correction_dict = pickle.load(open(prodigal_correction_fp, "rb" ))
+    h37rv_fasta_fp = os.environ['GROUPHOME'] + '/data/genomes/H37Rv-NCBI.fasta'
+    h37rv_embl_fp = os.environ['GROUPHOME'] + '/bin/ratt-code-18/H37Rv-NC_TSS_000962.3.embl'
+    h37rv_embl_record = SeqIO.read(h37rv_embl_fp, 'embl')
+    h37rv_feature_dict = get_feature_by_rv(h37rv_embl_record)
+    h37rv_records = list(SeqIO.parse(h37rv_fasta_fp, "fasta"))
+    h37rv_sequence = h37rv_records[0].seq
 #    print(input_ratt_files)
 #    print(len(prokka_records))
     for i in range(0, len(input_ratt_files)):
         print('Contig ' + str(i+1))
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
-        prokka_noref_rec_pre = prokka_record_noref[i]
-        prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict)
-        global prokka_noref_dictionary
-        prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features)
         global record_sequence
         record_sequence = ratt_contig_record.seq
+        prokka_noref_rec_pre = prokka_record_noref[i]
+        prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict, record_sequence, h37rv_sequence, h37rv_feature_dict)
+        global prokka_noref_dictionary
+        prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features)
         prokka_contig_record_pre = prokka_records[i]
-        prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, prodigal_correction_dict)
+        prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, prodigal_correction_dict, record_sequence, h37rv_sequence, h37rv_feature_dict)
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
         prokka_rv_features, prokka_non_rv_features = get_prokka_features_with_gene_name(prokka_contig_features)
@@ -1546,6 +1793,8 @@ def main():
             prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
             prokka_features_not_in_ratt, ratt_overlapping_genes = \
                 remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
+            for feature in prokka_features_not_in_ratt:
+                print(feature)
             print(len(prokka_features_not_in_ratt.keys()))
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
@@ -1800,11 +2049,12 @@ def main():
     #counter = 0
     annomerge_records_post_processed = []
     for rec_num in range(0, len(annomerge_records)):
-        prokka_rec_pre = annomerge_records[rec_num]
-        prokka_rec = correct_start_coords_prokka(prokka_rec_pre, prodigal_correction_dict)
+#        prokka_rec_pre = annomerge_records[rec_num]
+#        prokka_rec = correct_start_coords_prokka(prokka_rec_pre, prodigal_correction_dict, record_sequence, h37rv_sequence, h37rv_feature_dict)
+        prokka_rec = annomerge_records[rec_num]
         #print(len(prokka_rec.features))
         prokka_noref_rec_pre = prokka_record_noref[rec_num]
-        prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict)
+        prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict, record_sequence, h37rv_sequence, h37rv_feature_dict)
         prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features)
         raw_features_unflattened = prokka_rec.features[:]
         raw_features = []
@@ -2064,7 +2314,7 @@ def main():
             print('To add from noref: ' + str(len(add_features_from_prokka_noref)))
 
         ########################## Removing gene names assigned based on domains #######################################
-        print('FInal feature annotation verification')
+        print('Final feature annotation verification')
         added_ltags = []
         for feature_final in prokka_rec.features:
             if feature_final.type != 'CDS':
