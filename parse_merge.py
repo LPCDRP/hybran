@@ -16,7 +16,8 @@ all_merged_gene_list = []
 in_all_lineages_list = []
 isolate_id_list = []
 gene_dict = {}
-root_directory = os.listdir('/grp/valafar/data/depot/annotation')
+anno_directory = os.listdir('/grp/valafar/data/annotation')
+anno_depot_directory = os.listdir('/grp/valafar/data/depot/annotation')
 east_african_indian_list = []
 east_asian_list = []
 euro_american_list = []
@@ -49,13 +50,18 @@ for record in fasta_sequences:
     h37rv_cds_dict[gene] = len(cds)
 
 
-for gene, sequence in h37rv_cds_dict.items():
-    if gene == '':
-        print gene
-
-
 #Creates a list of filepaths for the gbf files to parse
-def get_file_path(DIR):
+def get_anno_file_path(DIR):
+    filelist = []
+    for iso_dir in DIR:
+        if iso_dir.endswith('gbk') and not iso_dir.startswith('A') and not iso_dir.startswith('H'):
+            if os.path.exists('/grp/valafar/data/annotation/'):
+                gbf = '/grp/valafar/data/annotation/' + iso_dir
+                filelist.append(gbf)
+    return filelist
+annomerge_filepaths = get_anno_file_path(anno_directory)
+
+def get_depot_file_path(DIR):
     filelist = []
     for iso_dir in DIR:
         if iso_dir.startswith('1-') or iso_dir.startswith('2-') or iso_dir.startswith('3-') or iso_dir.startswith('4-') \
@@ -64,7 +70,8 @@ def get_file_path(DIR):
                 gbf = '/grp/valafar/data/depot/annotation/' + iso_dir + '/' + 'annomerge/merged_genes.gbf'
                 filelist.append(gbf)
     return filelist
-annomerge_filepaths = get_file_path(root_directory)
+anno_depot_filepaths = get_depot_file_path(anno_depot_directory)
+
 
 
 #creates a dictionary of each isolate as the key and each merged gene it contains as a value
@@ -73,9 +80,54 @@ for gbf in annomerge_filepaths:
     ref_gene_dict = {}
     merged_gene_dict = {}
     gbf_split = gbf.split('/')
-    isolate_id = gbf_split[6]
+    isolate_file = gbf_split[5]
+    isolate_split = isolate_file.split('.')
+    isolate_id = isolate_split[0]
+    print isolate_id
     merged_gene_list = []
     parse_file = SeqIO.parse(open(gbf,'r'),'genbank')
+    for record in parse_file:
+        features = record.features
+        for feature in features:
+            qualifier = feature.qualifiers
+            if 'translation' in qualifier:
+                seq = qualifier['translation']
+                if 'Rv' in qualifier['gene'][0]:
+                    gene = qualifier['gene'][0]
+                    gene_split = gene.split('_')
+                    gene = gene_split[0][0:8]
+                    if gene not in ref_gene_dict.keys():
+                        ref_gene_dict.update({gene:[gene,len(seq[0])]})
+                elif 'Rv' in qualifier['locus_tag'][0]:
+                    gene = qualifier['gene'][0]
+                    locus_tag = qualifier['locus_tag'][0]
+                    if locus_tag not in ref_gene_dict.keys():
+                        ref_gene_dict.update({gene:[locus_tag,len(seq[0])]})
+                elif 'note' in qualifier:
+                    if 'Eggnog' in qualifier['note'][0]:
+                        eggnog_note = qualifier['note'][0].split(':')
+                        eggnog_gene = eggnog_note[2]
+                        if eggnog_gene not in ref_gene_dict.keys():
+                            ref_gene_dict.update({eggnog_gene:[eggnog_gene,len(seq[0])]})
+
+    for merged_gene,gene_with_seq in ref_gene_dict.items():
+        ref_gene = gene_with_seq[0]
+        seq = gene_with_seq[1]
+        if ref_gene in h37rv_cds_dict.keys():
+            if seq > (h37rv_cds_dict[ref_gene] + 10):
+                merged_gene_list.append(merged_gene)
+                all_merged_gene_list.append(merged_gene)
+        gene_dict[isolate_id] = merged_gene_list
+
+
+
+for gbf in anno_depot_filepaths:
+    ref_gene_dict = {}
+    merged_gene_dict = {}
+    gbf_split = gbf.split('/')
+    isolate_id = gbf_split[6]
+    merged_gene_list = []
+    parse_file = SeqIO.parse(open(gbf, 'r'), 'genbank')
     for record in parse_file:
         features = record.features
         for feature in features:
@@ -89,29 +141,26 @@ for gbf in annomerge_filepaths:
                     gene_split = gene.split('_')
                     gene = gene_split[0][0:8]
                     if gene not in ref_gene_dict.keys():
-                        ref_gene_dict.update({gene:len(seq[0])})
+                        ref_gene_dict.update({gene: len(seq[0])})
                 elif 'locus_tag' in qualifier:
                     locus_tag = qualifier['locus_tag']
                     if 'Rv' in locus_tag[0]:
                         if 'A' in locus_tag[0] or 'B' in locus_tag[0]:
                             if locus_tag[0] not in ref_gene_dict.keys():
-                                ref_gene_dict.update({locus_tag[0]:len(seq[0])})
-                for gene,seq in ref_gene_dict.items():
+                                ref_gene_dict.update({locus_tag[0]: len(seq[0])})
+                for gene, seq in ref_gene_dict.items():
                     if gene in h37rv_cds_dict.keys():
                         if ref_gene_dict[gene] > (h37rv_cds_dict[gene] + 10):
-                            #print gene,'merged_gene',ref_gene_dict[gene]
-                            #print gene,'h37rv',h37rv_cds_dict[gene]
+                            # print gene,'merged_gene',ref_gene_dict[gene]
+                            # print gene,'h37rv',h37rv_cds_dict[gene]
                             if 'merged' in qualifier['note'][0]:
                                 note = qualifier['note'][0]
                                 gene_split_comment = note.split()
                                 merged_gene = gene_split_comment[2]
                                 if merged_gene not in merged_gene_list:
                                     merged_gene_list.append(gene_split_comment[2])
-                                    gene_dict[isolate_id] = merged_gene_list
+                                    gene_dict[isolate_id].append(gene_split_comment[2])
                                     all_merged_gene_list.append(gene_split_comment[2])
-
-
-print gene_dict
 
 
 #Creating lists of every isolate for each lineage
