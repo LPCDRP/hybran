@@ -37,8 +37,21 @@ flattened_east_asian_gene_list = []
 flattened_euro_american_gene_list = []
 flattened_indo_oceanic_gene_list = []
 flattened_lineage7_gene_list = []
+h37rv_cds_dict = {}
+merged_seq_dict = {}
+
+# Create a dictionary for CDS regions in H37Rv to use in length comparisons later
+fasta_sequences = SeqIO.parse(open('/grp/valafar/resources/H37Rv-CDS-updated.fasta',),'fasta')
+for record in fasta_sequences:
+    gene_line = record.description.split('~~~')
+    gene = gene_line[1]
+    cds = record.seq
+    h37rv_cds_dict[gene] = len(cds)
 
 
+for gene, sequence in h37rv_cds_dict.items():
+    if gene == '':
+        print gene
 
 
 #Creates a list of filepaths for the gbf files to parse
@@ -57,25 +70,48 @@ annomerge_filepaths = get_file_path(root_directory)
 #creates a dictionary of each isolate as the key and each merged gene it contains as a value
 # Also creates a list of each merged gene
 for gbf in annomerge_filepaths:
-    parser = GenBank.RecordParser()
-    record = parser.parse(open(gbf))
-    features = record.features
+    ref_gene_dict = {}
+    merged_gene_dict = {}
     gbf_split = gbf.split('/')
     isolate_id = gbf_split[6]
-    gene_list = []
-    for feature in features:
-        gene_comment_list = []
-        qualifiers = feature.qualifiers
-        for qualifier in qualifiers:
-            qvalue = qualifier.value
-            if 'merged' in qvalue:
-                gene_comment_list.append(qvalue)
-                for gene_comment in gene_comment_list:
-                    gene_split_comment = gene_comment.split()
-                    gene_list.append(gene_split_comment[2])
-                    gene_dict[isolate_id] = gene_list
-                    all_merged_gene_list.append(gene_split_comment[2])
+    merged_gene_list = []
+    parse_file = SeqIO.parse(open(gbf,'r'),'genbank')
+    for record in parse_file:
+        features = record.features
+        for feature in features:
+            qualifier = feature.qualifiers
+            # Some features do not have a sequence, even though they report merged genes and have locus_tags.
+            # Need clarification
+            if 'translation' in qualifier:
+                seq = qualifier['translation']
+                if 'gene' in qualifier:
+                    gene = qualifier['gene'][0]
+                    gene_split = gene.split('_')
+                    gene = gene_split[0][0:8]
+                    if gene not in ref_gene_dict.keys():
+                        ref_gene_dict.update({gene:len(seq[0])})
+                elif 'locus_tag' in qualifier:
+                    locus_tag = qualifier['locus_tag']
+                    if 'Rv' in locus_tag[0]:
+                        if 'A' in locus_tag[0] or 'B' in locus_tag[0]:
+                            if locus_tag[0] not in ref_gene_dict.keys():
+                                ref_gene_dict.update({locus_tag[0]:len(seq[0])})
+                for gene,seq in ref_gene_dict.items():
+                    if gene in h37rv_cds_dict.keys():
+                        if ref_gene_dict[gene] > (h37rv_cds_dict[gene] + 10):
+                            #print gene,'merged_gene',ref_gene_dict[gene]
+                            #print gene,'h37rv',h37rv_cds_dict[gene]
+                            if 'merged' in qualifier['note'][0]:
+                                note = qualifier['note'][0]
+                                gene_split_comment = note.split()
+                                merged_gene = gene_split_comment[2]
+                                if merged_gene not in merged_gene_list:
+                                    merged_gene_list.append(gene_split_comment[2])
+                                    gene_dict[isolate_id] = merged_gene_list
+                                    all_merged_gene_list.append(gene_split_comment[2])
 
+
+print gene_dict
 
 
 #Creating lists of every isolate for each lineage
@@ -159,14 +195,11 @@ for sublist in lineage7_gene_list:
 #Creates a list for each lineage that contains merged genes not found in any other lineage
 def get_unique_genes(gene_dict,compared_list1,compared_list2,compared_list3,compared_list4):
     unique_dict = {}
-    unique_gene_list = []
     for isolate,genes in gene_dict.items():
         for gene in genes:
             if gene not in compared_list1 and gene not in compared_list2 and gene not in compared_list3 and \
                     gene not in compared_list4:
-                if gene not in unique_gene_list:
-                    unique_dict.setdefault(isolate,[]).append(gene)
-                    unique_gene_list.append(gene)
+                unique_dict.setdefault(isolate,[]).append(gene)
 
     return unique_dict
 
@@ -188,12 +221,14 @@ unique_lineage7_merged_genes = get_unique_genes(lineage7_gene_dict,flattened_eas
 
 def get_counts(unique_gene_dict,all_genes_list):
     count_dict = {}
-    unique_gene_list = []
-    for isolate,genes in unique_gene_dict.items():
-        for gene in genes:
-            if gene not in unique_gene_list:
+    if 'unique' in str(unique_gene_dict):
+        for isolate,genes in unique_gene_dict.items():
+            for gene in genes:
                 count_dict.setdefault(isolate,[]).append([gene,all_genes_list.count(gene)])
-                unique_gene_list.append(gene)
+    else:
+        for isolate,genes in unique_gene_dict.items():
+            for gene in genes:
+                count_dict.setdefault(isolate,[]).append([gene,all_genes_list.count(gene)])
     return count_dict
 
 
@@ -203,6 +238,7 @@ EUR_counts = get_counts(unique_euro_american_merged_genes,all_merged_gene_list)
 EAI_counts = get_counts(unique_east_african_indian_merged_genes,all_merged_gene_list)
 EAS_counts = get_counts(unique_east_asian_merged_genes,all_merged_gene_list)
 LIN7_counts = get_counts(unique_lineage7_merged_genes,all_merged_gene_list)
+
 
 
 
