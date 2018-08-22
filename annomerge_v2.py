@@ -1579,7 +1579,7 @@ def main():
     if args.isolate is None:
         parser.print_help()
         sys.exit('Isolate ID must be specified')
-    file_path = os.environ['GROUPHOME'] + '/data/depot/annotation/' + args.isolate + '/'
+    file_path = os.environ['GROUPHOME'] + '/data/depot/annotation/illum-annotation/' + args.isolate + '/'
     ratt_file_path = file_path + 'ratt'
     ratt_correction_files = []
     try:
@@ -1774,11 +1774,21 @@ def main():
             ratt_annotation_mapping = {}  # Used for resolving annotations of overlapping features between RATT and
             # Prokka
             for index, feature in enumerate(ratt_contig_record.features):
-                start = int(feature.location.start)
-                end = int(feature.location.end)
-                ratt_annotation_mapping[(start, end)] = index
+                try:
+                    start = int(feature.location.start)
+                    end = int(feature.location.end)
+                    ratt_annotation_mapping[(start, end)] = index
+                except AttributeError:
+                    print('Attribute Error')
+                    print(feature)
+                    print(index)
             prokka_annotation_mapping = {}
-            ratt_contig_record_mod = ratt_contig_record[:]
+            try:
+                ratt_contig_record_mod = ratt_contig_record[:]
+            except AttributeError:
+                print('Contains features with fuzzy locations')
+                print(ratt_contig_record)
+                #sys.exit()
             ratt_contig_record_mod.features = ratt_contig_features
 #            print(len(ratt_contig_record_mod.features))
             added_from_ratt = []
