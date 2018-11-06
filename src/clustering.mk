@@ -19,17 +19,6 @@ gffs/gff-done:
 	done && touch $@
 
 test-weights/clustered_proteins: gffs/gff-done
-	rm -rf $(dir $@) clustering.log && \
-	qsub \
-	-cwd \
-	-j yes \
-	-V \
-	-b yes \
-	-pe smp $(NPROC) \
-	-R yes \
-	-sync yes \
-	-N clustering \
-	-o clustering.log \
 	$(roary) -v -z -s -e -r -f $(dir $@) -p $(NPROC) gffs/*.gff
 
 .ONESHELL:
