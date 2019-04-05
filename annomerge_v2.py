@@ -1,7 +1,8 @@
 #!/usr/bin/env python2.7
 
+
 __author__ = "Deepika Gunasekaran"
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 __maintainer__ = "Deepika Gunasekaran"
 __email__ = "dgunasekaran@sdsu.edu"
 __status__ = "Development"
@@ -18,6 +19,7 @@ import argparse
 import Bio
 from BCBio import GFF
 from Bio import SeqIO
+from Bio import Seq
 from Bio.Seq import translate
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
@@ -28,6 +30,43 @@ import os
 import tempfile
 import pickle
 import datetime
+
+
+def get_prom_for_rv(feature_list, source_seq):
+    rv_prom_dict = {}
+    for f in feature_list:
+        if f.type != 'CDS':
+            continue
+        feature_start = int(f.location.start)
+        feature_stop = int(f.location.end)
+        feature_strand = int(f.location.strand)
+        locus = f.qualifiers['locus_tag'][0]
+        if feature_strand == 1:
+            if feature_start == 0:
+                prom_end = len(source_seq)
+                prom_start = len(source_seq) - 40
+                prom_seq = str(source_seq[prom_start:prom_end])
+            elif feature_start < 40:
+                prom_end = feature_start
+                prev_prom_len = 40 - prom_end
+                prom_start = len(source_seq) - prev_prom_len
+                prom_seq = str(source_seq[prom_start:len(source_seq)]) + str(source_seq[0:prom_end])
+            else:
+                prom_end = feature_start
+                prom_start = feature_start - 40
+                prom_seq = str(source_seq[prom_start:prom_end])
+        else:
+            prom_start = feature_stop
+            prom_end = feature_stop + 40
+            prom_seq = str(source_seq[prom_start:prom_end])
+        fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta', delete=False, mode='w')
+        rv_prom_dict[locus] = fp_prom.name
+        header_prom = '>' + locus + '_prom\n'
+        seq_prom = prom_seq + '\n'
+        fp_prom.write(header_prom)
+        fp_prom.write(seq_prom)
+        fp_prom.close()
+    return rv_prom_dict
 
 
 def get_ordered_features(feature_list):
@@ -900,7 +939,7 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
         # If gene names are the same and the lengths of the genes are comparable between RATT and Prokka annotation
         # (difference in length of less than/equal to 10 bps), the RATT annotation is prefered
         elif ratt_annotation.qualifiers['gene'] == prokka_annotation.qualifiers['gene'] and \
-                        abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 10:
+                        abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
             mod_prokka_annotation, invalid_prokka = validate_prokka_feature_annotation(prokka_annotation,
                                                                                        prokka_noref_dictionary,
                                                                                        check_ratt=True,
@@ -928,7 +967,7 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
                 embl_file.features.append(mod_prokka_annotation)
                 included = True
         elif ratt_annotation.qualifiers['product'] == prokka_annotation.qualifiers['product'] and \
-                        abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 10:
+                        abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
             mod_prokka_annotation, invalid_prokka = validate_prokka_feature_annotation(prokka_annotation,
                                                                                        prokka_noref_dictionary,
                                                                                        check_ratt=True,
@@ -1065,7 +1104,7 @@ def get_rv_sequences_from_fasta(h37rv_fasta_fp):
     return rv_sequence_dict
 
 
-def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, ratt_features=[], ratt_locations={}):
+def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, ratt_features=[], ratt_locations={}, ratt_annotations=[]):
     do_not_add_prokka = False
     mod_feature = feature
     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
@@ -1090,40 +1129,84 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
                         mod_feature = feature
                     elif locus_tag in ratt_features and locus_tag in ratt_blast_results.keys():
                         #print(ratt_blast_results[locus_tag])
-                        ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
+                        print('Modifying Here')
+                        print(ratt_features)
+                        print(feature)
+                        ratt_start = int(ratt_locations.values()[0][0])
+                        ratt_stop = int(ratt_locations.values()[0][1])
+                        prom_mutation = False
+                        if ratt_locations.values()[0][2] == 1:
+            	            if ratt_start == 0:
+                                ratt_prom_end = len(record_sequence)
+                                ratt_prom_start = len(record_sequence) - 40
+                                ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+                            elif ratt_start < 40:
+                                ratt_prom_end = ratt_start
+                                prev_prom_len = 40 - ratt_prom_end
+                                ratt_prom_start = len(record_sequence) - prev_prom_len
+                                ratt_prom_seq = str(record_sequence[ratt_prom_start:len(record_sequence)]) + str(record_sequence[0:ratt_prom_end])
+                            else:
+                                ratt_prom_end = ratt_start
+                                ratt_prom_start = ratt_start - 40
+                                ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+                        else:
+                            ratt_prom_start = ratt_stop
+                            ratt_prom_end = ratt_stop + 40
+                            ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+                        print('RATT promoter')
+                        print(ratt_prom_seq)
+                        #print(ratt_annotations[0])
+                        print(h37rv_prom_fp_dict[locus_tag])
+                        blast_to_rv_prom = NcbiblastnCommandline(subject=h37rv_prom_fp_dict[locus_tag], outfmt='"7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore gaps"')
+                        stdout, stderr = blast_to_rv_prom(stdin=str(ratt_prom_seq))
+                        prom_blast_elements = stdout.split('\n')
+                        for line in prom_blast_elements:
+                            if line.startswith('#') or len(line) <= 1:
+                                continue
+                            blast_results = line.strip().split('\t')
+                            if float(blast_results[2]) == 100.0 and int(blast_results[3]) == 40:
+                                do_not_add_prokka = True
+                            else:
+                                prom_mutation = True
+                                print('Prom Mutation')
+                                print(blast_results)
+                        if prom_mutation == True:                                                               
+                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
                                                     int(ratt_blast_results[locus_tag][2]))
-                        prokka_coverage_measure = abs(int(blast_stats[1]) - int(blast_stats[2]))
-                        if ratt_coverage_measure < prokka_coverage_measure:
-                            do_not_add_prokka = True
-                        elif prokka_coverage_measure < ratt_coverage_measure:
+                            prokka_coverage_measure = abs(int(blast_stats[1]) - int(blast_stats[2]))
+                            if ratt_coverage_measure < prokka_coverage_measure:
+                                do_not_add_prokka = True
+                            elif prokka_coverage_measure < ratt_coverage_measure:
 #                            print('Prokka annotation more accurate than RATT for ' + locus_tag)
-                            if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
-                                ratt_contig_features_dict.pop(ratt_locations[locus_tag])
-                                popped_ratt_genes.append(locus_tag)
+                                if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
+                                    ratt_contig_features_dict.pop(ratt_locations[locus_tag])
+                                    popped_ratt_genes.append(locus_tag)
 #                            else:
 #                                print('Location not found in dictionary')
 #                                print(ratt_contig_features_dict.keys()[0])
 #                                print(popped_ratt_genes)
-                            do_not_add_prokka = False
-                        elif ratt_coverage_measure == prokka_coverage_measure:
+                                do_not_add_prokka = False
+                            elif ratt_coverage_measure == prokka_coverage_measure:
                             # Checking for identity if covergae is the same
-                            if int(ratt_blast_results[locus_tag][0]) > int(blast_stats[0]):
-                                do_not_add_prokka = True
-                            elif int(blast_stats[0]) > int(ratt_blast_results[locus_tag][0]):
-#                                print('Prokka annotation more accurate than RATT for ' + locus_tag)
-                                if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
-                                    ratt_contig_features_dict.pop(ratt_locations[locus_tag])
-                                    popped_ratt_genes.append(locus_tag)
+                                if int(ratt_blast_results[locus_tag][0]) > int(blast_stats[0]):
+                                    do_not_add_prokka = True
+                                elif int(blast_stats[0]) > int(ratt_blast_results[locus_tag][0]):
+#                                    print('Prokka annotation more accurate than RATT for ' + locus_tag)
+                                    if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
+                                        ratt_contig_features_dict.pop(ratt_locations[locus_tag])
+                                        popped_ratt_genes.append(locus_tag)
 #                                else:
 #                                    print('Location not found in dictionary')
 #                                    print(ratt_contig_features_dict.keys()[0])
 #                                    print(popped_ratt_genes)
-                                do_not_add_prokka = False
-                            else:
+                                    do_not_add_prokka = False
+                                else:
                                 # If RATT and Prokka annotations are same, choose RATT
-                                do_not_add_prokka = True
-                        else:
-                            do_not_add_prokka = False
+                                    do_not_add_prokka = True
+                            else:
+                                do_not_add_prokka = False
+                            print(do_not_add_prokka)
+                            print(mod_feature)
                         #print(blast_stats)
                         #print(ratt_coverage_measure)
                         #print(prokka_coverage_measure)
@@ -1160,41 +1243,82 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
                     elif locus_tag not in ratt_features:
                         mod_feature = feature
                     elif locus_tag in ratt_features and locus_tag in ratt_blast_results.keys():
-                        #print(ratt_blast_results[locus_tag])
-                        ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
-                                                    int(ratt_blast_results[locus_tag][2]))
-                        prokka_coverage_measure = abs(int(blast_stats[1]) - int(blast_stats[2]))
-                        if ratt_coverage_measure < prokka_coverage_measure:
-                            do_not_add_prokka = True
-                        elif prokka_coverage_measure < ratt_coverage_measure:
-#                            print('Prokka annotation more accurate than RATT for ' + locus_tag)
-                            if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
-                                ratt_contig_features_dict.pop(ratt_locations[locus_tag])
-                                popped_ratt_genes.append(locus_tag)
-#                            else:
-#                                print('Location not found in dictionary')
-#                                print(ratt_contig_features_dict.keys()[0])
-#                                print(popped_ratt_genes)
-                            do_not_add_prokka = False
-                        elif ratt_coverage_measure == prokka_coverage_measure:
-                            # Checking for identity if covergae is the same
-                            if int(ratt_blast_results[locus_tag][0]) > int(blast_stats[0]):
+                        print('Modify Here 2')
+                        print(ratt_locations)
+                        ratt_start = int(ratt_locations.values()[0][0])
+                        ratt_stop = int(ratt_locations.values()[0][1])
+                        prom_mutation = False
+                        if ratt_locations.values()[0][2] == 1:
+                            if ratt_start == 0:
+                                ratt_prom_end = len(record_sequence)
+                                ratt_prom_start = len(record_sequence) - 40
+                                ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+                            elif ratt_start < 40:
+                                ratt_prom_end = ratt_start
+                                prev_prom_len = 40 - ratt_prom_end
+                                ratt_prom_start = len(record_sequence) - prev_prom_len
+                                ratt_prom_seq = str(record_sequence[ratt_prom_start:len(record_sequence)]) + str(record_sequence[0:ratt_prom_end])
+                            else:
+                                ratt_prom_end = ratt_start
+                                ratt_prom_start = ratt_start - 40
+                                ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+                        else:
+                            ratt_prom_start = ratt_stop
+                            ratt_prom_end = ratt_stop + 40
+                            ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+                        print('RATT promoter')
+                        print(ratt_prom_seq)
+                        #print(ratt_annotations[0])
+                        print(h37rv_prom_fp_dict[locus_tag])
+                        blast_to_rv_prom = NcbiblastnCommandline(subject=h37rv_prom_fp_dict[locus_tag], outfmt='"7 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore gaps"')
+                        stdout, stderr = blast_to_rv_prom(stdin=str(ratt_prom_seq))
+                        prom_blast_elements = stdout.split('\n')
+                        for line in prom_blast_elements:
+                            if line.startswith('#') or len(line) <= 1:
+                                continue
+                            blast_results = line.strip().split('\t')
+                            if float(blast_results[2]) == 100.0 and int(blast_results[3]) == 40:
                                 do_not_add_prokka = True
-                            elif int(blast_stats[0]) > int(ratt_blast_results[locus_tag][0]):
+                            else:
+                                prom_mutation = True
+                                print('Prom Mutation')
+                                print(blast_results)
+                        if prom_mutation == True:
+                        #print(ratt_blast_results[locus_tag])
+                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
+                                                    int(ratt_blast_results[locus_tag][2]))
+                            prokka_coverage_measure = abs(int(blast_stats[1]) - int(blast_stats[2]))
+                            if ratt_coverage_measure < prokka_coverage_measure:
+                                do_not_add_prokka = True
+                            elif prokka_coverage_measure < ratt_coverage_measure:
 #                                print('Prokka annotation more accurate than RATT for ' + locus_tag)
                                 if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
                                     ratt_contig_features_dict.pop(ratt_locations[locus_tag])
                                     popped_ratt_genes.append(locus_tag)
+#                            else:
+#                                print('Location not found in dictionary')
+#                                print(ratt_contig_features_dict.keys()[0])
+#                                print(popped_ratt_genes)
+                                do_not_add_prokka = False
+                            elif ratt_coverage_measure == prokka_coverage_measure:
+                            # Checking for identity if covergae is the same
+                                if int(ratt_blast_results[locus_tag][0]) > int(blast_stats[0]):
+                                    do_not_add_prokka = True
+                                elif int(blast_stats[0]) > int(ratt_blast_results[locus_tag][0]):
+#                                print('Prokka annotation more accurate than RATT for ' + locus_tag)
+                                    if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
+                                        ratt_contig_features_dict.pop(ratt_locations[locus_tag])
+                                        popped_ratt_genes.append(locus_tag)
 #                                else:
 #                                    print('Location not found in dictionary')
 #                                    print(ratt_contig_features_dict.keys()[0])
 #                                    print(popped_ratt_genes)
-                                do_not_add_prokka = False
-                            else:
+                                    do_not_add_prokka = False
+                                else:
                                 # If RATT and Prokka annotations are same, choose RATT
-                                do_not_add_prokka = True
-                        else:
-                            do_not_add_prokka = False
+                                    do_not_add_prokka = True
+                            else:
+                                do_not_add_prokka = False
                         #print(blast_stats)
                         #print(ratt_coverage_measure)
                         #print(prokka_coverage_measure)
@@ -1579,7 +1703,7 @@ def main():
     if args.isolate is None:
         parser.print_help()
         sys.exit('Isolate ID must be specified')
-    file_path = os.environ['GROUPHOME'] + '/data/depot/annotation/illum-annotation/' + args.isolate + '/'
+    file_path = os.environ['GROUPHOME'] + '/data/depot/annotation/' + args.isolate + '/'
     ratt_file_path = file_path + 'ratt'
     ratt_correction_files = []
     try:
@@ -1637,7 +1761,11 @@ def main():
     h37rv_embl_record = SeqIO.read(h37rv_embl_fp, 'embl')
     h37rv_feature_dict = get_feature_by_rv(h37rv_embl_record)
     h37rv_records = list(SeqIO.parse(h37rv_fasta_fp, "fasta"))
-    h37rv_sequence = h37rv_records[0].seq
+    h37rv_sequence = h37rv_embl_record.seq
+    h37rv_features = h37rv_embl_record.features
+    #print(h37rv_features)
+    global h37rv_prom_fp_dict
+    h37rv_prom_fp_dict = get_prom_for_rv(h37rv_features, h37rv_sequence)
 #    print(input_ratt_files)
 #    print(len(prokka_records))
     for i in range(0, len(input_ratt_files)):
@@ -1669,7 +1797,7 @@ def main():
                 ratt_corrected_genes = []
         ratt_contig_non_cds = []
         for feature in ratt_contig_features:
-            if feature.type == 'mRNA':
+            if feature.type == 'mRNA' or feature.type == 'rRNA':
                 ratt_contig_non_cds.append(feature)
         print(len(ratt_contig_non_cds))
         ratt_contig_features, prokka_features_to_add = isolate_valid_ratt_annotations(ratt_contig_features,
@@ -1874,9 +2002,9 @@ def main():
                             ratt_overlapping_feature_2_loc = (int(ratt_overlapping_feature_2.location.start),
                                                               int(ratt_overlapping_feature_2.location.end),
                                                               int(ratt_overlapping_feature_2.location.strand))
-                            overlapping_ratt_locations = {ratt_overlapping_feature_1.qualifiers['locus_tag'][0]:
-                                                              ratt_overlapping_feature_1_loc,
-                                                          ratt_overlapping_feature_2.qualifiers['locus_tag'][0]:
+                            overlapping_ratt_location_1 = {ratt_overlapping_feature_1.qualifiers['locus_tag'][0]:
+                                                              ratt_overlapping_feature_1_loc}
+                            overlapping_ratt_location_2 = {ratt_overlapping_feature_2.qualifiers['locus_tag'][0]:
                                                               ratt_overlapping_feature_2_loc}
                             overlapping_ratt_locus_tags = [ratt_overlapping_feature_1.qualifiers['locus_tag'][0],
                                                            ratt_overlapping_feature_2.qualifiers['locus_tag'][0]]
@@ -1885,11 +2013,17 @@ def main():
                             mod_prokka_feature, invalid_prokka = \
                                 validate_prokka_feature_annotation(prokka_feature, prokka_noref_dictionary,
                                                                    check_ratt=True,
-                                                                   ratt_features=overlapping_ratt_locus_tags,
-                                                                   ratt_locations=overlapping_ratt_locations)
+                                                                   ratt_features=overlapping_ratt_locus_tags[0],
+                                                                   ratt_locations=overlapping_ratt_location_1)
                             if not invalid_prokka:
+                                mod_prokka_feature, invalid_prokka_2 = \
+                                    validate_prokka_feature_annotation(prokka_feature, prokka_noref_dictionary,
+                                                                       check_ratt=True,
+                                                                       ratt_features=overlapping_ratt_locus_tags[1],
+                                                                       ratt_locations=overlapping_ratt_location_2)
+                                if not invalid_prokka_2:
                                 #annomerge_contig_record.features.append(mod_prokka_feature)
-                                add_features_from_prokka.append(mod_prokka_feature)
+                                    add_features_from_prokka.append(mod_prokka_feature)
 #                            else:
 #                                print('Prokka feature not added')
                             # The if-else condition below is to keep track of the features added from Prokka for the
