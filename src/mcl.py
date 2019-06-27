@@ -1,4 +1,5 @@
 import subprocess
+import logging
 import networkx as nx
 
 
@@ -47,8 +48,12 @@ def writer(lines, output_name):
 
 
 def run_mcl(in_blast, cdhit_clusters, out_name, gene_names):
+    logger = logging.getLogger('MCL')
+    logger.info('Running MCL')
     execute_mcl(blast=in_blast)
+    logger.info('Re-inflating CDHIT clusters in MCL clusters')
     output = inflate_mcl_clusters(mcl_output='mcl',
                                   cdhit_groups=cdhit_clusters,
                                   gene_key=gene_names)
+    logger.info('Writing final output ' + out_name)
     writer(output, out_name)

@@ -1,4 +1,4 @@
-
+import logging
 from Bio import SeqIO
 from Bio.Blast.Applications import NcbiblastpCommandline
 import multiprocessing
@@ -35,10 +35,10 @@ def blast(seq_string, fa):
     return blast_filtered
 
 
-def iterate(fa, seq_list):
+def iterate(fa, seq_list, nproc):
     """Runs BLAST function for each query. Returns list of all results."""
     partial_blast = partial(blast, fa=fa)
-    pool = multiprocessing.Pool(4)
+    pool = multiprocessing.Pool(nproc)
     list_of_lists = pool.map(partial_blast,seq_list)
     pool.close()
     pool.join()
@@ -54,7 +54,10 @@ def write(all_results_list):
     return all_v_all
 
 
-def run_blast(fastafile):
+def run_blast(fastafile, nproc):
+    logger = logging.getLogger('BLAST')
+    logger.info('Running pairwise all-against-all BLAST on ' + fastafile + ' using ' + str(nproc) + ' CPUs')
     seq_string_list = create_raw_seq_list(fastafile)
-    all_results_list = iterate(fastafile, seq_string_list)
+    all_results_list = iterate(fastafile, seq_string_list, nproc)
+    logger.info('Writing BLAST results to blast_results')
     write(all_results_list)

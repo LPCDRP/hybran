@@ -1,4 +1,4 @@
-
+import logging
 from Bio import SeqIO
 import subprocess
 from Bio.Seq import Seq
@@ -78,10 +78,13 @@ def create_reps_fasta(output, reps, rep_seq_id_dict):
     SeqIO.write(seq_list, output, "fasta")
 
 
-
 def cd_hit(nproc, fasta, out):
+    logger = logging.getLogger('CDHIT')
+    logger.info('Running CDHIT')
     run_cdhit(nproc, fasta, out)
     OGdict = create_allseq_dict(fasta)
+    logger.info('Parsing CDHIT output (' + out + '.clstr)')
     REPdict, rep_list = create_reps_dict(out + ".clstr")
+    logger.info('Creating FASTA of CDHIT clusters representatives')
     create_reps_fasta(out, rep_list, OGdict)
     return REPdict

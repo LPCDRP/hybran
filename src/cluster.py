@@ -21,12 +21,14 @@ def arguments():
 def main():
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
-    logger = logging.info('__main__')
+    logger = logging.getLogger('ClusterProteins')
     args = arguments()
     if args.dir:
+        logger.info('Parsing GFFs in ' + args.dir)
         gff_gene_dict = fastaFromGFF.create_fasta(directory=args.dir)
         fasta = 'cds_seqs.fasta'
     elif args.fasta:
+        logger.info('Using input FASTA ' + args.fasta)
         fasta = args.fasta
         gff_gene_dict = ''
     else:
@@ -35,7 +37,8 @@ def main():
     clusters = cdhit.cd_hit(nproc=args.nproc,
                             fasta=fasta,
                             out='cdhit_clusters.fasta')
-    BLAST.run_blast(fastafile='cdhit_clusters.fasta')
+    BLAST.run_blast(fastafile='cdhit_clusters.fasta',
+                    nproc=args.nproc)
     mcl.run_mcl(in_blast='blast_results',
                 cdhit_clusters=clusters,
                 out_name=args.output,

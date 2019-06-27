@@ -1,4 +1,5 @@
 import os
+import logging
 import subprocess
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
@@ -12,6 +13,7 @@ def grep_seqs(gff):
 
 
 def create_fasta(directory):
+    logger = logging.getLogger('CreateFASTA')
     seqs = []
     gff_gene_dict = {}
     for gff in os.listdir(directory):
@@ -26,6 +28,7 @@ def create_fasta(directory):
                                    id=gff_id,
                                    description='')
                 seqs.append(record)
+    logger.info('Writing FASTA to cds_seqs.fasta')
     with open('cds_seqs.fasta', 'w') as out:
         for s in seqs:
             SeqIO.write(s, out, 'fasta')
