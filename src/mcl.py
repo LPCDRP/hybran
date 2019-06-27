@@ -1,6 +1,5 @@
 import subprocess
 import logging
-import networkx as nx
 
 
 def execute_mcl(blast):
