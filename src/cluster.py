@@ -5,7 +5,7 @@ import logging
 import fastaFromGFF
 import BLAST
 import cdhit
-import mcl
+import MCL
 
 
 def arguments():
@@ -43,7 +43,7 @@ def main():
                             out='cdhit_clusters.fasta')
     BLAST.run_blast(fastafile='cdhit_clusters.fasta',
                     nproc=args.nproc)
-    mcl.run_mcl(in_blast='blast_results',
+    MCL.run_mcl(in_blast='blast_results',
                 cdhit_clusters=clusters,
                 out_name=args.output,
                 gene_names=gff_gene_dict)
