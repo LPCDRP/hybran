@@ -4,7 +4,7 @@ import argparse
 import logging
 import fastaFromGFF
 import BLAST
-import cdhit
+import CDHIT
 import MCL
 
 
@@ -38,7 +38,7 @@ def main():
     else:
         print 'Did not provide -d/--dir or -f/--fasta. A choice is required. Exiting...'
         exit()
-    clusters = cdhit.cd_hit(nproc=args.nproc,
+    clusters = CDHIT.cd_hit(nproc=args.nproc,
                             fasta=fasta,
                             out='cdhit_clusters.fasta')
     BLAST.run_blast(fastafile='cdhit_clusters.fasta',
