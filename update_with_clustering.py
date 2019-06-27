@@ -5,6 +5,9 @@ import pickle
 import re
 import sys
 import tempfile
+import argparse
+import glob
+import subprocess
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -68,20 +71,14 @@ def write_fasta(list_of_ids, output_name):
             SeqIO.write(s, fasta_output, 'fasta')
 
 
-def parse_clustered_proteins(pangenome_dir):
+def parse_clustered_proteins(clustered_proteins, annotations):
     underscore_re = re.compile('_[0-9]$')
 
     # Private Function #
     ##################################################################################################################
-    def gff_dict():
+    def gff_dict(annotation_dir):
         gff_dictionary = {}
-        annotation_dir = GROUPHOME + '/data/depot/annotation/'
-        isolate_fasta_list = os.listdir(GROUPHOME + '/data/genomes/')
-        isolate_list = [isolate_id.split('.')[0] for isolate_id in isolate_fasta_list if isolate_id.endswith('.fasta')]
-        for isolate in os.listdir(annotation_dir):
-            gff = isolate + '/annomerge/' + isolate + '.gff'
-            if isolate not in isolate_list and 'H37Rv' not in isolate:
-                continue
+        for gff in os.listdir(annotation_dir):
             isolate_id_ltag = {}
             try:
                 with open(annotation_dir + gff, 'r') as gff_file:
@@ -117,10 +114,7 @@ def parse_clustered_proteins(pangenome_dir):
 
     ##################################################################################################################
 
-    gffs = gff_dict()
-#    pangenome_dir = GROUPHOME + '/data/depot/annotation/pangenome_04-16-18/'
-    #pangenome_dir = '/home/dgunasek/projects/annomerge/pangenome_test/'
-    clustered_proteins = pangenome_dir + 'clustered_proteins'
+    gffs = gff_dict(annotations)
     representative_fasta_list = []
     gene_cluster = OrderedDict()
     different_genes_cluster_w_ltags = {}
@@ -220,7 +214,6 @@ def identify_top_hits(blast_output_file, identity=95, coverage=95):
         qcov = (float(line_elements[4]) / float(line_elements[1])) * 100.0
         scov = (float(line_elements[4]) / float(line_elements[3])) * 100.0
         if iden >= identity and qcov >= coverage and scov >= coverage:
-            #print(line)
             rv_hit = True
             corresponding_rv_hit = line_elements[2].split('|')[-1]
             all_hits_dict[corresponding_rv_hit] = iden
@@ -304,27 +297,38 @@ def cluster_annotation_presence(cluster_list):
         return False
 
 
+def find_larges_mtb_increment(annotation_directory):
+    args = ['grep', 'gene=MTB']
+    args.extend(glob.glob(annotation_directory + '/*.gff'))
+    stdout = subprocess.Popen(args,
+                              stdout=subprocess.PIPE)
+    largest_mtb = sorted([i.split('=')[1] for line in stdout.stdout
+                          for i in line.rstrip('\n').split(';') if i.startswith('gene=MTB')])[-1]
+    if largest_mtb:
+        return largest_mtb
+    return 0
+
+
+def arguments():
+    parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
+                                                 'clustering using CDHIT/MCL')
+    parser.add_argument('-c', '--clusters', help='Output from cluster.py (clustered_proteins)')
+    parser.add_argument('-d', '--dir', help='Directory that contains all annotations entered into the cluster.py. '
+                                            'Genbank format required')
+    return parser.parse_args()
+
+
 def main():
-#    print('Im HERE')
-    h37rv_protein_fasta = GROUPHOME + '/resources/H37Rv-CDS-updated.fasta'
-#    mtb_genes_fp = GROUPHOME + '/data/depot/hypotheticome-clinical/mtb_genes.fasta'
-    mtb_genes_fp = '/home/dgunasek/projects/annomerge/mtb_genes.fasta'
-    isolate_fasta_list = os.listdir(GROUPHOME + '/data/genomes/')
-    global isolate_list
-    isolate_list = [isolate_id.split('.')[0] for isolate_id in isolate_fasta_list if isolate_id.endswith('.fasta')]
-    rv_temp_fasta = get_rv_sequences_from_fasta(h37rv_protein_fasta)
-#    print(rv_temp_fasta)
-    global update_log
-    update_log = open('/home/dgunasek/projects/annomerge/update_with_clustering.log', 'w')
-    mtb_increment = 0
+    args = arguments()
+    mtb_genes_fp = 'proteins_unknown_function.fasta'
     global isolate_update_dictionary
     isolate_update_dictionary = {}
-    assignment_keys = {}
-    pangenome_dir = GROUPHOME + '/data/depot/annotation/pangenome/'
+    global update_log
+    update_log = open('update_with_clustering.log', 'w')
+    mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
+    pangenome_dir = args.clusters
     multi_gene_cluster, single_gene_cluster, partial_gene_cluster, candidate_novel_gene_cluster, unique_gene_cluster = \
-        parse_clustered_proteins(pangenome_dir)
-    #print(multi_gene_cluster.keys()[:5])
-    #print(multi_gene_cluster.values()[:5])
+        parse_clustered_proteins(pangenome_dir, args.dir)
     update_log.write('Number of clusters with partial genes: ' + str(len(partial_gene_cluster.keys())) + '\n')
     candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
     single_gene_cluster_complete = single_gene_cluster.copy()
@@ -613,8 +617,8 @@ def main():
             continue
 
     update_log.close()
-    os.unlink(rv_temp_fasta)
-    pickle_fp = '/home/dgunasek/projects/annomerge/isolate_gene_name.pickle'
+    # os.unlink(rv_temp_fasta)
+    pickle_fp = 'isolate_gene_name.pickle'
     with open(pickle_fp, 'wb') as pickle_file:
         pickle.dump(isolate_update_dictionary, pickle_file)
 
