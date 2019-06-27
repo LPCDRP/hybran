@@ -11,7 +11,7 @@ import MCL
 def arguments():
     parser = argparse.ArgumentParser(description='Clustering a set of sequences')
     parser.add_argument('-d', '--dir', help='Directory containing GFF annotations. Use independent of -f/--fasta')
-    parser.add_argument('-f', '--fasta', help='CDS multiesequence FASTA to cluster. Use independent of -d/--dir')
+    parser.add_argument('-f', '--fasta', help='CDS multisequence FASTA to cluster. Use independent of -d/--dir')
     parser.add_argument('-n', '--nproc', help='Number of cores/processors to use. Default is 1',
                         default=1, type=int)
     parser.add_argument('-r', '--remove', action='store_true', help='Flag if removal of intermediate files is desired.'
