@@ -2,7 +2,7 @@
 
 
 __author__ = "Deepika Gunasekaran"
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 __maintainer__ = "Deepika Gunasekaran"
 __email__ = "dgunasekaran@sdsu.edu"
 __status__ = "Development"
@@ -1685,8 +1685,10 @@ def main():
     parser = argparse.ArgumentParser(description='Merging annotation from RATT and Prokka',
                                      epilog='Isolate ID must be specified')
     parser.add_argument('-i', '--isolate', help='Isolate ID')
+    parser.add_argument('-fp', '--filepath', help='File path of RATT and Prokka annotations')
+    parser.add_argument('-prot', '--proteins_fasta', help='Path for fasta file with proteins from which annotations '
+                                                          'should be verified')
     parser.add_argument('-o', '--output', help='Output file in Genbank format', default='annomerge.gbk')
-#    parser.add_argument('-g', '--gff', help='Output file in GFF format', default='annomerge.gff')
     parser.add_argument('-l', '--log_file', help='Log file with information on features added from prokka',
                         default='annomerge.log')
     parser.add_argument('-m', '--merged_genes', help='Merged genes file in genbank format',
@@ -1703,7 +1705,13 @@ def main():
     if args.isolate is None:
         parser.print_help()
         sys.exit('Isolate ID must be specified')
-    file_path = os.environ['GROUPHOME'] + '/data/depot/annotation/' + args.isolate + '/'
+    if args.filepath is None:
+        parser.print_help()
+        sys.exit('File path containing RATT and Prokka annotations must be specified')
+    if args.proteins_fasta is None:
+        parser.print_help()
+        sys.exit('Fasta File path containing protein sequences must be specified')
+    file_path = args.filepath + args.isolate + '/'
     ratt_file_path = file_path + 'ratt'
     ratt_correction_files = []
     try:
@@ -1723,7 +1731,6 @@ def main():
         sys.exit('Expecting Prokka annotation file but found none')
     output_merged_genes = args.merged_genes
     output_genbank = args.output
-#    output_gff = args.gff
     add_noref_annotations = args.fill_gaps
     output_log = args.log_file
     global output_file
@@ -1732,7 +1739,7 @@ def main():
     prokka_record_fp = file_path + 'prokka-noreference/' + args.isolate + '.gbf'
     prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
     annomerge_records = []
-    h37rv_protein_fasta = os.environ['GROUPHOME'] + '/resources/H37Rv-CDS-updated.fasta'
+    h37rv_protein_fasta = args.proteins_fasta
     global h37rv_sequences
     global rv_temp_fasta_dict
     rv_temp_fasta_dict = {}
