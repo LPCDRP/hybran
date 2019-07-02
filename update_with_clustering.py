@@ -309,6 +309,27 @@ def find_larges_mtb_increment(annotation_directory):
     return 0
 
 
+def ref_seqs(gbk_dir):
+    nucleotide_cds = []
+    protein_cds = []
+    for gbk in os.listdir(gbk_dir):
+        if gbk.endswith('.gbk'):
+            gbk_filename = gbk.split('.')[0]
+            for record in SeqIO.parse(gbk_dir + gbk, 'genbank'):
+                if record.features:
+                    for feature in record.features:
+                        if feature.type == 'CDS':
+                            seq = SeqRecord(feature.location.extract(record).seq,
+                                            description=feature.qualifiers['gene'][0],
+                                            id=gbk_filename)
+                            nucleotide_cds.append(seq)
+                            seq = SeqRecord(feature.qualifiers['translation'],
+                                            description=feature.qualifiers['gene'][0],
+                                            id=gbk_filename)
+                            protein_cds.append(seq)
+    return nucleotide_cds, protein_cds
+
+
 def arguments():
     parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
                                                  'clustering using CDHIT/MCL')
@@ -336,9 +357,7 @@ def main():
     # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
     # and annotate L_tag with the top hit.
     mgc_output = open('multi_gene_clusters.tsv', 'w')
-    #print('Possible num multiclusters: ' + str(len(multi_gene_cluster.keys())))
-    #print('Num multi genes = ' + str(len(multi_gene_cluster.keys())))
-    
+    reference_nucleotide_fastas, reference_protein_fastas = ref_seqs(args.dir)
     num_multi = 0
     for gene in multi_gene_cluster.keys():
         num_multi += 1
@@ -500,7 +519,7 @@ def main():
         with open(rep_temp_fasta, 'w') as fasta_tmp:
             SeqIO.write(rep_record, fasta_tmp, 'fasta') ###
         # Blasting representative sequence with H37Rv
-        blast_command = NcbiblastpCommandline(subject=rv_temp_fasta,
+        blast_command = NcbiblastpCommandline(subject=reference_protein_fastas,
                                               outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
         stdout, stderr = blast_command(stdin=rep_sequence)
         top_hit, all_hits = identify_top_hits(stdout)
@@ -575,7 +594,7 @@ def main():
         gene_name = single_gene[2]
         if gene_name.startswith('L') and locus_tag.startswith('L'):
             gene_sequence = get_sequence(isolate_id, locus_tag)
-            blast_command = NcbiblastpCommandline(subject=rv_temp_fasta,
+            blast_command = NcbiblastpCommandline(subject=reference_protein_fastas,
                                                   outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
             stdout, stderr = blast_command(stdin=gene_sequence)
             top_hit, all_hits = identify_top_hits(stdout)
