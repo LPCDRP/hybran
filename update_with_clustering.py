@@ -18,27 +18,8 @@ from Bio.Blast.Applications import NcbiblastpCommandline
 GROUPHOME = os.environ['GROUPHOME']
 
 
-def get_rv_sequences_from_fasta(h37rv_fasta_fp):
-    rv_sequence_dict = {}
-    fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
-    rv_temp_fasta = fp.name
-    fasta_records = SeqIO.parse(h37rv_fasta_fp, 'fasta')
-    for record in fasta_records:
-        rv_seq = str(record.seq)
-        #rv = record.id
-        rv_id = record.description.split('~~~')[1]
-        header = '>' + rv_id + '\n'
-        #print(header)
-        seq = rv_seq
-        rv_sequence_dict[rv_id] = seq
-        fp.write(header)
-        fp.write(seq)
-        fp.write('\n')
-    return rv_temp_fasta
-
-
-def get_sequence(isolate, locus_tag):
-    genbank_file = GROUPHOME + '/data/depot/annotation/' + isolate + '/annomerge/' + isolate + '.gbk'
+def get_sequence(isolate_fp, locus_tag):
+    genbank_file = isolate_fp
     for record in SeqIO.parse(genbank_file, 'genbank'):
         features = record.features
         break
@@ -50,6 +31,7 @@ def get_sequence(isolate, locus_tag):
 
 
 def write_fasta(list_of_ids, output_name):
+    # WARNING: FUNCTION NOT USED
     list_of_records = []
     for rep in list_of_ids:
         if type(rep) is str:
@@ -60,7 +42,6 @@ def write_fasta(list_of_ids, output_name):
             isolate_id = rep[0]
             locus = rep[1]
             gene = rep[2]
-
         sequence = get_sequence(isolate_id, locus)
         sequence_object = Seq(sequence)
         seq_record = SeqRecord(sequence_object, id='|'.join([isolate_id, locus, gene]))
@@ -244,7 +225,7 @@ def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
     return
 
 
-def get_cluster_fasta(rep, cluster_list):
+def get_cluster_fasta(rep, cluster_list, isolates_dir):
     rep_isolate_id = rep.split(',')[0]
     rep_locus = rep.split(',')[1]
     rep_gene_name = rep.split(',')[2]
@@ -254,7 +235,8 @@ def get_cluster_fasta(rep, cluster_list):
     unannotated_genes_list = []
     fasta_tmp = open(cluster_temp_fasta, 'w')
     if not (rep_locus.startswith('L') and rep_gene_name.startswith('L')):
-        rep_sequence = get_sequence(rep_isolate_id, rep_locus)
+        rep_isolate_fp = isolates_dir + '/' + rep_isolate_id + '.gbk'
+        rep_sequence = get_sequence(rep_isolate_fp, rep_locus)
         rep_sequence_object = Seq(rep_sequence)
         seq_id = '|'.join([rep_isolate_id, rep_locus, rep_gene_name])
         added_seq.append(seq_id)
@@ -274,7 +256,8 @@ def get_cluster_fasta(rep, cluster_list):
             if gene_id in added_seq:
                 continue
             else:
-                gene_sequence = get_sequence(gene_isolate_id, gene_locus)
+                gene_isolate_fp = isolates_dir + '/' + gene_isolate_id + '.gbk'
+                gene_sequence = get_sequence(gene_isolate_fp, gene_locus)
                 gene_sequence_object = Seq(gene_sequence)
                 added_seq.append(gene_id)
                 gene_record = SeqRecord(gene_sequence_object, id=gene_id)
@@ -315,12 +298,21 @@ def arguments():
     parser.add_argument('-c', '--clusters', help='Output from cluster.py (clustered_proteins)')
     parser.add_argument('-d', '--dir', help='Directory that contains all annotations entered into the cluster.py. '
                                             'Genbank format required')
+    parser.add_argument('-p', '--unannotated_proteins', help='Protein sequences of genes from existing annotations that'
+                                                             ' are not annotated with an Rv locus tag. Fasta format '
+                                                             'required', default='NONE')
+    parser.add_argument('-r', '--ref', help='Fasta file that contains protein sequences of the reference strains used '
+                                            'for annotation. Fasta format required. Warning: Header should contain only'
+                                            ' the gene name. Example: >dnaA')
+    # The -p tag is a protein fasta of MTB genes from previously annotated isolates. BLAST is performed to keep the
+    # MTB names consistent. If the arguement is not provided then the BLAST is not performed and new MTB names are
+    # assigned
     return parser.parse_args()
 
 
 def main():
     args = arguments()
-    mtb_genes_fp = 'proteins_unknown_function.fasta'
+    mtb_genes_fp = args.unannotated_proteins
     global isolate_update_dictionary
     isolate_update_dictionary = {}
     global update_log
@@ -366,11 +358,12 @@ def main():
             # If all genes in the cluster are annotated, do nothing. If there is an unannotated gene in the cluster,
             # blast it to all annotated genes in cluster and annotated with top hit
             if not all_genes_annotated:
-                fasta_fp_to_blast, genes_to_annotate = get_cluster_fasta(gene, multi_gene_cluster[gene])
+                fasta_fp_to_blast, genes_to_annotate = get_cluster_fasta(gene, multi_gene_cluster[gene], args.dir)
                 for unannotated_gene in genes_to_annotate:
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
-                    unannotated_gene_seq = get_sequence(unannotated_gene_isolate, unannotated_gene_locus)
+                    unannotated_isolate_fp = args.dir + '/' + unannotated_gene_isolate + '.gbk'
+                    unannotated_gene_seq = get_sequence(unannotated_isolate_fp, unannotated_gene_locus)
                     blast_command = NcbiblastpCommandline(subject=fasta_fp_to_blast,
                                                           outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
                     stdout, stderr = blast_command(stdin=unannotated_gene_seq)
@@ -485,11 +478,12 @@ def main():
     update_log.write('Number of clusters with only L-tags genes: ' + str(len(candidate_novel_gene_cluster_complete.keys())) +
                      '\n')
     for rep_gene in candidate_novel_gene_cluster_complete.keys():
-        l_tag_verify_fp = '/home/dgunasek/projects/annomerge/verify_ltag_clusters.tsv'
+        #l_tag_verify_fp = '/home/dgunasek/projects/annomerge/verify_ltag_clusters.tsv'
         rep_isolate_id = rep_gene.split(',')[0]
         rep_locus = rep_gene.split(',')[1]
         rep_gene_name = rep_gene.split(',')[2]
-        rep_sequence = get_sequence(rep_isolate_id, rep_locus)
+        rep_isolate_fp = args.dir + '/' + rep_isolate_id + '.gbk'
+        rep_sequence = get_sequence(rep_isolate_fp, rep_locus)
         # Writing representative amino acid sequence to a temp file to check if all genes in cluster share identity with
         #  this sequence
         rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
@@ -499,7 +493,7 @@ def main():
         with open(rep_temp_fasta, 'w') as fasta_tmp:
             SeqIO.write(rep_record, fasta_tmp, 'fasta') ###
         # Blasting representative sequence with H37Rv
-        blast_command = NcbiblastpCommandline(subject=rv_temp_fasta,
+        blast_command = NcbiblastpCommandline(subject=args.ref,
                                               outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
         stdout, stderr = blast_command(stdin=rep_sequence)
         top_hit, all_hits = identify_top_hits(stdout)
@@ -572,9 +566,10 @@ def main():
         isolate_id = single_gene[0]
         locus_tag = single_gene[1]
         gene_name = single_gene[2]
+        isolate_fp = args.dir + '/' + isolate_id + '.gbk'
         if gene_name.startswith('L') and locus_tag.startswith('L'):
-            gene_sequence = get_sequence(isolate_id, locus_tag)
-            blast_command = NcbiblastpCommandline(subject=rv_temp_fasta,
+            gene_sequence = get_sequence(isolate_fp, locus_tag)
+            blast_command = NcbiblastpCommandline(subject=args.ref,
                                                   outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
             stdout, stderr = blast_command(stdin=gene_sequence)
             top_hit, all_hits = identify_top_hits(stdout)
