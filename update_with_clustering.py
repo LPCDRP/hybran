@@ -354,15 +354,11 @@ def main():
     update_log.write('Number of clusters with partial genes: ' + str(len(partial_gene_cluster.keys())) + '\n')
     candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
     single_gene_cluster_complete = single_gene_cluster.copy()
-    # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
-    # and annotate L_tag with the top hit.
     mgc_output = open('multi_gene_clusters.tsv', 'w')
     reference_nucleotide_fastas, reference_protein_fastas = ref_seqs(args.dir)
     num_multi = 0
     for gene in multi_gene_cluster.keys():
         num_multi += 1
-        #print(num_multi) 
-        #print(gene)
         output_line = ''
         unassigned_l_tags = []
         true_multi_cluster = False
@@ -374,7 +370,6 @@ def main():
                 unassigned_l_tags.append(gene_in_cluster)
             else:
                 true_multi_cluster = True
-        #print(true_multi_cluster)
         if true_multi_cluster:
             output_line = output_line + gene
             for gene_in_cluster in multi_gene_cluster[gene]:
