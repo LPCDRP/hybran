@@ -38,7 +38,7 @@ def get_rv_sequences_from_fasta(h37rv_fasta_fp):
 
 
 def get_sequence(isolate, locus_tag):
-    genbank_file = GROUPHOME + '/data/depot/annotation/' + isolate + '/annomerge/' + isolate + '.gbk'
+    genbank_file = annotation_dir + isolate + '.gbk'
     for record in SeqIO.parse(genbank_file, 'genbank'):
         features = record.features
         break
@@ -321,8 +321,9 @@ def arguments():
 def main():
     args = arguments()
     mtb_genes_fp = 'proteins_unknown_function.fasta'
-    global isolate_update_dictionary
+    global isolate_update_dictionary, annotation_dir
     isolate_update_dictionary = {}
+    annotation_dir = args.dir
     global update_log
     update_log = open('update_with_clustering.log', 'w')
     mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
