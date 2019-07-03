@@ -269,7 +269,7 @@ def ref_seqs(gbk_dir):
                 if record.features:
                     for feature in record.features:
                         if feature.type == 'CDS':
-                            seq = SeqRecord(feature.qualifiers['translation'],
+                            seq = SeqRecord(Seq(feature.qualifiers['translation'][0]),
                                             id=feature.qualifiers['gene'][0],
                                             description=gbk_filename)
                             protein_cds.append(seq)
