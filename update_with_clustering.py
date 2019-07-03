@@ -299,7 +299,7 @@ def blast(subject, stdin_seq):
 
 def find_unannotated_genes(reference_protein_fasta):
     unannotated_seqs = []
-    for record in SeqIO.parse(reference_protein_fasta):
+    for record in SeqIO.parse(reference_protein_fasta, 'fasta'):
         if record.id.startswith('MTB'):
             unannotated_seqs.append(record)
     with open('unannotated_seqs.fasta', 'w') as out:
