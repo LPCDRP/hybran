@@ -245,13 +245,11 @@ def cluster_annotation_presence(cluster_list):
         return False
 
 
-def find_larges_mtb_increment(annotation_directory):
-    args = ['grep', 'gene=MTB']
-    args.extend(glob.glob(annotation_directory + '/*.gff'))
-    stdout = subprocess.Popen(args,
-                              stdout=subprocess.PIPE)
-    largest_mtb = sorted([i.split('=')[1] for line in stdout.stdout
-                          for i in line.rstrip('\n').split(';') if i.startswith('gene=MTB')])[-1]
+def find_largest_mtb_increment(unannotated_fasta):
+    mtbs = []
+    for record in SeqIO.parse(unannotated_fasta, 'fasta'):
+        mtbs.append(record.id)
+    largest_mtb = sorted(mtbs)[-1]
     if largest_mtb:
         return largest_mtb
     return 0
