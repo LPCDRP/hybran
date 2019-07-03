@@ -18,8 +18,6 @@ from collections import OrderedDict
 from Bio.Blast.Applications import NcbiblastpCommandline
 
 
-GROUPHOME = os.environ['GROUPHOME']
-
 
 def parse_clustered_proteins(clustered_proteins, annotations):
     underscore_re = re.compile('_[0-9]$')
