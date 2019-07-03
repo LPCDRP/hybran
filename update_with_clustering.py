@@ -258,7 +258,6 @@ def find_larges_mtb_increment(annotation_directory):
 
 
 def ref_seqs(gbk_dir):
-    nucleotide_cds = []
     protein_cds = []
     isolate_seqs = []
     for gbk in os.listdir(gbk_dir):
@@ -269,10 +268,6 @@ def ref_seqs(gbk_dir):
                 if record.features:
                     for feature in record.features:
                         if feature.type == 'CDS':
-                            seq = SeqRecord(feature.location.extract(record).seq,
-                                            id=feature.qualifiers['gene'][0],
-                                            description=gbk_filename)
-                            nucleotide_cds.append(seq)
                             seq = SeqRecord(feature.qualifiers['translation'],
                                             id=feature.qualifiers['gene'][0],
                                             description=gbk_filename)
@@ -282,11 +277,7 @@ def ref_seqs(gbk_dir):
     with open(proteins, 'w') as ref_cds_out:
         for s in protein_cds:
             SeqIO.write(s, ref_cds_out, 'fasta')
-    nucleotides = 'ref_cdss_nucleotide.fasta'
-    with open(nucleotides, 'w') as ref_cds_out:
-        for s in nucleotide_cds:
-            SeqIO.write(s, ref_cds_out, 'fasta')
-    return nucleotides, proteins, isolate_seqs
+    return proteins, isolate_seqs
 
 
 def blast(subject, stdin_seq):
@@ -573,7 +564,7 @@ def main():
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
     mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
-    reference_nucleotide_fastas, reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=args.dir)
+    reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=args.dir)
     mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
     clusters = parse_clustered_proteins(clustered_proteins=args.clusters,
                                         annotations=args.dir)
