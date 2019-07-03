@@ -31,22 +31,23 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             isolate_id_ltag = {}
             try:
                 isolate_id = gff.split('.')[0]
-                with open(annotation_dir + gff, 'r') as gff_file:
-                    for line in gff_file:
-                        if line.startswith('#'):
-                            continue
-                        gene = ''
-                        column = line.rstrip('\n').split('\t')
-                        if len(column) >= 8:
-                            info = column[8].split(';')
-                            gene_id = ''.join([i.split('=')[1] for i in info if i.startswith('ID=')])
-                            locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('locus_tag=')])
-                            gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
-                            if not locus_tag.startswith('Rv') and not locus_tag.startswith('L'):
-                                gene = locus_tag
-                                locus_tag = ''
-                            isolate_id_ltag[gene_id] = (locus_tag, gene)
-                    gff_dictionary[isolate_id] = isolate_id_ltag
+                if gff.endswith('.gff'):
+                    with open(annotation_dir + gff, 'r') as gff_file:
+                        for line in gff_file:
+                            if line.startswith('#'):
+                                continue
+                            gene = ''
+                            column = line.rstrip('\n').split('\t')
+                            if len(column) >= 8 and 'CDS' in column[2]:
+                                info = column[8].split(';')
+                                gene_id = ''.join([i.split('=')[1] for i in info if i.startswith('ID=')])
+                                locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('locus_tag=')])
+                                gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
+                                if not locus_tag.startswith('Rv') and not locus_tag.startswith('L'):
+                                    gene = locus_tag
+                                    locus_tag = ''
+                                isolate_id_ltag[gene_id] = (locus_tag, gene)
+                        gff_dictionary[isolate_id] = isolate_id_ltag
             except IOError:
                 continue
         return gff_dictionary
