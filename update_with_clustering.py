@@ -259,7 +259,7 @@ def find_larges_mtb_increment(annotation_directory):
 
 def ref_seqs(gbk_dir):
     protein_cds = []
-    isolate_seqs = []
+    isolate_seqs = {}
     for gbk in os.listdir(gbk_dir):
         if gbk.endswith('.gbk'):
             gbk_filename = gbk.split('.')[0]
