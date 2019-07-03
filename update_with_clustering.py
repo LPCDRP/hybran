@@ -137,8 +137,8 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             # L tag only clusters
             if all(locus[0].startswith('L') for locus in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
-    return different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, underscores, l_tag_only_clusters, \
-        unique_genes_list
+    return [different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, underscores, l_tag_only_clusters,
+            unique_genes_list]
 
 
 def get_top_hit(all_hits_dict):
@@ -291,7 +291,15 @@ def ref_seqs(gbk_dir):
                                             id=feature.qualifiers['gene'][0],
                                             description=gbk_filename)
                             protein_cds.append(seq)
-    return nucleotide_cds, protein_cds
+    proteins = 'ref_cdss_protein.fasta'
+    with open(proteins, 'w') as ref_cds_out:
+        for s in protein_cds:
+            SeqIO.write(s, ref_cds_out, 'fasta')
+    nucleotides = 'ref_cdss_nucleotide.fasta'
+    with open(nucleotides, 'w') as ref_cds_out:
+        for s in nucleotide_cds:
+            SeqIO.write(s, ref_cds_out, 'fasta')
+    return nucleotides, proteins
 
 
 def blast(subject, stdin_seq):
@@ -580,15 +588,14 @@ def main():
     isolate_sequences = create_isolate_seq_dict(directory=args.dir)
     mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
     reference_nucleotide_fastas, reference_protein_fastas = ref_seqs(args.dir)
-    reference_fasta = 'ref_cdss.fasta'
-    with open(reference_fasta, 'w') as ref_cds_out:
-        for s in reference_protein_fastas:
-            SeqIO.write(s, ref_cds_out, 'fasta')
-    mtb_genes_fp = find_unannotated_genes(reference_fasta)
-    pangenome_dir = args.clusters
-    multi_gene_cluster, single_gene_cluster, partial_gene_cluster, candidate_novel_gene_cluster, unique_gene_cluster = \
-        parse_clustered_proteins(pangenome_dir, args.dir)
-    logger.info('Number of clusters with partial genes: ' + str(len(partial_gene_cluster.keys())) + '\n')
+    mtb_genes_fp = find_unannotated_genes(reference_protein_fastas)
+    clusters = parse_clustered_proteins(clustered_proteins=args.clusters,
+                                        annotations=args.dir)
+    multi_gene_cluster = clusters[0]
+    single_gene_cluster = clusters[1]
+    partial_gene_cluster = clusters[2]
+    candidate_novel_gene_cluster = clusters[3]
+    unique_gene_cluster = clusters[4]
     candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
     single_gene_cluster_complete = single_gene_cluster.copy()
     mtb_increment, \
@@ -602,10 +609,10 @@ def main():
                                        annotation_dir=args.dir,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment,
-                                       reference_fasta=reference_fasta)
-    mtb_increment = singleton_clusters(singleton_dict=single_gene_cluster_complete,
+                                       reference_fasta=reference_protein_fastas)
+    mtb_increment = singleton_clusters(singleton_dict=unique_gene_cluster,
                                        annotation_dir=args.dir,
-                                       reference_fasta=reference_fasta,
+                                       reference_fasta=reference_protein_fastas,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment)
     pickle_fp = 'isolate_gene_name.pickle'
