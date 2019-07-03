@@ -18,7 +18,6 @@ from collections import OrderedDict
 from Bio.Blast.Applications import NcbiblastpCommandline
 
 
-
 def parse_clustered_proteins(clustered_proteins, annotations):
     underscore_re = re.compile('_[0-9]$')
 
@@ -228,7 +227,6 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
                 added_seq.append(gene_id)
                 gene_record = SeqRecord(gene_sequence_object, id=gene_id)
                 SeqIO.write(gene_record, fasta_tmp, 'fasta')
-    print(len(added_seq))
     return cluster_temp_fasta, unannotated_genes_list
 
 
