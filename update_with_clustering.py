@@ -191,7 +191,7 @@ def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
     return
 
 
-def get_cluster_fasta(rep, cluster_list, isolates_dir):
+def get_cluster_fasta(rep, cluster_list):
     rep_isolate_id = rep.split(',')[0]
     rep_locus = rep.split(',')[1]
     rep_gene_name = rep.split(',')[2]
@@ -201,8 +201,7 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
     unannotated_genes_list = []
     fasta_tmp = open(cluster_temp_fasta, 'w')
     if not (rep_locus.startswith('L') and rep_gene_name.startswith('L')):
-        rep_isolate_fp = isolates_dir + '/' + rep_isolate_id + '.gbk'
-        rep_sequence = isolate_sequences[rep_isolate_fp][rep_locus]
+        rep_sequence = isolate_sequences[rep_isolate_id][rep_locus]
         rep_sequence_object = rep_sequence
         seq_id = '|'.join([rep_isolate_id, rep_locus, rep_gene_name])
         added_seq.append(seq_id)
@@ -296,7 +295,7 @@ def find_unannotated_genes(reference_protein_fasta):
     return 'unannotated_seqs.fasta'
 
 
-def singleton_clusters(singleton_dict, annotation_dir, reference_fasta, unannotated_fasta, mtb_increment):
+def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_increment):
     logger = logging.getLogger('SingletonClusters')
     # 3. If a cluster has only one gene (with no gene names), then BLAST representative sequence to H37Rv and if there
     # is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster is annotated
@@ -347,7 +346,7 @@ def singleton_clusters(singleton_dict, annotation_dir, reference_fasta, unannota
     return mtb_increment
 
 
-def only_ltag_clusters(in_dict, annotation_dir, reference_fasta, unannotated_fasta, mtb_increment):
+def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_increment):
     logger = logging.getLogger('NewGeneClusters')
     # 2. If a cluster has only candidate novel genes (with no gene names), then BLAST representative sequence to H37Rv
     # and if there is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster
@@ -458,7 +457,7 @@ def single_gene_clusters(single_gene_dict):
                         continue
 
 
-def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, unannotated_fasta, mtb_increment):
+def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta, mtb_increment):
     logger = logging.getLogger('MultigeneClusters')
     # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
     # and annotate L_tag with the top hit.
@@ -489,7 +488,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, un
             # If all genes in the cluster are annotated, do nothing. If there is an unannotated gene in the cluster,
             # blast it to all annotated genes in cluster and annotated with top hit
             if not all_genes_annotated:
-                fasta_fp_to_blast, genes_to_annotate = get_cluster_fasta(gene, in_dict[gene], annotation_dir)
+                fasta_fp_to_blast, genes_to_annotate = get_cluster_fasta(gene, in_dict[gene])
                 for unannotated_gene in genes_to_annotate:
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
@@ -681,17 +680,14 @@ def main():
     mtb_increment, \
         updated_single_gene_clusters = multigene_clusters(in_dict=multi_gene_cluster,
                                                           single_gene_cluster_complete=single_gene_cluster_complete,
-                                                          annotation_dir=args.dir,
                                                           unannotated_fasta=mtb_genes_fp,
                                                           mtb_increment=mtb_increment)
     single_gene_clusters(updated_single_gene_clusters)
     mtb_increment = only_ltag_clusters(in_dict=candidate_novel_gene_cluster_complete,
-                                       annotation_dir=args.dir,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment,
                                        reference_fasta=reference_protein_fastas)
     mtb_increment = singleton_clusters(singleton_dict=unique_gene_cluster,
-                                       annotation_dir=args.dir,
                                        reference_fasta=reference_protein_fastas,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment)
