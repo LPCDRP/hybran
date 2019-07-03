@@ -308,6 +308,58 @@ def find_unannotated_genes(reference_protein_fasta):
     return 'unannotated_seqs.fasta'
 
 
+def single_gene_clusters(single_gene_dict):
+    logger = logging.getLogger('SingleGeneClusters')
+    # 1. Handling clusters with only one Rv/gene name in cluster
+    # 1. If cluster has candidate novel genes (L_***** or L2_*****) clustered together with a H37Rv annotation, update
+    #  all candidate novel genes in this cluster with the H37Rv gene name.
+    rep_ltag_keys = []
+    logger.info('Number of clusters with single genes: ' + str(len(single_gene_dict.keys())) + '\n')
+    for key_sgc in single_gene_dict:
+        rep_ltag = False
+        key_elements_sgc = key_sgc.split(',')
+        if key_elements_sgc[1].startswith('Rv'):
+            gene_to_add = key_elements_sgc[1]
+        elif key_elements_sgc[2].startswith('Rv'):
+            gene_to_add = key_elements_sgc[2]
+        elif key_elements_sgc[1].startswith('L') and key_elements_sgc[2].startswith('L'):
+            rep_ltag = True
+            rep_ltag_keys.append(key_sgc)
+        else:
+            gene_to_add = key_elements_sgc[2]
+        # If representative sequence is an Rv and not an L-tag
+        if not rep_ltag:
+            genes_in_cluster = single_gene_dict[key_sgc]
+            for gene in genes_in_cluster:
+                if gene[1].startswith('L') and gene[2].startswith('L'):
+                    update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
+                else:
+                    continue
+        # If representative sequence is a L-tag
+        else:
+            genes_in_cluster = single_gene_dict[key_sgc]
+            gene_to_add = ''
+            for gene in genes_in_cluster:
+                if gene[1].startswith('L') and gene[2].startswith('L'):
+                    continue
+                else:
+                    if not gene[1].startswith('L'):
+                        gene_to_add = gene[1]
+                    else:
+                        gene_to_add = gene[2]
+                    break
+            if len(gene_to_add) == 0:
+                logger.info('No Rv found in this cluster' + '\n')
+                logger.info(key_sgc + '\n')
+                logger.info(genes_in_cluster + '\n')
+            else:
+                for gene in genes_in_cluster:
+                    if gene[1].startswith('L') and gene[2].startswith('L'):
+                        update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
+                    else:
+                        continue
+
+
 def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, unannotated_fasta, mtb_increment):
     logger = logging.getLogger('MultigeneClusters')
     # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
@@ -387,7 +439,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, un
     with open('multi_gene_clusters.tsv', 'w') as out:
         for line in mgc_output:
             out.write(line)
-    return mtb_increment
+    return mtb_increment, single_gene_cluster_complete
 
 
 def arguments():
@@ -419,62 +471,13 @@ def main():
     logger.info('Number of clusters with partial genes: ' + str(len(partial_gene_cluster.keys())) + '\n')
     candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
     single_gene_cluster_complete = single_gene_cluster.copy()
-    mtb_increment = multigene_clusters(in_dict=multi_gene_cluster,
-                                       single_gene_cluster_complete=single_gene_cluster_complete,
-                                       annotation_dir=args.dir,
-                                       unannotated_fasta=mtb_genes_fp,
-                                       mtb_increment=mtb_increment)
-
-    # 1. Handling clusters with only one Rv/gene name in cluster
-    # 1. If cluster has candidate novel genes (L_***** or L2_*****) clustered together with a H37Rv annotation, update
-    #  all candidate novel genes in this cluster with the H37Rv gene name.
-    rep_ltag_keys = []
-    logger.info('Number of clusters with single genes: ' + str(len(single_gene_cluster_complete.keys())) + '\n')
-    for key_sgc in single_gene_cluster_complete:
-        rep_ltag = False
-        key_elements_sgc = key_sgc.split(',')
-        if key_elements_sgc[1].startswith('Rv'):
-            gene_to_add = key_elements_sgc[1]
-        elif key_elements_sgc[2].startswith('Rv'):
-            gene_to_add = key_elements_sgc[2]
-        elif (key_elements_sgc[1].startswith('L') and key_elements_sgc[2].startswith('L')):
-            rep_ltag = True
-            rep_ltag_keys.append(key_sgc)
-        else:
-            gene_to_add = key_elements_sgc[2]
-        # If representative sequence is an Rv and not an L-tag
-        if not rep_ltag:
-            genes_in_cluster = single_gene_cluster_complete[key_sgc]
-            for gene in genes_in_cluster:
-                if (gene[1].startswith('L') and gene[2].startswith('L')):
-                    update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
-                else:
-                    continue
-        # If representative sequence is a L-tag
-        else:
-            genes_in_cluster = single_gene_cluster_complete[key_sgc]
-            gene_to_add = ''
-            for gene in genes_in_cluster:
-                if (gene[1].startswith('L') and gene[2].startswith('L')):
-                    continue
-                else:
-                    if not gene[1].startswith('L'):
-                        gene_to_add = gene[1]
-                    else:
-                        gene_to_add = gene[2]
-                    break
-            if len(gene_to_add) == 0:
-                logger.info('No Rv found in this cluster' + '\n')
-                logger.info(key_sgc + '\n')
-                logger.info(genes_in_cluster + '\n')
-            else:
-                for gene in genes_in_cluster:
-                    if (gene[1].startswith('L') and gene[2].startswith('L')):
-                        update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
-                    else:
-                        continue
-
-
+    mtb_increment, \
+        updated_single_gene_clusters = multigene_clusters(in_dict=multi_gene_cluster,
+                                                          single_gene_cluster_complete=single_gene_cluster_complete,
+                                                          annotation_dir=args.dir,
+                                                          unannotated_fasta=mtb_genes_fp,
+                                                          mtb_increment=mtb_increment)
+    single_gene_clusters(updated_single_gene_clusters)
     # 2. If a cluster has only candidate novel genes (with no gene names), then BLAST representative sequence to H37Rv
     # and if there is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster
     # is annotated with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes
