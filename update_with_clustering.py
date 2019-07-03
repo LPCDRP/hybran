@@ -345,8 +345,8 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     # and if there is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster
     # is annotated with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes
     # in the cluster.
-    logger.info('Number of clusters with only L-tags genes: ' + str(len(in_dict.keys())) +
-                '\n')
+    logger.info('Number of clusters with only L-tags genes: ' + str(len(in_dict.keys())))
+    new_unannotated_genes = []
     for rep_gene in in_dict.keys():
         rep_isolate_id = rep_gene.split(',')[0]
         rep_locus = rep_gene.split(',')[1]
@@ -377,8 +377,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
             mtb_increment = mtb_increment + 1
             seq_record = SeqRecord(rep_sequence, id=mtb_id)
-            with open(unannotated_fasta, 'a') as mtb_fasta:
-                SeqIO.write(seq_record, mtb_fasta, 'fasta')
+            new_unannotated_genes.append(seq_record)
             name_to_assign = mtb_id
             logger.debug('Assigned new mtb id')
             logger.debug(name_to_assign)
@@ -388,6 +387,9 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         for gene_in_cluster in in_dict[rep_gene]:
             update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
         os.unlink(rep_temp_fasta)
+    with open(unannotated_fasta, 'a') as mtb_fasta:
+        for s in new_unannotated_genes:
+            SeqIO.write(s, mtb_fasta, 'fasta')
     return mtb_increment
 
 
