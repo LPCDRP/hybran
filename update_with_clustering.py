@@ -31,28 +31,6 @@ def get_sequence(isolate_fp, locus_tag):
             return seq
 
 
-def write_fasta(list_of_ids, output_name):
-    # WARNING: FUNCTION NOT USED
-    list_of_records = []
-    for rep in list_of_ids:
-        if type(rep) is str:
-            isolate_id = rep.split(',')[0]
-            locus = rep.split(',')[1]
-            gene = rep.split(',')[2]
-        elif type(rep) is list:
-            isolate_id = rep[0]
-            locus = rep[1]
-            gene = rep[2]
-        sequence = get_sequence(isolate_id, locus)
-        sequence_object = Seq(sequence)
-        seq_record = SeqRecord(sequence_object, id='|'.join([isolate_id, locus, gene]))
-        list_of_records.append(seq_record)
-
-    with open(output_name, 'w') as fasta_output:
-        for s in list_of_records:
-            SeqIO.write(s, fasta_output, 'fasta')
-
-
 def parse_clustered_proteins(clustered_proteins, annotations):
     underscore_re = re.compile('_[0-9]$')
 
@@ -128,7 +106,6 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             cluster_list_w_isolate.append([rep_isolate] + list(representative_ltag_gene_tup))
             for isolate_gene_id in isolates_ids[1:]:
                 isolate = isolate_gene_id.split('-L')[0]
-                #print isolate
                 gene_id = 'L' + isolate_gene_id.split('-L')[1]
                 cluster_list.append(gffs[isolate][gene_id])
                 cluster_list_w_isolate.append([isolate] + list(gffs[isolate][gene_id]))
@@ -156,8 +133,6 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             # L tag only clusters
             if all(locus[0].startswith('L') for locus in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
-#    with open('gene-clusters-dictionary.pickle', 'w') as gene_pickle:
-#        pickle.dump(gene_cluster, gene_pickle)
     return different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, underscores, l_tag_only_clusters, \
         unique_genes_list
 
@@ -345,7 +320,6 @@ def main():
     mtb_genes_fp = args.unannotated_proteins
     global isolate_update_dictionary
     isolate_update_dictionary = {}
-    # update_log = open('update_with_clustering.log', 'w')
     mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
     reference_nucleotide_fastas, reference_protein_fastas = ref_seqs(args.dir)
     reference_fasta = 'ref_cdss.fasta'
@@ -361,14 +335,10 @@ def main():
     # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
     # and annotate L_tag with the top hit.
     mgc_output = open('multi_gene_clusters.tsv', 'w')
-    #print('Possible num multiclusters: ' + str(len(multi_gene_cluster.keys())))
-    #print('Num multi genes = ' + str(len(multi_gene_cluster.keys())))
     
     num_multi = 0
     for gene in multi_gene_cluster.keys():
         num_multi += 1
-        #print(num_multi) 
-        #print(gene)
         output_line = ''
         unassigned_l_tags = []
         true_multi_cluster = False
@@ -380,7 +350,6 @@ def main():
                 unassigned_l_tags.append(gene_in_cluster)
             else:
                 true_multi_cluster = True
-        #print(true_multi_cluster)
         if true_multi_cluster:
             output_line = output_line + gene
             for gene_in_cluster in multi_gene_cluster[gene]:
@@ -435,11 +404,8 @@ def main():
                 os.unlink(fasta_fp_to_blast)
         else:
             if len(unassigned_l_tags) > 0:
-                #print(unassigned_l_tags)
                 single_gene_cluster_complete[gene] = multi_gene_cluster[gene]
-                #print(len(candidate_novel_gene_cluster_complete.keys()))
             continue
-            ##### TO DO: Assign consistent gene names and Locus tags to all annotations in cluster #####
     mgc_output.close()
 
     # 1. Handling clusters with only one Rv/gene name in cluster
@@ -454,8 +420,6 @@ def main():
             gene_to_add = key_elements_sgc[1]
         elif key_elements_sgc[2].startswith('Rv'):
             gene_to_add = key_elements_sgc[2]
-#        elif (key_elements_sgc[1].startswith('L_') and key_elements_sgc[2].startswith('L_')) or \
-#                (key_elements_sgc[1].startswith('L2_') and key_elements_sgc[2].startswith('L2_')):
         elif (key_elements_sgc[1].startswith('L') and key_elements_sgc[2].startswith('L')):
             rep_ltag = True
             rep_ltag_keys.append(key_sgc)
@@ -465,8 +429,6 @@ def main():
         if not rep_ltag:
             genes_in_cluster = single_gene_cluster_complete[key_sgc]
             for gene in genes_in_cluster:
-#                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
-#                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
                 if (gene[1].startswith('L') and gene[2].startswith('L')):
                     update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
                 else:
@@ -476,8 +438,6 @@ def main():
             genes_in_cluster = single_gene_cluster_complete[key_sgc]
             gene_to_add = ''
             for gene in genes_in_cluster:
-#                if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
-#                        (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
                 if (gene[1].startswith('L') and gene[2].startswith('L')):
                     continue
                 else:
@@ -492,8 +452,6 @@ def main():
                 logger.info(genes_in_cluster + '\n')
             else:
                 for gene in genes_in_cluster:
-#                    if (gene[1].startswith('L_') and gene[2].startswith('L_')) or \
-#                            (gene[1].startswith('L2_') and gene[2].startswith('L2_')):
                     if (gene[1].startswith('L') and gene[2].startswith('L')):
                         update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
                     else:
@@ -507,7 +465,6 @@ def main():
     logger.info('Number of clusters with only L-tags genes: ' + str(len(candidate_novel_gene_cluster_complete.keys())) +
                      '\n')
     for rep_gene in candidate_novel_gene_cluster_complete.keys():
-        #l_tag_verify_fp = '/home/dgunasek/projects/annomerge/verify_ltag_clusters.tsv'
         rep_isolate_id = rep_gene.split(',')[0]
         rep_locus = rep_gene.split(',')[1]
         rep_gene_name = rep_gene.split(',')[2]
@@ -520,7 +477,7 @@ def main():
         rep_sequence_object = Seq(rep_sequence)
         rep_record = SeqRecord(rep_sequence_object, id='|'.join([rep_isolate_id, rep_locus, rep_gene_name]))
         with open(rep_temp_fasta, 'w') as fasta_tmp:
-            SeqIO.write(rep_record, fasta_tmp, 'fasta') ###
+            SeqIO.write(rep_record, fasta_tmp, 'fasta')
         # Blasting representative sequence with H37Rv
         stdout = blast(reference_fasta, rep_sequence)
         top_hit, all_hits = identify_top_hits(stdout)
@@ -556,28 +513,7 @@ def main():
             logger.info('Assigned existing Rv or MTB' + '\n')
             logger.info(name_to_assign + '\n')
         for gene_in_cluster in candidate_novel_gene_cluster_complete[rep_gene]:
-#            gene_in_cluster_seq = get_sequence(gene_in_cluster[0], gene_in_cluster[1])
-#            blast_to_rep = NcbiblastpCommandline(subject=rep_temp_fasta,
-#                                                 outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-#            stdout_rep, stderr_rep = blast_to_rep(stdin=gene_in_cluster_seq)
-#            top_hit_rep, all_hits_rep = identify_top_hits(stdout_rep)
-#            if top_hit_rep is None:
-#                logger.info('Gene in cluster does not pass threshold of identity with representative sequence' +
-#                                 '\n')
-#                logger.info(rep_isolate_id + '\n')
-#                logger.info(rep_locus + '\n')
-#                logger.info(rep_sequence + '\n')
-#                logger.info(rep_temp_fasta + '\n')
-#                logger.info(gene_in_cluster[0] + '\n')
-#                logger.info(gene_in_cluster[1] + '\n')
-#                logger.info(gene_in_cluster_seq + '\n')
-#                rep_seq_id = '|'.join([rep_isolate_id, rep_locus])
-#                gene_seq_id = '|'.join([gene_in_cluster[0], gene_in_cluster[1]])
-#                with open(l_tag_verify_fp, 'a+') as verify_ltag:
-#                    verify_ltag.write(rep_seq_id + '\t' + gene_seq_id + '\n')
             update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
-            #else:
-            #    update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
         os.unlink(rep_temp_fasta)
 
 
@@ -630,7 +566,6 @@ def main():
         else:
             continue
 
-    # os.unlink(rv_temp_fasta)
     pickle_fp = 'isolate_gene_name.pickle'
     with open(pickle_fp, 'wb') as pickle_file:
         pickle.dump(isolate_update_dictionary, pickle_file)
