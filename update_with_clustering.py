@@ -553,7 +553,7 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
     isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
     for isolate in mtb_pickle.keys():
         if isolate not in isolates:
-            logger.debug('Isolate ' + isolate + ' absent in ' + gbk_dir + '\n')
+            logger.error('Isolate ' + isolate + ' absent in ' + gbk_dir + '\n')
         else:
             if not suffix:
                 genbank_file = gbk_dir + '/' + isolate + '.gbk'
