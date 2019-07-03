@@ -280,12 +280,12 @@ def ref_seqs(gbk_dir):
                     for feature in record.features:
                         if feature.type == 'CDS':
                             seq = SeqRecord(feature.location.extract(record).seq,
-                                            description=feature.qualifiers['gene'][0],
-                                            id=gbk_filename)
+                                            id=feature.qualifiers['gene'][0],
+                                            description=gbk_filename)
                             nucleotide_cds.append(seq)
                             seq = SeqRecord(feature.qualifiers['translation'],
-                                            description=feature.qualifiers['gene'][0],
-                                            id=gbk_filename)
+                                            id=feature.qualifiers['gene'][0],
+                                            description=gbk_filename)
                             protein_cds.append(seq)
     return nucleotide_cds, protein_cds
 
@@ -297,53 +297,31 @@ def blast(subject, stdin_seq):
     return stdout
 
 
-def arguments():
-    parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
-                                                 'clustering using CDHIT/MCL')
-    parser.add_argument('-c', '--clusters', help='Output from cluster.py (clustered_proteins)')
-    parser.add_argument('-d', '--dir', help='Directory that contains all annotations entered into the cluster.py. '
-                                            'Genbank format required')
-    parser.add_argument('-p', '--unannotated_proteins', help='Protein sequences of genes from existing annotations that'
-                                                             ' are not annotated with an Rv locus tag. Fasta format '
-                                                             'required', default='NONE')
-    # The -p tag is a protein fasta of MTB genes from previously annotated isolates. BLAST is performed to keep the
-    # MTB names consistent. If the arguement is not provided then the BLAST is not performed and new MTB names are
-    # assigned
-    return parser.parse_args()
+def find_unannotated_genes(reference_protein_fasta):
+    unannotated_seqs = []
+    for record in SeqIO.parse(reference_protein_fasta):
+        if record.id.startswith('MTB'):
+            unannotated_seqs.append(record)
+    with open('unannotated_seqs.fasta', 'w') as out:
+        for s in unannotated_seqs:
+            SeqIO.write(s, out, 'fasta')
+    return 'unannotated_seqs.fasta'
 
 
-def main():
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
-    logger = logging.getLogger(__name__)
-    args = arguments()
-    mtb_genes_fp = args.unannotated_proteins
-    global isolate_update_dictionary
-    isolate_update_dictionary = {}
-    mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
-    reference_nucleotide_fastas, reference_protein_fastas = ref_seqs(args.dir)
-    reference_fasta = 'ref_cdss.fasta'
-    with open('ref_cdss.fasta', 'w') as ref_cds_out:
-        for s in reference_protein_fastas:
-            SeqIO.write(s, ref_cds_out, 'fasta')
-    pangenome_dir = args.clusters
-    multi_gene_cluster, single_gene_cluster, partial_gene_cluster, candidate_novel_gene_cluster, unique_gene_cluster = \
-        parse_clustered_proteins(pangenome_dir, args.dir)
-    logger.info('Number of clusters with partial genes: ' + str(len(partial_gene_cluster.keys())) + '\n')
-    candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
-    single_gene_cluster_complete = single_gene_cluster.copy()
+def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, unannotated_fasta, mtb_increment):
+    logger = logging.getLogger('MultigeneClusters')
     # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
     # and annotate L_tag with the top hit.
-    mgc_output = open('multi_gene_clusters.tsv', 'w')
-    
+    mgc_output = []
+
     num_multi = 0
-    for gene in multi_gene_cluster.keys():
+    for gene in in_dict.keys():
         num_multi += 1
         output_line = ''
         unassigned_l_tags = []
         true_multi_cluster = False
         gene_elements = gene.split(',')
-        for gene_in_cluster in multi_gene_cluster[gene]:
+        for gene_in_cluster in in_dict[gene]:
             if gene_in_cluster[1] in gene_elements or gene_in_cluster[2] in gene_elements:
                 continue
             elif gene_in_cluster[1].startswith('L') and gene_in_cluster[2].startswith('L'):
@@ -352,20 +330,20 @@ def main():
                 true_multi_cluster = True
         if true_multi_cluster:
             output_line = output_line + gene
-            for gene_in_cluster in multi_gene_cluster[gene]:
+            for gene_in_cluster in in_dict[gene]:
                 gene_str = ','.join(gene_in_cluster)
                 output_line = output_line + '\t' + gene_str
             output_line = output_line + '\n'
-            mgc_output.write(output_line)
-            all_genes_annotated = cluster_annotation_presence(multi_gene_cluster[gene])
+            mgc_output.append(output_line)
+            all_genes_annotated = cluster_annotation_presence(in_dict[gene])
             # If all genes in the cluster are annotated, do nothing. If there is an unannotated gene in the cluster,
             # blast it to all annotated genes in cluster and annotated with top hit
             if not all_genes_annotated:
-                fasta_fp_to_blast, genes_to_annotate = get_cluster_fasta(gene, multi_gene_cluster[gene], args.dir)
+                fasta_fp_to_blast, genes_to_annotate = get_cluster_fasta(gene, in_dict[gene], annotation_dir)
                 for unannotated_gene in genes_to_annotate:
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
-                    unannotated_isolate_fp = args.dir + '/' + unannotated_gene_isolate + '.gbk'
+                    unannotated_isolate_fp = annotation_dir + '/' + unannotated_gene_isolate + '.gbk'
                     unannotated_gene_seq = get_sequence(unannotated_isolate_fp, unannotated_gene_locus)
                     stdout = blast(fasta_fp_to_blast, unannotated_gene_seq)
                     top_hit, all_hits = identify_top_hits(stdout)
@@ -373,12 +351,12 @@ def main():
                     name_to_assign = ''
                     if top_hit is None:
                         assign_mtb = True
-                        if os.path.exists(mtb_genes_fp):
-                            fasta_records = SeqIO.parse(mtb_genes_fp, 'fasta')
+                        if os.path.exists(unannotated_fasta):
+                            fasta_records = SeqIO.parse(unannotated_fasta, 'fasta')
                             for mtb_record in fasta_records:
                                 mtb_id = mtb_record.description.split(' ')[0]
                                 mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-                            stdout_2 = blast(mtb_genes_fp, unannotated_gene_seq)
+                            stdout_2 = blast(unannotated_fasta, unannotated_gene_seq)
                             top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
                             if top_hit_mtb is None:
                                 assign_mtb = True
@@ -392,7 +370,7 @@ def main():
                         mtb_increment = mtb_increment + 1
                         sequence_object = Seq(unannotated_gene_seq)
                         seq_record = SeqRecord(sequence_object, id=mtb_id)
-                        with open(mtb_genes_fp, 'a') as mtb_fasta:
+                        with open(unannotated_fasta, 'a') as mtb_fasta:
                             SeqIO.write(seq_record, mtb_fasta, 'fasta')
                         name_to_assign = mtb_id
                         logger.info('Assigned new mtb id' + '\n')
@@ -404,9 +382,48 @@ def main():
                 os.unlink(fasta_fp_to_blast)
         else:
             if len(unassigned_l_tags) > 0:
-                single_gene_cluster_complete[gene] = multi_gene_cluster[gene]
+                single_gene_cluster_complete[gene] = in_dict[gene]
             continue
-    mgc_output.close()
+    with open('multi_gene_clusters.tsv', 'w') as out:
+        for line in mgc_output:
+            out.write(line)
+    return mtb_increment
+
+
+def arguments():
+    parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
+                                                 'clustering using CDHIT/MCL')
+    parser.add_argument('-c', '--clusters', help='Output from cluster.py (clustered_proteins)')
+    parser.add_argument('-d', '--dir', help='Directory that contains all annotations entered into the cluster.py. '
+                                            'Genbank format required')
+    return parser.parse_args()
+
+
+def main():
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
+    logger = logging.getLogger(__name__)
+    args = arguments()
+    global isolate_update_dictionary
+    isolate_update_dictionary = {}
+    mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
+    reference_nucleotide_fastas, reference_protein_fastas = ref_seqs(args.dir)
+    reference_fasta = 'ref_cdss.fasta'
+    with open(reference_fasta, 'w') as ref_cds_out:
+        for s in reference_protein_fastas:
+            SeqIO.write(s, ref_cds_out, 'fasta')
+    mtb_genes_fp = find_unannotated_genes(reference_fasta)
+    pangenome_dir = args.clusters
+    multi_gene_cluster, single_gene_cluster, partial_gene_cluster, candidate_novel_gene_cluster, unique_gene_cluster = \
+        parse_clustered_proteins(pangenome_dir, args.dir)
+    logger.info('Number of clusters with partial genes: ' + str(len(partial_gene_cluster.keys())) + '\n')
+    candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
+    single_gene_cluster_complete = single_gene_cluster.copy()
+    mtb_increment = multigene_clusters(in_dict=multi_gene_cluster,
+                                       single_gene_cluster_complete=single_gene_cluster_complete,
+                                       annotation_dir=args.dir,
+                                       unannotated_fasta=mtb_genes_fp,
+                                       mtb_increment=mtb_increment)
 
     # 1. Handling clusters with only one Rv/gene name in cluster
     # 1. If cluster has candidate novel genes (L_***** or L2_*****) clustered together with a H37Rv annotation, update
