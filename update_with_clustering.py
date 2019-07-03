@@ -203,7 +203,7 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
     if not (rep_locus.startswith('L') and rep_gene_name.startswith('L')):
         rep_isolate_fp = isolates_dir + '/' + rep_isolate_id + '.gbk'
         rep_sequence = isolate_sequences[rep_isolate_fp][rep_locus]
-        rep_sequence_object = rep_sequence
+        rep_sequence_object = str(rep_sequence)
         seq_id = '|'.join([rep_isolate_id, rep_locus, rep_gene_name])
         added_seq.append(seq_id)
         rep_record = SeqRecord(rep_sequence_object, id=seq_id)
@@ -223,7 +223,7 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
                 continue
             else:
                 gene_sequence = isolate_sequences[gene_isolate_id][gene_locus]
-                gene_sequence_object = gene_sequence
+                gene_sequence_object = str(gene_sequence)
                 added_seq.append(gene_id)
                 gene_record = SeqRecord(gene_sequence_object, id=gene_id)
                 SeqIO.write(gene_record, fasta_tmp, 'fasta')
