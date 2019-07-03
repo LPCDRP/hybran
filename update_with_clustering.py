@@ -314,18 +314,11 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
             name_to_assign = ''
             if top_hit is None:
                 assign_mtb = True
-                if os.path.exists(unannotated_fasta):
-                    fasta_records = SeqIO.parse(unannotated_fasta, 'fasta')
-                    for mtb_record in fasta_records:
-                        mtb_id = mtb_record.description.split(' ')[0]
-                        mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-                    stdout_2 = blast(unannotated_fasta, gene_sequence)
-                    top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
-                    if top_hit_mtb is None:
-                        assign_mtb = True
-                    else:
-                        assign_mtb = False
-                        name_to_assign = top_hit_mtb
+                stdout_2 = blast(unannotated_fasta, gene_sequence)
+                top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
+                if top_hit_mtb is not None:
+                    assign_mtb = False
+                    name_to_assign = top_hit_mtb
             else:
                 name_to_assign = top_hit
             if assign_mtb:
@@ -373,18 +366,11 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         name_to_assign = ''
         if top_hit is None:
             assign_mtb = True
-            if os.path.exists(unannotated_fasta):
-                fasta_records = SeqIO.parse(unannotated_fasta, 'fasta')
-                for mtb_record in fasta_records:
-                    mtb_id = mtb_record.description.split(' ')[0]
-                    mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-                stdout_2 = blast(unannotated_fasta, rep_sequence)
-                top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
-                if top_hit_mtb is None:
-                    assign_mtb = True
-                else:
-                    assign_mtb = False
-                    name_to_assign = top_hit_mtb
+            stdout_2 = blast(unannotated_fasta, rep_sequence)
+            top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
+            if top_hit_mtb is not None:
+                assign_mtb = False
+                name_to_assign = top_hit_mtb
         else:
             name_to_assign = top_hit
         if assign_mtb:
@@ -499,18 +485,11 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                     name_to_assign = ''
                     if top_hit is None:
                         assign_mtb = True
-                        if os.path.exists(unannotated_fasta):
-                            fasta_records = SeqIO.parse(unannotated_fasta, 'fasta')
-                            for mtb_record in fasta_records:
-                                mtb_id = mtb_record.description.split(' ')[0]
-                                mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-                            stdout_2 = blast(unannotated_fasta, unannotated_gene_seq)
-                            top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
-                            if top_hit_mtb is None:
-                                assign_mtb = True
-                            else:
-                                assign_mtb = False
-                                name_to_assign = top_hit_mtb
+                        stdout_2 = blast(unannotated_fasta, unannotated_gene_seq)
+                        top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
+                        if top_hit_mtb is not None:
+                            assign_mtb = False
+                            name_to_assign = top_hit_mtb
                     else:
                         name_to_assign = top_hit
                     if assign_mtb:
