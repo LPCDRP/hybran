@@ -19,16 +19,20 @@ from Bio.Blast.Applications import NcbiblastpCommandline
 GROUPHOME = os.environ['GROUPHOME']
 
 
-def get_sequence(isolate_fp, locus_tag):
-    genbank_file = isolate_fp
-    for record in SeqIO.parse(genbank_file, 'genbank'):
-        features = record.features
-        break
-
-    for feature in features:
-        if feature.type == 'CDS' and feature.qualifiers['locus_tag'][0] == locus_tag:
-            seq = feature.qualifiers['translation'][0]
-            return seq
+def create_isolate_seq_dict(directory):
+    isolate_seq_dict = {}
+    for genbank_file in os.listdir(directory):
+        if genbank_file.endswith('.gbk'):
+            for record in SeqIO.parse(genbank_file, 'genbank'):
+                features = record.features
+                break
+            isolate = genbank_file.split('.')[0]
+            isolate_seq_dict[isolate] = {}
+            for feature in features:
+                if feature.type == 'CDS':
+                    seq = feature.qualifiers['translation'][0]
+                    isolate_seq_dict[isolate][feature.qualifiers['locus_tag'][0]] = seq
+    return isolate_seq_dict
 
 
 def parse_clustered_proteins(clustered_proteins, annotations):
@@ -213,7 +217,7 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
     fasta_tmp = open(cluster_temp_fasta, 'w')
     if not (rep_locus.startswith('L') and rep_gene_name.startswith('L')):
         rep_isolate_fp = isolates_dir + '/' + rep_isolate_id + '.gbk'
-        rep_sequence = get_sequence(rep_isolate_fp, rep_locus)
+        rep_sequence = isolate_sequences[rep_isolate_fp][rep_locus]
         rep_sequence_object = Seq(rep_sequence)
         seq_id = '|'.join([rep_isolate_id, rep_locus, rep_gene_name])
         added_seq.append(seq_id)
@@ -234,7 +238,7 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
                 continue
             else:
                 gene_isolate_fp = isolates_dir + '/' + gene_isolate_id + '.gbk'
-                gene_sequence = get_sequence(gene_isolate_fp, gene_locus)
+                gene_sequence = isolate_sequences[gene_isolate_fp][gene_locus]
                 gene_sequence_object = Seq(gene_sequence)
                 added_seq.append(gene_id)
                 gene_record = SeqRecord(gene_sequence_object, id=gene_id)
@@ -321,7 +325,7 @@ def singleton_clusters(singleton_dict, annotation_dir, reference_fasta, unannota
         gene_name = single_gene[2]
         isolate_fp = annotation_dir + '/' + isolate_id + '.gbk'
         if gene_name.startswith('L') and locus_tag.startswith('L'):
-            gene_sequence = get_sequence(isolate_fp, locus_tag)
+            gene_sequence = isolate_sequences[isolate_fp][locus_tag]
             stdout = blast(reference_fasta, gene_sequence)
             top_hit, all_hits = identify_top_hits(stdout)
             assign_mtb = False
@@ -374,7 +378,7 @@ def only_ltag_clusters(in_dict, annotation_dir, reference_fasta, unannotated_fas
         rep_locus = rep_gene.split(',')[1]
         rep_gene_name = rep_gene.split(',')[2]
         rep_isolate_fp = annotation_dir + '/' + rep_isolate_id + '.gbk'
-        rep_sequence = get_sequence(rep_isolate_fp, rep_locus)
+        rep_sequence = isolate_sequences[rep_isolate_fp][rep_locus]
         # Writing representative amino acid sequence to a temp file to check if all genes in cluster share identity with
         #  this sequence
         rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
@@ -511,7 +515,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, un
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
                     unannotated_isolate_fp = annotation_dir + '/' + unannotated_gene_isolate + '.gbk'
-                    unannotated_gene_seq = get_sequence(unannotated_isolate_fp, unannotated_gene_locus)
+                    unannotated_gene_seq = isolate_sequences[unannotated_isolate_fp][unannotated_gene_locus]
                     stdout = blast(fasta_fp_to_blast, unannotated_gene_seq)
                     top_hit, all_hits = identify_top_hits(stdout)
                     assign_mtb = False
@@ -571,8 +575,9 @@ def main():
                         format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
     logger = logging.getLogger(__name__)
     args = arguments()
-    global isolate_update_dictionary
+    global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
+    isolate_sequences = create_isolate_seq_dict(directory=args.dir)
     mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
     reference_nucleotide_fastas, reference_protein_fastas = ref_seqs(args.dir)
     reference_fasta = 'ref_cdss.fasta'
