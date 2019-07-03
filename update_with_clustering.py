@@ -180,12 +180,12 @@ def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
     else:
         isolate_dict_added = isolate_update_dictionary[isolate_id]
         if isolate_ltag in isolate_dict_added.keys():
-            logger.debug('This locus tag already has an Rv' + '\n')
-            logger.debug('Locus Tag:' + '\n')
-            logger.debug(isolate_id + '\n')
-            logger.debug(isolate_ltag + '\n')
-            logger.debug(isolate_update_dictionary[isolate_id][isolate_ltag] + '\n')
-            logger.debug('Above locus tag is also annotated as: ' + new_gene_name + '\n')
+            logger.debug('This locus tag already has an Rv')
+            logger.debug('Locus Tag:')
+            logger.debug(isolate_id)
+            logger.debug(isolate_ltag)
+            logger.debug(isolate_update_dictionary[isolate_id][isolate_ltag])
+            logger.debug('Above locus tag is also annotated as: ' + new_gene_name)
         else:
             isolate_update_dictionary[isolate_id][isolate_ltag] = new_gene_name
     return
@@ -301,7 +301,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
     # is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster is annotated
     #  with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes in the
     # cluster.
-    logger.info('Number of singleton clusters with single genes: ' + str(len(singleton_dict)) + '\n')
+    logger.info('Number of singleton clusters with single genes: ' + str(len(singleton_dict)))
     for single_gene in singleton_dict:
         isolate_id = single_gene[0]
         locus_tag = single_gene[1]
@@ -335,11 +335,11 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
                 with open(unannotated_fasta, 'a') as mtb_fasta:
                     SeqIO.write(seq_record, mtb_fasta, 'fasta')
                 name_to_assign = mtb_id
-                logger.info('Assigned new mtb id' + '\n')
-                logger.info(name_to_assign + '\n')
+                logger.debug('Assigned new mtb id')
+                logger.debug(name_to_assign)
             else:
-                logger.info('Assigned existing Rv or MTB' + '\n')
-                logger.info(name_to_assign + '\n')
+                logger.debug('Assigned existing Rv or MTB')
+                logger.debug(name_to_assign)
             update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
         else:
             continue
@@ -394,11 +394,11 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             with open(unannotated_fasta, 'a') as mtb_fasta:
                 SeqIO.write(seq_record, mtb_fasta, 'fasta')
             name_to_assign = mtb_id
-            logger.info('Assigned new mtb id' + '\n')
-            logger.info(name_to_assign + '\n')
+            logger.debug('Assigned new mtb id')
+            logger.debug(name_to_assign)
         else:
-            logger.info('Assigned existing Rv or MTB' + '\n')
-            logger.info(name_to_assign + '\n')
+            logger.debug('Assigned existing Rv or MTB')
+            logger.debug(name_to_assign)
         for gene_in_cluster in in_dict[rep_gene]:
             update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
         os.unlink(rep_temp_fasta)
@@ -411,7 +411,7 @@ def single_gene_clusters(single_gene_dict):
     # 1. If cluster has candidate novel genes (L_***** or L2_*****) clustered together with a H37Rv annotation, update
     #  all candidate novel genes in this cluster with the H37Rv gene name.
     rep_ltag_keys = []
-    logger.info('Number of clusters with single genes: ' + str(len(single_gene_dict.keys())) + '\n')
+    logger.info('Number of clusters with single genes: ' + str(len(single_gene_dict.keys())))
     for key_sgc in single_gene_dict:
         rep_ltag = False
         key_elements_sgc = key_sgc.split(',')
@@ -446,9 +446,9 @@ def single_gene_clusters(single_gene_dict):
                         gene_to_add = gene[2]
                     break
             if len(gene_to_add) == 0:
-                logger.info('No Rv found in this cluster' + '\n')
-                logger.info(key_sgc + '\n')
-                logger.info(genes_in_cluster + '\n')
+                logger.debug('No Rv found in this cluster')
+                logger.debug(key_sgc)
+                logger.debug(genes_in_cluster)
             else:
                 for gene in genes_in_cluster:
                     if gene[1].startswith('L') and gene[2].startswith('L'):
@@ -520,11 +520,11 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                         with open(unannotated_fasta, 'a') as mtb_fasta:
                             SeqIO.write(seq_record, mtb_fasta, 'fasta')
                         name_to_assign = mtb_id
-                        logger.info('Assigned new mtb id' + '\n')
-                        logger.info(name_to_assign + '\n')
+                        logger.debug('Assigned new mtb id')
+                        logger.debug(name_to_assign)
                     else:
-                        logger.info('Assigned existing Rv or MTB' + '\n')
-                        logger.info(name_to_assign + '\n')
+                        logger.debug('Assigned existing Rv or MTB')
+                        logger.debug(name_to_assign)
                     update_dictionary_ltag_assignments(unannotated_gene_isolate, unannotated_gene_locus, name_to_assign)
                 os.unlink(fasta_fp_to_blast)
         else:
@@ -617,21 +617,21 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
                                 modified_locus.append(locus_tag)
                                 continue
                             else:
-                                logger.debug('Discordant assignment of gene name' + '\n')
-                                logger.debug('Original gene name: ' + gene_name + '\n')
-                                logger.debug('New gene name: ' + update_mtb_dict[locus_tag] + '\n')
+                                logger.debug('Discordant assignment of gene name')
+                                logger.debug('Original gene name: ' + gene_name)
+                                logger.debug('New gene name: ' + update_mtb_dict[locus_tag])
                                 if 'gene_synonym' in feature.qualifiers.keys():
                                     gene_synonym.append(update_mtb_dict[locus_tag])
                                 else:
                                     feature.qualifiers['gene_synonym'] = [update_mtb_dict[locus_tag]]
                             modified_locus.append(locus_tag)
                         elif locus_tag in locus_to_update and locus_tag in modified_locus:
-                            logger.warning('ERROR: Updated locus tag previously' + '\n')
+                            logger.warning('ERROR: Updated locus tag previously')
                         else:
                             continue
                     if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
-                        logger.warning('The following locus_tags are missing in the genbank file' + '\n')
-                        logger.warning(Set(locus_to_update).difference(Set(modified_locus)) + '\n')
+                        logger.warning('The following locus_tags are missing in the genbank file')
+                        logger.warning(Set(locus_to_update).difference(Set(modified_locus)))
                     features.append(SeqFeature(FeatureLocation(rec.location.start,
                                                                rec.location.end),
                                                type=rec.type,
