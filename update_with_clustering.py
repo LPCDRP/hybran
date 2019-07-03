@@ -554,7 +554,6 @@ def add_gene_names_to_gbk(pickle_fp, gbk_dir):
     gbk_files = os.listdir(gbk_dir)
     isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
     for isolate in mtb_pickle.keys():
-        print(isolate)
         if isolate not in isolates:
             logger.info('Isolate ' + isolate + ' absent in ' + gbk_dir + '\n')
         else:
