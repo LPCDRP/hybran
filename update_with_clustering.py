@@ -308,6 +308,59 @@ def find_unannotated_genes(reference_protein_fasta):
     return 'unannotated_seqs.fasta'
 
 
+def singleton_clusters(singleton_dict, annotation_dir, reference_fasta, unannotated_fasta, mtb_increment):
+    logger = logging.getLogger('SingletonClusters')
+    # 3. If a cluster has only one gene (with no gene names), then BLAST representative sequence to H37Rv and if there
+    # is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster is annotated
+    #  with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes in the
+    # cluster.
+    logger.info('Number of singleton clusters with single genes: ' + str(len(singleton_dict)) + '\n')
+    for single_gene in singleton_dict:
+        isolate_id = single_gene[0]
+        locus_tag = single_gene[1]
+        gene_name = single_gene[2]
+        isolate_fp = annotation_dir + '/' + isolate_id + '.gbk'
+        if gene_name.startswith('L') and locus_tag.startswith('L'):
+            gene_sequence = get_sequence(isolate_fp, locus_tag)
+            stdout = blast(reference_fasta, gene_sequence)
+            top_hit, all_hits = identify_top_hits(stdout)
+            assign_mtb = False
+            name_to_assign = ''
+            if top_hit is None:
+                assign_mtb = True
+                if os.path.exists(unannotated_fasta):
+                    fasta_records = SeqIO.parse(unannotated_fasta, 'fasta')
+                    for mtb_record in fasta_records:
+                        mtb_id = mtb_record.description.split(' ')[0]
+                        mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
+                    stdout_2 = blast(unannotated_fasta, gene_sequence)
+                    top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
+                    if top_hit_mtb is None:
+                        assign_mtb = True
+                    else:
+                        assign_mtb = False
+                        name_to_assign = top_hit_mtb
+            else:
+                name_to_assign = top_hit
+            if assign_mtb:
+                mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
+                mtb_increment = mtb_increment + 1
+                sequence_object = Seq(gene_sequence)
+                seq_record = SeqRecord(sequence_object, id=mtb_id)
+                with open(unannotated_fasta, 'a') as mtb_fasta:
+                    SeqIO.write(seq_record, mtb_fasta, 'fasta')
+                name_to_assign = mtb_id
+                logger.info('Assigned new mtb id' + '\n')
+                logger.info(name_to_assign + '\n')
+            else:
+                logger.info('Assigned existing Rv or MTB' + '\n')
+                logger.info(name_to_assign + '\n')
+            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
+        else:
+            continue
+    return mtb_increment
+
+
 def only_ltag_clusters(in_dict, annotation_dir, reference_fasta, unannotated_fasta, mtb_increment):
     logger = logging.getLogger('NewGeneClusters')
     # 2. If a cluster has only candidate novel genes (with no gene names), then BLAST representative sequence to H37Rv
@@ -543,56 +596,13 @@ def main():
     mtb_increment = only_ltag_clusters(in_dict=candidate_novel_gene_cluster_complete,
                                        annotation_dir=args.dir,
                                        unannotated_fasta=mtb_genes_fp,
+                                       mtb_increment=mtb_increment,
+                                       reference_fasta=reference_fasta)
+    mtb_increment = singleton_clusters(singleton_dict=single_gene_cluster_complete,
+                                       annotation_dir=args.dir,
+                                       reference_fasta=reference_fasta,
+                                       unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment)
-        # 3. If a cluster has only one gene (with no gene names), then BLAST representative sequence to H37Rv and if there
-    # is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster is annotated
-    #  with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes in the
-    # cluster.
-    logger.info('Number of singleton clusters with single genes: ' + str(len(unique_gene_cluster)) + '\n')
-    for single_gene in unique_gene_cluster:
-        isolate_id = single_gene[0]
-        locus_tag = single_gene[1]
-        gene_name = single_gene[2]
-        isolate_fp = args.dir + '/' + isolate_id + '.gbk'
-        if gene_name.startswith('L') and locus_tag.startswith('L'):
-            gene_sequence = get_sequence(isolate_fp, locus_tag)
-            stdout = blast(reference_fasta, gene_sequence)
-            top_hit, all_hits = identify_top_hits(stdout)
-            assign_mtb = False
-            name_to_assign = ''
-            if top_hit is None:
-                assign_mtb = True
-                if os.path.exists(mtb_genes_fp):
-                    fasta_records = SeqIO.parse(mtb_genes_fp, 'fasta')
-                    for mtb_record in fasta_records:
-                        mtb_id = mtb_record.description.split(' ')[0]
-                        mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-                    stdout_2 = blast(mtb_genes_fp, gene_sequence)
-                    top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
-                    if top_hit_mtb is None:
-                        assign_mtb = True
-                    else:
-                        assign_mtb = False
-                        name_to_assign = top_hit_mtb
-            else:
-                name_to_assign = top_hit
-            if assign_mtb:
-                mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
-                mtb_increment = mtb_increment + 1
-                sequence_object = Seq(gene_sequence)
-                seq_record = SeqRecord(sequence_object, id=mtb_id)
-                with open(mtb_genes_fp, 'a') as mtb_fasta:
-                    SeqIO.write(seq_record, mtb_fasta, 'fasta')
-                name_to_assign = mtb_id
-                logger.info('Assigned new mtb id' + '\n')
-                logger.info(name_to_assign + '\n')
-            else:
-                logger.info('Assigned existing Rv or MTB' + '\n')
-                logger.info(name_to_assign + '\n')
-            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
-        else:
-            continue
-
     pickle_fp = 'isolate_gene_name.pickle'
     with open(pickle_fp, 'wb') as pickle_file:
         pickle.dump(isolate_update_dictionary, pickle_file)
