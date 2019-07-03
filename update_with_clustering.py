@@ -204,7 +204,7 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
     if not (rep_locus.startswith('L') and rep_gene_name.startswith('L')):
         rep_isolate_fp = isolates_dir + '/' + rep_isolate_id + '.gbk'
         rep_sequence = isolate_sequences[rep_isolate_fp][rep_locus]
-        rep_sequence_object = Seq(rep_sequence)
+        rep_sequence_object = rep_sequence
         seq_id = '|'.join([rep_isolate_id, rep_locus, rep_gene_name])
         added_seq.append(seq_id)
         rep_record = SeqRecord(rep_sequence_object, id=seq_id)
@@ -223,9 +223,8 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
             if gene_id in added_seq:
                 continue
             else:
-                gene_isolate_fp = isolates_dir + '/' + gene_isolate_id + '.gbk'
-                gene_sequence = isolate_sequences[gene_isolate_fp][gene_locus]
-                gene_sequence_object = Seq(gene_sequence)
+                gene_sequence = isolate_sequences[gene_isolate_id][gene_locus]
+                gene_sequence_object = gene_sequence
                 added_seq.append(gene_id)
                 gene_record = SeqRecord(gene_sequence_object, id=gene_id)
                 SeqIO.write(gene_record, fasta_tmp, 'fasta')
@@ -309,9 +308,8 @@ def singleton_clusters(singleton_dict, annotation_dir, reference_fasta, unannota
         isolate_id = single_gene[0]
         locus_tag = single_gene[1]
         gene_name = single_gene[2]
-        isolate_fp = annotation_dir + '/' + isolate_id + '.gbk'
         if gene_name.startswith('L') and locus_tag.startswith('L'):
-            gene_sequence = isolate_sequences[isolate_fp][locus_tag]
+            gene_sequence = isolate_sequences[isolate_id][locus_tag]
             stdout = blast(reference_fasta, gene_sequence)
             top_hit, all_hits = identify_top_hits(stdout)
             assign_mtb = False
@@ -363,8 +361,7 @@ def only_ltag_clusters(in_dict, annotation_dir, reference_fasta, unannotated_fas
         rep_isolate_id = rep_gene.split(',')[0]
         rep_locus = rep_gene.split(',')[1]
         rep_gene_name = rep_gene.split(',')[2]
-        rep_isolate_fp = annotation_dir + '/' + rep_isolate_id + '.gbk'
-        rep_sequence = isolate_sequences[rep_isolate_fp][rep_locus]
+        rep_sequence = isolate_sequences[rep_isolate_id][rep_locus]
         # Writing representative amino acid sequence to a temp file to check if all genes in cluster share identity with
         #  this sequence
         rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
@@ -500,8 +497,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, un
                 for unannotated_gene in genes_to_annotate:
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
-                    unannotated_isolate_fp = annotation_dir + '/' + unannotated_gene_isolate + '.gbk'
-                    unannotated_gene_seq = isolate_sequences[unannotated_isolate_fp][unannotated_gene_locus]
+                    unannotated_gene_seq = isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus]
                     stdout = blast(fasta_fp_to_blast, unannotated_gene_seq)
                     top_hit, all_hits = identify_top_hits(stdout)
                     assign_mtb = False
