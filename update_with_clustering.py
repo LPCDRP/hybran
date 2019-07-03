@@ -29,6 +29,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
         for gff in os.listdir(annotation_dir):
             isolate_id_ltag = {}
             try:
+                isolate_id = gff.split('.')[0]
                 with open(annotation_dir + gff, 'r') as gff_file:
                     for line in gff_file:
                         if line.startswith('#'):
@@ -44,7 +45,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                                 gene = locus_tag
                                 locus_tag = ''
                             isolate_id_ltag[gene_id] = (locus_tag, gene)
-                    gff_dictionary[isolate] = isolate_id_ltag
+                    gff_dictionary[isolate_id] = isolate_id_ltag
             except IOError:
                 continue
         return gff_dictionary
