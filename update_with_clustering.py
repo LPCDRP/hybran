@@ -19,22 +19,6 @@ from Bio.Blast.Applications import NcbiblastpCommandline
 GROUPHOME = os.environ['GROUPHOME']
 
 
-def create_isolate_seq_dict(directory):
-    isolate_seq_dict = {}
-    for genbank_file in os.listdir(directory):
-        if genbank_file.endswith('.gbk'):
-            for record in SeqIO.parse(genbank_file, 'genbank'):
-                features = record.features
-                break
-            isolate = genbank_file.split('.')[0]
-            isolate_seq_dict[isolate] = {}
-            for feature in features:
-                if feature.type == 'CDS':
-                    seq = feature.qualifiers['translation'][0]
-                    isolate_seq_dict[isolate][feature.qualifiers['locus_tag'][0]] = seq
-    return isolate_seq_dict
-
-
 def parse_clustered_proteins(clustered_proteins, annotations):
     underscore_re = re.compile('_[0-9]$')
 
@@ -276,9 +260,11 @@ def find_larges_mtb_increment(annotation_directory):
 def ref_seqs(gbk_dir):
     nucleotide_cds = []
     protein_cds = []
+    isolate_seqs = []
     for gbk in os.listdir(gbk_dir):
         if gbk.endswith('.gbk'):
             gbk_filename = gbk.split('.')[0]
+            isolate_seqs[gbk_filename] = {}
             for record in SeqIO.parse(gbk_dir + gbk, 'genbank'):
                 if record.features:
                     for feature in record.features:
@@ -291,6 +277,7 @@ def ref_seqs(gbk_dir):
                                             id=feature.qualifiers['gene'][0],
                                             description=gbk_filename)
                             protein_cds.append(seq)
+                            isolate_seqs[gbk_filename][feature.qualifiers['locus_tag'][0]] = seq
     proteins = 'ref_cdss_protein.fasta'
     with open(proteins, 'w') as ref_cds_out:
         for s in protein_cds:
@@ -299,7 +286,7 @@ def ref_seqs(gbk_dir):
     with open(nucleotides, 'w') as ref_cds_out:
         for s in nucleotide_cds:
             SeqIO.write(s, ref_cds_out, 'fasta')
-    return nucleotides, proteins
+    return nucleotides, proteins, isolate_seqs
 
 
 def blast(subject, stdin_seq):
@@ -585,10 +572,9 @@ def main():
     args = arguments()
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
-    isolate_sequences = create_isolate_seq_dict(directory=args.dir)
     mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
-    reference_nucleotide_fastas, reference_protein_fastas = ref_seqs(args.dir)
-    mtb_genes_fp = find_unannotated_genes(reference_protein_fastas)
+    reference_nucleotide_fastas, reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=args.dir)
+    mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
     clusters = parse_clustered_proteins(clustered_proteins=args.clusters,
                                         annotations=args.dir)
     multi_gene_cluster = clusters[0]
