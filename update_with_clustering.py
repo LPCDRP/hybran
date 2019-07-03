@@ -315,6 +315,13 @@ def ref_seqs(gbk_dir):
     return nucleotide_cds, protein_cds
 
 
+def blast(subject, stdin_seq):
+    blast_command = NcbiblastpCommandline(subject=subject,
+                                          outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
+    stdout, stderr = blast_command(stdin=stdin_seq)
+    return stdout
+
+
 def arguments():
     parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
                                                  'clustering using CDHIT/MCL')
@@ -391,9 +398,7 @@ def main():
                     unannotated_gene_locus = unannotated_gene[1]
                     unannotated_isolate_fp = args.dir + '/' + unannotated_gene_isolate + '.gbk'
                     unannotated_gene_seq = get_sequence(unannotated_isolate_fp, unannotated_gene_locus)
-                    blast_command = NcbiblastpCommandline(subject=fasta_fp_to_blast,
-                                                          outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-                    stdout, stderr = blast_command(stdin=unannotated_gene_seq)
+                    stdout = blast(fasta_fp_to_blast, unannotated_gene_seq)
                     top_hit, all_hits = identify_top_hits(stdout)
                     assign_mtb = False
                     name_to_assign = ''
@@ -404,10 +409,7 @@ def main():
                             for mtb_record in fasta_records:
                                 mtb_id = mtb_record.description.split(' ')[0]
                                 mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-
-                            blast_command_2 = NcbiblastpCommandline(subject=mtb_genes_fp,
-                                                                    outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-                            stdout_2, stderr = blast_command_2(stdin=unannotated_gene_seq)
+                            stdout_2 = blast(mtb_genes_fp, unannotated_gene_seq)
                             top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
                             if top_hit_mtb is None:
                                 assign_mtb = True
@@ -520,9 +522,7 @@ def main():
         with open(rep_temp_fasta, 'w') as fasta_tmp:
             SeqIO.write(rep_record, fasta_tmp, 'fasta') ###
         # Blasting representative sequence with H37Rv
-        blast_command = NcbiblastpCommandline(subject=reference_fasta,
-                                              outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-        stdout, stderr = blast_command(stdin=rep_sequence)
+        stdout = blast(reference_fasta, rep_sequence)
         top_hit, all_hits = identify_top_hits(stdout)
         assign_mtb = False
         name_to_assign = ''
@@ -533,10 +533,7 @@ def main():
                 for mtb_record in fasta_records:
                     mtb_id = mtb_record.description.split(' ')[0]
                     mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-
-                blast_command_2 = NcbiblastpCommandline(subject=mtb_genes_fp,
-                                                        outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-                stdout_2, stderr = blast_command_2(stdin=rep_sequence)
+                stdout_2 = blast(mtb_genes_fp, rep_sequence)
                 top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
                 if top_hit_mtb is None:
                     assign_mtb = True
@@ -596,9 +593,7 @@ def main():
         isolate_fp = args.dir + '/' + isolate_id + '.gbk'
         if gene_name.startswith('L') and locus_tag.startswith('L'):
             gene_sequence = get_sequence(isolate_fp, locus_tag)
-            blast_command = NcbiblastpCommandline(subject=reference_fasta,
-                                                  outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-            stdout, stderr = blast_command(stdin=gene_sequence)
+            stdout = blast(reference_fasta, gene_sequence)
             top_hit, all_hits = identify_top_hits(stdout)
             assign_mtb = False
             name_to_assign = ''
@@ -609,10 +604,7 @@ def main():
                     for mtb_record in fasta_records:
                         mtb_id = mtb_record.description.split(' ')[0]
                         mtb_increment = max(mtb_increment, int(mtb_id.split('MTB')[1]))
-
-                    blast_command_2 = NcbiblastpCommandline(subject=mtb_genes_fp,
-                                                            outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-                    stdout_2, stderr = blast_command_2(stdin=gene_sequence)
+                    stdout_2 = blast(mtb_genes_fp, gene_sequence)
                     top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
                     if top_hit_mtb is None:
                         assign_mtb = True
