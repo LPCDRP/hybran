@@ -180,12 +180,12 @@ def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
     else:
         isolate_dict_added = isolate_update_dictionary[isolate_id]
         if isolate_ltag in isolate_dict_added.keys():
-            logger.warn('ERROR: This locus tag already has an Rv' + '\n')
-            logger.warn('Locus Tag:' + '\n')
-            logger.warn(isolate_id + '\n')
-            logger.warn(isolate_ltag + '\n')
-            logger.warn(isolate_update_dictionary[isolate_id][isolate_ltag] + '\n')
-            logger.warn('Above locus tag is also annotated as: ' + new_gene_name + '\n')
+            logger.debug('This locus tag already has an Rv' + '\n')
+            logger.debug('Locus Tag:' + '\n')
+            logger.debug(isolate_id + '\n')
+            logger.debug(isolate_ltag + '\n')
+            logger.debug(isolate_update_dictionary[isolate_id][isolate_ltag] + '\n')
+            logger.debug('Above locus tag is also annotated as: ' + new_gene_name + '\n')
         else:
             isolate_update_dictionary[isolate_id][isolate_ltag] = new_gene_name
     return
@@ -544,7 +544,7 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
     isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
     for isolate in mtb_pickle.keys():
         if isolate not in isolates:
-            logger.error('Isolate ' + isolate + ' absent in ' + gbk_dir + '\n')
+            logger.error('Isolate ' + isolate + ' absent in ' + gbk_dir)
         else:
             if not suffix:
                 genbank_file = gbk_dir + '/' + isolate + '.gbk'
@@ -571,21 +571,21 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
                                 modified_locus.append(locus_tag)
                                 continue
                             else:
-                                logger.debug('Discordant assignment of gene name' + '\n')
-                                logger.debug('Original gene name: ' + gene_name + '\n')
-                                logger.debug('New gene name: ' + update_mtb_dict[locus_tag] + '\n')
+                                logger.debug('Discordant assignment of gene name')
+                                logger.debug('Original gene name: ' + gene_name)
+                                logger.debug('New gene name: ' + update_mtb_dict[locus_tag])
                                 if 'gene_synonym' in feature.qualifiers.keys():
                                     gene_synonym.append(update_mtb_dict[locus_tag])
                                 else:
                                     feature.qualifiers['gene_synonym'] = [update_mtb_dict[locus_tag]]
                             modified_locus.append(locus_tag)
                         elif locus_tag in locus_to_update and locus_tag in modified_locus:
-                            logger.warning('ERROR: Updated locus tag previously' + '\n')
+                            logger.debug('Updated locus tag previously')
                         else:
                             continue
                     if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
-                        logger.warning('The following locus_tags are missing in the genbank file' + '\n')
-                        logger.warning(Set(locus_to_update).difference(Set(modified_locus)) + '\n')
+                        logger.warning('The following locus_tags are missing in the genbank file')
+                        logger.warning(Set(locus_to_update).difference(Set(modified_locus)))
                 SeqIO.write(isolate_records, genbank_file, 'genbank')
             else:
                 genbank_file = gbk_dir + '/' + isolate + '.gbk'
