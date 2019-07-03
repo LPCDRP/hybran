@@ -633,14 +633,20 @@ def arguments():
     parser.add_argument('-s', '--suffix', help='Suffix output file name if the input Genbank files should not be '
                                                'overwritten. Default is to overwrite the existing Genbank files',
                         required=False)
+    parser.add_argument('-v', '--verbose', help='Verbose output')
     return parser.parse_args()
 
 
 def main():
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
-    logger = logging.getLogger(__name__)
     args = arguments()
+    logger = logging.getLogger(__name__)
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s:INFO:%(name)s:%(message)s')
+    else:
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s:INFO:%(name)s:%(message)s')
+
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
     logger.info('Retrieving reference protein sequences from Genbank files in ' + args.dir)
