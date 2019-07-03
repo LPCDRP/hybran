@@ -570,22 +570,26 @@ def add_gene_names_to_gbk(pickle_fp, gbk_dir):
                 for feature in rec.features:
                     if feature.type != 'CDS':
                         continue
-                    elif feature.qualifiers['locus_tag'][0] in locus_to_update and feature.qualifiers['locus_tag'][0] not in modified_locus:
-                        if feature.qualifiers['gene'][0].startswith('L'):
-                            feature.qualifiers['gene'][0] = update_mtb_dict[feature.qualifiers['locus_tag'][0]]
-                        elif feature.qualifiers['gene'][0] == update_mtb_dict[feature.qualifiers['locus_tag'][0]]:
-                            modified_locus.append(feature.qualifiers['locus_tag'][0])
+                    locus_tag = feature.qualifiers['locus_tag'][0]
+                    gene_name = feature.qualifiers['gene'][0]
+                    gene_synonym = feature.qualifiers['gene_synonym']
+                    if locus_tag in locus_to_update and \
+                            locus_tag not in modified_locus:
+                        if gene_name.startswith('L'):
+                            feature.qualifiers['gene'] = update_mtb_dict[locus_tag]
+                        elif gene_name == update_mtb_dict[locus_tag]:
+                            modified_locus.append(locus_tag)
                             continue
                         else:
                             logger.info('Discordant assignment of gene name' + '\n')
                             logger.info('Original gene name: ' + feature.qualifiers['gene'][0] + '\n')
                             logger.info('New gene name: ' + update_mtb_dict[feature.qualifiers['locus_tag'][0]] + '\n')
                             if 'gene_synonym' in feature.qualifiers.keys():
-                                feature.qualifiers['gene_synonym'].append(update_mtb_dict[feature.qualifiers['locus_tag'][0]])
+                                gene_synonym.append(update_mtb_dict[locus_tag])
                             else:
-                                feature.qualifiers['gene_synonym'] = [update_mtb_dict[feature.qualifiers['locus_tag'][0]]]
-                        modified_locus.append(feature.qualifiers['locus_tag'][0])
-                    elif feature.qualifiers['locus_tag'][0] in locus_to_update and feature.qualifiers['locus_tag'][0] in modified_locus:
+                                feature.qualifiers['gene_synonym'] = [update_mtb_dict[locus_tag]]
+                        modified_locus.append(locus_tag)
+                    elif locus_tag in locus_to_update and locus_tag in modified_locus:
                         logger.warning('ERROR: Updated locus tag previously' + '\n')
                     else:
                         continue
@@ -598,7 +602,8 @@ def add_gene_names_to_gbk(pickle_fp, gbk_dir):
 
 def arguments():
     parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
-                                                 'clustering using CDHIT/MCL')
+                                                 'clustering using CDHIT/MCL. This will overwrite exiting Genbank '
+                                                 'files.')
     parser.add_argument('-c', '--clusters', help='Output from cluster.py (clustered_proteins)')
     parser.add_argument('-d', '--dir', help='Directory that contains all annotations entered into the cluster.py. '
                                             'Genbank format required')
@@ -647,7 +652,7 @@ def main():
     pickle_fp = 'isolate_gene_name.pickle'
     with open(pickle_fp, 'wb') as pickle_file:
         pickle.dump(isolate_update_dictionary, pickle_file)
-
+    logger.info('Updating Genbank files in ' + args.dir)
     add_gene_names_to_gbk(pickle_fp, args.dir)
 
 
