@@ -292,6 +292,27 @@ def find_larges_mtb_increment(annotation_directory):
     return 0
 
 
+def ref_seqs(gbk_dir):
+    nucleotide_cds = []
+    protein_cds = []
+    for gbk in os.listdir(gbk_dir):
+        if gbk.endswith('.gbk'):
+            gbk_filename = gbk.split('.')[0]
+            for record in SeqIO.parse(gbk_dir + gbk, 'genbank'):
+                if record.features:
+                    for feature in record.features:
+                        if feature.type == 'CDS':
+                            seq = SeqRecord(feature.location.extract(record).seq,
+                                            description=feature.qualifiers['gene'][0],
+                                            id=gbk_filename)
+                            nucleotide_cds.append(seq)
+                            seq = SeqRecord(feature.qualifiers['translation'],
+                                            description=feature.qualifiers['gene'][0],
+                                            id=gbk_filename)
+                            protein_cds.append(seq)
+    return nucleotide_cds, protein_cds
+
+
 def arguments():
     parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
                                                  'clustering using CDHIT/MCL')
@@ -301,9 +322,6 @@ def arguments():
     parser.add_argument('-p', '--unannotated_proteins', help='Protein sequences of genes from existing annotations that'
                                                              ' are not annotated with an Rv locus tag. Fasta format '
                                                              'required', default='NONE')
-    parser.add_argument('-r', '--ref', help='Fasta file that contains protein sequences of the reference strains used '
-                                            'for annotation. Fasta format required. Warning: Header should contain only'
-                                            ' the gene name. Example: >dnaA')
     # The -p tag is a protein fasta of MTB genes from previously annotated isolates. BLAST is performed to keep the
     # MTB names consistent. If the arguement is not provided then the BLAST is not performed and new MTB names are
     # assigned
@@ -318,6 +336,11 @@ def main():
     global update_log
     update_log = open('update_with_clustering.log', 'w')
     mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
+    reference_nucleotide_fastas, reference_protein_fastas = ref_seqs(args.dir)
+    reference_fasta = 'ref_cdss.fasta'
+    with open('ref_cdss.fasta', 'w') as ref_cds_out:
+        for s in reference_protein_fastas:
+            SeqIO.write(s, ref_cds_out, 'fasta')
     pangenome_dir = args.clusters
     multi_gene_cluster, single_gene_cluster, partial_gene_cluster, candidate_novel_gene_cluster, unique_gene_cluster = \
         parse_clustered_proteins(pangenome_dir, args.dir)
@@ -493,7 +516,7 @@ def main():
         with open(rep_temp_fasta, 'w') as fasta_tmp:
             SeqIO.write(rep_record, fasta_tmp, 'fasta') ###
         # Blasting representative sequence with H37Rv
-        blast_command = NcbiblastpCommandline(subject=args.ref,
+        blast_command = NcbiblastpCommandline(subject=reference_fasta,
                                               outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
         stdout, stderr = blast_command(stdin=rep_sequence)
         top_hit, all_hits = identify_top_hits(stdout)
@@ -569,7 +592,7 @@ def main():
         isolate_fp = args.dir + '/' + isolate_id + '.gbk'
         if gene_name.startswith('L') and locus_tag.startswith('L'):
             gene_sequence = get_sequence(isolate_fp, locus_tag)
-            blast_command = NcbiblastpCommandline(subject=args.ref,
+            blast_command = NcbiblastpCommandline(subject=reference_fasta,
                                                   outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
             stdout, stderr = blast_command(stdin=gene_sequence)
             top_hit, all_hits = identify_top_hits(stdout)
