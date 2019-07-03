@@ -561,9 +561,12 @@ def main():
     args = arguments()
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
-    mtb_increment = find_larges_mtb_increment(annotation_directory=args.dir)
+    logger.info('Retrieving reference protein sequences from Genbank files in ' + args.dir)
     reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=args.dir)
+    logger.info('Identifying unannotated proteins (signified by absence of a gene name)')
     mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
+    mtb_increment = find_largest_mtb_increment(unannotated_fasta=mtb_genes_fp)
+    logger.info('Parsing ' + args.clusters)
     clusters = parse_clustered_proteins(clustered_proteins=args.clusters,
                                         annotations=args.dir)
     multi_gene_cluster = clusters[0]
