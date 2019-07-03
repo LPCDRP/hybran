@@ -203,7 +203,7 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
     if not (rep_locus.startswith('L') and rep_gene_name.startswith('L')):
         rep_isolate_fp = isolates_dir + '/' + rep_isolate_id + '.gbk'
         rep_sequence = isolate_sequences[rep_isolate_fp][rep_locus]
-        rep_sequence_object = str(rep_sequence)
+        rep_sequence_object = rep_sequence
         seq_id = '|'.join([rep_isolate_id, rep_locus, rep_gene_name])
         added_seq.append(seq_id)
         rep_record = SeqRecord(rep_sequence_object, id=seq_id)
@@ -223,7 +223,7 @@ def get_cluster_fasta(rep, cluster_list, isolates_dir):
                 continue
             else:
                 gene_sequence = isolate_sequences[gene_isolate_id][gene_locus]
-                gene_sequence_object = str(gene_sequence)
+                gene_sequence_object = gene_sequence
                 added_seq.append(gene_id)
                 gene_record = SeqRecord(gene_sequence_object, id=gene_id)
                 SeqIO.write(gene_record, fasta_tmp, 'fasta')
@@ -269,7 +269,8 @@ def ref_seqs(gbk_dir):
                                             id=feature.qualifiers['gene'][0],
                                             description=gbk_filename)
                             protein_cds.append(seq)
-                            isolate_seqs[gbk_filename][feature.qualifiers['locus_tag'][0]] = seq
+                            isolate_seqs[gbk_filename][feature.qualifiers['locus_tag'][0]] = \
+                                Seq(feature.qualifiers['translation'][0])
     proteins = 'ref_cdss_protein.fasta'
     with open(proteins, 'w') as ref_cds_out:
         for s in protein_cds:
@@ -280,7 +281,7 @@ def ref_seqs(gbk_dir):
 def blast(subject, stdin_seq):
     blast_command = NcbiblastpCommandline(subject=subject,
                                           outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-    stdout, stderr = blast_command(stdin=stdin_seq)
+    stdout, stderr = blast_command(stdin=str(stdin_seq))
     return stdout
 
 
@@ -331,8 +332,7 @@ def singleton_clusters(singleton_dict, annotation_dir, reference_fasta, unannota
             if assign_mtb:
                 mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
                 mtb_increment = mtb_increment + 1
-                sequence_object = Seq(gene_sequence)
-                seq_record = SeqRecord(sequence_object, id=mtb_id)
+                seq_record = SeqRecord(gene_sequence, id=mtb_id)
                 with open(unannotated_fasta, 'a') as mtb_fasta:
                     SeqIO.write(seq_record, mtb_fasta, 'fasta')
                 name_to_assign = mtb_id
@@ -364,8 +364,7 @@ def only_ltag_clusters(in_dict, annotation_dir, reference_fasta, unannotated_fas
         #  this sequence
         rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
         rep_temp_fasta = rep_fp.name
-        rep_sequence_object = Seq(rep_sequence)
-        rep_record = SeqRecord(rep_sequence_object, id='|'.join([rep_isolate_id, rep_locus, rep_gene_name]))
+        rep_record = SeqRecord(rep_sequence, id='|'.join([rep_isolate_id, rep_locus, rep_gene_name]))
         with open(rep_temp_fasta, 'w') as fasta_tmp:
             SeqIO.write(rep_record, fasta_tmp, 'fasta')
         # Blasting representative sequence with H37Rv
@@ -392,8 +391,7 @@ def only_ltag_clusters(in_dict, annotation_dir, reference_fasta, unannotated_fas
         if assign_mtb:
             mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
             mtb_increment = mtb_increment + 1
-            sequence_object = Seq(rep_sequence)
-            seq_record = SeqRecord(sequence_object, id=mtb_id)
+            seq_record = SeqRecord(rep_sequence, id=mtb_id)
             with open(unannotated_fasta, 'a') as mtb_fasta:
                 SeqIO.write(seq_record, mtb_fasta, 'fasta')
             name_to_assign = mtb_id
@@ -519,8 +517,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, un
                     if assign_mtb:
                         mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
                         mtb_increment = mtb_increment + 1
-                        sequence_object = Seq(unannotated_gene_seq)
-                        seq_record = SeqRecord(sequence_object, id=mtb_id)
+                        seq_record = SeqRecord(unannotated_gene_seq, id=mtb_id)
                         with open(unannotated_fasta, 'a') as mtb_fasta:
                             SeqIO.write(seq_record, mtb_fasta, 'fasta')
                         name_to_assign = mtb_id
