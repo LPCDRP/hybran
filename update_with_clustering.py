@@ -549,7 +549,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, un
 
 
 def add_gene_names_to_gbk(pickle_fp, gbk_dir):
-    logger = logging.getLogger('AddGeneNames')
+    logger = logging.getLogger('UpdateGenbank')
     mtb_pickle = pickle.load(open(pickle_fp, 'rb'))
     gbk_files = os.listdir(gbk_dir)
     isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
