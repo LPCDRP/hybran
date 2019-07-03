@@ -555,7 +555,7 @@ def add_gene_names_to_gbk(pickle_fp, gbk_dir):
     isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
     for isolate in mtb_pickle.keys():
         if isolate not in isolates:
-            logger.info('Isolate ' + isolate + ' absent in ' + gbk_dir + '\n')
+            logger.debug('Isolate ' + isolate + ' absent in ' + gbk_dir + '\n')
         else:
             genbank_file = gbk_dir + '/' + isolate + '.gbk'
             isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
@@ -581,9 +581,9 @@ def add_gene_names_to_gbk(pickle_fp, gbk_dir):
                             modified_locus.append(locus_tag)
                             continue
                         else:
-                            logger.info('Discordant assignment of gene name' + '\n')
-                            logger.info('Original gene name: ' + feature.qualifiers['gene'][0] + '\n')
-                            logger.info('New gene name: ' + update_mtb_dict[feature.qualifiers['locus_tag'][0]] + '\n')
+                            logger.debug('Discordant assignment of gene name' + '\n')
+                            logger.debug('Original gene name: ' + gene_name + '\n')
+                            logger.debug('New gene name: ' + update_mtb_dict[locus_tag] + '\n')
                             if 'gene_synonym' in feature.qualifiers.keys():
                                 gene_synonym.append(update_mtb_dict[locus_tag])
                             else:
@@ -594,8 +594,8 @@ def add_gene_names_to_gbk(pickle_fp, gbk_dir):
                     else:
                         continue
                 if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
-                    logger.info('The following locus_tags are missing in the genbank file' + '\n')
-                    logger.info(Set(locus_to_update).difference(Set(modified_locus)) + '\n')
+                    logger.warning('The following locus_tags are missing in the genbank file' + '\n')
+                    logger.warning(Set(locus_to_update).difference(Set(modified_locus)) + '\n')
             SeqIO.write(isolate_records, genbank_file, 'genbank')
     return
 
