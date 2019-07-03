@@ -9,6 +9,7 @@ import argparse
 import glob
 import subprocess
 import logging
+from sets import Set
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -546,6 +547,55 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, un
     return mtb_increment, single_gene_cluster_complete
 
 
+def add_gene_names_to_gbk(pickle_fp, gbk_dir):
+    logger = logging.getLogger('AddGeneNames')
+    mtb_pickle = pickle.load(open(pickle_fp, 'rb'))
+    gbk_files = os.listdir(gbk_dir)
+    isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
+    for isolate in mtb_pickle.keys():
+        print(isolate)
+        if isolate not in isolates:
+            logger.info('Isolate ' + isolate + ' absent in ' + gbk_dir + '\n')
+        else:
+            genbank_file = gbk_dir + '/' + isolate + '.gbk'
+            isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
+            update_mtb_dict = mtb_pickle[isolate]
+            locus_to_update = update_mtb_dict.keys()
+            modified_locus = []
+            rec_num = 1
+            for rec in isolate_records:
+                if rec_num > 1:
+                    break
+                rec_num += 1
+                for feature in rec.features:
+                    if feature.type != 'CDS':
+                        continue
+                    elif feature.qualifiers['locus_tag'][0] in locus_to_update and feature.qualifiers['locus_tag'][0] not in modified_locus:
+                        if feature.qualifiers['gene'][0].startswith('L'):
+                            feature.qualifiers['gene'][0] = update_mtb_dict[feature.qualifiers['locus_tag'][0]]
+                        elif feature.qualifiers['gene'][0] == update_mtb_dict[feature.qualifiers['locus_tag'][0]]:
+                            modified_locus.append(feature.qualifiers['locus_tag'][0])
+                            continue
+                        else:
+                            logger.info('Discordant assignment of gene name' + '\n')
+                            logger.info('Original gene name: ' + feature.qualifiers['gene'][0] + '\n')
+                            logger.info('New gene name: ' + update_mtb_dict[feature.qualifiers['locus_tag'][0]] + '\n')
+                            if 'gene_synonym' in feature.qualifiers.keys():
+                                feature.qualifiers['gene_synonym'].append(update_mtb_dict[feature.qualifiers['locus_tag'][0]])
+                            else:
+                                feature.qualifiers['gene_synonym'] = [update_mtb_dict[feature.qualifiers['locus_tag'][0]]]
+                        modified_locus.append(feature.qualifiers['locus_tag'][0])
+                    elif feature.qualifiers['locus_tag'][0] in locus_to_update and feature.qualifiers['locus_tag'][0] in modified_locus:
+                        logger.warning('ERROR: Updated locus tag previously' + '\n')
+                    else:
+                        continue
+                if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
+                    logger.info('The following locus_tags are missing in the genbank file' + '\n')
+                    logger.info(Set(locus_to_update).difference(Set(modified_locus)) + '\n')
+            SeqIO.write(isolate_records, genbank_file, 'genbank')
+    return
+
+
 def arguments():
     parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
                                                  'clustering using CDHIT/MCL')
@@ -597,6 +647,8 @@ def main():
     pickle_fp = 'isolate_gene_name.pickle'
     with open(pickle_fp, 'wb') as pickle_file:
         pickle.dump(isolate_update_dictionary, pickle_file)
+
+    add_gene_names_to_gbk(pickle_fp, args.dir)
 
 
 if __name__ == '__main__':
