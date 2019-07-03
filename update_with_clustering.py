@@ -13,6 +13,7 @@ from sets import Set
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+from Bio.SeqFeature import SeqFeature, FeatureLocation
 from collections import OrderedDict
 from Bio.Blast.Applications import NcbiblastpCommandline
 
@@ -548,65 +549,121 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, annotation_dir, un
     return mtb_increment, single_gene_cluster_complete
 
 
-def add_gene_names_to_gbk(pickle_fp, gbk_dir):
+def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
     logger = logging.getLogger('UpdateGenbank')
-    mtb_pickle = pickle.load(open(pickle_fp, 'rb'))
     gbk_files = os.listdir(gbk_dir)
     isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
     for isolate in mtb_pickle.keys():
         if isolate not in isolates:
             logger.debug('Isolate ' + isolate + ' absent in ' + gbk_dir + '\n')
         else:
-            genbank_file = gbk_dir + '/' + isolate + '.gbk'
-            isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
-            update_mtb_dict = mtb_pickle[isolate]
-            locus_to_update = update_mtb_dict.keys()
-            modified_locus = []
-            rec_num = 1
-            for rec in isolate_records:
-                if rec_num > 1:
-                    break
-                rec_num += 1
-                for feature in rec.features:
-                    if feature.type != 'CDS':
-                        continue
-                    locus_tag = feature.qualifiers['locus_tag'][0]
-                    gene_name = feature.qualifiers['gene'][0]
-                    gene_synonym = feature.qualifiers['gene_synonym']
-                    if locus_tag in locus_to_update and \
-                            locus_tag not in modified_locus:
-                        if gene_name.startswith('L'):
-                            feature.qualifiers['gene'] = update_mtb_dict[locus_tag]
-                        elif gene_name == update_mtb_dict[locus_tag]:
-                            modified_locus.append(locus_tag)
+            if not suffix:
+                genbank_file = gbk_dir + '/' + isolate + '.gbk'
+                isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
+                update_mtb_dict = mtb_pickle[isolate]
+                locus_to_update = update_mtb_dict.keys()
+                modified_locus = []
+                rec_num = 1
+                for rec in isolate_records:
+                    if rec_num > 1:
+                        break
+                    rec_num += 1
+                    for feature in rec.features:
+                        if feature.type != 'CDS':
                             continue
-                        else:
-                            logger.debug('Discordant assignment of gene name' + '\n')
-                            logger.debug('Original gene name: ' + gene_name + '\n')
-                            logger.debug('New gene name: ' + update_mtb_dict[locus_tag] + '\n')
-                            if 'gene_synonym' in feature.qualifiers.keys():
-                                gene_synonym.append(update_mtb_dict[locus_tag])
+                        locus_tag = feature.qualifiers['locus_tag'][0]
+                        gene_name = feature.qualifiers['gene'][0]
+                        gene_synonym = feature.qualifiers['gene_synonym']
+                        if locus_tag in locus_to_update and \
+                                locus_tag not in modified_locus:
+                            if gene_name.startswith('L'):
+                                feature.qualifiers['gene'] = update_mtb_dict[locus_tag]
+                            elif gene_name == update_mtb_dict[locus_tag]:
+                                modified_locus.append(locus_tag)
+                                continue
                             else:
-                                feature.qualifiers['gene_synonym'] = [update_mtb_dict[locus_tag]]
-                        modified_locus.append(locus_tag)
-                    elif locus_tag in locus_to_update and locus_tag in modified_locus:
-                        logger.warning('ERROR: Updated locus tag previously' + '\n')
-                    else:
-                        continue
-                if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
-                    logger.warning('The following locus_tags are missing in the genbank file' + '\n')
-                    logger.warning(Set(locus_to_update).difference(Set(modified_locus)) + '\n')
-            SeqIO.write(isolate_records, genbank_file, 'genbank')
+                                logger.debug('Discordant assignment of gene name' + '\n')
+                                logger.debug('Original gene name: ' + gene_name + '\n')
+                                logger.debug('New gene name: ' + update_mtb_dict[locus_tag] + '\n')
+                                if 'gene_synonym' in feature.qualifiers.keys():
+                                    gene_synonym.append(update_mtb_dict[locus_tag])
+                                else:
+                                    feature.qualifiers['gene_synonym'] = [update_mtb_dict[locus_tag]]
+                            modified_locus.append(locus_tag)
+                        elif locus_tag in locus_to_update and locus_tag in modified_locus:
+                            logger.warning('ERROR: Updated locus tag previously' + '\n')
+                        else:
+                            continue
+                    if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
+                        logger.warning('The following locus_tags are missing in the genbank file' + '\n')
+                        logger.warning(Set(locus_to_update).difference(Set(modified_locus)) + '\n')
+                SeqIO.write(isolate_records, genbank_file, 'genbank')
+            else:
+                genbank_file = gbk_dir + '/' + isolate + '.gbk'
+                new_genbank_file = gbk_dir + '/' + isolate + suffix + '.gbk'
+                isolate_records = SeqIO.parse(genbank_file, 'genbank')
+                new_gbk = isolate_records.seq
+                new_gbk.id = isolate_records.id
+                new_gbk.description = isolate_records.description
+                new_gbk.annotations = isolate_records.annotations
+                features = []
+                update_mtb_dict = mtb_pickle[isolate]
+                locus_to_update = update_mtb_dict.keys()
+                modified_locus = []
+                rec_num = 1
+                for rec in isolate_records:
+                    if rec_num > 1:
+                        break
+                    rec_num += 1
+                    for feature in rec.features:
+                        if feature.type != 'CDS':
+                            continue
+                        locus_tag = feature.qualifiers['locus_tag'][0]
+                        gene_name = feature.qualifiers['gene'][0]
+                        gene_synonym = feature.qualifiers['gene_synonym']
+                        if locus_tag in locus_to_update and \
+                                locus_tag not in modified_locus:
+                            if gene_name.startswith('L'):
+                                feature.qualifiers['gene'][0] = update_mtb_dict[locus_tag]
+                            elif gene_name == update_mtb_dict[locus_tag]:
+                                modified_locus.append(locus_tag)
+                                continue
+                            else:
+                                logger.debug('Discordant assignment of gene name' + '\n')
+                                logger.debug('Original gene name: ' + gene_name + '\n')
+                                logger.debug('New gene name: ' + update_mtb_dict[locus_tag] + '\n')
+                                if 'gene_synonym' in feature.qualifiers.keys():
+                                    gene_synonym.append(update_mtb_dict[locus_tag])
+                                else:
+                                    feature.qualifiers['gene_synonym'] = [update_mtb_dict[locus_tag]]
+                            modified_locus.append(locus_tag)
+                        elif locus_tag in locus_to_update and locus_tag in modified_locus:
+                            logger.warning('ERROR: Updated locus tag previously' + '\n')
+                        else:
+                            continue
+                    if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
+                        logger.warning('The following locus_tags are missing in the genbank file' + '\n')
+                        logger.warning(Set(locus_to_update).difference(Set(modified_locus)) + '\n')
+                    features.append(SeqFeature(FeatureLocation(rec.location.start,
+                                                               rec.location.end),
+                                               type=rec.type,
+                                               strand=rec.strand,
+                                               qualifiers=rec.qualifiers))
+                SeqIO.write(new_gbk, new_genbank_file, 'genbank')
     return
 
 
 def arguments():
     parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
-                                                 'clustering using CDHIT/MCL. This will overwrite exiting Genbank '
-                                                 'files.')
+                                                 'clustering using CDHIT/MCL. If the Genbank files should not be '
+                                                 'overwritten, pass in -s/--suffix [suffix-name] to create new '
+                                                 'Genbank files.')
     parser.add_argument('-c', '--clusters', help='Output from cluster.py (clustered_proteins)')
     parser.add_argument('-d', '--dir', help='Directory that contains all annotations entered into the cluster.py. '
                                             'Genbank format required')
+    parser.add_argument('-s', '--suffix', help='Suffix output file name if the input Genbank files should not be '
+                                               'overwritten. Default is to overwrite the existing Genbank files',
+                        required=False)
     return parser.parse_args()
 
 
@@ -649,11 +706,10 @@ def main():
                                        reference_fasta=reference_protein_fastas,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment)
-    pickle_fp = 'isolate_gene_name.pickle'
-    with open(pickle_fp, 'wb') as pickle_file:
-        pickle.dump(isolate_update_dictionary, pickle_file)
     logger.info('Updating Genbank files in ' + args.dir)
-    add_gene_names_to_gbk(pickle_fp, args.dir)
+    add_gene_names_to_gbk(mtb_pickle=isolate_update_dictionary,
+                          gbk_dir=args.dir,
+                          suffix=args.suffix)
 
 
 if __name__ == '__main__':
