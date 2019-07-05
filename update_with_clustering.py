@@ -639,7 +639,7 @@ def arguments():
     parser.add_argument('-s', '--suffix', help='Suffix output file name if the input Genbank files should not be '
                                                'overwritten. Default is to overwrite the existing Genbank files',
                         required=False)
-    parser.add_argument('-v', '--verbose', help='Verbose output')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     return parser.parse_args()
 
 
