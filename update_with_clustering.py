@@ -254,22 +254,28 @@ def find_largest_mtb_increment(unannotated_fasta):
 
 
 def ref_seqs(gbk_dir):
+
+    def grep_seqs(gff):
+        cmd = ['grep', 'translation=', gff]
+        translations = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        return [line for line in translations.stdout]
     protein_cds = []
     isolate_seqs = {}
-    for gbk in os.listdir(gbk_dir):
-        if gbk.endswith('.gbk'):
-            gbk_filename = gbk.split('.')[0]
-            isolate_seqs[gbk_filename] = {}
-            for record in SeqIO.parse(gbk_dir + gbk, 'genbank'):
-                if record.features:
-                    for feature in record.features:
-                        if feature.type == 'CDS':
-                            seq = SeqRecord(Seq(feature.qualifiers['translation'][0]),
-                                            id=feature.qualifiers['gene'][0],
-                                            description=gbk_filename)
-                            protein_cds.append(seq)
-                            isolate_seqs[gbk_filename][feature.qualifiers['locus_tag'][0]] = \
-                                Seq(feature.qualifiers['translation'][0])
+    for gff in os.listdir(gbk_dir):
+        if gff.endswith('.gff'):
+            raw_out = grep_seqs(gbk_dir + gff)
+            gff_name = gff.split('.')[0]
+            isolate_seqs[gff_name] = {}
+            for line in raw_out:
+                if line.split('\t')[2] == 'CDS':
+                    locus_tag = [i.split('=')[1].rstrip('\n') for i in line.split(';') if i.startswith('locus_tag=')][0]
+                    gene = [i.split('=')[1].rstrip('\n') for i in line.split(';') if i.startswith('gene=')][0]
+                    translation = [i.split('=')[1] for i in line.split(';') if i.startswith('translation=')][0]
+                    record = SeqRecord(Seq(translation.rstrip('\n')),
+                                       id=gene,
+                                       description=gff_name)
+                    isolate_seqs[gff_name][locus_tag] = Seq(translation.rstrip('\n'))
+                    protein_cds.append(record)
     proteins = 'ref_cdss_protein.fasta'
     with open(proteins, 'w') as ref_cds_out:
         for s in protein_cds:
