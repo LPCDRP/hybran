@@ -156,15 +156,16 @@ def identify_top_hits(blast_output_file, identity=95, coverage=95):
         if line[0] == '#':
             continue
         line_elements = line.split('\t')
-        iden = float(line_elements[5])
-        qcov = (float(line_elements[4]) / float(line_elements[1])) * 100.0
-        scov = (float(line_elements[4]) / float(line_elements[3])) * 100.0
-        if iden >= identity and qcov >= coverage and scov >= coverage:
-            rv_hit = True
-            corresponding_rv_hit = line_elements[2].split('|')[-1]
-            all_hits_dict[corresponding_rv_hit] = iden
-        else:
-            continue
+        if line_elements and line_elements != [' ']:
+            iden = float(line_elements[5])
+            qcov = (float(line_elements[4]) / float(line_elements[1])) * 100.0
+            scov = (float(line_elements[4]) / float(line_elements[3])) * 100.0
+            if iden >= identity and qcov >= coverage and scov >= coverage:
+                rv_hit = True
+                corresponding_rv_hit = line_elements[2].split('|')[-1]
+                all_hits_dict[corresponding_rv_hit] = iden
+            else:
+                continue
     if rv_hit:
         top_hit = get_top_hit(all_hits_dict)
     else:
