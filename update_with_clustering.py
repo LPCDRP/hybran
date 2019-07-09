@@ -664,7 +664,7 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
                 genbank_file = gbk_dir + '/' + isolate + '.gbk'
                 new_genbank_file = gbk_dir + '/' + isolate + suffix + '.gbk'
                 isolate_records = SeqIO.parse(genbank_file, 'genbank')
-                new_gbk = isolate_records.seq
+                new_gbk = SeqRecord(isolate_records.seq)
                 new_gbk.id = isolate_records.id
                 new_gbk.description = isolate_records.description
                 new_gbk.annotations = isolate_records.annotations
