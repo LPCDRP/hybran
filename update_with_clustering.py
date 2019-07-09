@@ -174,20 +174,12 @@ def identify_top_hits(blast_output_file, identity=95, coverage=95):
 
 
 def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
-    logger = logging.getLogger('GeneNameAssignment')
     if isolate_id not in isolate_update_dictionary.keys():
         isolate_update_dictionary[isolate_id] = {}
         isolate_update_dictionary[isolate_id][isolate_ltag] = new_gene_name
     else:
         isolate_dict_added = isolate_update_dictionary[isolate_id]
-        if isolate_ltag in isolate_dict_added.keys():
-            logger.debug('This locus tag already has an Rv')
-            logger.debug('Locus Tag:')
-            logger.debug(isolate_id)
-            logger.debug(isolate_ltag)
-            logger.debug(isolate_update_dictionary[isolate_id][isolate_ltag])
-            logger.debug('Above locus tag is also annotated as: ' + new_gene_name)
-        else:
+        if isolate_ltag not in isolate_dict_added.keys():
             isolate_update_dictionary[isolate_id][isolate_ltag] = new_gene_name
     return
 
@@ -374,7 +366,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
     # is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster is annotated
     #  with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes in the
     # cluster.
-    logger.info('Number of singleton clusters with single genes: ' + str(len(singleton_dict)))
+    logger.debug('Number of singleton clusters with single genes: ' + str(len(singleton_dict)))
     for single_gene in singleton_dict:
         isolate_id = single_gene[0]
         locus_tag = single_gene[1]
@@ -401,11 +393,6 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
                 with open(unannotated_fasta, 'a') as mtb_fasta:
                     SeqIO.write(seq_record, mtb_fasta, 'fasta')
                 name_to_assign = mtb_id
-                logger.debug('Assigned new mtb id')
-                logger.debug(name_to_assign)
-            else:
-                logger.debug('Assigned existing Rv or MTB')
-                logger.debug(name_to_assign)
             update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
         else:
             continue
@@ -418,10 +405,11 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     # and if there is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster
     # is annotated with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes
     # in the cluster.
-    logger.info('Number of clusters with only L-tags genes: ' + str(len(in_dict.keys())))
+    logger.debug('Number of clusters with no gene names: ' + str(len(in_dict.keys())))
     new_unannotated_genes = []
     rep_records = []
     for rep_gene in in_dict.keys():
+        logger.debug('Processing ' + rep_gene)
         rep_isolate_id = rep_gene.split(',')[0]
         rep_locus = rep_gene.split(',')[1]
         rep_gene_name = rep_gene.split(',')[2]
@@ -474,10 +462,8 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             seq_record = SeqRecord(rep_sequence, id=mtb_id)
             new_unannotated_genes.append(seq_record)
             name_to_assign = mtb_id
-            logger.debug('Assigned new mtb id')
             logger.debug(name_to_assign)
         else:
-            logger.debug('Assigned existing Rv or MTB')
             logger.debug(name_to_assign)
         update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
     with open(unannotated_fasta, 'a') as mtb_fasta:
@@ -492,7 +478,7 @@ def single_gene_clusters(single_gene_dict):
     # 1. If cluster has candidate novel genes (L_***** or L2_*****) clustered together with a H37Rv annotation, update
     #  all candidate novel genes in this cluster with the H37Rv gene name.
     rep_ltag_keys = []
-    logger.info('Number of clusters with single genes: ' + str(len(single_gene_dict.keys())))
+    logger.debug('Number of clusters with single genes: ' + str(len(single_gene_dict.keys())))
     for key_sgc in single_gene_dict:
         rep_ltag = False
         key_elements_sgc = key_sgc.split(',')
@@ -526,11 +512,7 @@ def single_gene_clusters(single_gene_dict):
                     else:
                         gene_to_add = gene[2]
                     break
-            if len(gene_to_add) == 0:
-                logger.debug('No Rv found in this cluster')
-                logger.debug(key_sgc)
-                logger.debug(genes_in_cluster)
-            else:
+            if len(gene_to_add) != 0:
                 for gene in genes_in_cluster:
                     if gene[1].startswith('L') and gene[2].startswith('L'):
                         update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
@@ -539,7 +521,6 @@ def single_gene_clusters(single_gene_dict):
 
 
 def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta, mtb_increment):
-    logger = logging.getLogger('MultigeneClusters')
     # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
     # and annotate L_tag with the top hit.
     mgc_output = []
@@ -594,11 +575,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                         with open(unannotated_fasta, 'a') as mtb_fasta:
                             SeqIO.write(seq_record, mtb_fasta, 'fasta')
                         name_to_assign = mtb_id
-                        logger.debug('Assigned new mtb id')
-                        logger.debug(name_to_assign)
-                    else:
-                        logger.debug('Assigned existing Rv or MTB')
-                        logger.debug(name_to_assign)
                     update_dictionary_ltag_assignments(unannotated_gene_isolate, unannotated_gene_locus, name_to_assign)
                 os.unlink(fasta_fp_to_blast)
         else:
