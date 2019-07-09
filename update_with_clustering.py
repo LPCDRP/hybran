@@ -250,7 +250,7 @@ def find_largest_mtb_increment(unannotated_fasta):
         mtbs.append(record.id)
     largest_mtb = sorted(mtbs)[-1]
     if largest_mtb:
-        return largest_mtb
+        return int(largest_mtb.replace('MTB', ''))
     return 0
 
 
