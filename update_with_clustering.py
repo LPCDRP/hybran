@@ -420,25 +420,46 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     # in the cluster.
     logger.info('Number of clusters with only L-tags genes: ' + str(len(in_dict.keys())))
     new_unannotated_genes = []
+    rep_records = []
     for rep_gene in in_dict.keys():
         rep_isolate_id = rep_gene.split(',')[0]
         rep_locus = rep_gene.split(',')[1]
         rep_gene_name = rep_gene.split(',')[2]
         rep_sequence = isolate_sequences[rep_isolate_id][rep_locus]
-        # Writing representative amino acid sequence to a temp file to check if all genes in cluster share identity with
-        #  this sequence
-        rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
-        rep_temp_fasta = rep_fp.name
-        rep_record = SeqRecord(rep_sequence, id='|'.join([rep_isolate_id, rep_locus, rep_gene_name]))
-        with open(rep_temp_fasta, 'w') as fasta_tmp:
-            SeqIO.write(rep_record, fasta_tmp, 'fasta')
-        # Blasting representative sequence with H37Rv
-        stdout = blast(reference_fasta, rep_sequence)
-        top_hit, all_hits = identify_top_hits(stdout)
+        rep_record = SeqRecord(rep_sequence, id='|'.join([rep_isolate_id, rep_locus, rep_gene_name]),
+                               description='')
+        rep_records.append(rep_record)
+
+    rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', dir='/tmp/')
+    rep_temp_fasta = rep_fp.name
+    with open(rep_temp_fasta, 'w') as fasta_tmp:
+        for s in rep_records:
+            SeqIO.write(s, fasta_tmp, 'fasta')
+    logger.debug('BLASTing new gene clusters against reference CDSs')
+    blastcmd = NcbiblastpCommandline(subject=reference_fasta,
+                                     query=rep_temp_fasta,
+                                     outfmt='"6 qseqid qlen sseqid slen qlen length pident qcovs"')
+    stdout, stderr = blastcmd()
+    rep_fp.close()
+    hits = {}
+    for line in stdout.split('\n'):
+        if line:
+            try:
+                hits[line.split('\t')[0]] += [line]
+            except KeyError:
+                hits[line.split('\t')[0]] = [line]
+    for qid, lines in hits.iteritems():
+        top_hit, all_hits = identify_top_hits('\n'.join(lines))
+        isolate = qid.split('|')[0]
+        locus = qid.split('|')[1]
         assign_mtb = False
         name_to_assign = ''
         if top_hit is None:
             assign_mtb = True
+            rep_seq = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
+            rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', dir='/tmp/')
+            SeqIO.write(SeqRecord(rep_seq, id=qid.split('\t')[0], description=''), rep_fp, 'fasta')
+            rep_sequence = rep_fp.name
             stdout_2 = blast(unannotated_fasta, rep_sequence)
             top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
             if top_hit_mtb is not None:
@@ -449,6 +470,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         if assign_mtb:
             mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
             mtb_increment = mtb_increment + 1
+            rep_sequence = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
             seq_record = SeqRecord(rep_sequence, id=mtb_id)
             new_unannotated_genes.append(seq_record)
             name_to_assign = mtb_id
@@ -457,9 +479,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         else:
             logger.debug('Assigned existing Rv or MTB')
             logger.debug(name_to_assign)
-        for gene_in_cluster in in_dict[rep_gene]:
-            update_dictionary_ltag_assignments(gene_in_cluster[0], gene_in_cluster[1], name_to_assign)
-        os.unlink(rep_temp_fasta)
+        update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
     with open(unannotated_fasta, 'a') as mtb_fasta:
         for s in new_unannotated_genes:
             SeqIO.write(s, mtb_fasta, 'fasta')
