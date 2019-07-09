@@ -640,10 +640,15 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
                 genbank_file = gbk_dir + '/' + isolate + '.gbk'
                 new_genbank_file = gbk_dir + '/' + isolate + suffix + '.gbk'
                 isolate_records = SeqIO.parse(genbank_file, 'genbank')
-                new_gbk = SeqRecord(isolate_records.seq)
-                new_gbk.id = isolate_records.id
-                new_gbk.description = isolate_records.description
-                new_gbk.annotations = isolate_records.annotations
+                for record in isolate_records:
+                    if record.id == 'L_contig000001':
+                        gbk_seq = record.seq
+                        new_seq_record = SeqRecord(gbk_seq)
+                        new_seq_record.id = record.id
+                        new_seq_record.description = record.description
+                        new_seq_record.annotations = record.annotations
+                        record_features = record.features
+                        break
                 features = []
                 update_mtb_dict = mtb_pickle[isolate]
                 locus_to_update = update_mtb_dict.keys()
@@ -687,7 +692,7 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
                                                type=rec.type,
                                                strand=rec.strand,
                                                qualifiers=rec.qualifiers))
-                SeqIO.write(new_gbk, new_genbank_file, 'genbank')
+                SeqIO.write(new_seq_record, new_genbank_file, 'genbank')
     return
 
 
