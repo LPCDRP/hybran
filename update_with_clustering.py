@@ -82,8 +82,8 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
             # Getting clusters with only 1 gene that is an L tag or an underscore
             if len(isolates_ids) == 1 and \
-                    (representative_ltag_gene_tup[0].startswith('L') or
-                     underscore_re.search(representative_ltag_gene_tup[0])):
+                    (representative_ltag_gene_tup[1].startswith('L') or
+                     underscore_re.search(representative_ltag_gene_tup[1])):
                 unique_genes_list.append([rep_isolate] + list(representative_ltag_gene_tup))
 
             representative_fasta_list.append([rep_isolate] + list(representative_ltag_gene_tup))
@@ -110,17 +110,17 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                     unique_locus.append(data)
             # All different with L tags
             if (len(unique_genes) > 1 or len(unique_locus) > 1) and \
-                    any([gene[0].startswith('L') for gene in cluster_list]):
+                    any([gene[1].startswith('L') for gene in cluster_list]):
                 different_genes_cluster_w_ltags[representative] = cluster_list_w_isolate
             #
             elif (len(unique_genes) == 1 or len(unique_locus) == 1) and \
-                    any([gene[0].startswith('L') for gene in cluster_list]):
+                    any([gene[1].startswith('L') for gene in cluster_list]):
                 same_genes_cluster_w_ltags[representative] = cluster_list_w_isolate
             # Getting genes with underscores (partial hits)
             if find_underscores(cluster_list):
                 underscores[representative] = cluster_list_w_isolate
             # L tag only clusters
-            if all(locus[0].startswith('L') for locus in cluster_list):
+            if all(locus[1].startswith('L') for locus in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
     return [different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, underscores, l_tag_only_clusters,
             unique_genes_list]
