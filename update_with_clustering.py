@@ -256,6 +256,70 @@ def find_largest_mtb_increment(unannotated_fasta):
 
 def ref_seqs(gbk_dir):
 
+    def create_allseq_dict(fa):
+        """Parses FASTA input, creates dictionary with sequence ID as key and the sequence as the value"""
+        fasta_dict = {}
+        for record in SeqIO.parse(fa, "fasta"):
+            sequence = str(record.seq)
+            fasta_dict[record.id] = sequence
+        return fasta_dict
+
+    def run_cdhit(nproc, input, output):
+        """Runs cdhit with a sequence identity threshold of 0.98."""
+        cmd = ['cdhit',
+               '-i', input,
+               '-o', output,
+               '-c', '0.99',
+               '-T', str(nproc),
+               '-g', '1',
+               '-s', '1.0',
+               '-d', '256',
+               '-A', '1.0']
+        out = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        return out
+
+    def create_reps_dict(in_clusters):
+        """Creates a dictionary with the representative sequence ID from each cluster as the key
+        and the corresponding sequences as the value."""
+        clusters = []
+        rep_dict = {}
+        rep = ''
+        reps = []
+        with open(in_clusters, 'r') as f:
+            for line in f:
+                # At new cluster
+                if line.startswith('>'):
+                    if not rep:
+                        continue
+                    rep_dict[rep] = clusters
+                    clusters = []
+                    continue
+                # Representatives of cluster
+                else:
+                    if line.rstrip('\n').endswith('*'):
+                        rep = line.rstrip('\n').split()[2].replace('>', '').replace('...', '')
+                        reps.append(rep)
+                    else:
+                        gene = line.rstrip('\n').split()[2].replace('>', '').replace('...', '')
+                        clusters.append(gene)
+        return rep_dict, reps
+
+    def create_reps_fasta(output, reps, rep_seq_id_dict):
+        """Creates a FASTA file that has sequence ID and sequence for each representative"""
+        seq_list = []
+        for id_key in reps:
+            record = SeqRecord(Seq(rep_seq_id_dict[id_key]), id=id_key, description="")
+            seq_list.append(record)
+        SeqIO.write(seq_list, output, "fasta")
+
+    def cd_hit(nproc, fasta, out):
+        logger = logging.getLogger('CDHIT')
+        logger.debug('Running CDHIT on reference annotations')
+        cdhit_stdout = run_cdhit(nproc, fasta, out)
+        OGdict = create_allseq_dict(fasta)
+        REPdict, rep_list = create_reps_dict(out + ".clstr")
+        create_reps_fasta(out, rep_list, OGdict)
+
     def grep_seqs(gff):
         cmd = ['grep', 'translation=', gff]
         translations = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -277,11 +341,13 @@ def ref_seqs(gbk_dir):
                                        description=gff_name)
                     isolate_seqs[gff_name][locus_tag] = Seq(translation.rstrip('\n'))
                     protein_cds.append(record)
-    proteins = 'ref_cdss_protein.fasta'
-    with open(proteins, 'w') as ref_cds_out:
+    all_proteins = 'ref_cdss_protein-all.fasta'
+    final_proteins = 'ref_cdss_protein.fasta'
+    with open(all_proteins, 'w') as ref_cds_out:
         for s in protein_cds:
             SeqIO.write(s, ref_cds_out, 'fasta')
-    return proteins, isolate_seqs
+    cd_hit(1, all_proteins, final_proteins)
+    return final_proteins, isolate_seqs
 
 
 def blast(subject, stdin_seq):
