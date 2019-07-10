@@ -117,7 +117,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                     any([gene[1].startswith('L') for gene in cluster_list]):
                 same_genes_cluster_w_ltags[representative] = cluster_list_w_isolate
             # L tag only clusters
-            if all(locus[1].startswith('L') for locus in cluster_list):
+            elif all(locus[1].startswith('L') for locus in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
     return [different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, l_tag_only_clusters,
             unique_genes_list]
