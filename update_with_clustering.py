@@ -116,13 +116,10 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             elif (len(unique_genes) == 1 or len(unique_locus) == 1) and \
                     any([gene[1].startswith('L') for gene in cluster_list]):
                 same_genes_cluster_w_ltags[representative] = cluster_list_w_isolate
-            # Getting genes with underscores (partial hits)
-            if find_underscores(cluster_list):
-                underscores[representative] = cluster_list_w_isolate
             # L tag only clusters
             if all(locus[1].startswith('L') for locus in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
-    return [different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, underscores, l_tag_only_clusters,
+    return [different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, l_tag_only_clusters,
             unique_genes_list]
 
 
@@ -733,9 +730,8 @@ def main():
                                         annotations=args.dir)
     multi_gene_cluster = clusters[0]
     single_gene_cluster = clusters[1]
-    partial_gene_cluster = clusters[2]
-    candidate_novel_gene_cluster = clusters[3]
-    unique_gene_cluster = clusters[4]
+    candidate_novel_gene_cluster = clusters[2]
+    unique_gene_cluster = clusters[3]
     candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
     single_gene_cluster_complete = single_gene_cluster.copy()
     mtb_increment, \
