@@ -157,9 +157,12 @@ def identify_top_hits(blast_output_file, identity=95, coverage=95):
             iden = float(line_elements[5])
             qcov = (float(line_elements[4]) / float(line_elements[1])) * 100.0
             scov = (float(line_elements[4]) / float(line_elements[3])) * 100.0
-            if iden >= identity and qcov >= coverage and scov >= coverage:
+            if iden >= identity and qcov >= coverage and scov >= coverage and not line_elements[2].startswith('L'):
                 rv_hit = True
-                corresponding_rv_hit = line_elements[2].split('|')[-1]
+                if '|' in line_elements[2]:
+                    corresponding_rv_hit = line_elements[2].split('|')[-1]
+                else:
+                    corresponding_rv_hit = line_elements[2]
                 all_hits_dict[corresponding_rv_hit] = iden
             else:
                 continue
