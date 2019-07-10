@@ -81,8 +81,8 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             representative_ltag_gene_tup = gffs[rep_isolate][rep_seq_id]
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
             # Getting clusters with only 1 gene that is an L tag or an underscore
-            if len(isolates_ids) == 1 and \
-                    (representative_ltag_gene_tup[1].startswith('L') or
+            if (len(isolates_ids) == 1 and
+                    (representative_ltag_gene_tup[1].startswith('L')) or
                      underscore_re.search(representative_ltag_gene_tup[1])):
                 unique_genes_list.append([rep_isolate] + list(representative_ltag_gene_tup))
 
