@@ -595,105 +595,52 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
         if isolate not in isolates:
             logger.error('Isolate ' + isolate + ' absent in ' + gbk_dir)
         else:
-            if not suffix:
-                genbank_file = gbk_dir + '/' + isolate + '.gbk'
-                isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
-                update_mtb_dict = mtb_pickle[isolate]
-                locus_to_update = update_mtb_dict.keys()
-                modified_locus = []
-                rec_num = 1
-                for rec in isolate_records:
-                    if rec_num > 1:
-                        break
-                    rec_num += 1
-                    for feature in rec.features:
-                        if feature.type != 'CDS':
-                            continue
-                        locus_tag = feature.qualifiers['locus_tag'][0]
-                        gene_name = feature.qualifiers['gene'][0]
+            genbank_file = gbk_dir + '/' + isolate + '.gbk'
+            isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
+            update_mtb_dict = mtb_pickle[isolate]
+            locus_to_update = update_mtb_dict.keys()
+            modified_locus = []
+            rec_num = 1
+            for rec in isolate_records:
+                if rec_num > 1:
+                    break
+                rec_num += 1
+                for feature in rec.features:
+                    if feature.type != 'CDS':
+                        continue
+                    locus_tag = feature.qualifiers['locus_tag'][0]
+                    gene_name = feature.qualifiers['gene'][0]
+                    try:
                         gene_synonym = feature.qualifiers['gene_synonym']
-                        if locus_tag in locus_to_update and \
-                                locus_tag not in modified_locus:
-                            if gene_name.startswith('L'):
-                                feature.qualifiers['gene'] = update_mtb_dict[locus_tag]
-                            elif gene_name == update_mtb_dict[locus_tag]:
-                                modified_locus.append(locus_tag)
-                                continue
-                            else:
-                                logger.debug('Discordant assignment of gene name')
-                                logger.debug('Original gene name: ' + gene_name)
-                                logger.debug('New gene name: ' + update_mtb_dict[locus_tag])
-                                if 'gene_synonym' in feature.qualifiers.keys():
-                                    gene_synonym.append(update_mtb_dict[locus_tag])
-                                else:
-                                    feature.qualifiers['gene_synonym'] = [update_mtb_dict[locus_tag]]
+                    except KeyError:
+                        gene_synonym = []
+                    if locus_tag in locus_to_update and \
+                            locus_tag not in modified_locus:
+                        if gene_name.startswith('L'):
+                            feature.qualifiers['gene'] = update_mtb_dict[locus_tag]
+                        elif gene_name == update_mtb_dict[locus_tag]:
                             modified_locus.append(locus_tag)
-                        elif locus_tag in locus_to_update and locus_tag in modified_locus:
-                            logger.debug('Updated locus tag previously')
-                        else:
                             continue
-                    if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
-                        logger.warning('The following locus_tags are missing in the genbank file')
-                        logger.warning(Set(locus_to_update).difference(Set(modified_locus)))
+                        else:
+                            logger.debug('Discordant assignment of gene name')
+                            logger.debug('Original gene name: ' + gene_name)
+                            logger.debug('New gene name: ' + update_mtb_dict[locus_tag])
+                            if 'gene_synonym' in feature.qualifiers.keys():
+                                gene_synonym.append(update_mtb_dict[locus_tag])
+                            else:
+                                feature.qualifiers['gene_synonym'] = [update_mtb_dict[locus_tag]]
+                        modified_locus.append(locus_tag)
+                    elif locus_tag in locus_to_update and locus_tag in modified_locus:
+                        logger.debug('Updated locus tag previously')
+                    else:
+                        continue
+                if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
+                    logger.warning('The following locus_tags are missing in the genbank file')
+                    logger.warning(Set(locus_to_update).difference(Set(modified_locus)))
+            if not suffix:
                 SeqIO.write(isolate_records, genbank_file, 'genbank')
             else:
-                genbank_file = gbk_dir + '/' + isolate + '.gbk'
-                new_genbank_file = gbk_dir + '/' + isolate + suffix + '.gbk'
-                isolate_records = SeqIO.parse(genbank_file, 'genbank')
-                for record in isolate_records:
-                    if record.id == 'L_contig000001':
-                        gbk_seq = record.seq
-                        new_seq_record = SeqRecord(gbk_seq)
-                        new_seq_record.id = record.id
-                        new_seq_record.description = record.description
-                        new_seq_record.annotations = record.annotations
-                        record_features = record.features
-                        break
-                features = []
-                update_mtb_dict = mtb_pickle[isolate]
-                locus_to_update = update_mtb_dict.keys()
-                modified_locus = []
-                rec_num = 1
-                for rec in isolate_records:
-                    if rec_num > 1:
-                        break
-                    rec_num += 1
-                    for feature in rec.features:
-                        if feature.type != 'CDS':
-                            continue
-                        locus_tag = feature.qualifiers['locus_tag'][0]
-                        gene_name = feature.qualifiers['gene'][0]
-                        gene_synonym = feature.qualifiers['gene_synonym']
-                        if locus_tag in locus_to_update and \
-                                locus_tag not in modified_locus:
-                            if gene_name.startswith('L'):
-                                feature.qualifiers['gene'][0] = update_mtb_dict[locus_tag]
-                            elif gene_name == update_mtb_dict[locus_tag]:
-                                modified_locus.append(locus_tag)
-                                continue
-                            else:
-                                logger.debug('Discordant assignment of gene name')
-                                logger.debug('Original gene name: ' + gene_name)
-                                logger.debug('New gene name: ' + update_mtb_dict[locus_tag])
-                                if 'gene_synonym' in feature.qualifiers.keys():
-                                    gene_synonym.append(update_mtb_dict[locus_tag])
-                                else:
-                                    feature.qualifiers['gene_synonym'] = [update_mtb_dict[locus_tag]]
-                            modified_locus.append(locus_tag)
-                        elif locus_tag in locus_to_update and locus_tag in modified_locus:
-                            logger.warning('ERROR: Updated locus tag previously')
-                        else:
-                            continue
-                    if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
-                        logger.warning('The following locus_tags are missing in the genbank file')
-                        logger.warning(Set(locus_to_update).difference(Set(modified_locus)))
-                    features.append(SeqFeature(FeatureLocation(rec.location.start,
-                                                               rec.location.end),
-                                               type=rec.type,
-                                               strand=rec.strand,
-                                               qualifiers=rec.qualifiers))
-                SeqIO.write(new_seq_record, new_genbank_file, 'genbank')
-    return
+                SeqIO.write(isolate_records, gbk_dir + '/' + isolate + suffix + '.gbk', 'genbank')
 
 
 def arguments():
