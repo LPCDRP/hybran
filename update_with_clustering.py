@@ -379,7 +379,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
             stdout = blast(reference_fasta, gene_sequence)
             top_hit, all_hits = identify_top_hits(stdout)
             assign_mtb = False
-            name_to_assign = ''
+            name_to_assign = top_hit
             if top_hit is None:
                 assign_mtb = True
                 stdout_2 = blast(unannotated_fasta, gene_sequence)
@@ -387,8 +387,6 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
                 if top_hit_mtb is not None:
                     assign_mtb = False
                     name_to_assign = top_hit_mtb
-            else:
-                name_to_assign = top_hit
             if assign_mtb:
                 mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
                 mtb_increment = mtb_increment + 1
@@ -442,7 +440,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         isolate = qid.split('|')[0]
         locus = qid.split('|')[1]
         assign_mtb = False
-        name_to_assign = ''
+        name_to_assign = top_hit
         if top_hit is None:
             assign_mtb = True
             rep_seq = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
@@ -454,8 +452,6 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             if top_hit_mtb is not None:
                 assign_mtb = False
                 name_to_assign = top_hit_mtb
-        else:
-            name_to_assign = top_hit
         if assign_mtb:
             mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
             mtb_increment = mtb_increment + 1
@@ -558,7 +554,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                     stdout = blast(fasta_fp_to_blast, unannotated_gene_seq)
                     top_hit, all_hits = identify_top_hits(stdout)
                     assign_mtb = False
-                    name_to_assign = ''
+                    name_to_assign = top_hit
                     if top_hit is None:
                         assign_mtb = True
                         stdout_2 = blast(unannotated_fasta, unannotated_gene_seq)
@@ -566,8 +562,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                         if top_hit_mtb is not None:
                             assign_mtb = False
                             name_to_assign = top_hit_mtb
-                    else:
-                        name_to_assign = top_hit
                     if assign_mtb:
                         mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
                         mtb_increment = mtb_increment + 1
