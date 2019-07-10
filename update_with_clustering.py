@@ -174,12 +174,15 @@ def identify_top_hits(blast_output_file, identity=95, coverage=95):
 
 
 def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
+    logger = logging.getLogger('NameGene')
     if isolate_id not in isolate_update_dictionary.keys():
         isolate_update_dictionary[isolate_id] = {}
         isolate_update_dictionary[isolate_id][isolate_ltag] = new_gene_name
+        logger.debug(isolate_ltag + ' in ' + isolate_id + ' becomes ' + new_gene_name)
     else:
         isolate_dict_added = isolate_update_dictionary[isolate_id]
         if isolate_ltag not in isolate_dict_added.keys():
+            logger.debug(isolate_ltag + ' in ' + isolate_id + ' becomes ' + new_gene_name)
             isolate_update_dictionary[isolate_id][isolate_ltag] = new_gene_name
     return
 
@@ -409,7 +412,6 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     new_unannotated_genes = []
     rep_records = []
     for rep_gene in in_dict.keys():
-        logger.debug('Processing ' + rep_gene)
         rep_isolate_id = rep_gene.split(',')[0]
         rep_locus = rep_gene.split(',')[1]
         rep_gene_name = rep_gene.split(',')[2]
@@ -423,7 +425,6 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     with open(rep_temp_fasta, 'w') as fasta_tmp:
         for s in rep_records:
             SeqIO.write(s, fasta_tmp, 'fasta')
-    logger.debug('BLASTing new gene clusters against reference CDSs')
     blastcmd = NcbiblastpCommandline(subject=reference_fasta,
                                      query=rep_temp_fasta,
                                      outfmt='"6 qseqid qlen sseqid slen qlen length pident qcovs"')
@@ -462,9 +463,6 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             seq_record = SeqRecord(rep_sequence, id=mtb_id)
             new_unannotated_genes.append(seq_record)
             name_to_assign = mtb_id
-            logger.debug(name_to_assign)
-        else:
-            logger.debug(name_to_assign)
         update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
     with open(unannotated_fasta, 'a') as mtb_fasta:
         for s in new_unannotated_genes:
@@ -473,7 +471,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
 
 
 def single_gene_clusters(single_gene_dict):
-    logger = logging.getLogger('SingleGeneClusters')
+    logger = logging.getLogger('ClustersWithOneGeneName')
     # 1. Handling clusters with only one Rv/gene name in cluster
     # 1. If cluster has candidate novel genes (L_***** or L2_*****) clustered together with a H37Rv annotation, update
     #  all candidate novel genes in this cluster with the H37Rv gene name.
@@ -523,6 +521,8 @@ def single_gene_clusters(single_gene_dict):
 def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta, mtb_increment):
     # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
     # and annotate L_tag with the top hit.
+    logger = logging.getLogger('ClustersWithManyGeneNames')
+    logger.debug('Number of clusters that have many gene names and genes with no name ' + str(len(in_dict.keys())))
     mgc_output = []
 
     num_multi = 0
@@ -660,7 +660,7 @@ def arguments():
 
 def main():
     args = arguments()
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger('UpdateAnnotations')
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s:INFO:%(name)s:%(message)s')
@@ -684,16 +684,19 @@ def main():
     unique_gene_cluster = clusters[3]
     candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
     single_gene_cluster_complete = single_gene_cluster.copy()
+    logger.info('Annotating genes that do not have a gene name but cluster with genes that have many gene names')
     mtb_increment, \
         updated_single_gene_clusters = multigene_clusters(in_dict=multi_gene_cluster,
                                                           single_gene_cluster_complete=single_gene_cluster_complete,
                                                           unannotated_fasta=mtb_genes_fp,
                                                           mtb_increment=mtb_increment)
+    logger.info('Annotating genes that do not have a gene name but cluster with genes that have the same gene name')
     single_gene_clusters(updated_single_gene_clusters)
     mtb_increment = only_ltag_clusters(in_dict=candidate_novel_gene_cluster_complete,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment,
                                        reference_fasta=reference_protein_fastas)
+    logger.info('Annotating genes that do not have a gene name and exist in a single isolate')
     mtb_increment = singleton_clusters(singleton_dict=unique_gene_cluster,
                                        reference_fasta=reference_protein_fastas,
                                        unannotated_fasta=mtb_genes_fp,
