@@ -444,10 +444,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         if top_hit is None:
             assign_mtb = True
             rep_seq = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
-            rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', dir='/tmp/')
-            SeqIO.write(SeqRecord(rep_seq, id=qid.split('\t')[0], description=''), rep_fp, 'fasta')
-            rep_sequence = rep_fp.name
-            stdout_2 = blast(unannotated_fasta, rep_sequence)
+            stdout_2 = blast(unannotated_fasta, rep_seq)
             top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
             if top_hit_mtb is not None:
                 assign_mtb = False
