@@ -122,12 +122,14 @@ def main():
         logger.error('eggnog-mapper is not in ' + args.emapper + '. Location of eggnog-mapper/ repo is required')
         exit(OSError)
     cwd = os.getcwd() + '/'
+    # Convert all input paths to full path if not given as full path
     if not args.genomes.startswith('/'):
         args.genomes = cwd + args.genomes
     if not args.references.startswith('/'):
         args.references = cwd + args.references
     if not args.output.startswith('/'):
         args.output = cwd + args.output
+    # Moving into the desired annotation directory
     os.chdir(args.output)
     refdir = args.output + 'temp_references/'
     try:
