@@ -88,12 +88,14 @@ def cmds():
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
     required.add_argument('-g', '--genomes', help='Directory containing all genomes desired to be annotationed. '
-                                                  'FASTA format required')
+                                                  'FASTA format required',
+                          required=True)
     required.add_argument('-r', '--references', help='Directory containing EMBL and Genbank files of reference '
                                                      'annotations to transfer. Only the first 30 reference annotations '
                                                      'will be transferred with RATT and the first annotation will '
                                                      'be used as the reference database in the Prokka reference '
-                                                     'step.')
+                                                     'step.',
+                          required=True)
     optional.add_argument('-e', '--emapper', help='Directory of the eggnog-mapper repository. Default is the current '
                                                   'working directory. Full path only',
                           default=os.getcwd())
