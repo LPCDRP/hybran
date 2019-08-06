@@ -6,6 +6,10 @@ import logging
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
+import fastaFromGFF
+import BLAST
+import CDHIT
+import MCL
 
 
 def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
@@ -25,6 +29,43 @@ def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
     print ' '.join(cmd)
     subprocess.Popen(cmd)
     os.chdir(c)
+
+
+def run_clustering(annotations, nproc):
+    logger = logging.getLogger('ClusterProteins')
+    logger.info('Parsing GFFs in ' + annotations)
+    gff_gene_dict = fastaFromGFF.create_fasta(directory=annotations)
+    fasta = 'cds_seqs.fasta'
+    clusters = CDHIT.cd_hit(nproc=nproc,
+                            fasta=fasta,
+                            out='cdhit_clusters.fasta')
+    BLAST.run_blast(fastafile='cdhit_clusters.fasta',
+                    nproc=nproc)
+    MCL.run_mcl(in_blast='blast_results',
+                cdhit_clusters=clusters,
+                out_name='clustered_proteins',
+                gene_names=gff_gene_dict)
+    files_to_remove = ['blast_results', 'cdhit_seqs.fasta', 'cdhit_seqs.fasta.clstr', 'mcxdeblast_results', 'mcl']
+    logger.info('Removing ' + ', '.join(files_to_remove))
+    for f in files_to_remove:
+        try:
+            os.remove(f)
+        except OSError:
+            continue
+    # Add update with clustering here
+    # Can assume working in CWD
+    # updateGBK() (update_with_clustering.py)
+
+
+def run_eggnog_mapper(script_dir, nproc, emapper_loc):
+    logger = logging.getLogger('OrthologousAnnotation')
+    logger.info('Functional annotation with eggnog_mapper located in ')
+    cmd = [script_dir + 'run_emapper.sh',
+           nproc,
+           emapper_loc]
+    subprocess.Popen(cmd)
+    # Can assume working in CWD
+    # updateGBKEggNOG() (update_annotation_eggnog.py)
 
 
 def get_first_reference_proteome(genbank):
@@ -111,7 +152,8 @@ def main():
                                       ref_cds=ref_cds,
                                       script_dir=cwd,
                                       cpus=args.nproc)
-
+    run_clustering(annotations=args.output,
+                   nproc=args.nproc)
 
 if __name__ == '__main__':
     main()
