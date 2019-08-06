@@ -385,6 +385,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
     #  with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes in the
     # cluster.
     logger.debug('Number of singleton clusters with single genes: ' + str(len(singleton_dict)))
+    new_unannotated_seqs = []
     for single_gene in singleton_dict:
         isolate_id = single_gene[0]
         locus_tag = single_gene[1]
@@ -405,13 +406,15 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
             if assign_mtb:
                 mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
                 mtb_increment = mtb_increment + 1
-                seq_record = SeqRecord(gene_sequence, id=mtb_id)
-                with open(unannotated_fasta, 'a') as mtb_fasta:
-                    SeqIO.write(seq_record, mtb_fasta, 'fasta')
+                seq_record = SeqRecord(gene_sequence, id=mtb_id, description='False')
+                new_unannotated_seqs.append(seq_record)
                 name_to_assign = mtb_id
             update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
         else:
             continue
+    with open(unannotated_fasta, 'a') as mtb_fasta:
+        for s in new_unannotated_seqs:
+            SeqIO.write(s, mtb_fasta, 'fasta')
     return mtb_increment
 
 
