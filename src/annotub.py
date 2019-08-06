@@ -7,59 +7,23 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
 
-def ratt(fasta, reference_dir):
-    logger = logging.getLogger('RATT')
+def execute_ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
     c = os.getcwd()
     isolate = fasta.split('/')[-1].split('.')[0]
     try:
         os.mkdir(isolate)
     except OSError:
         pass
-    try:
-        os.mkdir(isolate + '/ratt/')
-    except OSError:
-        pass
-    os.chdir(isolate + '/ratt/')
-    logger.info('Running RATT on ' + isolate)
-    ratt_cmd = [os.environ['RATT_HOME'] + '/start.ratt.sh',
-                reference_dir,
-                fasta,
-                isolate,
-                'Strain']
-    ratt_stdout = subprocess.Popen(ratt_cmd, stdout=subprocess.PIPE)
-    # with open('ratt-done', 'w') as o:
-    #     o.write('RATT finished')
+    os.chdir(isolate)
+    cmd = [script_dir + 'ratt_prokka.sh',
+           ref_dir,
+           fasta,
+           isolate,
+           ref_cds,
+           cpus]
+    print ' '.join(cmd)
+    subprocess.Popen(cmd)
     os.chdir(c)
-
-
-def prokka_noref(fasta, cpus):
-    logger = logging.getLogger('Prokka-noreference')
-    logger.info('Running Prokka-noreference on ' + fasta.split('/')[-1].split('.')[0])
-    prokka_cmd = ['prokka',
-                  '--genus Mycobacterium',
-                  '--kingdom bacteria',
-                  '--rfam',
-                  '--rnammer',
-                  '--gram pos',
-                  '--usegenus',
-                  '--cpus', cpus,
-                  '--prefix', fasta.split('/')[-1].split('.')[0] + '.prokka-noreference',
-                  '--force',
-                  '--centre C',
-                  '--locustag L']
-    stdout = subprocess.Popen(' '.join([prokka_cmd]), stdout=subprocess.PIPE)
-
-
-def prokka(fasta, cpus, ref_cds, script_dir):
-    logger = logging.getLogger('Prokka')
-    logger.info('Running Prokka on ' + fasta.split('/')[-1].split('.')[0] + ' using ' + ref_cds + ' as the reference '
-                                                                                                  'database')
-    # print ' '.join(prokka_cmd)
-    stdout = subprocess.Popen([script_dir + 'prokka.sh',
-                               fasta.split('/')[-1].split('.')[0],
-                               fasta,
-                               ref_cds,
-                               cpus], stdout=subprocess.PIPE)
 
 
 def get_first_reference_proteome(genbank):
@@ -140,9 +104,12 @@ def main():
             continue
     # ref_cds = get_first_reference_proteome(args.references + embls[0].split('.')[0] + '.gbk')
     for f in os.listdir(args.genomes):
-        # ratt(args.genomes + f, refdir)
-        prokka(args.genomes + f, args.nproc, '/grp/valafar/resources/H37Rv-CDS-updated.fasta', cwd)
-        # prokka_noref(args.genomes + f, args.nproc)
+        if f.endswith('.fasta'):
+            execute_ratt_prokka(ref_dir=refdir,
+                                     fasta=args.genomes + f,
+                                     ref_cds='/grp/valafar/resource/H37Rv-CDS-updated.fasta',
+                                     script_dir=cwd,
+                                     cpus=args.nproc)
 
 
 if __name__ == '__main__':
