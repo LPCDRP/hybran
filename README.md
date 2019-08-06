@@ -1,7 +1,7 @@
-# AnnoTUB
+# AnnoTUB (Annotate TUBerculosis)
 
 Annotation pipeline that provides genomic annotation 
-for *Mycobacterium tuberculosis* complete genomes
+for *Mycobacterium tuberculosis* de novo assembled genomes
 
 ### Dependencies
 * [RATT](http://ratt.sourceforge.net/)
@@ -9,18 +9,24 @@ for *Mycobacterium tuberculosis* complete genomes
 * [EMBOSS (seqret)](http://emboss.sourceforge.net/download/)
 * [python2.7](https://www.python.org/downloads/release/python-2715/)
 * [Biopython](https://biopython.org/wiki/Download)
-* [numpy](https://sourceforge.net/projects/numpy/files/NumPy/) (is also available on `pip` and [anaconda](https://anaconda.org/anaconda/numpy))
+* [numpy](https://sourceforge.net/projects/numpy/files/NumPy/)
 * [CD-HIT](https://github.com/weizhongli/cdhit)
 * [MCL](https://github.com/JohannesBuchner/mcl)
 * [NCBI-BLAST](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/)
-
-### Required files
-* *M. tuberculosis* *de novo* assembled, complete genome
-* [H37Rv CDS FASTA](https://www.ncbi.nlm.nih.gov/nuccore/AL123456.3)
+* [eggnog-mapper](https://github.com/eggnogdb/eggnog-mapper)
 
 ### How to run
-**RATT_HOME variable must be defined and exported!**
-`make -f ratt_prokka.mk GENOMES=dir/to/fastas H37Rv_FASTA=H37Rv-CDS.fasta`
+This can be executed on one or many genomes. The more reference
+annotations included, the more accurate the annotation will be 
+and less ambiguity will exist for the target genomes.
+```
+./annotub                                        \
+    --genomes /dir/to/FASTAs                   \
+    --references /dir/to/reference/annotations \
+    --emapper /dir/to/eggnog-mapper            \
+    --output ./                                \
+    --nproc 2
+```
 
-`make -f clustering.mk annotation_dir=dir/to/gffs`
-
+### How to cite
+Manuscript submitted
