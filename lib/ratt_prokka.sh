@@ -91,5 +91,3 @@ annomerge -i $isolate -o annomerge/$isolate.gbk -l annomerge/$isolate.log > anno
 wait
 cd ..
 
-
-

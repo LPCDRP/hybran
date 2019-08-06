@@ -6,11 +6,7 @@ import logging
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
-import fastaFromGFF
-import BLAST
-import CDHIT
-import MCL
-import addEggnogAnnotation
+from lib import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation
 
 
 def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
