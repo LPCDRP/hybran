@@ -10,6 +10,7 @@ import fastaFromGFF
 import BLAST
 import CDHIT
 import MCL
+import addEggnogAnnotation
 
 
 def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
@@ -63,8 +64,7 @@ def run_eggnog_mapper(script_dir, nproc, emapper_loc):
            nproc,
            emapper_loc]
     subprocess.Popen(cmd)
-    # Can assume working in CWD
-    # updateGBKEggNOG() (update_annotation_eggnog.py)
+    addEggnogAnnotation.update_gbks()
 
 
 def get_first_reference_proteome(genbank):
