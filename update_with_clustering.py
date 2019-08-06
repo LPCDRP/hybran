@@ -297,6 +297,7 @@ def ref_seqs(gbk_dir):
                     else:
                         gene = line.rstrip('\n').split()[2].replace('>', '').replace('...', '')
                         clusters.append(gene)
+        rep_dict[rep] = clusters
         return rep_dict, reps
 
     def create_reps_fasta(output, reps, rep_seq_id_dict):
