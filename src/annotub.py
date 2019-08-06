@@ -26,7 +26,6 @@ def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
            isolate,
            ref_cds,
            cpus]
-    print ' '.join(cmd)
     subprocess.Popen(cmd)
     os.chdir(c)
 
