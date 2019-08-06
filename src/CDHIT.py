@@ -24,22 +24,7 @@ def run_cdhit(nproc, input, output):
            '-s', '1',
            '-d', '256']
     out = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-
-
-def find_reps(clstr_file):
-    """Parses the clstr file (splits on white space) that is now in the current directory 
-    after running cdhit. If the last column is a "*" then it is the representative sequence.
-    Loop over each line in the file and put the sequence ID's for the representative sequences into a list."""
-    rep_seq_id_list = []
-    with open(clstr_file, 'r') as clstrs:
-        for line in clstrs:
-            info = line.strip().split()
-            indicator = info[-1]
-            if indicator == '*':
-                id1 = info[2]
-                partial_id = id1[1:-3]
-                rep_seq_id_list.append(partial_id)
-    return rep_seq_id_list
+    return out
 
 
 def create_reps_dict(in_clusters):
@@ -81,7 +66,7 @@ def create_reps_fasta(output, reps, rep_seq_id_dict):
 def cd_hit(nproc, fasta, out):
     logger = logging.getLogger('CDHIT')
     logger.info('Running CDHIT')
-    run_cdhit(nproc, fasta, out)
+    cdhit_stdout = run_cdhit(nproc, fasta, out)
     OGdict = create_allseq_dict(fasta)
     logger.info('Parsing CDHIT output (' + out + '.clstr)')
     REPdict, rep_list = create_reps_dict(out + ".clstr")
