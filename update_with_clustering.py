@@ -669,7 +669,7 @@ def arguments():
 
 def main():
     args = arguments()
-    logger = logging.getLogger('UpdateAnnotations')
+    logger = logging.getLogger('ClusterProteins')
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s:INFO:%(name)s:%(message)s')
@@ -679,7 +679,7 @@ def main():
 
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
-    logger.info('Retrieving reference protein sequences from Genbank files in ' + args.dir)
+    logger.info('Retrieving reference protein sequences from GFFs in ' + args.dir)
     reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=args.dir)
     logger.info('Identifying unannotated proteins (signified by absence of a gene name)')
     mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
