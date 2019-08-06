@@ -42,7 +42,10 @@ def blast(seq_string, fa):
 
 
 def iterate(fa, seq_list, nproc):
-    """Runs BLAST function for each query. Returns list of all results."""
+    """
+    Runs BLAST function for each query.
+    Returns list of all results.
+    """
     partial_blast = partial(blast, fa=fa)
     pool = multiprocessing.Pool(nproc)
     list_of_lists = pool.map(partial_blast,seq_list)
@@ -53,7 +56,10 @@ def iterate(fa, seq_list, nproc):
 
 
 def write(all_results_list):
-    """Joins list of all results into a continuous string and writes this string to a new file"""
+    """
+    Joins list of all results into a continuous
+    string and writes this string to a new file
+    """
     joined_string = '\n'.join(all_results_list)
     with open('blast_results', 'w') as all_v_all:
         all_v_all.write(joined_string)
