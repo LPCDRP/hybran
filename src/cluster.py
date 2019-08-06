@@ -51,7 +51,10 @@ def main():
         files_to_remove = ['blast_results', 'cdhit_seqs.fasta', 'cdhit_seqs.fasta.clstr', 'mcxdeblast_results', 'mcl']
         logger.info('Removing ' + ', '.join(files_to_remove))
         for f in files_to_remove:
-            os.remove(f)
+            try:
+                os.remove(f)
+            except OSError:
+                continue
     logger.info('Finished. Goodbye!')
 
 
