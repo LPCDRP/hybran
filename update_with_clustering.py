@@ -332,9 +332,13 @@ def ref_seqs(gbk_dir):
                     locus_tag = [i.split('=')[1].rstrip('\n') for i in line.split(';') if i.startswith('locus_tag=')][0]
                     gene = [i.split('=')[1].rstrip('\n') for i in line.split(';') if i.startswith('gene=')][0]
                     translation = [i.split('=')[1] for i in line.split(';') if i.startswith('translation=')][0]
+                    eggnog_annot = [i for i in line.split(';') if i.startswith('note=') and 'Eggnog' in i.split('=')[1]]
+                    eggnog = False
+                    if eggnog_annot:
+                        eggnog = True
                     record = SeqRecord(Seq(translation.rstrip('\n')),
                                        id=gene,
-                                       description=gff_name)
+                                       description=str(eggnog))
                     isolate_seqs[gff_name][locus_tag] = Seq(translation.rstrip('\n'))
                     protein_cds.append(record)
     all_proteins = 'ref_cdss_protein-all.fasta'
@@ -362,6 +366,16 @@ def find_unannotated_genes(reference_protein_fasta):
         for s in unannotated_seqs:
             SeqIO.write(s, out, 'fasta')
     return 'unannotated_seqs.fasta'
+
+
+def prepare_for_eggnog(unannotated_seqs):
+    eggnog_seqs = []
+    for record in SeqIO.parse(unannotated_seqs, 'fasta'):
+        if 'False' in record.description:
+            eggnog_seqs.append(record)
+    with open('eggnog_seqs.fasta', 'w') as out:
+        for s in eggnog_seqs:
+            SeqIO.write(s, out, 'fasta')
 
 
 def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_increment):
@@ -454,7 +468,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
             mtb_increment = mtb_increment + 1
             rep_sequence = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
-            seq_record = SeqRecord(rep_sequence, id=mtb_id)
+            seq_record = SeqRecord(rep_sequence, id=mtb_id, description='False')
             new_unannotated_genes.append(seq_record)
             name_to_assign = mtb_id
         update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
@@ -563,7 +577,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                     if assign_mtb:
                         mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
                         mtb_increment = mtb_increment + 1
-                        seq_record = SeqRecord(unannotated_gene_seq, id=mtb_id)
+                        seq_record = SeqRecord(unannotated_gene_seq, id=mtb_id, description='False')
                         with open(unannotated_fasta, 'a') as mtb_fasta:
                             SeqIO.write(seq_record, mtb_fasta, 'fasta')
                         name_to_assign = mtb_id
@@ -697,6 +711,9 @@ def main():
     add_gene_names_to_gbk(mtb_pickle=isolate_update_dictionary,
                           gbk_dir=args.dir,
                           suffix=args.suffix)
+    logger.info('Preparing FASTA for eggNOG functional assignments')
+    prepare_for_eggnog(unannotated_seqs=mtb_genes_fp)
+    logger.info('Finished')
 
 
 if __name__ == '__main__':
