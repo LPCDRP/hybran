@@ -6,22 +6,27 @@ from functools import partial
 
 
 def create_raw_seq_list(input_file):
-    """Parses the fasta file of sequences and 
-       creates a list containing each header + sequence string."""
-    fasta_index = SeqIO.index(input_file, "fasta")
+    """
+    Parses the fasta file of sequences and
+    creates a list containing each header + sequence string.
+       """
     seq_list = []
-    for record in fasta_index:
-        raw_string=fasta_index.get_raw(record)
-        seq_list.append(raw_string)
+    for record in SeqIO.parse(input_file, 'fasta'):
+        seq_list.append([record.id, str(record.seq)])
     return seq_list
 
 
 def blast(seq_string, fa):
-    """Runs BLAST with one sequence as the query and the fasta file as the subject. Returns a list of BLAST runs that
-        meet the 95% identity threshold"""
-    blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=' "6 qseqid sseqid pident length mismatch gapopen'
-                                                            ' qstart qend sstart send evalue bitscore qlen slen"')
-    stdout,stderr=blast_to_all(stdin=str(seq_string))
+    """
+    Runs BLAST with one sequence as the query and
+    the fasta file as the subject.
+    Returns a list of BLAST runs that
+    meet the 95% identity threshold
+    """
+    blast_outfmt = ' "6 qseqid sseqid pident length mismatch gapopen ' \
+                   'qstart qend sstart send evalue bitscore qlen slen"'
+    blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
+    stdout, stderr=blast_to_all(stdin=seq_string[1])
     blast_filtered = []
     for line in stdout.split('\n'):
         if line:
@@ -31,7 +36,8 @@ def blast(seq_string, fa):
             qlen = float(column[12])
             slen = float(column[13])
             if identity > 95 and length / qlen >= 0.95 and length / slen >= 0.95:
-                blast_filtered.append(line)
+                column[0] = seq_string[0]
+                blast_filtered.append('\t'.join(column))
     return blast_filtered
 
 
