@@ -3,6 +3,7 @@ import os
 import argparse
 import subprocess
 import logging
+import time
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
@@ -84,7 +85,8 @@ def get_first_reference_proteome(genbank):
 def cmds():
     parser = argparse.ArgumentParser(description='Annotate TUBerculosis: a pipeline to annotate Mycobacterium '
                                                  'tuberculosis de novo assembled genomes. Annotation of other species '
-                                                 'or mixing species within an annotation run is NOT recommended.')
+                                                 'or mixing species within an annotation run is NOT recommended.\n\n'
+                                                 'Please cite: [manuscript submitted]')
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
     required.add_argument('-g', '--genomes', help='Directory containing all genomes desired to be annotationed. '
@@ -109,6 +111,8 @@ def cmds():
 
 def main():
     args = cmds()
+    start_time = time.time()
+    print 'Please cite: [manuscript submitted]'
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
@@ -144,8 +148,10 @@ def main():
         except OSError:
             continue
     ref_cds = get_first_reference_proteome(args.references + embls[0].split('.')[0] + '.gbk')
+    genome_count = 0
     for f in os.listdir(args.genomes):
         if f.endswith('.fasta'):
+            genome_count += 1
             run_ratt_prokka_annomerge(ref_dir=refdir,
                                       fasta=args.genomes + f,
                                       ref_cds=ref_cds,
@@ -153,6 +159,13 @@ def main():
                                       cpus=args.nproc)
     run_clustering(annotations=args.output,
                    nproc=args.nproc)
+    run_eggnog_mapper(script_dir=cwd,
+                      nproc=args.nproce,
+                      emapper_loc=args.emapper)
+    logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
+    logger.info('Time elapsed: ' + str(time.time() - start_time))
+    logger.info('Thank you for using AnnoTUB. We hope to see you again!')
+
 
 if __name__ == '__main__':
     main()
