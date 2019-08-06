@@ -84,5 +84,4 @@ prokka    --genus Mycobacterium \
           --locustag L \
 	  --quiet \
       $fasta
-wait
 
