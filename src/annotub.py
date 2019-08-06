@@ -7,7 +7,8 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
 
-def execute_ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
+
+def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
     c = os.getcwd()
     isolate = fasta.split('/')[-1].split('.')[0]
     try:
@@ -102,14 +103,14 @@ def main():
             os.symlink(args.references + e, refdir + e)
         except OSError:
             continue
-    # ref_cds = get_first_reference_proteome(args.references + embls[0].split('.')[0] + '.gbk')
+    ref_cds = get_first_reference_proteome(args.references + embls[0].split('.')[0] + '.gbk')
     for f in os.listdir(args.genomes):
         if f.endswith('.fasta'):
-            execute_ratt_prokka(ref_dir=refdir,
-                                     fasta=args.genomes + f,
-                                     ref_cds='/grp/valafar/resource/H37Rv-CDS-updated.fasta',
-                                     script_dir=cwd,
-                                     cpus=args.nproc)
+            run_ratt_prokka_annomerge(ref_dir=refdir,
+                                      fasta=args.genomes + f,
+                                      ref_cds=ref_cds,
+                                      script_dir=cwd,
+                                      cpus=args.nproc)
 
 
 if __name__ == '__main__':

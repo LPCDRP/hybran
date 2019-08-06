@@ -6,7 +6,7 @@ isolate=$3
 ref_cds=$4
 nproc=$5
 
-mkdir -p prokka prokka-noreference ratt
+mkdir -p prokka prokka-noreference ratt annomerge
 
 if [ ! -f ratt/ratt-home ]
 then
@@ -84,4 +84,12 @@ prokka    --genus Mycobacterium \
           --locustag L \
 	  --quiet \
       $fasta
+wait
+
+sed -i 's/ ; ; ; ; ;/; SV 1; circular; genomic DNA; HTG; PRO;/g; s/order(join/join/g; s/complement(order/complement/g' ratt/*.final.embl
+annomerge -i $isolate -o annomerge/$isolate.gbk -l annomerge/$isolate.log > annomerge/annomerge.log && seqret $isolate.gbk $isolate.gff -feature -osf gff
+wait
+cd ..
+
+
 
