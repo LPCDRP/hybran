@@ -122,7 +122,7 @@ def cmds():
                           required=True)
     required.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py. Full path only',
-                          dest='emapper',
+                          dest='database_dir',
                           required=True)
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the current '
                                                  'working directory. Full path only',
@@ -139,6 +139,7 @@ def main():
     if args.version:
         print __version__
         exit()
+    verify_installations(args.database_dir)
     start_time = time.time()
     print 'Please cite: [manuscript submitted]'
     logging.basicConfig(level=logging.INFO,
@@ -180,7 +181,7 @@ def main():
                    nproc=args.nproc)
     run_eggnog_mapper(script_dir=cwd,
                       nproc=args.nproce,
-                      emapper_loc=args.emapper)
+                      emapper_loc=args.database_dir)
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(time.time() - start_time))
     logger.info('Thank you for using AnnoTUB. We hope to see you again!')
