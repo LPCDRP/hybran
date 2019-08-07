@@ -9,6 +9,8 @@ from Bio.SeqRecord import SeqRecord
 
 from lib import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation
 
+__version__ = '1.0'
+
 
 def verify_installations(eggnog_databases):
     logger = logging.getLogger('VerifyInstallations')
@@ -125,11 +127,16 @@ def cmds():
                           default=os.getcwd())
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
                           default='1')
+    optional.add_argument('-v', '--version', help='Print version and exit',
+                          action='store_true')
     return parser.parse_args()
 
 
 def main():
     args = cmds()
+    if args.version:
+        print __version__
+        exit()
     start_time = time.time()
     print 'Please cite: [manuscript submitted]'
     logging.basicConfig(level=logging.INFO,
