@@ -10,6 +10,24 @@ from Bio.SeqRecord import SeqRecord
 from lib import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation
 
 
+def verify_installations(eggnog_databases):
+    logger = logging.getLogger('VerifyInstallations')
+
+    # Verify the RATT_HOME variable is set
+    if not os.environ['RATT_HOME']:
+        logger.error('RATT_HOME variable is not defined. '
+                     'Please export RATT_HOME=[location of downloaded ratt executable/config')
+        exit(EnvironmentError)
+    # Verify eggnog-mapper/ is present in given directory
+    if not os.path.isdir(eggnog_databases):
+        logger.error('There are no databases in ' + eggnog_databases + '. Location of eggnog databases is required.'
+                                                                       '\nIf the databases have not been downloaded, '
+                                                                       'execute download_eggnog_data.py and follow '
+                                                                       'prompts. The Diamond AND HMM databases are '
+                                                                       'required.')
+        exit(OSError)
+
+
 def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
     c = os.getcwd()
     isolate = fasta.split('/')[-1].split('.')[0]
@@ -98,9 +116,10 @@ def cmds():
                                                      'be used as the reference database in the Prokka reference '
                                                      'step.',
                           required=True)
-    optional.add_argument('-e', '--emapper', help='Directory of the eggnog-mapper repository. Default is the current '
-                                                  'working directory. Full path only',
-                          default=os.getcwd())
+    required.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
+                                                           'download_eggnog_data.py. Full path only',
+                          dest='emapper',
+                          required=True)
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the current '
                                                  'working directory. Full path only',
                           default=os.getcwd())
@@ -116,15 +135,6 @@ def main():
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
-    # Verify the RATT_HOME variable is set
-    if not os.environ['RATT_HOME']:
-        logger.error('RATT_HOME variable is not defined. '
-                     'Please export RATT_HOME=[location of downloaded ratt executable/config')
-        exit(EnvironmentError)
-    # Verify eggnog-mapper/ is present in given directory
-    if not os.path.isdir(args.emapper):
-        logger.error('eggnog-mapper is not in ' + args.emapper + '. Location of eggnog-mapper/ repo is required')
-        exit(OSError)
     cwd = os.getcwd() + '/'
     # Convert all input paths to full path if not given as full path
     if not args.genomes.startswith('/'):
