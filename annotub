@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python2.7
 import os
 import argparse
 import subprocess
@@ -131,7 +131,7 @@ def cmds():
 def main():
     args = cmds()
     start_time = time.time()
-    print('Please cite: [manuscript submitted]')
+    print 'Please cite: [manuscript submitted]'
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
