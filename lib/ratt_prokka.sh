@@ -8,86 +8,45 @@ nproc=$5
 
 mkdir -p prokka prokka-noreference ratt annomerge
 
-if [ ! -f ratt/ratt-home ]
+if [ ! -f ratt/ratt-done ]
 then
-	printf "cd ratt/\n
-	$RATT_HOME/start.ratt.sh $references $fasta $isolate Strain && touch ratt-done\n
-	cd ..\n"
-	cd ratt/
-	$RATT_HOME/start.ratt.sh $references $fasta $isolate Strain && touch ratt-done
+	cd ratt/ && \ 
+	$RATT_HOME/start.ratt.sh $references $fasta $isolate Strain && \ 
+	touch ratt-done && \ 
 	cd ..
-	wait
 fi
 
-printf "
-prokka    --genus Mycobacterium \n
-          --kingdom bacteria \n
-          --rfam \n
-	  --proteins $ref_cds \n
-          --rnammer \n
-          --gram pos \n
-          --usegenus \n
-          --cpus $nproc \n
-          --outdir prokka \n
-          --prefix $isolate \n
-          --force \n
-          --centre C \n
-          --locustag L \n
-	  --quiet \n
-      $fasta\n
-"
-prokka    --genus Mycobacterium \
-          --kingdom bacteria \
-          --rfam \
-	  --proteins $ref_cds \
-          --rnammer \
-          --gram pos \
-          --usegenus \
-          --cpus $nproc \
-          --outdir prokka \
-          --prefix $isolate \
-          --force \
-          --centre C \
-          --locustag L \
-	  --quiet \
-      $fasta
 wait
 
-printf "
-prokka    --genus Mycobacterium \n
-          --kingdom bacteria \n
-          --rfam \n
-          --rnammer \n
-          --gram pos \n
-          --usegenus \n
-          --cpus $nproc \n
-          --outdir prokka \n
-          --prefix $isolate \n
-          --force \n
-          --centre C \n
-          --locustag L \n
-	  --quiet \n
-      $fasta\n
-"
+if [ ! -f prokka/$isolate.gbk ]
+then
+	printf "prokka --genus Mycobacterium --kingdom bacteria --rfam --proteins $ref_cds --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka --prefix $isolate --force --centre C --locustag L --quiet $fasta\n"
+	prokka --genus Mycobacterium --kingdom bacteria --rfam --proteins $ref_cds --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka --prefix $isolate --force --centre C --locustag L --quiet $fasta
+else
+	printf "prokka/$isolate.gbk already exists\n"
+fi
 
-prokka    --genus Mycobacterium \
-          --kingdom bacteria \
-          --rfam \
-          --rnammer \
-          --gram pos \
-          --usegenus \
-          --cpus $nproc \
-          --outdir prokka \
-          --prefix $isolate \
-          --force \
-          --centre C \
-          --locustag L \
-	  --quiet \
-      $fasta
 wait
 
-sed -i 's/ ; ; ; ; ;/; SV 1; circular; genomic DNA; HTG; PRO;/g; s/order(join/join/g; s/complement(order/complement/g' ratt/*.final.embl
-annomerge -i $isolate -o annomerge/$isolate.gbk -l annomerge/$isolate.log > annomerge/annomerge.log && seqret $isolate.gbk $isolate.gff -feature -osf gff
+if [ ! -f prokka-noreference/$isolate.gbk ]
+then
+	printf "prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka-noreference --prefix $isolate --force --centre C --locustag L --quiet $fasta\n"
+
+prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka-noreference --prefix $isolate --force --centre C --locustag L --quiet $fasta
+else
+	printf "prokka-noreference/$isolate.gbk already exists\n"
+fi
+
+# wait
+
+if [ ! -f annomerge/$isolate.gbk ]
+then
+	sed -i 's/ ; ; ; ; ;/; SV 1; circular; genomic DNA; HTG; PRO;/g; s/order(join/join/g; s/complement(order/complement/g' ratt/*.final.embl
+	annomerge -i $isolate -o annomerge/$isolate.gbk -l annomerge/$isolate.log > annomerge/annomerge.log && seqret annomerge/$isolate.gbk annomerge/$isolate.gff -feature -osf gff
+else
+	printf "annomerge/$isolate.gbk already exists\n"
+fi
+
 wait
 cd ..
 
