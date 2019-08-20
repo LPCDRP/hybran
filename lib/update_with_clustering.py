@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.7
 
 import os
 import pickle
@@ -646,47 +645,28 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
                 if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
                     logger.warning('The following locus_tags are missing in the genbank file')
                     logger.warning(Set(locus_to_update).difference(Set(modified_locus)))
-            if not suffix:
-                SeqIO.write(isolate_records, genbank_file, 'genbank')
-            else:
-                SeqIO.write(isolate_records, gbk_dir + '/' + isolate + suffix + '.gbk', 'genbank')
+            SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 
-def arguments():
-    parser = argparse.ArgumentParser(description='Update feature information for a set of annotations based on '
-                                                 'clustering using CDHIT/MCL. If the Genbank files should not be '
-                                                 'overwritten, pass in -s/--suffix [suffix-name] to create new '
-                                                 'Genbank files.')
-    parser.add_argument('-c', '--clusters', help='Output from cluster.py (clustered_proteins)')
-    parser.add_argument('-d', '--dir', help='Directory that contains all annotations entered into the cluster.py. '
-                                            'Genbank format required')
-    parser.add_argument('-s', '--suffix', help='Suffix output file name if the input Genbank files should not be '
-                                               'overwritten. Default is to overwrite the existing Genbank files',
-                        required=False)
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-    return parser.parse_args()
+def updateGBK(gffs, clusters):
+    """
 
-
-def main():
-    args = arguments()
+    :param gffs:
+    :param clusters:
+    :return:
+    """
     logger = logging.getLogger('ClusterProteins')
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG,
-                            format='%(asctime)s:INFO:%(name)s:%(message)s')
-    else:
-        logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s:INFO:%(name)s:%(message)s')
 
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
-    logger.info('Retrieving reference protein sequences from GFFs in ' + args.dir)
-    reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=args.dir)
+    logger.info('Retrieving reference protein sequences from GFFs in ' + gffs)
+    reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=gffs)
     logger.info('Identifying unannotated proteins (signified by absence of a gene name)')
     mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
     mtb_increment = find_largest_mtb_increment(unannotated_fasta=mtb_genes_fp)
-    logger.info('Parsing ' + args.clusters)
-    clusters = parse_clustered_proteins(clustered_proteins=args.clusters,
-                                        annotations=args.dir)
+    logger.info('Parsing ' + clusters)
+    clusters = parse_clustered_proteins(clustered_proteins=clusters,
+                                        annotations=gffs)
     multi_gene_cluster = clusters[0]
     single_gene_cluster = clusters[1]
     candidate_novel_gene_cluster = clusters[2]
@@ -710,14 +690,9 @@ def main():
                                        reference_fasta=reference_protein_fastas,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment)
-    logger.info('Updating Genbank files in ' + args.dir)
+    logger.info('Updating Genbank files in ' + gffs)
     add_gene_names_to_gbk(mtb_pickle=isolate_update_dictionary,
-                          gbk_dir=args.dir,
-                          suffix=args.suffix)
+                          gbk_dir=gffs)
     logger.info('Preparing FASTA for eggNOG functional assignments')
     prepare_for_eggnog(unannotated_seqs=mtb_genes_fp)
     logger.info('Finished')
-
-
-if __name__ == '__main__':
-    main()
