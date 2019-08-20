@@ -47,7 +47,7 @@ def iterate(fa, seq_list, nproc):
     Returns list of all results.
     """
     partial_blast = partial(blast, fa=fa)
-    pool = multiprocessing.Pool(nproc)
+    pool = multiprocessing.Pool(int(nproc))
     list_of_lists = pool.map(partial_blast,seq_list)
     pool.close()
     pool.join()
