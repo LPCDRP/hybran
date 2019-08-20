@@ -76,11 +76,6 @@ def parse_clustered_proteins(clustered_proteins, annotations):
         locus_tags = list(set(sorted([locus[0] for locus in gene_cluster_list if locus[0]])))
         return genes, locus_tags
 
-    def find_underscores(gene_cluster_list):
-        for tup in gene_cluster_list:
-            if underscore_re.search(tup[1]):
-                return True
-
     ##################################################################################################################
 
     gffs = gff_dict(annotations)
