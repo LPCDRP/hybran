@@ -13,11 +13,31 @@ from Bio.Blast.Applications import NcbiblastpCommandline
 
 
 def parse_clustered_proteins(clustered_proteins, annotations):
+    """
+    Parses clustered_proteins and categorizes each cluster into four categories
+    1. Clusters that have unannotated gene names and annotated gene names that are the same
+    2. Clusters that have a single gene
+    3. Clusters that have unannotated gene names and annotated gene names that are difference
+    4. Clusters that only have unannotated gene names
+
+    :param clustered_proteins: file name of clustering output ('clustered_proteins')
+    :param annotations: directory that has the annotations used to create the clusters
+    :return: list of dictionaries
+    """
     underscore_re = re.compile('_[0-9]$')
 
     # Private Function #
     ##################################################################################################################
     def gff_dict(annotation_dir):
+        """
+        Parses all GFFs in the annotation_dir and gets gene names and locus tags.
+        Creates a ditionary of dictionaries with isolate ID as the first key
+        and GFF ID as the inner key. Locus tag and gene names are tuple values
+        for the inner key
+
+        :param annotation_dir: str directory of GFFs
+        :return: dictionary of dictionaries
+        """
         gff_dictionary = {}
         for gff in os.listdir(annotation_dir):
             isolate_id_ltag = {}
@@ -46,6 +66,12 @@ def parse_clustered_proteins(clustered_proteins, annotations):
 
     # Different gene names/Rvs in cluster
     def different_genes(gene_cluster_list):
+        """
+        Collates all unique gene names and locus tags in a given cluster
+
+        :param gene_cluster_list: list of tuples containing locus tags and gene names
+        :return: two lists
+        """
         genes = list(set(sorted([gene[1] for gene in gene_cluster_list])))
         locus_tags = list(set(sorted([locus[0] for locus in gene_cluster_list if locus[0]])))
         return genes, locus_tags
@@ -119,10 +145,15 @@ def parse_clustered_proteins(clustered_proteins, annotations):
 
 def get_top_hit(all_hits_dict):
     """
-    :param all_hits_dict: This dictionary consists of all Blast hits with corresponding unannotated locus_tag that have
+    Gets best BLASTP hit based on amino acid sequence identity
+
+    :param all_hits_dict: This dictionary consists of all Blast hits
+    with corresponding unannotated locus_tag that have
     passed the defined thresholds for amino acid identity and coverage
-    :return: returns only the elements of top hits with the locus tag. The key is the 'L(2)_' locus tag and the value is
-     corresponding top hit in H37Rv. If multiple top hits are present with same identity and coverage values, the value
+    :return: list of only the elements of top hits with the locus tag.
+    The key is the 'L(2)_' locus tag and the value is
+     corresponding top hit in H37Rv. If multiple top hits are
+     present with same identity and coverage values, the value
      is all the top Rv hits separated by ':'
     """
     top_hit_identity = 0
@@ -135,8 +166,12 @@ def get_top_hit(all_hits_dict):
 
 def identify_top_hits(blast_output_file, identity=95, coverage=95):
     """
+    Iterates over BLASTP output and determines all the best
+    hits based on identity and alignment coverage
+
     :param blast_output_file: Output file from Blastp
-    :return: Dictionary of top hits for each unannotated locus that passes the identity and coverage threshold
+    :return: Dictionary of top hits for each unannotated locus that
+    passes the identity and coverage threshold
     """
     all_hits_dict = {}
     blast_output_raw = blast_output_file.split('\n')
@@ -168,6 +203,14 @@ def identify_top_hits(blast_output_file, identity=95, coverage=95):
 
 
 def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
+    """
+    Updates a global dictionary with new gene name assignments
+
+    :param isolate_id: str isolate ID
+    :param isolate_ltag: str locus tag to update
+    :param new_gene_name: str gene name to assign
+    :return: None
+    """
     logger = logging.getLogger('NameGene')
     if isolate_id not in isolate_update_dictionary.keys():
         isolate_update_dictionary[isolate_id] = {}
@@ -182,6 +225,14 @@ def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
 
 
 def get_cluster_fasta(rep, cluster_list):
+    """
+    Identifies all remaining unannotated genes and adds them to
+    the unannotated sequence FASTA
+
+    :param rep: str gene name
+    :param cluster_list: list of isolates that have the gene
+    :return: FASTA file name and list of unannotated genes
+    """
     rep_isolate_id = rep.split(',')[0]
     rep_locus = rep.split(',')[1]
     rep_gene_name = rep.split(',')[2]
@@ -220,7 +271,14 @@ def get_cluster_fasta(rep, cluster_list):
 
 
 def cluster_annotation_presence(cluster_list):
-    # Assumes representative sequence is also present in cluster_list
+    """
+    Checks if all genes in the cluster list have a gene name
+
+    Assumes representative sequence is also present in cluster_list
+    :param cluster_list: List of tuples
+    :return: bool
+    """
+
     annotated = 0
     for gene in cluster_list:
         gene_locus = gene[1]
@@ -234,6 +292,13 @@ def cluster_annotation_presence(cluster_list):
 
 
 def find_largest_mtb_increment(unannotated_fasta):
+    """
+    Based on a given unannotated FASTA, identifies the highest
+    numbered increment of MTBs
+
+    :param unannotated_fasta: FASTA file name
+    :return: int
+    """
     mtbs = []
     for record in SeqIO.parse(unannotated_fasta, 'fasta'):
         mtbs.append(record.id)
@@ -244,9 +309,21 @@ def find_largest_mtb_increment(unannotated_fasta):
 
 
 def ref_seqs(gbk_dir):
+    """
+    Creates a FASTA with unique sequences based on a given directory
+    of reference Genbank files
 
+    :param gbk_dir: str directory name
+    :return: str FASTA file name and a dictionary of dictionaries
+    """
     def create_allseq_dict(fa):
-        """Parses FASTA input, creates dictionary with sequence ID as key and the sequence as the value"""
+        """
+        Parses FASTA input, creates dictionary with
+        sequence ID as key and the sequence as the value
+
+        :param fa: FASTA file name
+        :return: dict of record IDs and sequences
+        """
         fasta_dict = {}
         for record in SeqIO.parse(fa, "fasta"):
             sequence = str(record.seq)
@@ -254,7 +331,14 @@ def ref_seqs(gbk_dir):
         return fasta_dict
 
     def run_cdhit(nproc, input, output):
-        """Runs cdhit with a sequence identity threshold of 0.98."""
+        """
+        Runs cdhit with a sequence identity threshold of 0.99.
+
+        :param nproc: str number of processors to use
+        :param input: str input file name
+        :param output: str output file name
+        :return: subprocess.stdout
+        """
         cmd = ['cdhit',
                '-i', input,
                '-o', output,
@@ -268,8 +352,14 @@ def ref_seqs(gbk_dir):
         return out
 
     def create_reps_dict(in_clusters):
-        """Creates a dictionary with the representative sequence ID from each cluster as the key
-        and the corresponding sequences as the value."""
+        """
+        Creates a dictionary with the representative
+        sequence ID from each cluster as the key
+        and the corresponding sequences as the value.
+
+        :param  in_clusters: str file name of clusters
+        :return: dict of representatives and the CDHIT clusters and a list of represetatives
+        """
         clusters = []
         rep_dict = {}
         rep = ''
@@ -295,7 +385,15 @@ def ref_seqs(gbk_dir):
         return rep_dict, reps
 
     def create_reps_fasta(output, reps, rep_seq_id_dict):
-        """Creates a FASTA file that has sequence ID and sequence for each representative"""
+        """
+        Creates a FASTA file that has sequence ID
+        and sequence for each representative
+
+        :param output: str output file name
+        :param reps: list of representatives
+        :param rep_seq_id_dict: dict of representatives and sequences
+        :return: None
+        """
         seq_list = []
         for id_key in reps:
             record = SeqRecord(Seq(rep_seq_id_dict[id_key]), id=id_key, description="")
@@ -303,6 +401,14 @@ def ref_seqs(gbk_dir):
         SeqIO.write(seq_list, output, "fasta")
 
     def cd_hit(nproc, fasta, out):
+        """
+        Executes CDHIT
+
+        :param nproc: str number of processors
+        :param fasta: str FASTA file name
+        :param out: str output file name
+        :return: None
+        """
         logger = logging.getLogger('CDHIT')
         logger.debug('Running CDHIT on reference annotations')
         cdhit_stdout = run_cdhit(nproc, fasta, out)
@@ -311,6 +417,12 @@ def ref_seqs(gbk_dir):
         create_reps_fasta(out, rep_list, OGdict)
 
     def grep_seqs(gff):
+        """
+        Finds all translations in a given GFF
+
+        :param gff: str GFF file anme
+        :return: list of GFF lines
+        """
         cmd = ['grep', 'translation=', gff]
         translations = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         return [line for line in translations.stdout]
@@ -345,6 +457,13 @@ def ref_seqs(gbk_dir):
 
 
 def blast(subject, stdin_seq):
+    """
+    BLASTP the stdin_seq against the subject file
+
+    :param subject: str FASTA file name
+    :param stdin_seq: str amino acid sequence
+    :return: list BLAST output
+    """
     blast_command = NcbiblastpCommandline(subject=subject,
                                           outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
     stdout, stderr = blast_command(stdin=str(stdin_seq))
@@ -352,6 +471,12 @@ def blast(subject, stdin_seq):
 
 
 def find_unannotated_genes(reference_protein_fasta):
+    """
+    Identifies all unannotated sequences in the reference proteome
+
+    :param reference_protein_fasta: str FASTA file
+    :return: str unannotated FASTA file name
+    """
     unannotated_seqs = []
     for record in SeqIO.parse(reference_protein_fasta, 'fasta'):
         if record.id.startswith('MTB'):
@@ -363,6 +488,13 @@ def find_unannotated_genes(reference_protein_fasta):
 
 
 def prepare_for_eggnog(unannotated_seqs):
+    """
+    Creates a FASTA file of unannotated sequences that have not
+    been annotated through EggNOG
+
+    :param unannotated_seqs: str FASTA file name
+    :return: None
+    """
     eggnog_seqs = []
     for record in SeqIO.parse(unannotated_seqs, 'fasta'):
         if 'False' in record.description:
@@ -373,11 +505,22 @@ def prepare_for_eggnog(unannotated_seqs):
 
 
 def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_increment):
+    """
+    If a cluster has only one gene (with no gene names),
+    then BLAST representative sequence to H37Rv and if there
+    is a hit with specified amino acid and coverage thresholds,
+    all candidate novel genes in the cluster is annotated
+    with the H37Rv gene. If the representative does not hit a H37Rv,
+    assign a MTB locus tag to the genes in the  cluster.
+
+    :param singleton_dict: dict of clusters
+    :param reference_fasta: str reference FASTA proteome
+    :param unannotated_fasta: str unannotated FASTA file
+    :param mtb_increment: int increment to start new MTBs
+    :return: int updated increment of MTBs
+    """
     logger = logging.getLogger('SingletonClusters')
-    # 3. If a cluster has only one gene (with no gene names), then BLAST representative sequence to H37Rv and if there
-    # is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster is annotated
-    #  with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes in the
-    # cluster.
+
     logger.debug('Number of singleton clusters with single genes: ' + str(len(singleton_dict)))
     new_unannotated_seqs = []
     for single_gene in singleton_dict:
@@ -413,11 +556,23 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
 
 
 def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_increment):
+    """
+    If a cluster has only candidate novel genes (with no gene names),
+    then BLAST representative sequence to H37Rv
+    and if there is a hit with specified amino acid
+    and coverage thresholds, all candidate novel genes in the cluster
+    is annotated with the H37Rv gene. If the representative does
+    not hit a H37Rv, assign a MTB locus tag to the genes
+    in the cluster.
+
+    :param in_dict: dict of clusters
+    :param reference_fasta: str reference FASTA proteome
+    :param unannotated_fasta: str unannotated FASTA file
+    :param mtb_increment: int increment to start new MTBs
+    :return: int updated increment of MTBs
+    """
     logger = logging.getLogger('NewGeneClusters')
-    # 2. If a cluster has only candidate novel genes (with no gene names), then BLAST representative sequence to H37Rv
-    # and if there is a hit with specified amino acid and coverage thresholds, all candidate novel genes in the cluster
-    # is annotated with the H37Rv gene. If the representative does not hit a H37Rv, assign a MTB locus tag to the genes
-    # in the cluster.
+
     logger.debug('Number of clusters with no gene names: ' + str(len(in_dict.keys())))
     new_unannotated_genes = []
     rep_records = []
@@ -476,10 +631,17 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
 
 
 def single_gene_clusters(single_gene_dict):
+    """
+    Handling clusters with only one Rv/gene name in cluster
+    If cluster has candidate novel genes (L_***** or L2_*****)
+    clustered together with a H37Rv annotation, update
+    all candidate novel genes in this cluster with the H37Rv gene name.
+
+    :param single_gene_dict: dict of clusters
+    :return: None
+    """
     logger = logging.getLogger('ClustersWithOneGeneName')
-    # 1. Handling clusters with only one Rv/gene name in cluster
-    # 1. If cluster has candidate novel genes (L_***** or L2_*****) clustered together with a H37Rv annotation, update
-    #  all candidate novel genes in this cluster with the H37Rv gene name.
+
     rep_ltag_keys = []
     logger.debug('Number of clusters with single genes: ' + str(len(single_gene_dict.keys())))
     for key_sgc in single_gene_dict:
@@ -524,8 +686,17 @@ def single_gene_clusters(single_gene_dict):
 
 
 def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta, mtb_increment):
-    # 4. If a cluster has multiple H37Rv genes and L_tags, BLAST the L_tags to all genes in the cluster that are H37Rv
-    # and annotate L_tag with the top hit.
+    """
+    If a cluster has multiple H37Rv genes and L_tags,
+    BLAST the L_tags to all genes in the cluster that are H37Rv
+    and annotate L_tag with the top hit.
+
+    :param in_dict: dict of clusters
+    :param single_gene_cluster_complete: dict of clusters that have a single sequence
+    :param unannotated_fasta: str unannotated FASTA file
+    :param mtb_increment: int increment to start new MTBs
+    :return: int updated increment of MTBs
+    """
     logger = logging.getLogger('ClustersWithManyGeneNames')
     logger.debug('Number of clusters that have many gene names and genes with no name ' + str(len(in_dict.keys())))
     mgc_output = []
@@ -590,7 +761,14 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
     return mtb_increment, single_gene_cluster_complete
 
 
-def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
+def add_gene_names_to_gbk(mtb_pickle, gbk_dir):
+    """
+    Updates the Genbank files with the new gene names based on clustering
+
+    :param mtb_pickle: dict of isolates and gene names to update
+    :param gbk_dir: str directory of Genbanks to update
+    :return: None
+    """
     logger = logging.getLogger('UpdateGenbank')
     gbk_files = os.listdir(gbk_dir)
     isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
@@ -645,10 +823,12 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir, suffix):
 
 def updateGBK(gffs, clusters):
     """
+    Executes all functions to parse the clustering file and update
+    all Genbanks
 
-    :param gffs:
-    :param clusters:
-    :return:
+    :param gffs: str directory of GFFs
+    :param clusters: str cluster file
+    :return: None
     """
     logger = logging.getLogger('ClusterProteins')
 
