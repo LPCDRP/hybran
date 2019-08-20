@@ -1,18 +1,13 @@
 
 import os
-import pickle
 import re
-import sys
 import tempfile
-import argparse
-import glob
 import subprocess
 import logging
 from sets import Set
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio.SeqFeature import SeqFeature, FeatureLocation
 from collections import OrderedDict
 from Bio.Blast.Applications import NcbiblastpCommandline
 
