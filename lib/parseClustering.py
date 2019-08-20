@@ -825,7 +825,7 @@ def parseClustersUpdateGBKs(gffs, clusters):
     :param clusters: str cluster file
     :return: None
     """
-    logger = logging.getLogger('ClusterProteins')
+    logger = logging.getLogger('ParseClusters')
 
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
