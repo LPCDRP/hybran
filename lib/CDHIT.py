@@ -14,11 +14,11 @@ def create_allseq_dict(fa):
     
 
 def run_cdhit(nproc, input, output):
-    """Runs cdhit with a sequence identity threshold of 0.98."""
+    """Runs cdhit with a sequence identity threshold of 0.95."""
     cmd = ['cdhit',
            '-i', input,
            '-o', output,
-           '-c', '0.98',
+           '-c', '0.95',
            '-T', str(nproc),
            '-g', '1',
            '-s', '1',
