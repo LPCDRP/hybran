@@ -140,6 +140,10 @@ def update_gbks():
                     feature.qualifiers['note'] = [new_note]
                 else:
                     feature.qualifiers['note'].append(new_note)
+                # If it was transferred from a genome that was already annotated with EggNOG
+                # Skip this CDS
+                if [n for n in feature.qualifiers['note'] if n.startswith('Eggnog')]:
+                    continue
                 if annotation_info[2] != 'NA':
                     annotation_note = 'Eggnog:annotation:' + annotation_info[2]
                     feature.qualifiers['note'].append(annotation_note)
