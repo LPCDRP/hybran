@@ -1,8 +1,7 @@
 #!/usr/bin/env python2.7
 
-
 __author__ = "Deepika Gunasekaran"
-__version__ = "1.0.6"
+__version__ = "2.0.0"
 __maintainer__ = "Deepika Gunasekaran"
 __email__ = "dgunasekaran@sdsu.edu"
 __status__ = "Development"
@@ -17,9 +16,7 @@ __status__ = "Development"
 import sys
 import argparse
 import Bio
-from BCBio import GFF
 from Bio import SeqIO
-from Bio import Seq
 from Bio.Seq import translate
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
@@ -29,10 +26,37 @@ from numpy import median
 import os
 import tempfile
 import pickle
-import datetime
+import logging
+import time
 
 
-def get_prom_for_rv(feature_list, source_seq):
+def get_global_variables(proteome_fasta):
+
+    # DESCRIPTION: This function gets all the global variables for annomerge.
+    # 1. A list of genes for the reference protein fasta
+
+    global reference_gene_list
+    # CAUTION!!!
+    # ASSUMPTION: Headers in ref_proteome.fasta is in the format '>Rv0001' containing locus tag instead of gene name
+    ref_fasta_records = SeqIO.parse(proteome_fasta, 'fasta')
+    for record in ref_fasta_records:
+        gene_name = record.description.split('>')[1]
+        reference_gene_list.append(gene_name)
+    return
+
+
+def get_prom_for_gene(feature_list, source_seq):
+
+    # DESCRIPTION: This function gets the promoter sequence (40 bp upstream of gene) for a set of features, stores the
+    # sequences in a temporary nucleotide FASTA and generates a dictionary key to reference these FASTA by headers for
+    # each feature in the list
+    '''
+    :param feature_list: list of type SeqFeature (Biopython feature) formats
+    :param source_seq: Nucleotide sequence of genome
+    :return: Dictionary key to reference temporary FASTA file with promoter sequences, key is the locus tag from feature
+     list and value is the FASTA header
+    '''
+
     rv_prom_dict = {}
     for f in feature_list:
         if f.type != 'CDS':
@@ -70,10 +94,12 @@ def get_prom_for_rv(feature_list, source_seq):
 
 
 def get_ordered_features(feature_list):
-    """
-    :param feature_list: list of features of type SeqFeature
-    :return: sorted list of features, sorted by genomic location
-    """
+
+    # DESCRIPTION: This function takes list of features and returns the list sorted by genomic location
+    '''
+    :param feature_list: list of type SeqFeature (Biopython feature) formats
+    :return: sorted list of type SeqFeature (Biopython feature) formats, sorted by genomic location
+    '''
 
     features_dict = {}
     ordered_features = []
@@ -92,10 +118,15 @@ def get_ordered_features(feature_list):
 
 
 def remove_duplicate_cds(feature_list):
-    """
-    :param feature_list:  list of features of type SeqFeature
-    :return: list of features after removing duplicate CDSs i.e. annotation of same gene in same position
-    """
+
+    # DESCRIPTION: This function parses through a list of CDSs and returns a unique list of CDSs i.e. removes duplicate
+    # annotations which are in the same location in the genome with same locus tag
+    '''
+    :param feature_list: list of type SeqFeature (Biopython feature) formats
+    :return: list of type SeqFeature (Biopython feature) formats after removing duplicate CDSs i.e. annotation of same
+    gene in same position
+    '''
+
     unique_feature_list = []
     added_cds = []
     for feature in feature_list:
@@ -113,8 +144,9 @@ def remove_duplicate_cds(feature_list):
 
 
 def generate_feature_dictionary(feature_list):
-    # This function takes as input a list of features and returns a dictionary with the key as a tuple of feature
-    # start and stop positions and the value as the feature.
+
+    # DESCRIPTION: This function takes as input a list of features and returns a dictionary with the key as a tuple of
+    # feature start and stop positions and the value as the feature.
     """
     :param feature_list: List of features (SeqFeature objects)
     :return: sorted dictionary ordered by the genomic position i.e. feature location
@@ -127,55 +159,44 @@ def generate_feature_dictionary(feature_list):
     return sorted_feature_dict
 
 
-def get_prokka_features_with_gene_name(all_prokka_features):
-    """
-    :param all_prokka_features: Input is a list of features from Prokka
-    :return: returns 2 dictionarys; prokka annotations corresponding to Rv, and novel annotations where keys are locus
-    tags and values are features
-    """
-    prokka_rv_features = {}
-    novel_cds_prokka = {}
-    for feature in all_prokka_features:
-        if feature.type == 'CDS' and 'gene' in feature.qualifiers.keys():
-            rv_gene = feature.qualifiers['gene'][0]
-            if rv_gene not in prokka_rv_features.keys():
-                prokka_rv_features[rv_gene] = [feature]
-            else:
-                prokka_rv_features[rv_gene].append(feature)
-        elif feature.type == 'CDS' and 'gene' not in feature.qualifiers.keys():
-            locus_tag = feature.qualifiers['locus_tag'][0]
-            if locus_tag not in novel_cds_prokka.keys():
-                novel_cds_prokka[locus_tag] = [feature]
-            else:
-                novel_cds_prokka[locus_tag].append(feature)
-    output_file.write('Prokka annotation from Rv: ' + str(len(prokka_rv_features.keys())) + '\n')
-    output_file.write('Prokka novel annotations: ' + str(len(novel_cds_prokka)) + '\n')
-    return prokka_rv_features, novel_cds_prokka
-
-
 def check_for_dnaA(feature_list):
-    # This function takes as input a list of features and checks if the genome was circularized
+
+    # DESCRIPTION: This function takes as input a list of features and checks if the genome was circularized and if dnaA
+    # is the first annotated CDS in the annotation file.
     """
-    :param feature_list: List of features in the RATT annotation record (EMBL file)
+    :param feature_list: List of features in the RATT annotation record (SeqFeature objects)
     :return: None
     """
+
+    logger = logging.getLogger('check_for_dnaA')
+    logger.info('Checking if dnaA is the first CDS')
     feature_dictionary = generate_feature_dictionary(feature_list)
     for cds in feature_dictionary.keys():
         if feature_dictionary[cds].type != 'CDS':
             continue
-        if feature_dictionary[cds].qualifiers['locus_tag'][0] != 'Rv0001':
-            print('DnaA is not the first gene in this genome. Possible circularization error')
+        # Checks for both 'Rv0001' if reference is H37Rv, else looks for dnaA in the gene_name
+        if 'gene' not in feature_dictionary[cds].qualifiers.keys():
+            gene_name = feature_dictionary[cds].qualifiers['locus_tag'][0]
+        else:
+            gene_name = feature_dictionary[cds].qualifiers['gene'][0]
+        if feature_dictionary[cds].qualifiers['locus_tag'][0] != 'Rv0001' and gene_name != 'dnaA':
+            logger.info('DnaA is not the first gene in this genome. Possible circularization error')
+            logger.info('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
             sys.exit()
-        elif feature_dictionary[cds].qualifiers['locus_tag'][0] == 'Rv0001' and \
+        elif (feature_dictionary[cds].qualifiers['locus_tag'][0] == 'Rv0001' or gene_name == 'dnaA') and \
                 int(feature_dictionary[cds].location.start) == 0:
             break
         else:
-            print('DnaA is the first gene in this genome. But the position is off')
+            logger.info('DnaA is the first gene in this genome. But the position is off.')
+            logger.info('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
             sys.exit()
     return
 
 
 def get_ratt_corrected_genes(ratt_report_fp):
+
+    # DESCRIPTION: This function parses through the RATT results and gets the gene for which the start/stop coordinates
+    # were corrected by RATT
     """
     :param ratt_report_fp: Correction Report from RATT
     :return: returns list of genes whose start/stop has been corrected by RATT
@@ -186,7 +207,7 @@ def get_ratt_corrected_genes(ratt_report_fp):
         if len(line) <= 1:
             continue
         gene = line.strip().split()[0]
-        if gene[:2] != 'Rv':
+        if gene not in reference_gene_list:
             continue
         if gene not in corrected_genes_list:
             corrected_genes_list.append(gene)
@@ -194,14 +215,18 @@ def get_ratt_corrected_genes(ratt_report_fp):
 
 
 def rename_locus(gene, strand):
+
+    # DESCRIPTION: This function checks names of existing locus tags in the reference and names the newly merged gene
+    # ensuring that the new name does not conflict with existing locus tags
     """
     :param gene: gene name to be modified
-    :param strand: strand information to check if gene is present in complementary strand
+    :param strand: strand information to check if gene is present in complementary strand (- or '-1' or -1)
     :return: new gene name for merged gene
     """
-    # This function checks names of existing locus tags in H37Rv and names the newly merged gene ensuring that the new
-    # name does not conflict with existing locus tags
-    char_start = 65 # ASCII conversion of 'A'
+
+    char_start = 65  # ASCII conversion of 'A'
+    # CAUTION!!!
+    # ASSUMTION: Format of the gene name/ locus tag from RATT
     gene_name = gene[:6]
     if strand == '-1' or strand == '-' or strand == -1:
         # Adding in 'c' to denote gene is located in the complementary strand
@@ -219,9 +244,17 @@ def rename_locus(gene, strand):
 
 
 def identify_merged_genes(ratt_features):
-    # This function takes as input a list features annotated in RATT and identifies instances of merged CDS annotations.
-    # The function returns a Boolean value (True if such instances are identified) and a dictionary with the strand as
-    # the key and locations of the merged genes as values
+
+    # DESCRIPTION: This function takes as input a list features annotated in RATT and identifies instances of merged CDS
+    # annotations. The function returns a Boolean value (True if such instances are identified) and a dictionary with
+    # the strand as the key and locations of the merged genes as values.
+    '''
+    :param ratt_features: List of features from RATT (SeqFeature objects)
+    :return: Dictionary of merged genes with keys as strand (-1 or 1) and list of gene location tuples (gene start,
+    gene end) as values and boolean to indicate if merged genes are identified from RATT annotation.
+    '''
+
+    logger = logging.getLogger('identify_merged_genes')
     ratt_annotations = {}   # This dictionary holds 2 keys '-1' and '+1' denoting the strand and locations of all CDS
     # annotations in RATT for each strand
     ratt_unmerged_genes = {}
@@ -255,16 +288,25 @@ def identify_merged_genes(ratt_features):
                 merged_genes = True
                 continue
             else:
-                print('UNACCOUNTED CASE')
-                print(gene_location)
+                logger.debug('UNACCOUNTED CASE')
+                logger.debug(gene_location)
     return ratt_merged_genes, merged_genes
 
 
 def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features):
-    # This function takes as input the dictionary of merged genes from the identify_merged_genes function, a list of
-    # Prokka features and a list of RATT features and returns annotation for the merged genes from,
+
+    # DESCRIPTION: This function takes as input the dictionary of merged genes from the identify_merged_genes function,
+    # a list of Prokka features and a list of RATT features and returns annotation for the merged genes from,
     # Prokka: If the genes are annotated as merged in both RATT and Prokka
     # RATT: If Prokka does not annotate these genes as merged
+    '''
+    :param merged_genes: Dictionary of merged genes by strand (output from identify_merged_genes)
+    :param prokka_features: List of features form Prokka (SeqFeature objects)
+    :param ratt_features: List of features from RATT (SeqFeature objects)
+    :return:
+    '''
+
+    logger = logging.getLogger('get_annotation_for_merged_genes')
     check_positions_for_annotation = dict(merged_genes)
     merged_gene_locus = {}
     merged_features_addition = []
@@ -297,8 +339,8 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                 if other_features.qualifiers['locus_tag'][0] not in locus_to_remove_gene_tags:
                     final_ratt_features.append(other_features)
             else:
-                print('This gene feature does not have a locus tag annotation in RATT')
-                print(other_features)
+                logger.debug('This gene feature does not have a locus tag annotation in RATT')
+                logger.debug(other_features)
         else:
             final_ratt_features.append(other_features)
     if len(prokka_features) == 0:
@@ -325,11 +367,11 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                 merged_features_string = ",".join(merged_gene_locus[feature_location])
                 if 'note' not in feature.qualifiers.keys():
                     feature.qualifiers['note'] = ['The genes ' + merged_features_string +
-                                                  ' in H37Rv(NC_000962.3) are merged in this isolate '
+                                                  ' in reference) are merged in this isolate '
                                                   '(annotation from Prokka)']
                 else:
                     feature.qualifiers['note'].append('The genes ' + merged_features_string +
-                                                      ' in H37Rv(NC_000962.3) are merged in this isolate '
+                                                      ' in in reference) are merged in this isolate '
                                                       '(annotation from Prokka)')
                 merged_genes[feature.location.strand].remove(feature_location)
                 merged_features_addition.append(feature)
@@ -354,11 +396,11 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
         new_feature.qualifiers['locus_tag'] = [new_gene_name]
         if 'note' in new_feature.qualifiers.keys():
             new_feature.qualifiers['note'].append('The genes ' + merged_features_string +
-                                                  ' in H37Rv(NC_000962.3) are merged in this isolate '
+                                                  ' in reference) are merged in this isolate '
                                                   '(annotation from RATT)')
         else:
             new_feature.qualifiers['note'] = ['The genes ' + merged_features_string +
-                                              ' in H37Rv(NC_000962.3) are merged in this isolate '
+                                              ' in reference) are merged in this isolate '
                                               '(annotation from RATT)']
         merged_features_addition.append(new_feature)
         merged_genes[new_feature.location.strand].remove(location)
@@ -369,137 +411,39 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     return merged_features_addition, corner_cases, merged_genes, final_ratt_features, final_prokka_features
 
 
-def check_corresponding_prokka_annotation(overlapping_gene_info, prokka_cds):
-    locus_tag = overlapping_gene_info[0]
-    ratt_gene_start = overlapping_gene_info[1]
-    ratt_gene_end = overlapping_gene_info[2]
-    ratt_gene_strand = overlapping_gene_info[3]
-    return_feature_dict = {}
-    prokka_cds_keys_str = '\t'.join(prokka_cds.keys())
-    # This ensures partial hits in Prokka i.e. Rv####_1, etc is considered
-    if locus_tag not in prokka_cds.keys() and locus_tag in prokka_cds_keys_str:
-        found_corresponding_prokka_annotation = True
-        same_location = False
-        return_feature = None
-        partial_annotations = {}
-        partial_annotation_keys = {}
-        for prokka_locus_tag in prokka_cds.keys():
-            if locus_tag in prokka_locus_tag:
-                partial_feature = prokka_cds[prokka_locus_tag]
-                for feature in partial_feature:
-                    feature_key = prokka_locus_tag + ':' + str(feature.location.start) + ':' + \
-                                  str(feature.location.end) + ':' + str(feature.location.strand)
-                    ann_feature_key = locus_tag + ':' + str(feature.location.start) + ':' + str(feature.location.end) +\
-                                      ':' + str(feature.location.strand)
-                    partial_annotation_keys[ann_feature_key] = feature_key
-                    if feature_key not in partial_feature:
-                        partial_annotations[feature_key] = [feature]
-                    else:
-                        partial_annotations[feature_key].append(feature)
-        ratt_feature = locus_tag + ':' + str(ratt_gene_start) + ':' + str(ratt_gene_end) + ':' + str(ratt_gene_strand)
-        if ratt_feature in partial_annotation_keys.keys():
-            same_location = True
-            prokka_partial_annotation_key = partial_annotation_keys[ratt_feature]
-            return_feature_dict[prokka_partial_annotation_key] = partial_annotations[prokka_partial_annotation_key]
-        else:
-            return_feature_dict = partial_annotations
-    elif locus_tag in prokka_cds.keys():
-        found_corresponding_prokka_annotation = True
-        prokka_features_for_gene = prokka_cds[locus_tag]
-        same_location = False
-        for feature in prokka_features_for_gene:
-            feature_start = int(feature.location.start)
-            feature_end = int(feature.location.end)
-            feature_strand = int(feature.location.strand)
-            if feature_strand == ratt_gene_strand and feature_start == ratt_gene_start and feature_end == ratt_gene_end:
-                same_location = True
-                break
-        if same_location:
-            return_feature = None
-            return_feature_dict = None
-        else:
-            return_feature = prokka_features_for_gene
-    else:
-        found_corresponding_prokka_annotation = False
-        same_location = False
-        return_feature = None
-        return_feature_dict = None
-    if return_feature is not None:
-        for feature in return_feature:
-            feature_key = locus_tag + ':' + str(feature.location.start) + ':' + str(feature.location.end) + ':' + \
-                          str(feature.location.strand)
-            return_feature_dict[feature_key] = feature
-    return found_corresponding_prokka_annotation, same_location, return_feature_dict
-
-
 def genes_locus_tag_parser(file_path=None):
+
+    # DESCRIPTION: Gets the locus tag for gene name based on text file
     """
-    :param file_path: Filepath for genes.tsv where 1st column is Rv locus tag and second column is gene name if present.
-    Default file used is $GROUPHOME/resources/mtb-reconstruction/genes.tsv
-    :return: Dictionary where keys are gene names and values are corresponding Rv locus tags.
+    :param file_path: Filepath for genes.tsv where 1st column is locus tag and second column is gene name if present and
+    third is type of feature CDS, tRNA, rRNA, etc.
+    Default file used is resources/genes.tsv
+    :return: Dictionary where keys are gene names and values are corresponding locus tags.
     """
     genes_dict = {}
     if file_path is None:
-        file_path = os.environ['GROUPHOME'] + '/resources/mtb-reconstruction/genes.tsv'
+        file_path = 'resources/genes.tsv'
     genes_raw = open(file_path, 'r').readlines()
     for line in genes_raw:
-        if line[0] != 'R':
-            continue
         line_elements = line.strip().split()
+        # CAUTION!!!
+        # ASSUMTION: .txt file contains frrst column as locus tag, second column as gene name and third column as
+        # CDS/tRNA, etc.
+        if line_elements[2] != 'CDS':
+            continue
         if line_elements[1] == line_elements[0]:
             continue
         else:
             genes_dict[line_elements[1]] = line_elements[0]
     return genes_dict
 
-
-def get_prokka_cds(all_annotations_prokka, only_rv=False):
-    prokka_cds_dict = {}
-    global gene_name_to_rv
-    gene_name_to_rv = genes_locus_tag_parser()
-    if only_rv:
-        for feature in all_annotations_prokka:
-            if feature.type != 'CDS' or 'gene' not in feature.qualifiers.keys():
-                continue
-            else:
-                dict_key = feature.qualifiers['gene'][0]
-                if dict_key[:2] != 'Rv':
-                    if dict_key in gene_name_to_rv.keys():
-                        locus_tag = gene_name_to_rv[dict_key]
-                    else:
-                        locus_tag = dict_key
-                else:
-                    locus_tag = dict_key
-                if locus_tag not in prokka_cds_dict.keys():
-                    prokka_cds_dict[locus_tag] = [feature]
-                else:
-                    prokka_cds_dict[locus_tag].append(feature)
-    else:
-        for feature in all_annotations_prokka:
-            if feature.type != 'CDS':
-                continue
-            if 'gene' in feature.qualifiers.keys():
-                dict_key = feature.qualifiers['gene'][0]
-            else:
-                dict_key = feature.qualifiers['locus_tag'][0]
-            if dict_key[:2] != 'Rv':
-                if dict_key in gene_name_to_rv.keys():
-                    locus_tag = gene_name_to_rv[dict_key]
-                else:
-                    locus_tag = dict_key
-            else:
-                locus_tag = dict_key
-            if locus_tag not in prokka_cds_dict.keys():
-                prokka_cds_dict[locus_tag] = [feature]
-            else:
-                prokka_cds_dict[locus_tag].append(feature)
-    return prokka_cds_dict
-
+#_______________COMPLETED___________________________________#
 
 def blast_feature_sequence_to_rv(query, locus_tag, to_print=False):
-    #add_annotation = False
+
+    # DESCRIPTION:
+
     if locus_tag in h37rv_sequences.keys():
-        #subject_fp = os.getcwd() + '/annomerge_tmp/' + locus_tag + '.fasta'
         subject_fp = rv_temp_fasta_dict[locus_tag]
         blast_to_rv = NcbiblastpCommandline(subject=subject_fp, outfmt='"7 qseqid qlen sseqid slen qlen length'
                                                                                ' pident qcovs"')
@@ -827,14 +771,18 @@ def identify_top_hits(blast_output_file, identity=95, coverage=95, mtb=False):
         return top_hit, all_hits_dict, notes
 
 
-def get_essential_genes():
-    gene_essentiality_fp = os.environ['GROUPHOME'] +'/resources/gene_essentiality_dejesus_2017.tsv'
-    gene_essentiality_raw = open(gene_essentiality_fp, 'r').readlines()
+def get_essential_genes(gene_essentiality_fp=None):
     essential_genes = []
-    for line in gene_essentiality_raw:
-        line_elements = line.strip().split('\t')
-        if line_elements[1] == 'ES':
-            essential_genes.append(line_elements[0])
+    if gene_essentiality_fp is None:
+        gene_essentiality_fp = 'resources/gene_essentiality_dejesus_2017.tsv'
+        gene_essentiality_raw = open(gene_essentiality_fp, 'r').readlines()
+        for line in gene_essentiality_raw:
+            line_elements = line.strip().split('\t')
+            if line_elements[1] == 'ES':
+                essential_genes.append(line_elements[0])
+    else:
+        gene_essentiality_raw = open(gene_essentiality_fp, 'r').readlines()
+        essential_genes = [line.strip() for line in gene_essentiality_raw]
     return essential_genes
 
 
@@ -906,7 +854,7 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
                         ratt_stop = int(ratt_locations.values()[0][1])
                         prom_mutation = False
                         if ratt_locations.values()[0][2] == 1:
-            	            if ratt_start == 0:
+                            if ratt_start == 0:
                                 ratt_prom_end = len(record_sequence)
                                 ratt_prom_start = len(record_sequence) - 40
                                 ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
@@ -1114,6 +1062,9 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
 #            if 'gene' in mod_feature.qualifiers.keys():
 #                print(mod_feature.qualifiers['gene'])
     return mod_feature, do_not_add_prokka
+
+
+#______________________________________________________________________________#
 
 
 def blast_ratt_rv_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_feature):
@@ -1472,6 +1423,10 @@ def main():
                         default=True)
     args = parser.parse_args()
 
+    logger = logging.getLogger('Annomerge')
+    logger.info('Running Annomerge!')
+    start_time = time.time()
+
     if args.isolate is None:
         parser.print_help()
         sys.exit('Isolate ID must be specified')
@@ -1481,6 +1436,7 @@ def main():
     if args.proteins_fasta is None:
         parser.print_help()
         sys.exit('Fasta File path containing protein sequences must be specified')
+    get_global_variables(args.proteins_fasta)
     file_path = args.filepath + args.isolate + '/'
     ratt_file_path = file_path + 'ratt'
     ratt_correction_files = []
@@ -1525,16 +1481,16 @@ def main():
     remove_temp_file_list = []
     gene_name_to_rv = genes_locus_tag_parser()
     genes_in_rv = []
-    genes_in_rv_file = os.environ['GROUPHOME'] + '/resources/H37rv_proteincoding_genes.txt'
+    genes_in_rv_file = 'resources/H37rv_proteincoding_genes.txt'
     genes_in_rv_raw = open(genes_in_rv_file, 'r').readlines()
     for line in genes_in_rv_raw:
         locus_tag = line.split()[0]
         genes_in_rv.append(locus_tag)
     h37rv_protein_lengths = get_lengths_of_genes(genes_in_rv, h37rv_protein_fasta)
-    prodigal_correction_fp = os.environ['GROUPHOME'] + '/data/depot/annotation/resources/prodigal_start_correction.p'
+    prodigal_correction_fp = 'resources/prodigal_start_correction.p'
     prodigal_correction_dict = pickle.load(open(prodigal_correction_fp, "rb" ))
-    h37rv_fasta_fp = os.environ['GROUPHOME'] + '/data/genomes/H37Rv-NCBI.fasta'
-    h37rv_embl_fp = os.environ['GROUPHOME'] + '/bin/ratt-code-18/H37Rv-NC_TSS_000962.3.embl'
+    h37rv_fasta_fp = 'resources/genomes/H37Rv-NCBI.fasta'
+    h37rv_embl_fp = 'resources/H37Rv-NC_TSS_000962.3.embl'
     h37rv_embl_record = SeqIO.read(h37rv_embl_fp, 'embl')
     h37rv_feature_dict = get_feature_by_rv(h37rv_embl_record)
     h37rv_records = list(SeqIO.parse(h37rv_fasta_fp, "fasta"))
@@ -1542,7 +1498,7 @@ def main():
     h37rv_features = h37rv_embl_record.features
     #print(h37rv_features)
     global h37rv_prom_fp_dict
-    h37rv_prom_fp_dict = get_prom_for_rv(h37rv_features, h37rv_sequence)
+    h37rv_prom_fp_dict = get_prom_for_gene(h37rv_features, h37rv_sequence)
 #    print(input_ratt_files)
 #    print(len(prokka_records))
     for i in range(0, len(input_ratt_files)):
@@ -1558,7 +1514,7 @@ def main():
         prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, prodigal_correction_dict, record_sequence, h37rv_sequence, h37rv_feature_dict)
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
-        prokka_rv_features, prokka_non_rv_features = get_prokka_features_with_gene_name(prokka_contig_features)
+#        prokka_rv_features, prokka_non_rv_features = get_prokka_features_with_gene_name(prokka_contig_features)
         if i == 0 and not args.illumina:
             check_for_dnaA(ratt_contig_features)
         if args.illumina:
@@ -2287,6 +2243,7 @@ def main():
 #        GFF.write(annomerge_records_post_processed, gff_handle, include_fasta=True)
     for temp_file in rv_temp_fasta_dict.values():
         os.unlink(temp_file)
+    logger.info('Run Time: ' + str(time.time() - start_time))
 
 
 if __name__ == "__main__":
