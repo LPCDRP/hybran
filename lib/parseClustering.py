@@ -816,7 +816,7 @@ def add_gene_names_to_gbk(mtb_pickle, gbk_dir):
             SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 
-def updateGBK(gffs, clusters):
+def parseClustersUpdateGBKs(gffs, clusters):
     """
     Executes all functions to parse the clustering file and update
     all Genbanks
