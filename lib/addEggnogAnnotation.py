@@ -117,7 +117,7 @@ def update_gbks():
         mtb_genes_in_isolate = {}
         for record in SeqIO.parse(gbk_fp, 'genbank'):
             if counter > 1:
-                output_recs.append(record)
+                output_recs.add(record)
                 counter += 1
                 continue
             rec_features = record.features
