@@ -37,7 +37,7 @@ else
 	printf "prokka-noreference/$isolate.gbk already exists\n"
 fi
 
-# wait
+wait
 
 if [ ! -f annomerge/$isolate.gbk ]
 then
