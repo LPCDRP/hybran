@@ -41,7 +41,7 @@ def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
     except OSError:
         pass
     os.chdir(isolate)
-    cmd = [script_dir + 'ratt_prokka.sh',
+    cmd = [script_dir + 'lib/ratt_prokka.sh',
            ref_dir,
            fasta,
            isolate,
@@ -149,6 +149,7 @@ def cmds():
 
 def main():
     args = cmds()
+    script_dir = os.path.abspath(os.path.dirname(__file__))
     if args.version:
         print __version__
         exit()
@@ -188,11 +189,11 @@ def main():
             run_ratt_prokka_annomerge(ref_dir=refdir,
                                       fasta=args.genomes + f,
                                       ref_cds=ref_cds,
-                                      script_dir=cwd,
+                                      script_dir=script_dir,
                                       cpus=args.nproc)
     run_clustering(annotations=args.output,
                    nproc=args.nproc)
-    run_eggnog_mapper(script_dir=cwd,
+    run_eggnog_mapper(script_dir=script_dir,
                       nproc=args.nproce,
                       emapper_loc=args.database_dir)
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
