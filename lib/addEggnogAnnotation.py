@@ -154,7 +154,7 @@ def update_gbks():
                     continue
                 else:
                     annotation_info = annotations_to_add[feature.qualifiers['gene'][0]]
-                    eggnog_gene = annotation_info[1]
+                    eggnog_gene = annotation_info[1].split('.')[1]
                     eggnog_annotation = annotation_info[2]
                     corresponding_rv = mtb_genes_in_isolate[feature.qualifiers['gene'][0]]
                     num_of_unique_mtbs = Set(rv_mtb_dict[corresponding_rv])
