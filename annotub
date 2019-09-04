@@ -42,7 +42,7 @@ def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
     except OSError:
         pass
     os.chdir(isolate)
-    cmd = [script_dir + 'lib/ratt_prokka.sh',
+    cmd = [script_dir + '/lib/ratt_prokka.sh',
            ref_dir,
            fasta,
            isolate,
