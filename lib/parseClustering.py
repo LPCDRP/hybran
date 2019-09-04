@@ -829,9 +829,9 @@ def parseClustersUpdateGBKs(gffs, clusters):
 
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
-    logger.info('Retrieving reference protein sequences from GFFs in ' + gffs)
+    logger.debug('Retrieving reference protein sequences from GFFs in ' + gffs)
     reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=gffs)
-    logger.info('Identifying unannotated proteins (signified by absence of a gene name)')
+    logger.debug('Identifying unannotated proteins (signified by absence of a gene name)')
     mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
     mtb_increment = find_largest_mtb_increment(unannotated_fasta=mtb_genes_fp)
     logger.info('Parsing ' + clusters)
@@ -843,19 +843,19 @@ def parseClustersUpdateGBKs(gffs, clusters):
     unique_gene_cluster = clusters[3]
     candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
     single_gene_cluster_complete = single_gene_cluster.copy()
-    logger.info('Annotating genes that do not have a gene name but cluster with genes that have many gene names')
+    logger.debug('Annotating genes that do not have a gene name but cluster with genes that have many gene names')
     mtb_increment, \
         updated_single_gene_clusters = multigene_clusters(in_dict=multi_gene_cluster,
                                                           single_gene_cluster_complete=single_gene_cluster_complete,
                                                           unannotated_fasta=mtb_genes_fp,
                                                           mtb_increment=mtb_increment)
-    logger.info('Annotating genes that do not have a gene name but cluster with genes that have the same gene name')
+    logger.debug('Annotating genes that do not have a gene name but cluster with genes that have the same gene name')
     single_gene_clusters(updated_single_gene_clusters)
     mtb_increment = only_ltag_clusters(in_dict=candidate_novel_gene_cluster_complete,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment,
                                        reference_fasta=reference_protein_fastas)
-    logger.info('Annotating genes that do not have a gene name and exist in a single isolate')
+    logger.debug('Annotating genes that do not have a gene name and exist in a single isolate')
     mtb_increment = singleton_clusters(singleton_dict=unique_gene_cluster,
                                        reference_fasta=reference_protein_fastas,
                                        unannotated_fasta=mtb_genes_fp,
