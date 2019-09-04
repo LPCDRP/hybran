@@ -35,7 +35,7 @@ if [ ! -f prokka-noreference/$isolate.gbk ]
 then
 	printf "\t\tprokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka-noreference --prefix $isolate --force --centre C --locustag L --quiet $fasta\n"
 
-prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka-noreference --prefix $isolate --force --centre C --locustag L --quiet $fasta
+	prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka-noreference --prefix $isolate --force --centre C --locustag L --quiet $fasta
 else
 	printf "\t\tprokka-noreference/$isolate.gbk already exists\n"
 fi
