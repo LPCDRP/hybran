@@ -115,7 +115,8 @@ def get_first_reference_proteome(genbank):
                         exit(KeyError)
                     seq_record_id = locus_tag + ':' + gene
                     seq_record = SeqRecord(Seq(feature.qualifiers['translation'][0]),
-                                           id=seq_record_id)
+                                           id=seq_record_id,
+                                           description='')
                     seqs.append(seq_record)
     with open('ref_proteome.fasta', 'w') as output:
         for s in seqs:
