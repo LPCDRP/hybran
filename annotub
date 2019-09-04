@@ -53,28 +53,29 @@ def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
 
 def run_clustering(annotations, nproc):
     logger = logging.getLogger('ClusterProteins')
-    logger.info('Parsing GFFs in ' + annotations)
-    gff_gene_dict = fastaFromGFF.create_fasta(directory=annotations)
+    c = os.getcwd()
+    try:
+        os.mkdir('clustering')
+    except OSError:
+        pass
+    os.chdir('clustering')
     fasta = 'cds_seqs.fasta'
-    clusters = CDHIT.cd_hit(nproc=nproc,
-                            fasta=fasta,
-                            out='cdhit_clusters.fasta')
-    BLAST.run_blast(fastafile='cdhit_clusters.fasta',
-                    nproc=nproc)
-    MCL.run_mcl(in_blast='blast_results',
-                cdhit_clusters=clusters,
-                out_name='clustered_proteins',
-                gene_names=gff_gene_dict)
-    files_to_remove = ['blast_results', 'cdhit_seqs.fasta', 'cdhit_seqs.fasta.clstr', 'mcxdeblast_results', 'mcl']
-    logger.info('Removing ' + ', '.join(files_to_remove))
-    for f in files_to_remove:
-        try:
-            os.remove(f)
-        except OSError:
-            continue
-    # Add update with clustering here
-    # Can assume working in CWD
-    # updateGBK() (update_with_clustering.py)
+    if fasta not in os.listdir(os.getcwd()):
+        logger.info('Parsing GFFs in ' + annotations)
+        gff_gene_dict = fastaFromGFF.create_fasta(directory=annotations)
+        clusters = CDHIT.cd_hit(nproc=nproc,
+                                fasta=fasta,
+                                out='cdhit_clusters.fasta')
+        BLAST.run_blast(fastafile='cdhit_clusters.fasta',
+                        nproc=nproc)
+        MCL.run_mcl(in_blast='blast_results',
+                    cdhit_clusters=clusters,
+                    out_name='clustered_proteins',
+                    gene_names=gff_gene_dict)
+    os.chdir(c)
+    # exit()
+    parseClustering.parseClustersUpdateGBKs(gffs=annotations,
+                                            clusters='clustering/clustered_proteins')
 
 
 def run_eggnog_mapper(script_dir, nproc, emapper_loc):

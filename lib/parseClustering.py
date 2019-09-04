@@ -442,8 +442,8 @@ def ref_seqs(gbk_dir):
                                        description=str(eggnog))
                     isolate_seqs[gff_name][locus_tag] = Seq(translation.rstrip('\n'))
                     protein_cds.append(record)
-    all_proteins = 'ref_cdss_protein-all.fasta'
-    final_proteins = 'ref_cdss_protein.fasta'
+    all_proteins = 'clustering/ref_cdss_protein-all.fasta'
+    final_proteins = 'clustering/ref_cdss_protein.fasta'
     with open(all_proteins, 'w') as ref_cds_out:
         for s in protein_cds:
             SeqIO.write(s, ref_cds_out, 'fasta')
@@ -476,10 +476,10 @@ def find_unannotated_genes(reference_protein_fasta):
     for record in SeqIO.parse(reference_protein_fasta, 'fasta'):
         if record.id.startswith('MTB'):
             unannotated_seqs.append(record)
-    with open('unannotated_seqs.fasta', 'w') as out:
+    with open('clustering/unannotated_seqs.fasta', 'w') as out:
         for s in unannotated_seqs:
             SeqIO.write(s, out, 'fasta')
-    return 'unannotated_seqs.fasta'
+    return 'clustering/unannotated_seqs.fasta'
 
 
 def prepare_for_eggnog(unannotated_seqs):
@@ -750,7 +750,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
             if len(unassigned_l_tags) > 0:
                 single_gene_cluster_complete[gene] = in_dict[gene]
             continue
-    with open('multi_gene_clusters.tsv', 'w') as out:
+    with open('clustering/multi_gene_clusters.tsv', 'w') as out:
         for line in mgc_output:
             out.write(line)
     return mtb_increment, single_gene_cluster_complete
