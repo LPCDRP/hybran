@@ -9,7 +9,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 
-from lib import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation
+from lib import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
 
 __version__ = '1.0'
 
