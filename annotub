@@ -48,7 +48,7 @@ def run_ratt_prokka_annomerge(ref_dir, fasta, ref_cds, script_dir, cpus):
            isolate,
            ref_cds,
            cpus]
-    subprocess.Popen(cmd)
+    subprocess.call(cmd)
     os.chdir(c)
 
 
@@ -85,7 +85,7 @@ def run_eggnog_mapper(script_dir, nproc, emapper_loc):
     cmd = [script_dir + 'run_emapper.sh',
            nproc,
            emapper_loc]
-    subprocess.Popen(cmd)
+    subprocess.call(cmd)
     addEggnogAnnotation.update_gbks()
 
 
