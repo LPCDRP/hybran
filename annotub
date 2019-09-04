@@ -176,8 +176,12 @@ def main():
         os.mkdir(refdir)
     except OSError:
         pass
-    logger.info('Getting first 30 reference annotations')
-    embls = [i for i in os.listdir(args.references) if i.endswith('.embl')][0:29]
+    all_embls = [i for i in os.listdir(args.references) if i.endswith('.embl')]
+    if len(all_embls) >= 30:
+        embls = all_embls[0:29]
+    else:
+        embls = all_embls
+    logger.info('Getting first ' + str(len(embls)) + ' reference annotations')
     for e in embls:
         try:
             shutil.copyfile(args.references + e, refdir + e)
