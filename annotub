@@ -81,8 +81,12 @@ def run_clustering(annotations, nproc):
 
 def run_eggnog_mapper(script_dir, nproc, emapper_loc):
     logger = logging.getLogger('OrthologousAnnotation')
-    logger.info('Functional annotation with eggnog_mapper located in ')
-    cmd = [script_dir + 'run_emapper.sh',
+    logger.info('Functional annotation with eggnog_mapper')
+    try:
+        os.mkdir('eggnog-mapper-annotations')
+    except OSError:
+        pass
+    cmd = [script_dir + '/lib/run_emapper.sh',
            nproc,
            emapper_loc]
     subprocess.call(cmd)
