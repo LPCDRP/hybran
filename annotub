@@ -1,5 +1,6 @@
 #!/usr/bin/python2.7
 import os
+import shutil
 import argparse
 import subprocess
 import logging
@@ -179,7 +180,9 @@ def main():
     embls = [i for i in os.listdir(args.references) if i.endswith('.embl')][0:29]
     for e in embls:
         try:
-            os.symlink(args.references + e, refdir + e)
+            shutil.copyfile(args.references + e, refdir + e)
+            shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gbk')
+            shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gff')
         except OSError:
             continue
     ref_cds = get_first_reference_proteome(args.references + embls[0].split('.')[0] + '.gbk')
