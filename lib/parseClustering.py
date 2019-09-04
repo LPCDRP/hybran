@@ -860,9 +860,9 @@ def parseClustersUpdateGBKs(gffs, clusters):
                                        reference_fasta=reference_protein_fastas,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment)
-    logger.info('Updating Genbank files in ' + gffs)
+    logger.info('Updating Genbank files in ' + os.getcwd())
     add_gene_names_to_gbk(mtb_pickle=isolate_update_dictionary,
-                          gbk_dir=gffs)
+                          gbk_dir=os.getcwd())
     logger.info('Preparing FASTA for eggNOG functional assignments')
     prepare_for_eggnog(unannotated_seqs=mtb_genes_fp)
     logger.info('Finished')
