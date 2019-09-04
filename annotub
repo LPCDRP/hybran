@@ -127,8 +127,8 @@ def get_first_reference_proteome(genbank):
 def cmds():
     parser = argparse.ArgumentParser(description='Annotate TUBerculosis: a pipeline to annotate Mycobacterium '
                                                  'tuberculosis de novo assembled genomes. Annotation of other species '
-                                                 'or mixing species within an annotation run is NOT recommended.\n\n'
-                                                 'Please cite: [manuscript submitted]')
+                                                 'or mixing species within an annotation run is NOT recommended.'
+                                                 '\n\nPlease cite: [manuscript submitted]')
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
     required.add_argument('-g', '--genomes', help='Directory containing all genomes desired to be annotationed. '
