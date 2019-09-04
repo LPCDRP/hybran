@@ -10,10 +10,13 @@ mkdir -p prokka prokka-noreference ratt annomerge
 
 if [ ! -f ratt/ratt-done ]
 then
-	cd ratt/ && \ 
-	$RATT_HOME/start.ratt.sh $references $fasta $isolate Strain && \ 
-	touch ratt-done && \ 
+	printf "\t\t$RATT_HOME/start.ratt.sh $references $fasta $isolate Strain\n"
+	cd ratt/;
+	$RATT_HOME/start.ratt.sh $references $fasta $isolate Strain; 
+	touch ratt-done;
 	cd ..
+else
+	printf "Annotations already transferred to $isolate\n"
 fi
 
 wait
