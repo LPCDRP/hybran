@@ -150,6 +150,7 @@ def cmds():
                           default='1')
     optional.add_argument('-v', '--version', help='Print version and exit',
                           action='store_true')
+    optional.add_argument('--verbose', action='store_true', help='Verbose output')
     return parser.parse_args()
 
 
@@ -161,9 +162,13 @@ def main():
         exit()
     verify_installations(args.database_dir)
     start_time = time.time()
-    print 'Please cite: [manuscript submitted]'
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
+    print '\n\t\t\tPlease cite:\n\t\t\t[manuscript submitted]\n\n'
+    if args.verbose:
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
+    else:
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s:INFO:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
     cwd = os.getcwd() + '/'
     # Convert all input paths to full path if not given as full path
