@@ -205,7 +205,7 @@ def main():
             genome_count += 1
             run_ratt_prokka_annomerge(ref_dir=refdir,
                                       fasta=args.genomes + f,
-                                      ref_cds=ref_cds,
+                                      ref_cds=args.output + ref_cds,
                                       script_dir=script_dir,
                                       cpus=args.nproc)
     run_clustering(annotations=args.output,
