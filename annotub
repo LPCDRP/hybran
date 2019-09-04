@@ -212,7 +212,7 @@ def main():
     run_clustering(annotations=refdir,
                    nproc=args.nproc)
     run_eggnog_mapper(script_dir=script_dir,
-                      nproc=args.nproce,
+                      nproc=args.nproc,
                       emapper_loc=args.database_dir)
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(time.time() - start_time))
