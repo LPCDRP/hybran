@@ -41,25 +41,3 @@ else
 fi
 
 wait
-
-if [ ! -f $isolate.gbk ]
-then
-	printf "\t\tannomerge -i $isolate -o $isolate.gbk\n"
-	printf "lib/annomerge.py -i $isolate -o $isolate.gbk -l annomerge/$isolate.log -fp ./ -prot $ref_cds > annomerge/annomerge.log\n"
-	sed -i 's/ ; ; ; ; ;/; SV 1; circular; genomic DNA; HTG; PRO;/g; s/order(join/join/g; s/complement(order/complement/g' ratt/*.final.embl
-	python lib/annomerge.py -i $isolate -o $isolate.gbk -l $isolate/annomerge/$isolate.log -fp ./ -prot $ref_cds > $isolate/annomerge/annomerge.log
-else
-	printf "\t\t$isolate.gbk already exists\n"
-fi
-
-if [ ! -f $isolate.gff ]
-then
-	printf "\t\tseqret $isolate.gbk $isolate.gff -feature -osf gff\n"
-	seqret $isolate.gbk $isolate.gff -feature -osf gff 2> /dev/null
-else
-	printf "\t\t$isolate.gff already exists\n"
-fi
-
-wait
-cd ..
-
