@@ -1536,8 +1536,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
         input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbf'
     except OSError:
         sys.exit('Expecting Prokka annotation file but found none')
-    output_merged_genes = 'merged_genes.gbf'
-    output_genbank = 'annomerge.gbk'
+    output_merged_genes = 'annomerge/merged_genes.gbf'
+    output_genbank = isolate_id + '.gbk'
     add_noref_annotations = fill_gaps
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
     global isolate_sequence
