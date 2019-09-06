@@ -2234,4 +2234,3 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
     final_cdss = [f for f in output_isolate_recs[0].features if f.type == 'CDS']
     logger.info('Number of CDSs annomerge: ' + str(len(final_cdss)))
     logger.info('Run Time: ' + str(time.time() - start_time))
-    return output_isolate_recs
