@@ -204,7 +204,7 @@ def check_for_dnaA(feature_list):
     """
 
     logger = logging.getLogger('check_for_dnaA')
-    logger.info('Checking if dnaA is the first CDS')
+    logger.debug('Checking if dnaA is the first CDS')
     feature_dictionary = generate_feature_dictionary(feature_list)
     for cds in feature_dictionary.keys():
         if feature_dictionary[cds].type != 'CDS':
@@ -215,15 +215,15 @@ def check_for_dnaA(feature_list):
         else:
             gene_name = feature_dictionary[cds].qualifiers['gene'][0]
         if feature_dictionary[cds].qualifiers['locus_tag'][0] != 'Rv0001' and gene_name != 'dnaA':
-            logger.info('DnaA is not the first gene in this genome. Possible circularization error')
-            logger.info('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
+            logger.debug('DnaA is not the first gene in this genome. Possible circularization error')
+            logger.debug('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
             sys.exit()
         elif (feature_dictionary[cds].qualifiers['locus_tag'][0] == 'Rv0001' or gene_name == 'dnaA') and \
                 int(feature_dictionary[cds].location.start) == 0:
             break
         else:
-            logger.info('DnaA is the first gene in this genome. But the position is off.')
-            logger.info('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
+            logger.debug('DnaA is the first gene in this genome. But the position is off.')
+            logger.debug('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
             sys.exit()
     return
 
@@ -484,7 +484,7 @@ def isolate_valid_ratt_annotations(feature_list):
     :return: List of valid RATT features (list of SeqFeature objects)
     """
     logger = logging.getLogger('isolate_valid_ratt_annotations')
-    logger.info('Parsing through RATT annotations')
+    logger.debug('Parsing through RATT annotations')
     unbroken_cds = []
     num_joins = 0
     non_cds_features = []
@@ -507,7 +507,7 @@ def isolate_valid_ratt_annotations(feature_list):
         else:
             non_cds_features.append(feature)
     valid_features = []
-    logger.info("Valid CDSs before checking coverage: " + str(len(unbroken_cds)))
+    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds)))
     for cds_feature in unbroken_cds:
         feature_sequence = translate(cds_feature.extract(record_sequence), table=11, to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
@@ -522,7 +522,7 @@ def isolate_valid_ratt_annotations(feature_list):
                 valid_features.append(cds_feature)
             else:
                 continue
-    logger.info("Valid CDSs after checking coverage: " + str(len(valid_features)))
+    logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features)))
     return valid_features
 
 
@@ -1442,7 +1442,7 @@ def pick_best_hit(ratt_feature, prokka_feature):
                     take_ratt = True
     else:
         logger.debug('No Blast Hits for the RATT annotation, hence Prokka annotation is chosen: ' + gene)
-        logger.info('Post-processing Annomerge results')
+        logger.debug('Post-processing Annomerge results')
         take_ratt = False
         logger.debug('RATT seq')
         logger.debug(ratt_seq)
@@ -1464,7 +1464,7 @@ def run_prodigal(isolate_fasta, isolate_id):
     """
     logger = logging.getLogger('run_prodigal')
     c = os.getcwd()
-    logger.info('Executing Prodigal on ' + isolate_id)
+    logger.debug('Executing Prodigal on ' + isolate_id)
     try:
         os.mkdir(isolate_id)
     except OSError:
@@ -1511,7 +1511,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
     script_dir = script_directory
     input_ratt_files = []
     logger = logging.getLogger('Annomerge')
-    logger.info('Running Annomerge!')
+    logger.debug('Running Annomerge!')
     start_time = time.time()
 
     get_global_variables(ref_proteins_fasta)
@@ -1621,7 +1621,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
         if i == 0 and not illumina:
             check_for_dnaA(ratt_contig_features)
         if illumina:
-            logger.info('DnaA might not be the first element. Circularization is not checked')
+            logger.debug('DnaA might not be the first element. Circularization is not checked')
         global ratt_corrected_genes
         if len(ratt_correction_files) == 1:
             error_correction_fp = ratt_correction_files[0]
@@ -2020,7 +2020,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
         # TODO: Delete this part. This is for internal use where unannotated genes are blasted to previously assigned
         # novel genes to transfer annotation.
         if check_mtb and len(mtb_fasta_fp) == 0:
-            logger.info('File path for novel genes not specified')
+            logger.debug('File path for novel genes not specified')
         elif check_mtb:
             mtb_fasta = mtb_fasta_fp
             for feature in prokka_rec.features:
@@ -2232,5 +2232,5 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
     for temp_file in ref_temp_fasta_dict.values():
         os.unlink(temp_file)
     final_cdss = [f for f in output_isolate_recs[0].features if f.type == 'CDS']
-    logger.info('Number of CDSs annomerge: ' + str(len(final_cdss)))
-    logger.info('Run Time: ' + str(time.time() - start_time))
+    logger.debug('Number of CDSs annomerge: ' + str(len(final_cdss)))
+    logger.debug('Run Time: ' + str(time.time() - start_time))
