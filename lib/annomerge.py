@@ -1482,7 +1482,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
     <output_merged_genes> from the commandline. The log file output stats about the features that are added to the
-    RATT annotation. The default locations for the -g and -l options are 'isolate_id'/annomerge/'isolate_id'.gbf and
+    RATT annotation. The default locations for the -g and -l options are 'isolate_id'/annomerge/'isolate_id'.gbk and
     'isolate_id'/annomerge/'isolate_id'.log
 
     :param isolate_id: ID of the isolate (Example: H37Rv, 1-0006, etc.). This is the isolate_id that is used for naming
@@ -1533,16 +1533,16 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
     except OSError:
         sys.exit('Expecting RATT annotation files but found none')
     try:
-        input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbf'
+        input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbk'
     except OSError:
         sys.exit('Expecting Prokka annotation file but found none')
-    output_merged_genes = 'annomerge/merged_genes.gbf'
+    output_merged_genes = 'annomerge/merged_genes.gbk'
     output_genbank = isolate_id + '.gbk'
     add_noref_annotations = fill_gaps
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
     global isolate_sequence
     isolate_sequence = prokka_records[0].seq
-    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbf'
+    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbk'
     prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
     annomerge_records = []
     global ratt_blast_results
@@ -1936,7 +1936,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
             logger.debug('To add from ref: ' + str(len(add_features_from_prokka_ref)))
     # Post-processing of genbank file to remove duplicates and rename locus_tag for
     # Prokka annotations
-    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbf'
+    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbk'
     prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
     annomerge_records_post_processed = []
     for rec_num in range(0, len(annomerge_records)):
