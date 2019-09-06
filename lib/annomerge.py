@@ -1477,8 +1477,8 @@ def run_prodigal(isolate_fasta, isolate_id):
     os.chdir(c)
 
 
-def main(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fasta_fp, script_directory, illumina=False,
-         fill_gaps=True, check_mtb=False, mtb_fasta_fp='', essentiality=False):
+def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fasta_fp, script_directory, illumina=False,
+        fill_gaps=True, check_mtb=False, mtb_fasta_fp='', essentiality=False):
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
     <output_merged_genes> from the commandline. The log file output stats about the features that are added to the
