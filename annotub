@@ -207,14 +207,15 @@ def main():
         embls = all_embls[0:29]
     else:
         embls = all_embls
-    logger.info('Getting first ' + str(len(embls)) + ' reference annotations')
-    for e in embls:
-        try:
-            shutil.copyfile(args.references + e, embl_dir + e)
-            shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gbk')
-            shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gff')
-        except OSError:
-            continue
+    if sorted(embls) != sorted(os.listdir(refdir + '/embls/')):
+        logger.info('Getting first ' + str(len(embls)) + ' reference annotations')
+        for e in embls:
+            try:
+                shutil.copyfile(args.references + e, embl_dir + e)
+                shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gbk')
+                shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gff')
+            except OSError:
+                continue
     ref_cds, ref_genome = get_first_reference_proteome(args.references + embls[0].split('.')[0] + '.gbk')
     genome_count = 0
     for f in os.listdir(args.genomes):
