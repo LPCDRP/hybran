@@ -192,7 +192,7 @@ def check_for_dnaA(feature_list):
     :return: None
     """
 
-    logger = logging.getLogger('check_for_dnaA')
+    logger = logging.getLogger('VerifyDnaA')
     logger.debug('Checking if dnaA is the first CDS')
     feature_dictionary = generate_feature_dictionary(feature_list)
     for cds in feature_dictionary.keys():
@@ -276,7 +276,7 @@ def identify_merged_genes(ratt_features):
     list of gene location tuples (gene start, gene end) as values and boolean to indicate if merged genes are identified
         from RATT annotation.
     """
-    logger = logging.getLogger('identify_merged_genes')
+    logger = logging.getLogger('FindMergedGenes')
     ratt_annotations = {}   # This dictionary holds 2 keys '-1' and '+1' denoting the strand and locations of all CDS
     # annotations in RATT for each strand
     ratt_unmerged_genes = {}
@@ -310,8 +310,8 @@ def identify_merged_genes(ratt_features):
                 merged_genes = True
                 continue
             else:
-                logger.debug('UNACCOUNTED CASE')
-                logger.debug(gene_location)
+                logger.warning('UNACCOUNTED CASE')
+                logger.warning(gene_location)
     return ratt_merged_genes, merged_genes
 
 
@@ -326,7 +326,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     :param ratt_features: List of features from RATT (SeqFeature objects)
     :return:
     """
-    logger = logging.getLogger('get_annotation_for_merged_genes')
+    logger = logging.getLogger('AnnotateMergedGenes')
     check_positions_for_annotation = dict(merged_genes)
     merged_gene_locus = {}
     merged_features_addition = []
@@ -474,7 +474,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict):
     :param feature_list: List of features from RATT (list of SeqFeature objects)
     :return: List of valid RATT features (list of SeqFeature objects)
     """
-    logger = logging.getLogger('isolate_valid_ratt_annotations')
+    logger = logging.getLogger('ValidateRATTCDSs')
     logger.debug('Parsing through RATT annotations')
     unbroken_cds = []
     num_joins = 0
@@ -488,11 +488,11 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict):
                 broken_cds.append(locus_tag)
             num_joins += 1
         elif feature.type == 'CDS' and feature.location is None:
-            logger.debug('Invalid CDS: Location of CDS is missing')
-            logger.debug(feature)
+            logger.warning('Invalid CDS: Location of CDS is missing')
+            logger.warning(feature)
         elif feature.type == 'CDS' and (len(feature.location) % 3) != 0:
-            logger.debug('Nucleotide sequence is not divisible by 3')
-            logger.debug(feature)
+            logger.warning('Nucleotide sequence is not divisible by 3')
+            logger.warning(feature)
         elif feature.type == 'CDS':
             unbroken_cds.append(feature)
         else:
@@ -649,7 +649,7 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     :return:
     """
 
-    logger = logging.getLogger('check_inclusion_criteria')
+    logger = logging.getLogger('CheckInclusionCriteria')
     included = False
     # Check if feature types are the same. If not add feature to EMBL record
     if ratt_annotation.type != prokka_annotation.type:
@@ -717,7 +717,7 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
                 embl_file.features.append(mod_prokka_annotation)
                 included = True
     else:
-        logger.debug('WARNING: CORNER CASE in check_inclusion_criteria')
+        logger.warning('CORNER CASE in check_inclusion_criteria')
     return embl_file, included
 
 
@@ -839,7 +839,7 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
     :param ratt_annotations:
     :return:
     """
-    logger = logging.getLogger('validate_prokka_feature_annotation')
+    logger = logging.getLogger('ValidateProkkaFeatures')
     do_not_add_prokka = False
     mod_feature = feature
     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
@@ -1091,7 +1091,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
     :param rv_cds_dict:
     :return:
     """
-    logger = logging.getLogger('correct_start_coords_prokka')
+    logger = logging.getLogger('CorrectCoords')
     modified_prokka_record = prokka_record[:]
     modified_prokka_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab initio ' \
                                                     'annotation from Prokka'
@@ -1387,7 +1387,7 @@ def pick_best_hit(ratt_feature, prokka_feature):
     :param prokka_feature:
     :return:
     """
-    logger = logging.getLogger('pick_best_hit')
+    logger = logging.getLogger('BestFeatureHit')
     gene = ratt_feature.qualifiers['locus_tag'][0]
     if gene not in ref_genes_positions.keys():
         logger.debug('This is a merged gene. Therefore, RATT annotation is kept')
@@ -1438,16 +1438,7 @@ def pick_best_hit(ratt_feature, prokka_feature):
                     take_ratt = True
     else:
         logger.debug('No Blast Hits for the RATT annotation, hence Prokka annotation is chosen: ' + gene)
-        logger.debug('Post-processing Annomerge results')
         take_ratt = False
-        logger.debug('RATT seq')
-        logger.debug(ratt_seq)
-        logger.debug('Prokka Seq')
-        logger.debug(prokka_seq)
-        logger.debug(blast_out)
-        logger.debug('H37Rv Seq')
-        logger.debug(ref_gene_seq)
-        logger.debug(ratt_feature)
     return take_ratt
 
 
@@ -1457,7 +1448,7 @@ def run_prodigal(reference_genome):
     :param reference_genome:
     :return:
     """
-    logger = logging.getLogger('run_prodigal')
+    logger = logging.getLogger('Prodigal')
     c = os.getcwd()
     logger.debug('Executing Prodigal on ' + reference_genome)
     cmd = [script_dir + '/lib/prodigal.sh',
@@ -1500,7 +1491,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     script_dir = script_directory
     input_ratt_files = []
     logger = logging.getLogger('Annomerge')
-    logger.debug('Running Annomerge!')
+    logger.debug('Running Annomerge on ' + isolate_id)
     start_time = time.time()
 
     reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
@@ -1666,7 +1657,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         global popped_ratt_genes
         popped_ratt_genes = []
         if len(ratt_contig_features) == 0:
-            logger.debug("NO RATT ANNOTATION FOR CONTIG " + str(i + 1))
+            logger.warning("NO RATT ANNOTATION FOR CONTIG " + str(i + 1))
             feature_additions = {}
             feature_lengths = {}
             if len(merged_features) > 0:
@@ -1690,13 +1681,13 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 logger.debug(str('Median length: ' + str(median(feature_lengths[f])) + '\n'))
             continue
         elif len(prokka_contig_features) == 0:
-            logger.debug("NO PROKKA ANNOTATION FOR CONTIG " + str(i + 1))
+            logger.warning("NO PROKKA ANNOTATION FOR CONTIG " + str(i + 1))
             prokka_contig_features = ratt_contig_features
             if len(merged_features) > 0:
                 for feature in merged_features:
                     prokka_contig_features.append(feature)
-            logger.debug('Contig Number: ' + str(i + 1) + '\n')
-            logger.debug('No Annotation to add from Prokka')
+            logger.warning('Contig Number: ' + str(i + 1) + '\n')
+            logger.warning('No Annotation to add from Prokka')
             prokka_contig_record.features = prokka_contig_features
             annomerge_records.append(prokka_contig_record)
         else:
@@ -1715,14 +1706,14 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     end = int(feature.location.end)
                     ratt_annotation_mapping[(start, end)] = index
                 except AttributeError:
-                    logger.debug('Attribute Error')
-                    logger.debug(feature)
-                    logger.debug(index)
+                    logger.error('Attribute Error')
+                    logger.error(feature)
+                    logger.error(index)
             try:
                 ratt_contig_record_mod = ratt_contig_record[:]
             except AttributeError:
-                logger.debug('Contains features with fuzzy locations')
-                logger.debug(ratt_contig_record)
+                logger.error('Contains features with fuzzy locations')
+                logger.error(ratt_contig_record)
             ratt_contig_record_mod.features = ratt_contig_features
             added_from_ratt = []
             non_cds_ratt = []
@@ -2024,7 +2015,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         # TODO: Delete this part. This is for internal use where unannotated genes are blasted to previously assigned
         # novel genes to transfer annotation.
         if check_mtb and len(mtb_fasta_fp) == 0:
-            logger.debug('File path for novel genes not specified')
+            logger.warning('File path for novel genes not specified')
         elif check_mtb:
             mtb_fasta = mtb_fasta_fp
             for feature in prokka_rec.features:
@@ -2081,7 +2072,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         feature_length = len(feature.qualifiers['translation'][0])
                         feature_coverage = float(feature_length)/float(rv_length)
                         if feature_coverage <= 0.95:
-                            logger.debug('WARNING: Essential gene ' + new_locus_tag + ' is truncated in isolate ' +
+                            logger.warning('Essential gene ' + new_locus_tag + ' is truncated in isolate ' +
                                          isolate_id + '. Coverage: ' + str(feature_coverage*100))
                     else:
                         feature_length = len(feature.qualifiers['translation'][0])
