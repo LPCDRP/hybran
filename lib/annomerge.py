@@ -28,7 +28,7 @@ import time
 import subprocess
 
 
-def get_global_variables(proteome_fasta):
+def load_reference_info(proteome_fasta):
     """
     This function gets all the global variables for annomerge.
     1. A list of genes from the reference protein fasta
@@ -40,22 +40,12 @@ def get_global_variables(proteome_fasta):
     7. A dict with locus tags as keys and amino acid lengths as values
     8. A dict with locus tags as keys and nucleotide lengths as values
     """
-    global reference_gene_list
     reference_gene_list = []
-    global reference_locus_list
     reference_locus_list = []
-    global reference_locus_gene_dict
     reference_locus_gene_dict = {}
-    global reference_gene_locus_dict
     reference_gene_locus_dict = {}
-    global reference_sequence_dict
-    reference_sequence_dict = {}
-    global ref_temp_fasta_dict
     ref_temp_fasta_dict = {}
-    global ref_protein_lengths
     ref_protein_lengths = {}
-    global ref_nucleotide_lengths
-    ref_nucleotide_lengths = {}
 
     ref_fasta_records = SeqIO.parse(proteome_fasta, 'fasta')
     for record in ref_fasta_records:
@@ -78,12 +68,11 @@ def get_global_variables(proteome_fasta):
         ref_temp_fasta_dict[locus] = fp.name
         header = '>' + locus + '\n'
         seq = str(record.seq)
-        reference_sequence_dict[locus] = seq
         fp.write(header)
         fp.write(seq)
         ref_protein_lengths[locus] = len(seq)
-        ref_nucleotide_lengths[locus] = len(seq) * 3
-    return
+    return reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
+           ref_temp_fasta_dict, ref_protein_lengths
 
 
 def get_prom_for_gene(feature_list, source_seq):
@@ -228,7 +217,7 @@ def check_for_dnaA(feature_list):
     return
 
 
-def get_ratt_corrected_genes(ratt_report_fp):
+def get_ratt_corrected_genes(ratt_report_fp, reference_gene_list):
     """
     This function parses through the RATT results and gets the gene for which the start/stop coordinates
     were corrected by RATT
@@ -248,7 +237,7 @@ def get_ratt_corrected_genes(ratt_report_fp):
     return corrected_genes_list
 
 
-def rename_locus(gene, strand):
+def rename_locus(gene, strand, reference_locus_list):
     """
     This function checks names of existing locus tags in the reference and names the newly merged gene
     ensuring that the new name does not conflict with existing locus tags
@@ -326,7 +315,7 @@ def identify_merged_genes(ratt_features):
     return ratt_merged_genes, merged_genes
 
 
-def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features):
+def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features, reference_locus_list):
     """
     This function takes as input the dictionary of merged genes from the identify_merged_genes function,
     a list of Prokka features and a list of RATT features and returns annotation for the merged genes from,
@@ -423,7 +412,9 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     for location in features_from_ratt.keys():
         new_feature = features_from_ratt[location][0]
         merged_features_string = ",".join(genes_from_ratt[location])
-        new_gene_name = rename_locus(new_feature.qualifiers['locus_tag'][0], new_feature.location.strand)
+        new_gene_name = rename_locus(new_feature.qualifiers['locus_tag'][0],
+                                     new_feature.location.strand,
+                                     reference_locus_list)
         new_feature.qualifiers['locus_tag'] = [new_gene_name]
         if 'note' in new_feature.qualifiers.keys():
             new_feature.qualifiers['note'].append('The genes ' + merged_features_string +
@@ -442,7 +433,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     return merged_features_addition, corner_cases, merged_genes, final_ratt_features, final_prokka_features
 
 
-def blast_feature_sequence_to_ref(query, locus_tag, to_print=False):
+def blast_feature_sequence_to_ref(query, locus_tag, reference_locus_list, ref_temp_fasta_dict, to_print=False):
     """
     Blasts feature sequence to corresponding amino acid from reference FASTA file.
     :param query: Amino acid sequence (String format)
@@ -453,8 +444,8 @@ def blast_feature_sequence_to_ref(query, locus_tag, to_print=False):
     query coverage]
     """
 
-    logger = logging.getLogger('blast_feature_sequence_to_ref')
-    if locus_tag in reference_sequence_dict.keys():
+    logger = logging.getLogger('BlastFeatureToRef')
+    if locus_tag in reference_locus_list:
         subject_fp = ref_temp_fasta_dict[locus_tag]
         blast_to_rv = NcbiblastpCommandline(subject=subject_fp, outfmt='"7 qseqid qlen sseqid slen qlen length'
                                                                        ' pident qcovs"')
@@ -474,7 +465,7 @@ def blast_feature_sequence_to_ref(query, locus_tag, to_print=False):
     return add_annotation, hit_stats
 
 
-def isolate_valid_ratt_annotations(feature_list):
+def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict):
     """
     This function takes as input a list of features and checks if the length of the CDSs are divisible by
     3 and if the CDS is split across multiple locations. If so, it outputs the features to stdout and removes them
@@ -514,7 +505,8 @@ def isolate_valid_ratt_annotations(feature_list):
         if len(feature_sequence) == 0:
             continue
         else:
-            add_sequence, blast_stats = blast_feature_sequence_to_ref(str(feature_sequence), cds_locus_tag)
+            add_sequence, blast_stats = blast_feature_sequence_to_ref(str(feature_sequence), cds_locus_tag,
+                                                                      ref_temp_fasta_dict)
             if add_sequence:
                 if len(blast_stats) > 0:
                     ratt_blast_results[cds_locus_tag] = blast_stats
@@ -834,7 +826,8 @@ def get_essential_genes(gene_essentiality_fp=None):
     return essential_genes
 
 
-def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, ratt_features=[], ratt_locations={},
+def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_locus_dict, reference_locus_gene_dict,
+                                       ref_temp_fasta_dict, check_ratt=False, ratt_features=[], ratt_locations={},
                                        ratt_annotations=[]):
     """
 
@@ -859,7 +852,8 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
         if feature.qualifiers['gene'][0] in reference_locus_gene_dict.keys():
             locus_tag = feature.qualifiers['gene'][0]
             prokka_blast_list.append(locus_tag)
-            retain_rv_annotation, blast_stats = blast_feature_sequence_to_ref(feature_seq, locus_tag)
+            retain_rv_annotation, blast_stats = blast_feature_sequence_to_ref(feature_seq, locus_tag,
+                                                                              ref_temp_fasta_dict)
             if retain_rv_annotation:
                 mod_feature = feature
                 if check_ratt:
@@ -955,7 +949,8 @@ def validate_prokka_feature_annotation(feature, prokka_noref, check_ratt=False, 
         elif feature.qualifiers['gene'][0] in reference_gene_locus_dict.keys():
             locus_tag = reference_gene_locus_dict[feature.qualifiers['gene'][0]]
             prokka_blast_list.append(locus_tag)
-            retain_rv_annotation, blast_stats = blast_feature_sequence_to_ref(feature_seq, locus_tag)
+            retain_rv_annotation, blast_stats = blast_feature_sequence_to_ref(feature_seq, locus_tag,
+                                                                              ref_temp_fasta_dict)
             if retain_rv_annotation:
                 mod_feature = feature
                 if check_ratt:
@@ -1084,7 +1079,8 @@ def blast_ratt_anno_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_featur
     return same_gene
 
 
-def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict):
+def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict, reference_locus_list,
+                                reference_gene_locus_dict):
     """
     This function parses through prokka records and corrects start coordinates for cases where Prodigal
     annotates these incorrectly
@@ -1507,7 +1503,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     logger.debug('Running Annomerge!')
     start_time = time.time()
 
-    get_global_variables(ref_proteins_fasta)
+    reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
+        ref_temp_fasta_dict, ref_protein_lengths = load_reference_info(ref_proteins_fasta)
     if annotation_fp.endswith('/'):
         file_path = annotation_fp + isolate_id + '/'
     else:
@@ -1603,12 +1600,14 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         record_sequence = ratt_contig_record.seq
         prokka_noref_rec_pre = prokka_record_noref[i]
         prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict, record_sequence,
-                                                       ref_sequence, ref_feature_dict)
+                                                       ref_sequence, ref_feature_dict, reference_locus_list,
+                                                       reference_gene_locus_dict)
         global prokka_noref_dictionary
         prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features)
         prokka_contig_record_pre = prokka_records[i]
         prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, prodigal_correction_dict,
-                                                           record_sequence, ref_sequence, ref_feature_dict)
+                                                           record_sequence, ref_sequence, ref_feature_dict,
+                                                           reference_locus_list, reference_gene_locus_dict)
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
         if i == 0 and not illumina:
@@ -1621,7 +1620,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         else:
             try:
                 error_correction_fp = ratt_correction_files[i]
-                ratt_corrected_genes = get_ratt_corrected_genes(error_correction_fp)
+                ratt_corrected_genes = get_ratt_corrected_genes(error_correction_fp, reference_gene_list)
             except IndexError:
                 ratt_corrected_genes = []
         ratt_contig_non_cds = []
@@ -1630,7 +1629,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 ratt_contig_non_cds.append(feature)
         logger.debug('Number of non-CDS elements')
         logger.debug(len(ratt_contig_non_cds))
-        ratt_contig_features = isolate_valid_ratt_annotations(ratt_contig_features)
+        ratt_contig_features = isolate_valid_ratt_annotations(ratt_contig_features, ref_temp_fasta_dict)
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
         cds_from_ratt = 0
         for feature in ratt_contig_features:
@@ -1784,7 +1783,9 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                 feature_additions[prokka_feature.type] += 1
                                 feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
                             mod_prokka_feature, invalid_prokka = \
-                                validate_prokka_feature_annotation(prokka_feature, prokka_noref_dictionary)
+                                validate_prokka_feature_annotation(prokka_feature, prokka_noref_dictionary,
+                                                                   reference_gene_locus_dict, reference_locus_gene_dict,
+                                                                   ref_temp_fasta_dict)
                             add_features_from_prokka.append(mod_prokka_feature)
                         # If the Prokka feature overlaps with two RATT features
                         elif prokka_feature_start < ratt_unannotated_region_start and \
@@ -1809,12 +1810,17 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             overlapping_ratt_locus_tags = [locus_tag1, locus_tag2]
                             mod_prokka_feature, invalid_prokka = \
                                 validate_prokka_feature_annotation(prokka_feature, prokka_noref_dictionary,
+                                                                   reference_gene_locus_dict, reference_locus_gene_dict,
+                                                                   ref_temp_fasta_dict,
                                                                    check_ratt=True,
                                                                    ratt_features=overlapping_ratt_locus_tags[0],
                                                                    ratt_locations=overlapping_ratt_location_1)
                             if not invalid_prokka:
                                 mod_prokka_feature, invalid_prokka_2 = \
                                     validate_prokka_feature_annotation(prokka_feature, prokka_noref_dictionary,
+                                                                       reference_gene_locus_dict,
+                                                                       reference_locus_gene_dict,
+                                                                       ref_temp_fasta_dict,
                                                                        check_ratt=True,
                                                                        ratt_features=overlapping_ratt_locus_tags[1],
                                                                        ratt_locations=overlapping_ratt_location_2)
@@ -1913,8 +1919,12 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         elif 'gene' not in ref_feat.qualifiers.keys():
                             ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
                         else:
-                            mod_ref_feat, invalid_ref_feat = validate_prokka_feature_annotation(ref_feat,
-                                                                                                prokka_noref_dictionary)
+                            mod_ref_feat, \
+                            invalid_ref_feat = validate_prokka_feature_annotation(ref_feat,
+                                                                                  prokka_noref_dictionary,
+                                                                                  reference_gene_locus_dict,
+                                                                                  reference_locus_gene_dict,
+                                                                                  ref_temp_fasta_dict)
                             ref_feat = mod_ref_feat
                         add_ref_note = 'This annotation is added from Prokka reference run'
                         if 'note' in ref_feat.qualifiers.keys():
@@ -1936,7 +1946,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         prokka_rec = annomerge_records[rec_num]
         prokka_noref_rec_pre = prokka_record_noref[rec_num]
         prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict, record_sequence,
-                                                       ref_sequence, ref_feature_dict)
+                                                       ref_sequence, ref_feature_dict, reference_locus_list,
+                                                       reference_gene_locus_dict)
         prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features)
         raw_features_unflattened = prokka_rec.features[:]
         raw_features = []
