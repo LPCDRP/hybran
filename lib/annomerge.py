@@ -1524,11 +1524,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             corr_file_path = ratt_file_path + '/' + corr_file
             ratt_correction_files.append(corr_file_path)
     except OSError:
-        sys.exit('Expecting RATT annotation files but found none')
+        logger.error('Expecting RATT annotation files but found none')
     try:
         input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbk'
     except OSError:
-        sys.exit('Expecting Prokka annotation file but found none')
+        logger.error('Expecting Prokka annotation file but found none')
     output_merged_genes = 'annomerge/merged_genes.gbk'
     output_genbank = isolate_id + '.gbk'
     add_noref_annotations = fill_gaps
