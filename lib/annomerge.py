@@ -1455,29 +1455,22 @@ def pick_best_hit(ratt_feature, prokka_feature):
     return take_ratt
 
 
-def run_prodigal(isolate_fasta, isolate_id):
+def run_prodigal(reference_genome):
     """
 
-    :param isolate_fasta:
-    :param isolate_id:
+    :param reference_genome:
     :return:
     """
     logger = logging.getLogger('run_prodigal')
     c = os.getcwd()
-    logger.debug('Executing Prodigal on ' + isolate_id)
-    try:
-        os.mkdir(isolate_id)
-    except OSError:
-        pass
-    os.chdir(isolate_id)
-    cmd = [script_dir + 'lib/prodigal.sh',
-           isolate_fasta,
-           isolate_id]
+    logger.debug('Executing Prodigal on ' + reference_genome)
+    cmd = [script_dir + '/lib/prodigal.sh',
+           reference_genome]
     subprocess.Popen(cmd)
     os.chdir(c)
 
 
-def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fasta_fp, script_directory, illumina=False,
+def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, illumina=False,
         fill_gaps=True, check_mtb=False, mtb_fasta_fp='', essentiality=False):
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
@@ -1494,7 +1487,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
     directories, the genbank files are located in <isolate_id>.gbk
     :param ref_proteins_fasta: File path for proteome fasta of reference strain
     :param ref_embl_fp: File path for annotated EMBL file for reference strain
-    :param isolate_fasta_fp: File path for nucleotide fasta of assembled genome
+    :param reference_genome: File path for nucleotide fasta of assembled genome
     :param script_dir: Directory where annotub scripts are located
     :param illumina: Flag to check circularization. Default is False. If set to True, circularization with not be
     checked and dnaA might not be the first gene.
@@ -1556,7 +1549,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, isolate_fast
     embl_dict = {}
     prodigal_list = []
     incorrect_coords_dict = {}
-    run_prodigal(isolate_fasta_fp, isolate_id)
+    run_prodigal(reference_genome)
 
     prodigal_results_fp = file_path + 'prodigal' + '/' + isolate_id
     dict_save_fp = file_path + 'prodigal' + '/' + isolate_id + '.p'
