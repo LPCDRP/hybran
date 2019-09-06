@@ -98,6 +98,7 @@ def get_first_reference_proteome(genbank):
     logger.info('Creating a reference proteome FASTA for Prokka from ' + genbank)
     seqs = []
     for record in SeqIO.parse(genbank, 'genbank'):
+        seq = SeqRecord(record.seq, id=genbank.split('/')[-1].split('.')[0], description='')
         if record.features:
             for feature in record.features:
                 if feature.type == 'CDS':
@@ -121,7 +122,9 @@ def get_first_reference_proteome(genbank):
     with open('ref_proteome.fasta', 'w') as output:
         for s in seqs:
             SeqIO.write(s, output, 'fasta')
-    return 'ref_proteome.fasta'
+    with open('ref.fasta', 'w') as output:
+        SeqIO.write(seq, output, 'fasta')
+    return 'ref_proteome.fasta', 'ref.fasta'
 
 
 def cmds():
@@ -199,7 +202,7 @@ def main():
             shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gff')
         except OSError:
             continue
-    ref_cds = get_first_reference_proteome(args.references + embls[0].split('.')[0] + '.gbk')
+    ref_cds, ref_genome = get_first_reference_proteome(args.references + embls[0].split('.')[0] + '.gbk')
     genome_count = 0
     for f in os.listdir(args.genomes):
         if f.endswith('.fasta'):
@@ -213,7 +216,7 @@ def main():
                           annotation_fp=os.getcwd(),
                           ref_proteins_fasta=ref_cds,
                           ref_embl_fp=refdir,
-                          isolate_fasta_fp=args.genomes + f,
+                          reference_genome=ref_genome,
                           script_directory=script_dir)
     run_clustering(annotations=refdir,
                    nproc=args.nproc)
