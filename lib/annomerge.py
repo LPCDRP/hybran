@@ -1378,7 +1378,7 @@ def blast(seq1, seq2):
     return stdout_elements
 
 
-def pick_best_hit(ratt_feature, prokka_feature):
+def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
     """
 
     AUTHOR: Sarah Ramirez-Busby
@@ -1521,7 +1521,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     output_genbank = isolate_id + '.gbk'
     add_noref_annotations = fill_gaps
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
-    global isolate_sequence
     isolate_sequence = prokka_records[0].seq
     prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbk'
     prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
@@ -2215,7 +2214,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             else:
                 prokka_annotation = feat_pair[1]
                 ratt_annotation = feat_pair[0]
-            take_ratt = pick_best_hit(ratt_annotation, prokka_annotation)
+            take_ratt = pick_best_hit(ratt_annotation, prokka_annotation, isolate_sequence)
             if take_ratt:
                 output_isolate_recs[0].features.append(ratt_annotation)
             else:
