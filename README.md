@@ -7,13 +7,6 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 * Tested on Debian 8 (jessie)
 * Install time ~5 minutes
 
-#### Available on anaconda2!
-* Requires independent installation of RATT
-* Requires download of EggNOG databases separately as described in the [eggnog_mapper GitHub](https://github.com/eggnogdb/eggnog-mapper)
-* All remaining dependencies are installed by conda
-```
-conda install annotub
-```
 ### Dependencies
 * [RATT](http://ratt.sourceforge.net/)
 * [Prokka](https://github.com/tseemann/prokka)
