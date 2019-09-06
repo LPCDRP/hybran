@@ -36,7 +36,7 @@ def run_ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
     logger = logging.getLogger('ProkkaRATTAnnomerge')
     c = os.getcwd()
     isolate = fasta.split('/')[-1].split('.')[0]
-    logger.info('Executing RATT, Prokka, and annomerge on ' + isolate)
+    logger.info('Executing RATT and Prokka on ' + isolate)
     try:
         os.mkdir(isolate)
     except OSError:
