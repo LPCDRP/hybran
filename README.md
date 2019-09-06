@@ -8,8 +8,8 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 * Install time ~5 minutes
 
 ### Dependencies
-* [RATT](http://ratt.sourceforge.net/)
-* [Prokka](https://github.com/tseemann/prokka)
+* [RATT](http://ratt.sourceforge.net/) >= v18
+* [Prokka](https://github.com/tseemann/prokka) >=v1.13
 * [EMBOSS (seqret)](http://emboss.sourceforge.net/download/)
 * [python2.7](https://www.python.org/downloads/release/python-2715/)
 * [Biopython](https://biopython.org/wiki/Download)
