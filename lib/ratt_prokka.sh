@@ -10,34 +10,24 @@ mkdir -p prokka prokka-noreference ratt annomerge
 
 if [ ! -f ratt/ratt-done ]
 then
-	printf "\t\t$RATT_HOME/start.ratt.sh $references $fasta $isolate Strain\n"
 	cd ratt/;
 	$RATT_HOME/start.ratt.sh $references $fasta $isolate Strain; 
 	touch ratt-done;
 	cd ..
-else
-	printf "Annotations already transferred to $isolate\n"
 fi
 
 wait
 
-if [ ! -f prokka/$isolate.gbk ]
+if [ ! -f prokka/"$isolate".gbk ]
 then
-	printf "\t\tprokka --genus Mycobacterium --kingdom bacteria --rfam --proteins $ref_cds --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka --prefix $isolate --force --centre C --locustag L --quiet $fasta\n"
-	prokka --genus Mycobacterium --kingdom bacteria --rfam --proteins $ref_cds --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka --prefix $isolate --force --centre C --locustag L --quiet $fasta
-else
-	printf "\t\tprokka/$isolate.gbk already exists\n"
+	prokka --genus Mycobacterium --kingdom bacteria --rfam --proteins "$ref_cds" --rnammer --gram pos --usegenus --cpus "$nproc" --outdir prokka --prefix "$isolate" --force --centre C --locustag L --quiet "$fasta"
 fi
 
 wait
 
-if [ ! -f prokka-noreference/$isolate.gbk ]
+if [ ! -f prokka-noreference/"$isolate".gbk ]
 then
-	printf "\t\tprokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka-noreference --prefix $isolate --force --centre C --locustag L --quiet $fasta\n"
-
-	prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus $nproc --outdir prokka-noreference --prefix $isolate --force --centre C --locustag L --quiet $fasta
-else
-	printf "\t\tprokka-noreference/$isolate.gbk already exists\n"
+	prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus "$nproc" --outdir prokka-noreference --prefix "$isolate" --force --centre C --locustag L --quiet "$fasta"
 fi
 
 wait
