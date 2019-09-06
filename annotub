@@ -127,6 +127,14 @@ def get_first_reference_proteome(genbank):
     return 'ref_proteome.fasta', 'ref.fasta'
 
 
+def convert_gbk_to_gff(gbk_filename):
+    seqret_cmd = ['seqret',
+                  gbk_filename,
+                  gbk_filename.split('.')[0] + '.gff',
+                  '-feature', '-osf', 'gff']
+    subprocess.Popen(seqret_cmd, stderr=os.devnull)
+
+
 def cmds():
     parser = argparse.ArgumentParser(description='Annotate TUBerculosis: a pipeline to annotate Mycobacterium '
                                                  'tuberculosis de novo assembled genomes. Annotation of other species '
@@ -218,6 +226,7 @@ def main():
                           ref_embl_fp=refdir,
                           reference_genome=ref_genome,
                           script_directory=script_dir)
+            convert_gbk_to_gff(f.split('.')[0] + '.gbk')
     run_clustering(annotations=refdir,
                    nproc=args.nproc)
     run_eggnog_mapper(script_dir=script_dir,
