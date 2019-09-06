@@ -2,10 +2,5 @@
 
 isolate_fasta=$1
 
-mkdir -p prodigal
-
-cd prodigal/ && \
-prodigal -i $isolate_fasta -o reference_prodigal -a reference_prodigal_proteome.faa && \
-cd ..
-
-
+mkdir prodigal-test
+prodigal -i $isolate_fasta -o prodigal-test/reference_prodigal -a reference_prodigal_proteome.faa
