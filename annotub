@@ -5,7 +5,12 @@ import subprocess
 import logging
 import time
 
-from lib import verifyInstallations, fileManager, firstReference, run, annomerge
+from lib import \
+    verifyInstallations, \
+    fileManager, \
+    firstReference, \
+    run, \
+    annomerge
 
 __version__ = '1.0'
 
