@@ -9,7 +9,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 
-from lib import verifyInstallations, firstReference, fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation, \
+from lib import verifyInstallations, fileManager, firstReference, fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation, \
     parseClustering, annomerge
 
 __version__ = '1.0'
@@ -132,40 +132,16 @@ def main():
                             format='%(asctime)s:INFO:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
     cwd = os.getcwd() + '/'
+
     # Convert all input paths to full path if not given as full path
-    if not args.genomes.startswith('/'):
-        args.genomes = cwd + args.genomes
-    if not args.references.startswith('/'):
-        args.references = cwd + args.references
-    if not args.output.startswith('/'):
-        args.output = cwd + args.output
+    args.genomes = fileManager.full_path(args.genomes)
+    args.references = fileManager.full_path(args.references)
+    args.output = fileManager.full_path(args.output)
+
     # Moving into the desired annotation directory
     os.chdir(args.output)
-    refdir = args.output + 'temp_references/'
-    embl_dir = refdir + '/embls/'
-    try:
-        os.mkdir(refdir)
-    except OSError:
-        pass
-    try:
-        os.mkdir(embl_dir)
-    except OSError:
-        pass
-    all_embls = [i for i in os.listdir(args.references) if i.endswith('.embl')]
-    if len(all_embls) >= 30:
-        embls = all_embls[0:29]
-    else:
-        embls = all_embls
-    if sorted(embls) != sorted(os.listdir(refdir + '/embls/')):
-        logger.info('Getting first ' + str(len(embls)) + ' reference annotations')
-        for e in embls:
-            try:
-                shutil.copyfile(args.references + e, embl_dir + e)
-                shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gbk')
-                shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gff')
-            except OSError:
-                continue
-
+    # Setting up RATT references
+    refdir, embl_dir, embls = fileManager.ratt_references(args)
     # Getting first reference information
     first_reference = embls[0]
     first_reference_gbk = args.references + first_reference.split('.')[0] + '.gbk'
