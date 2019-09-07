@@ -1,13 +1,9 @@
 #!/usr/bin/python2.7
 import os
-import shutil
 import argparse
 import subprocess
 import logging
 import time
-from Bio import SeqIO
-from Bio.SeqRecord import SeqRecord
-from Bio.Seq import Seq
 
 from lib import verifyInstallations, fileManager, firstReference, fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation, \
     parseClustering, annomerge
