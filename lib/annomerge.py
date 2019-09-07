@@ -1538,7 +1538,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     incorrect_coords_dict = {}
     run_prodigal(reference_genome)
 
-    prodigal_results_fp = file_path + 'prodigal-test/reference_prodigal'
+    prodigal_results_fp = annotation_fp + '/prodigal-test/reference_prodigal'
     dict_save_fp = prodigal_results_fp + 'reference_prodigal.p'
     ref_embl_record = SeqIO.read(ref_embl_fp, 'embl')
     prodigal_raw = open(prodigal_results_fp, "r").readlines()
