@@ -16,6 +16,17 @@ __version__ = '1.0'
 
 
 def run_ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
+    """
+    Executes RATT and Prokka that resides in ratt_prokka.sh
+    File IO is handled by ratt_prokka.sh
+
+    :param ref_dir: str directory that houses the EMBL reference(s)
+    :param fasta: str FASTA file name that needs to be annotated
+    :param ref_cds: str FASTA proteome of the reference for Prokka
+    :param script_dir: str absolute path to ratt_prokka.sh
+    :param cpus: str number of processors/cpus
+    :return: None
+    """
     logger = logging.getLogger('ProkkaRATTAnnomerge')
     c = os.getcwd()
     isolate = fasta.split('/')[-1].split('.')[0]
@@ -36,6 +47,15 @@ def run_ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
 
 
 def run_clustering(annotations, nproc):
+    """
+    Runs the clustering pipeline which uses CDHIT and MCL
+    to cluster orthologous genes. File IO is handled by
+    each function
+
+    :param annotations: str directory of all annotations created by annomerge
+    :param nproc: str number of processors
+    :return: None
+    """
     logger = logging.getLogger('ClusterProteins')
     c = os.getcwd()
     try:
@@ -63,6 +83,16 @@ def run_clustering(annotations, nproc):
 
 
 def run_eggnog_mapper(script_dir, nproc, emapper_loc):
+    """
+    Runs the run_emapper.sh which executes emapper.py for
+    both diamond and hmmer algorithms. The shell script handles
+    all file IO
+
+    :param script_dir: str absolute path to run_emapper.sh
+    :param nproc: str number of processors
+    :param emapper_loc: str absolute path to eggnog database
+    :return: None
+    """
     logger = logging.getLogger('OrthologousAnnotation')
     logger.info('Functional annotation with eggnog_mapper')
     try:
@@ -77,6 +107,13 @@ def run_eggnog_mapper(script_dir, nproc, emapper_loc):
 
 
 def convert_gbk_to_gff(gbk_filename):
+    """
+    Runs a subprocess seqret call to convert the input
+    gbk_filename to a GFF
+
+    :param gbk_filename: str filename of a Genbank file that needs to be converted to GFF
+    :return: None
+    """
     seqret_cmd = ['seqret',
                   gbk_filename,
                   gbk_filename.split('.')[0] + '.gff',
@@ -85,6 +122,11 @@ def convert_gbk_to_gff(gbk_filename):
 
 
 def cmds():
+    """
+    argparse parse input provided by the user
+
+    :return: argparse.parse_args() object
+    """
     parser = argparse.ArgumentParser(description='Annotate TUBerculosis: a pipeline to annotate Mycobacterium '
                                                  'tuberculosis de novo assembled genomes. Annotation of other species '
                                                  'or mixing species within an annotation run is NOT recommended.'
@@ -116,6 +158,13 @@ def cmds():
 
 
 def main():
+    """
+    Annotate TUBerculosis: a pipeline to annotate Mycobacterium
+    tuberculosis de novo assembled genomes. Annotation of other species
+    or mixing species within an annotation run is NOT recommended.
+
+    :return: None
+    """
     args = cmds()
     script_dir = os.path.abspath(os.path.dirname(__file__))
     if args.version:
