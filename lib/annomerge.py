@@ -1558,7 +1558,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 prodigal_list.append((int(coords_start), int(coords_end)))
             else:
                 coords_elements = coords.split('..')
-                prodigal_list.append((int(coords_elements[0]), int(coords_elements[1])))
+                prodigal_list.append((int(coords_elements[0].replace('<', '')), int(coords_elements[1])))
     for gene_coord in prodigal_list:
         for gene in ordered_embl_dict.keys():
             if gene[0] > gene_coord[1]:
