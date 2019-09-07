@@ -1453,7 +1453,7 @@ def run_prodigal(reference_genome):
     logger.debug('Executing Prodigal on ' + reference_genome)
     cmd = [script_dir + '/lib/prodigal.sh',
            reference_genome]
-    subprocess.Popen(cmd)
+    subprocess.call(cmd)
     os.chdir(c)
 
 
