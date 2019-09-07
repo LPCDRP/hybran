@@ -9,7 +9,8 @@ from lib import \
     fileManager, \
     firstReference, \
     run, \
-    annomerge
+    annomerge, \
+    converter
 
 __version__ = '1.0'
 
@@ -115,7 +116,7 @@ def main():
                           ref_embl_fp=args.references + first_reference,
                           reference_genome=ref_genome,
                           script_directory=script_dir)
-            convert_gbk_to_gff(filename + '.gbk')
+            converter.convert_gbk_to_gff(filename + '.gbk')
     run.clustering(annotations=refdir,
                    nproc=args.nproc)
     run.eggnog_mapper(script_dir=script_dir,
