@@ -230,7 +230,7 @@ def main():
             annomerge.run(isolate_id=f.split('.')[0],
                           annotation_fp=os.getcwd(),
                           ref_proteins_fasta=ref_cds,
-                          ref_embl_fp=refdir,
+                          ref_embl_fp=args.references + embls[0],
                           reference_genome=ref_genome,
                           script_directory=script_dir)
             convert_gbk_to_gff(f.split('.')[0] + '.gbk')
