@@ -10,7 +10,7 @@ def full_path(p):
     :return:
     """
     if not p.startswith('/'):
-        return os.getcwd() + p
+        return os.getcwd() + '/' + p
     return p
 
 
