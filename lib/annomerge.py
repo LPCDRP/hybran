@@ -1442,6 +1442,24 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
     return take_ratt
 
 
+def fix_embl_id_line(embl_file):
+    """
+
+    :param embl_file:
+    :return:
+    """
+    lines = []
+    with open(embl_file, 'r') as embl:
+        for line in embl:
+            if line.startswith('ID'):
+                lines.append(line.replace(' ; ; ; ; ; ', ' ; ; ; ; ; ; '))
+            else:
+                lines.append(line)
+    with open(embl_file, 'w') as out:
+        for line in lines:
+            out.write(line)
+
+
 def run_prodigal(reference_genome):
     """
 
@@ -1585,6 +1603,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
 
     for i in range(0, len(input_ratt_files)):
         logger.debug('Contig ' + str(i+1))
+        fix_embl_id_line(input_ratt_files[i])
         ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
         global record_sequence
         record_sequence = ratt_contig_record.seq
