@@ -59,11 +59,17 @@ def main():
     :return: None
     """
     args = cmds()
+    # Obtaining the absolute path to all scripts
     script_dir = os.path.abspath(os.path.dirname(__file__))
+
     if args.version:
         print __version__
         exit()
+
+    # Confirming all installations are valid
     verifyInstallations.verify_installations(args.database_dir)
+
+    # Setting up logging
     start_time = time.time()
     print '\n\t\t\tPlease cite:\n\t\t\t[manuscript submitted]\n\n'
     if args.verbose:
@@ -73,6 +79,7 @@ def main():
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s:INFO:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
+
     cwd = os.getcwd() + '/'
 
     # Convert all input paths to full path if not given as full path
@@ -82,8 +89,10 @@ def main():
 
     # Moving into the desired annotation directory
     os.chdir(args.output)
+
     # Setting up RATT references
     refdir, embl_dir, embls = fileManager.ratt_references(args)
+
     # Getting first reference information
     first_reference = embls[0]
     first_reference_gbk = args.references + first_reference.split('.')[0] + '.gbk'
@@ -100,7 +109,6 @@ def main():
                             ref_cds=args.output + ref_cds,
                             script_dir=script_dir,
                             cpus=args.nproc)
-            logger.info('Running annomerge on ' + filename)
             annomerge.run(isolate_id=filename,
                           annotation_fp=cwd,
                           ref_proteins_fasta=ref_cds,
