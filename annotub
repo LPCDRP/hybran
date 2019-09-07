@@ -111,7 +111,7 @@ def main():
                             script_dir=script_dir,
                             cpus=args.nproc)
             annomerge.run(isolate_id=filename,
-                          annotation_fp=cwd,
+                          annotation_fp=os.getcwd() + '/',
                           ref_proteins_fasta=ref_cds,
                           ref_embl_fp=args.references + first_reference,
                           reference_genome=ref_genome,
