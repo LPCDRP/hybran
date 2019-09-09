@@ -17,6 +17,8 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 * [MCL](https://github.com/JohannesBuchner/mcl)
 * [NCBI-BLAST](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/)
 * [eggnog-mapper](https://github.com/eggnogdb/eggnog-mapper)
+    * Required database: bactNOG v4.5.0
+    * To download: `download_eggnog_data.py -y bactNOG`
 
 ### How to install
 ```
