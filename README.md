@@ -18,6 +18,11 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 * [NCBI-BLAST](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/)
 * [eggnog-mapper](https://github.com/eggnogdb/eggnog-mapper)
 
+### How to install
+```
+python2.7 setup.py install --prefix=~/bin/
+```
+
 ### How to run
 This can be executed on one or many genomes. The more reference
 annotations included, the more accurate the annotation will be 
