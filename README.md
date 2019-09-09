@@ -30,11 +30,11 @@ This can be executed on one or many genomes. The more reference
 annotations included, the more accurate the annotation will be 
 and less ambiguity will exist for the target genomes.
 ```
-annotub                                            \
-    --genomes /dir/to/FASTAs                       \
-    --references /dir/to/reference/annotation(s)   \
-    --emapper /dir/to/eggnog-mapper-database/data/ \
-    --output ./                                    \
+annotub                                                     \
+    --genomes /dir/to/FASTAs                                \
+    --references /dir/to/reference/annotation(s)            \
+    --eggnog-databases /dir/to/eggnog-mapper-database/data/ \
+    --output ./                                             \
     --nproc 2
 ```
 
