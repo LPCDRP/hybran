@@ -467,7 +467,7 @@ def blast_feature_sequence_to_ref(query, locus_tag, reference_locus_list, ref_te
     return add_annotation, hit_stats
 
 
-def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict):
+def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list):
     """
     This function takes as input a list of features and checks if the length of the CDSs are divisible by
     3 and if the CDS is split across multiple locations. If so, it outputs the features to stdout and removes them
@@ -508,6 +508,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict):
             continue
         else:
             add_sequence, blast_stats = blast_feature_sequence_to_ref(str(feature_sequence), cds_locus_tag,
+                                                                      reference_locus_list,
                                                                       ref_temp_fasta_dict)
             if add_sequence:
                 if len(blast_stats) > 0:
@@ -1644,7 +1645,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 ratt_contig_non_cds.append(feature)
         logger.debug('Number of non-CDS elements')
         logger.debug(len(ratt_contig_non_cds))
-        ratt_contig_features = isolate_valid_ratt_annotations(ratt_contig_features, ref_temp_fasta_dict)
+        ratt_contig_features = isolate_valid_ratt_annotations(ratt_contig_features,
+                                                              ref_temp_fasta_dict, reference_locus_list)
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
         cds_from_ratt = 0
         for feature in ratt_contig_features:
@@ -1658,7 +1660,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             merged_features, corner_cases, corner_cases_explicit, ratt_contig_features_mod, \
                 prokka_contig_features_mod = get_annotation_for_merged_genes(merged_genes,
                                                                              prokka_contig_features,
-                                                                             ratt_contig_features)
+                                                                             ratt_contig_features,
+                                                                             reference_locus_list=reference_locus_list)
             ratt_contig_features = ratt_contig_features_mod
             prokka_contig_features = prokka_contig_features_mod
             merged_features_record = prokka_contig_record[:]
