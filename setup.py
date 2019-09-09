@@ -9,5 +9,6 @@ setup(
     entry_points=dict(console_scripts=['annotub = annotub:main', ]),
     install_requires=['argparse', 'biopython', ],
     test_suite='nose.collector',
-    tests_require=['nose', ]
+    tests_require=['nose', ],
+    version='1.0'
 )
