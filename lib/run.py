@@ -20,20 +20,28 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
     logger = logging.getLogger('ProkkaRATTAnnomerge')
     c = os.getcwd()
     isolate = fasta.split('/')[-1].split('.')[0]
-    logger.info('Executing RATT and Prokka on ' + isolate)
-    try:
-        os.mkdir(isolate)
-    except OSError:
-        pass
-    os.chdir(isolate)
-    cmd = [script_dir + '/lib/ratt_prokka.sh',
-           ref_dir,
-           fasta,
-           isolate,
-           ref_cds,
-           cpus]
-    subprocess.call(cmd)
-    os.chdir(c)
+
+    if isolate not in os.listdir(os.getcwd()) or \
+        ('ratt' not in os.listdir(isolate) and
+         'prokka' not in os.listdir(isolate) and
+         'prokka-noreference' not in os.listdir(isolate)) or \
+            ('ratt-done' not in os.listdir(isolate + '/ratt/') and
+            isolate + '.gbk' not in os.listdir(isolate + '/prokka/') and
+            isolate + '.gbk' not in os.listdir(isolate + '/prokka-noreference/')):
+        logger.info('Executing RATT and Prokka on ' + isolate)
+        try:
+            os.mkdir(isolate)
+        except OSError:
+            pass
+        os.chdir(isolate)
+        cmd = [script_dir + '/lib/ratt_prokka.sh',
+               ref_dir,
+               fasta,
+               isolate,
+               ref_cds,
+               cpus]
+        subprocess.call(cmd)
+        os.chdir(c)
 
 
 def clustering(annotations, nproc):
