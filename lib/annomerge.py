@@ -27,6 +27,8 @@ import logging
 import time
 import subprocess
 
+import converter
+
 
 def load_reference_info(proteome_fasta):
     """
@@ -1522,6 +1524,10 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     ratt_correction_files = []
     try:
         ratt_embl_files = [embl_file for embl_file in os.listdir(ratt_file_path) if embl_file.endswith('.final.embl')]
+        ratt_gbk_files = []
+        for embl_file in ratt_embl_files:
+            gbk = converter.convert_embl_to_gbk(ratt_file_path + '/' + embl_file)
+            ratt_gbk_files.append(gbk)
         correction_files = [cf for cf in os.listdir(ratt_file_path) if cf.endswith('.Report.txt')]
         for embl_file in ratt_embl_files:
             embl_file_path = ratt_file_path + '/' + embl_file
@@ -1601,10 +1607,9 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     global ref_prom_fp_dict
     ref_prom_fp_dict = get_prom_for_gene(ref_features, ref_sequence)
 
-    for i in range(0, len(input_ratt_files)):
+    for i in range(0, len(ratt_gbk_files)):
         logger.debug('Contig ' + str(i+1))
-        fix_embl_id_line(input_ratt_files[i])
-        ratt_contig_record = SeqIO.read(input_ratt_files[i], 'embl')
+        ratt_contig_record = SeqIO.read(ratt_gbk_files[i], 'genbank')
         global record_sequence
         record_sequence = ratt_contig_record.seq
         prokka_noref_rec_pre = prokka_record_noref[i]
