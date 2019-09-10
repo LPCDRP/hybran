@@ -1539,7 +1539,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
 
     global script_dir
     script_dir = script_directory
-    input_ratt_files = []
     logger = logging.getLogger('Annomerge')
     logger.debug('Running Annomerge on ' + isolate_id)
     start_time = time.time()
@@ -1559,9 +1558,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             gbk = converter.convert_embl_to_gbk(ratt_file_path + '/' + embl_file)
             ratt_gbk_files.append(gbk)
         correction_files = [cf for cf in os.listdir(ratt_file_path) if cf.endswith('.Report.txt')]
-        for embl_file in ratt_embl_files:
-            embl_file_path = ratt_file_path + '/' + embl_file
-            input_ratt_files.append(embl_file_path)
         for corr_file in correction_files:
             corr_file_path = ratt_file_path + '/' + corr_file
             ratt_correction_files.append(corr_file_path)
