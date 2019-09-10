@@ -28,23 +28,23 @@ def parse_clustered_proteins(clustered_proteins, annotations):
 
     # Private Function #
     ##################################################################################################################
-    def gff_dict(annotation_dir):
+    def gff_dict(gffs):
         """
         Parses all GFFs in the annotation_dir and gets gene names and locus tags.
         Creates a ditionary of dictionaries with isolate ID as the first key
         and GFF ID as the inner key. Locus tag and gene names are tuple values
         for the inner key
 
-        :param annotation_dir: str directory of GFFs
+        :param gffs: str directory of GFFs
         :return: dictionary of dictionaries
         """
         gff_dictionary = {}
-        for gff in os.listdir(annotation_dir):
+        for gff in gffs:
             isolate_id_ltag = {}
             try:
-                isolate_id = gff.split('.')[0]
+                isolate_id = gff.split('/')[-1].split('.')[0]
                 if gff.endswith('.gff'):
-                    with open(annotation_dir + gff, 'r') as gff_file:
+                    with open(gff, 'r') as gff_file:
                         for line in gff_file:
                             if line.startswith('#'):
                                 continue
@@ -423,9 +423,9 @@ def ref_seqs(gbk_dir):
         return [line for line in translations.stdout]
     protein_cds = []
     isolate_seqs = {}
-    for gff in os.listdir(gbk_dir):
+    for gff in gbk_dir:
         if gff.endswith('.gff'):
-            raw_out = grep_seqs(gbk_dir + gff)
+            raw_out = grep_seqs(gff)
             gff_name = gff.split('.')[0]
             isolate_seqs[gff_name] = {}
             for line in raw_out:
@@ -829,14 +829,15 @@ def parseClustersUpdateGBKs(gffs, clusters):
 
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
-    logger.debug('Retrieving reference protein sequences from GFFs in ' + gffs)
-    reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=gffs)
+    gff_files = [i + '/' + g for i in gffs for g in os.listdir(i)]
+    logger.debug('Retrieving reference protein sequences from GFFs in ' + ','.join(gffs))
+    reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=gff_files)
     logger.debug('Identifying unannotated proteins (signified by absence of a gene name)')
     mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
     mtb_increment = find_largest_mtb_increment(unannotated_fasta=mtb_genes_fp)
     logger.info('Parsing ' + clusters)
     clusters = parse_clustered_proteins(clustered_proteins=clusters,
-                                        annotations=gffs)
+                                        annotations=gff_files)
     multi_gene_cluster = clusters[0]
     single_gene_cluster = clusters[1]
     candidate_novel_gene_cluster = clusters[2]

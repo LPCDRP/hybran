@@ -62,9 +62,11 @@ def clustering(annotations, nproc):
         pass
     os.chdir('clustering')
     fasta = 'cds_seqs.fasta'
-    if fasta not in os.listdir(os.getcwd()):
-        logger.info('Parsing GFFs in ' + annotations)
-        gff_gene_dict = fastaFromGFF.create_fasta(directory=annotations)
+    if 'clustered_proteins' not in os.listdir(os.getcwd()):
+        gff_gene_dict = {}
+        for d in annotations:
+            logger.info('Parsing GFFs in ' + d)
+            gff_gene_dict.update(fastaFromGFF.create_fasta(directory=d))
         clusters = CDHIT.cd_hit(nproc=nproc,
                                 fasta=fasta,
                                 out='cdhit_clusters.fasta')
