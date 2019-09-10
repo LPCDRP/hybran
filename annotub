@@ -40,9 +40,8 @@ def cmds():
                                                            'download_eggnog_data.py. Full path only',
                           dest='database_dir',
                           required=True)
-    optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the current '
-                                                 'working directory. Full path only',
-                          default=os.getcwd())
+    optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
+                                                 '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
                           default='1')
     optional.add_argument('-v', '--version', help='Print version and exit',
@@ -81,6 +80,8 @@ def main():
                             format='%(asctime)s:INFO:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
 
+    if not args.output:
+        args.output = args.references
     cwd = os.getcwd() + '/'
 
     # Convert all input paths to full path if not given as full path

@@ -2107,11 +2107,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         if essentiality:
             essential_genes = get_essential_genes()
             all_rv_genes_in_isolate = []
-            annomerge_cds = 0
-            cds_lengths = []
             for feature in prokka_rec.features:
                 if feature.type == 'CDS':
-                    annomerge_cds += 1
                     locus_tag = feature.qualifiers['locus_tag'][0]
                     if locus_tag[:2] == 'Rv':
                         all_rv_genes_in_isolate.append(locus_tag)
@@ -2136,9 +2133,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         if feature_coverage <= 0.95:
                             logger.warning('Essential gene ' + new_locus_tag + ' is truncated in isolate ' +
                                          isolate_id + '. Coverage: ' + str(feature_coverage*100))
-                    else:
-                        feature_length = len(feature.qualifiers['translation'][0])
-                    cds_lengths.append(feature_length)
         # Get remaining unannotated region
         if add_noref_annotations:
             ordered_features_final = get_ordered_features(prokka_rec.features)
@@ -2183,9 +2177,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             noref_feat.qualifiers['note'] = [add_noref_note]
                         add_features_from_prokka_noref.append(noref_feat)
                         prokka_rec.features.append(noref_feat)
-                        annomerge_cds += 1
-                        cds_length_nrf = len(noref_feat.qualifiers['translation'][0])
-                        cds_lengths.append(cds_length_nrf)
             logger.debug('To add from noref: ' + str(len(add_features_from_prokka_noref)))
 
         # Removing gene names assigned based on domains
