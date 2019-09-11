@@ -97,8 +97,8 @@ def main():
     refdir, embl_dir, embls = fileManager.ratt_references(args)
 
     # Getting first reference information
-    first_reference = embls[0]
-    first_reference_gbk = args.references + first_reference.split('.')[0] + '.gbk'
+    first_reference_embl = embls[0]
+    first_reference_gbk = args.references + first_reference_embl.split('.')[0] + '.gbk'
     ref_cds, ref_genome = firstReference.get_first_reference_proteome(first_reference_gbk)
 
     # Calling all steps for AnnoTUB
@@ -117,13 +117,13 @@ def main():
                 annomerge.run(isolate_id=filename,
                               annotation_fp=os.getcwd() + '/',
                               ref_proteins_fasta=ref_cds,
-                              ref_embl_fp=args.references + first_reference,
+                              ref_embl_fp=embl_dir + first_reference_embl,
                               reference_genome=ref_genome,
                               script_directory=script_dir)
             if filename + '.gff' not in os.listdir(os.getcwd()):
                 converter.convert_gbk_to_gff(filename + '.gbk')
     if output_provided:
-        annotations_dir = [args.output, args.references]
+        annotations_dir = [args.output, refdir]
     else:
         annotations_dir = [args.output]
     run.clustering(annotations=annotations_dir,
