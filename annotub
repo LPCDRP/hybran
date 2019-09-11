@@ -133,7 +133,7 @@ def main():
                       emapper_loc=args.database_dir)
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
-    logger.info('Thank you for using AnnoTUB. We hope to see you again!')
+    print 'Thank you for using AnnoTUB. We hope to see you again!'
 
 
 if __name__ == '__main__':
