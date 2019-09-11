@@ -47,6 +47,7 @@ def cmds():
     optional.add_argument('-v', '--version', help='Print version and exit',
                           action='store_true')
     optional.add_argument('--verbose', action='store_true', help='Verbose output')
+    optional.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
     return parser.parse_args()
 
 
@@ -72,12 +73,13 @@ def main():
     # Setting up logging
     start_time = time.time()
     print '\n\t\t\tPlease cite:\n\t\t\t[manuscript submitted]\n\n'
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG,
-                            format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
-    else:
-        logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
+    if not args.quiet:
+        if args.verbose:
+            logging.basicConfig(level=logging.DEBUG,
+                                format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
+        else:
+            logging.basicConfig(level=logging.INFO,
+                                format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
     if not args.output:
         args.output = args.references
