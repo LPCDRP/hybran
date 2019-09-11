@@ -14,7 +14,8 @@ def convert_gbk_to_gff(gbk_filename):
                   gbk_filename,
                   gbk_filename.split('.')[-2] + '.gff',
                   '-feature', '-osf', 'gff']
-    subprocess.call(seqret_cmd)
+    with open(os.devnull, 'w') as devnull:
+        subprocess.call(seqret_cmd, stderr=devnull)
 
 
 def convert_embl_to_gbk(embl_filename):
@@ -29,5 +30,6 @@ def convert_embl_to_gbk(embl_filename):
                   embl_filename,
                   embl_filename.rstrip('embl') + 'gbk',
                   '-feature', '-osf', 'genbank']
-    subprocess.call(seqret_cmd)
+    with open(os.devnull, 'w') as devnull:
+        subprocess.call(seqret_cmd, stderr=devnull)
     return embl_filename.rstrip('embl') + 'gbk'
