@@ -28,18 +28,15 @@ def cmds():
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
     required.add_argument('-g', '--genomes', help='Directory containing all genomes desired to be annotated. '
-                                                  'FASTA format required',
-                          required=True)
+                                                  'FASTA format required')
     required.add_argument('-r', '--references', help='Directory containing EMBL and Genbank files of reference '
                                                      'annotations to transfer. Only the first 30 reference annotations '
                                                      'will be transferred with RATT and the first annotation will '
                                                      'be used as the reference database in the Prokka reference '
-                                                     'step.',
-                          required=True)
+                                                     'step.')
     required.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py. Full path only',
-                          dest='database_dir',
-                          required=True)
+                          dest='database_dir')
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
                                                  '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
