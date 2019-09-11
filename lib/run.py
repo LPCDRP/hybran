@@ -77,7 +77,6 @@ def clustering(target_genomes, out_dir, nproc):
                         out_name='clustered_proteins',
                         gene_names=gff_gene_dict)
     os.chdir(c)
-    # exit()
     parseClustering.parseClustersUpdateGBKs(target_gffs=target_genomes,
                                             clusters='clustering/clustered_proteins')
 
