@@ -70,12 +70,14 @@ def clustering(annotations, nproc):
         clusters = CDHIT.cd_hit(nproc=nproc,
                                 fasta=fasta,
                                 out='cdhit_clusters.fasta')
-        BLAST.run_blast(fastafile='cdhit_clusters.fasta',
-                        nproc=nproc)
-        MCL.run_mcl(in_blast='blast_results',
-                    cdhit_clusters=clusters,
-                    out_name='clustered_proteins',
-                    gene_names=gff_gene_dict)
+        if 'blast_results' not in os.getcwd():
+            BLAST.run_blast(fastafile='cdhit_clusters.fasta',
+                            nproc=nproc)
+        if 'clustered_proteins' not in os.getcwd():
+            MCL.run_mcl(in_blast='blast_results',
+                        cdhit_clusters=clusters,
+                        out_name='clustered_proteins',
+                        gene_names=gff_gene_dict)
     os.chdir(c)
     # exit()
     parseClustering.parseClustersUpdateGBKs(gffs=annotations,
