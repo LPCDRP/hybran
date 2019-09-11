@@ -3,6 +3,7 @@ import os
 import argparse
 import logging
 import time
+import glob
 
 from lib import \
     verifyInstallations, \
@@ -41,6 +42,9 @@ def cmds():
                                                  '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
                           default='1')
+    optional.add_argument('-k', '--keep-intermediates', dest='intermediates', action='sture_true',
+                          help='Flag if all intermediate files created by AnnoTUB should not be deleted. By default, '
+                               'they are deleted.')
     optional.add_argument('-v', '--version', help='Print version and exit',
                           action='store_true')
     optional.add_argument('--verbose', action='store_true', help='Verbose output')
@@ -101,10 +105,12 @@ def main():
     # Calling all steps for AnnoTUB
     genome_count = 0
     genomes_annotate = []
+    genomes = []
     for f in os.listdir(args.genomes):
         if f.endswith('.fasta'):
             genome_count += 1
             filename = f.split('.')[0]
+            genomes.append(filename)
             run.ratt_prokka(ref_dir=embl_dir,
                             fasta=args.genomes + f,
                             ref_cds=args.output + ref_cds,
@@ -128,6 +134,12 @@ def main():
     run.eggnog_mapper(script_dir=script_dir,
                       nproc=args.nproc,
                       emapper_loc=args.database_dir)
+    if not args.intermediates:
+        intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
+                            [g for g in genomes] + [d for d in glob.glob('emappertmp*/')]
+        intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
+        fileManager.remove_dir(d_list=intermediate_dirs)
+        fileManager.remove_file(f_list=intermediate_files)
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
     print 'Thank you for using AnnoTUB. We hope to see you again!'

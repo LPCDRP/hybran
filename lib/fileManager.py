@@ -14,6 +14,22 @@ def full_path(p):
     return p
 
 
+def remove_file(f_list):
+    for f in f_list:
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+
+
+def remove_dir(d_list):
+    for d in d_list:
+        try:
+            shutil.rmtree(d)
+        except OSError:
+            pass
+
+
 def ratt_references(args):
     logger = logging.getLogger('RATTReferences')
     refdir = args.output + 'temp_references/'
