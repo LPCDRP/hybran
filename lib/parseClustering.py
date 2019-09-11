@@ -428,7 +428,7 @@ def ref_seqs(gbk_dir):
     for gff in gbk_dir:
         if gff.endswith('.gff'):
             raw_out = grep_seqs(gff)
-            gff_name = gff.split('.')[0]
+            gff_name = gff.split('/')[-1].split('.')[0]
             isolate_seqs[gff_name] = {}
             for line in raw_out:
                 if line.split('\t')[2] == 'CDS':
