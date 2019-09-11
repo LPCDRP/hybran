@@ -73,11 +73,11 @@ def main():
     start_time = time.time()
     print '\n\t\t\tPlease cite:\n\t\t\t[manuscript submitted]\n\n'
     if args.verbose:
-        logging.basicConfig(level=logging.INFO,
+        logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
     else:
         logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s:INFO:%(name)s:%(message)s')
+                            format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
     output_provided = True
     if not args.output:

@@ -868,4 +868,3 @@ def parseClustersUpdateGBKs(gffs, clusters):
                           gbk_dir=os.getcwd())
     logger.info('Preparing FASTA for eggNOG functional assignments')
     prepare_for_eggnog(unannotated_seqs=mtb_genes_fp)
-    logger.info('Finished')
