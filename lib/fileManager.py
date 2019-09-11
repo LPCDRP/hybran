@@ -29,7 +29,7 @@ def ratt_references(args):
         pass
     all_embls = [i for i in os.listdir(args.references) if i.endswith('.embl')]
     if len(all_embls) >= 30:
-        embls = all_embls[0:29]
+        embls = all_embls[0:30]
     else:
         embls = all_embls
     if sorted(embls) != sorted(os.listdir(refdir + '/embls/')):
