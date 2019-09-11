@@ -320,10 +320,12 @@ def ref_seqs(gbk_dir):
         :return: dict of record IDs and sequences
         """
         fasta_dict = {}
+        fasta_descrip = {}
         for record in SeqIO.parse(fa, "fasta"):
             sequence = str(record.seq)
             fasta_dict[record.id] = sequence
-        return fasta_dict
+            fasta_descrip[record.id] = record.description
+        return fasta_dict, fasta_descrip
 
     def run_cdhit(nproc, input, output):
         """
@@ -379,7 +381,7 @@ def ref_seqs(gbk_dir):
         rep_dict[rep] = clusters
         return rep_dict, reps
 
-    def create_reps_fasta(output, reps, rep_seq_id_dict):
+    def create_reps_fasta(output, reps, rep_seq_id_dict, description_dict):
         """
         Creates a FASTA file that has sequence ID
         and sequence for each representative
@@ -391,7 +393,7 @@ def ref_seqs(gbk_dir):
         """
         seq_list = []
         for id_key in reps:
-            record = SeqRecord(Seq(rep_seq_id_dict[id_key]), id=id_key, description="")
+            record = SeqRecord(Seq(rep_seq_id_dict[id_key]), id=id_key, description=description_dict[id_key])
             seq_list.append(record)
         SeqIO.write(seq_list, output, "fasta")
 
@@ -407,9 +409,9 @@ def ref_seqs(gbk_dir):
         logger = logging.getLogger('CDHIT')
         logger.debug('Running CDHIT on reference annotations')
         cdhit_stdout = run_cdhit(nproc, fasta, out)
-        OGdict = create_allseq_dict(fasta)
+        OGdict, description_dict = create_allseq_dict(fasta)
         REPdict, rep_list = create_reps_dict(out + ".clstr")
-        create_reps_fasta(out, rep_list, OGdict)
+        create_reps_fasta(out, rep_list, OGdict, description_dict)
 
     def grep_seqs(gff):
         """
