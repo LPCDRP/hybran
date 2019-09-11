@@ -35,10 +35,12 @@ def ratt_references(args):
     if sorted(embls) != sorted(os.listdir(refdir + '/embls/')):
         logger.info('Getting first ' + str(len(embls)) + ' reference annotations')
         for e in embls:
+            gbk = e.split('/')[-1].split('.')[0] + '.gbk'
+            gff = e.split('/')[-1].split('.')[0] + '.gff'
             try:
                 shutil.copyfile(args.references + e, embl_dir + e)
-                shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gbk')
-                shutil.copyfile(args.references + e, refdir + e.split('.')[0] + '.gff')
+                shutil.copyfile(args.references + gbk, refdir + gbk)
+                shutil.copyfile(args.references + gff, refdir + gff)
             except OSError:
                 continue
     return refdir, embl_dir, embls
