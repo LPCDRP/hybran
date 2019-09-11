@@ -105,4 +105,4 @@ def eggnog_mapper(script_dir, nproc, emapper_loc):
            nproc,
            emapper_loc]
     subprocess.call(cmd)
-    addEggnogAnnotation.update_gbks()
+    addEggnogAnnotation.update_gbks(script_dir)

@@ -88,13 +88,13 @@ def parse_eggnog():
     return annotation_dict
 
 
-def update_gbks():
+def update_gbks(script_dir):
 
     def h37rv_gene_names():
         pe_ppe_rv = []
         pe_ppe_gene = []
         genes_dict = {}
-        rv_genes = GROUPHOME + '/resources/mtb-reconstruction/genes.tsv'
+        rv_genes = script_dir + '/resources/tuberculist_genes.tsv'
         with open(rv_genes, 'r') as gene_file:
             for line in gene_file:
                 column = line.rstrip('\n').split('\t')
