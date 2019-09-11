@@ -22,11 +22,11 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
     isolate = fasta.split('/')[-1].split('.')[0]
 
     if isolate not in os.listdir(os.getcwd()) or \
-        ('ratt' not in os.listdir(isolate) and
-         'prokka' not in os.listdir(isolate) and
+        ('ratt' not in os.listdir(isolate) or
+         'prokka' not in os.listdir(isolate) or
          'prokka-noreference' not in os.listdir(isolate)) or \
-            ('ratt-done' not in os.listdir(isolate + '/ratt/') and
-            isolate + '.gbk' not in os.listdir(isolate + '/prokka/') and
+            ('ratt-done' not in os.listdir(isolate + '/ratt/') or
+            isolate + '.gbk' not in os.listdir(isolate + '/prokka/') or
             isolate + '.gbk' not in os.listdir(isolate + '/prokka-noreference/')):
         logger.info('Executing RATT and Prokka on ' + isolate)
         try:
