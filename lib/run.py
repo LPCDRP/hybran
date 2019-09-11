@@ -44,7 +44,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
         os.chdir(c)
 
 
-def clustering(annotations, nproc):
+def clustering(target_genomes, out_dir, nproc):
     """
     Runs the clustering pipeline which uses CDHIT and MCL
     to cluster orthologous genes. File IO is handled by
@@ -64,9 +64,7 @@ def clustering(annotations, nproc):
     fasta = 'cds_seqs.fasta'
     if 'clustered_proteins' not in os.listdir(os.getcwd()):
         gff_gene_dict = {}
-        for d in annotations:
-            logger.info('Parsing GFFs in ' + d)
-            gff_gene_dict.update(fastaFromGFF.create_fasta(directory=d))
+        gff_gene_dict.update(fastaFromGFF.create_fasta(directory=out_dir))
         clusters = CDHIT.cd_hit(nproc=nproc,
                                 fasta=fasta,
                                 out='cdhit_clusters.fasta')
@@ -80,7 +78,7 @@ def clustering(annotations, nproc):
                         gene_names=gff_gene_dict)
     os.chdir(c)
     # exit()
-    parseClustering.parseClustersUpdateGBKs(gffs=annotations,
+    parseClustering.parseClustersUpdateGBKs(target_gffs=target_genomes,
                                             clusters='clustering/clustered_proteins')
 
 

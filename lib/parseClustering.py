@@ -817,7 +817,7 @@ def add_gene_names_to_gbk(mtbs, gbk_dir):
             SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 
-def parseClustersUpdateGBKs(gffs, clusters):
+def parseClustersUpdateGBKs(target_gffs, clusters):
     """
     Executes all functions to parse the clustering file and update
     all Genbanks
@@ -830,15 +830,14 @@ def parseClustersUpdateGBKs(gffs, clusters):
 
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
-    gff_files = [i + '/' + g for i in gffs for g in os.listdir(i)]
-    logger.debug('Retrieving reference protein sequences from GFFs in ' + ','.join(gffs))
-    reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=gff_files)
+    logger.debug('Retrieving reference protein sequences from GFFs')
+    reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=target_gffs)
     logger.debug('Identifying unannotated proteins (signified by absence of a gene name)')
     mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
     mtb_increment = find_largest_mtb_increment(unannotated_fasta=mtb_genes_fp)
     logger.info('Parsing ' + clusters)
     clusters = parse_clustered_proteins(clustered_proteins=clusters,
-                                        annotations=gff_files)
+                                        annotations=target_gffs)
     multi_gene_cluster = clusters[0]
     single_gene_cluster = clusters[1]
     candidate_novel_gene_cluster = clusters[2]

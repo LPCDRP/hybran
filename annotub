@@ -79,10 +79,8 @@ def main():
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
     logger = logging.getLogger('AnnoTUB')
-    output_provided = True
     if not args.output:
         args.output = args.references
-        output_provided = False
     cwd = os.getcwd() + '/'
 
     # Convert all input paths to full path if not given as full path
@@ -103,6 +101,7 @@ def main():
 
     # Calling all steps for AnnoTUB
     genome_count = 0
+    genomes_annotate = []
     for f in os.listdir(args.genomes):
         if f.endswith('.fasta'):
             genome_count += 1
@@ -122,12 +121,11 @@ def main():
                               script_directory=script_dir)
             if filename + '.gff' not in os.listdir(os.getcwd()):
                 converter.convert_gbk_to_gff(filename + '.gbk')
-    if output_provided:
-        annotations_dir = [args.output, refdir]
-    else:
-        annotations_dir = [args.output]
-    run.clustering(annotations=annotations_dir,
-                   nproc=args.nproc)
+            genomes_annotate.append(args.output + filename + '.gff')
+    genomes_annotate += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')]
+    run.clustering(target_genomes=list(set(sorted(genomes_annotate))),
+                   nproc=args.nproc,
+                   out_dir=args.output)
     run.eggnog_mapper(script_dir=script_dir,
                       nproc=args.nproc,
                       emapper_loc=args.database_dir)
