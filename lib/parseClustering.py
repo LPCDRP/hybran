@@ -89,7 +89,6 @@ def parse_clustered_proteins(clustered_proteins, annotations):
     with open(clustered_proteins, 'r') as clustered_proteins_file:
         for line in clustered_proteins_file:
             isolates_ids = line.rstrip('\n').split('\t')
-
             representative_seq_id = isolates_ids[0].split(': ')[1]
             rep_isolate = representative_seq_id.split('-L')[0]
             rep_seq_id = 'L' + representative_seq_id.split('-L')[1]
@@ -758,24 +757,24 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
     return mtb_increment, single_gene_cluster_complete
 
 
-def add_gene_names_to_gbk(mtb_pickle, gbk_dir):
+def add_gene_names_to_gbk(mtbs, gbk_dir):
     """
     Updates the Genbank files with the new gene names based on clustering
 
-    :param mtb_pickle: dict of isolates and gene names to update
+    :param mtbs: dict of isolates and gene names to update
     :param gbk_dir: str directory of Genbanks to update
     :return: None
     """
     logger = logging.getLogger('UpdateGenbank')
     gbk_files = os.listdir(gbk_dir)
     isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
-    for isolate in mtb_pickle.keys():
+    for isolate in mtbs.keys():
         if isolate not in isolates:
             logger.error('Isolate ' + isolate + ' absent in ' + gbk_dir)
         else:
             genbank_file = gbk_dir + '/' + isolate + '.gbk'
             isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
-            update_mtb_dict = mtb_pickle[isolate]
+            update_mtb_dict = mtbs[isolate]
             locus_to_update = update_mtb_dict.keys()
             modified_locus = []
             rec_num = 1
@@ -864,7 +863,7 @@ def parseClustersUpdateGBKs(gffs, clusters):
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment)
     logger.info('Updating Genbank files in ' + os.getcwd())
-    add_gene_names_to_gbk(mtb_pickle=isolate_update_dictionary,
+    add_gene_names_to_gbk(mtbs=isolate_update_dictionary,
                           gbk_dir=os.getcwd())
     logger.info('Preparing FASTA for eggNOG functional assignments')
     prepare_for_eggnog(unannotated_seqs=mtb_genes_fp)
