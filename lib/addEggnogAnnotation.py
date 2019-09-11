@@ -2,6 +2,7 @@
 import os
 from Bio import SeqIO
 from sets import Set
+import converter
 
 
 def parse_eggnog():
@@ -172,3 +173,4 @@ def update_gbks():
             output_recs.add(record)
             counter += 1
         SeqIO.write(list(output_recs), output_fp, 'genbank')
+        converter.convert_gbk_to_gff(output_fp)
