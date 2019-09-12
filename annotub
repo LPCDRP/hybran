@@ -138,11 +138,12 @@ def main():
                       nproc=args.nproc,
                       emapper_loc=args.database_dir)
     if not args.intermediates:
-        intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
-                            [g for g in genomes] + [d for d in glob.glob('emappertmp*/')]
-        intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
-        fileManager.remove_dir(d_list=intermediate_dirs)
-        fileManager.remove_file(f_list=intermediate_files)
+        fileManager.remove_dir(genomes)
+    intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
+                        [d for d in glob.glob('emappertmp*/')]
+    intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
+    fileManager.remove_dir(d_list=intermediate_dirs)
+    fileManager.remove_file(f_list=intermediate_files)
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
     print 'Thank you for using AnnoTUB. We hope to see you again!'
