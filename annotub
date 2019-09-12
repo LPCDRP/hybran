@@ -45,10 +45,10 @@ def cmds():
     optional.add_argument('-k', '--keep-intermediates', dest='intermediates', action='store_true',
                           help='Flag if all intermediate files created by AnnoTUB should not be deleted. By default, '
                                'they are deleted.')
-    optional.add_argument('-v', '--version', help='Print version and exit',
-                          action='store_true')
     optional.add_argument('--verbose', action='store_true', help='Verbose output')
     optional.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
+    optional.add_argument('-v', '--version', help='Print version and exit',
+                          action='store_true')
     return parser.parse_args()
 
 
