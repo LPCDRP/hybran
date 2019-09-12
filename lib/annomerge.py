@@ -360,9 +360,6 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             if 'locus_tag' in other_features.qualifiers.keys():
                 if other_features.qualifiers['locus_tag'][0] not in locus_to_remove_gene_tags:
                     final_ratt_features.append(other_features)
-            else:
-                logger.debug('This gene feature does not have a locus tag annotation in RATT')
-                logger.debug(other_features)
         else:
             final_ratt_features.append(other_features)
     if len(prokka_features) == 0:
@@ -894,9 +891,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                     elif locus_tag not in ratt_features:
                         mod_feature = feature
                     elif locus_tag in ratt_features and locus_tag in ratt_blast_results.keys():
-                        logger.debug('Modifying Here')
-                        logger.debug(ratt_features)
-                        logger.debug(feature)
                         ratt_start = int(list(ratt_locations.values())[0][0])
                         ratt_stop = int(list(ratt_locations.values())[0][1])
                         prom_mutation = False
@@ -919,9 +913,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                             ratt_prom_start = ratt_stop
                             ratt_prom_end = ratt_stop + 40
                             ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-                        logger.debug('RATT promoter')
-                        logger.debug(ratt_prom_seq)
-                        logger.debug(ref_prom_fp_dict[locus_tag])
                         blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[locus_tag],
                                                                  outfmt='"7 qseqid sseqid pident length mismatch '
                                                                         'gapopen qstart qend sstart send evalue '
@@ -936,8 +927,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                 do_not_add_prokka = True
                             else:
                                 prom_mutation = True
-                                logger.debug('Prom Mutation')
-                                logger.debug(blast_results)
                         if prom_mutation is True:
                             ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
                                                         int(ratt_blast_results[locus_tag][2]))
@@ -965,8 +954,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                     do_not_add_prokka = True
                             else:
                                 do_not_add_prokka = False
-                            logger.debug(do_not_add_prokka)
-                            logger.debug(mod_feature)
             else:
                 if loc_key in prokka_noref.keys():
                     mod_feature = prokka_noref[loc_key]
@@ -992,8 +979,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                     elif locus_tag not in ratt_features:
                         mod_feature = feature
                     elif locus_tag in ratt_features and locus_tag in ratt_blast_results.keys():
-                        logger.debug('Modify Here 2')
-                        logger.debug(ratt_locations)
                         ratt_start = int(ratt_locations.values()[0][0])
                         ratt_stop = int(ratt_locations.values()[0][1])
                         prom_mutation = False
@@ -1016,9 +1001,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                             ratt_prom_start = ratt_stop
                             ratt_prom_end = ratt_stop + 40
                             ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-                        logger.debug('RATT promoter')
-                        logger.debug(ratt_prom_seq)
-                        logger.debug(ref_prom_fp_dict[locus_tag])
                         blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[locus_tag],
                                                                  outfmt='"7 qseqid sseqid pident length mismatch '
                                                                         'gapopen qstart qend sstart send evalue '
@@ -1033,8 +1015,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                 do_not_add_prokka = True
                             else:
                                 prom_mutation = True
-                                logger.debug('Prom Mutation')
-                                logger.debug(blast_results)
                         if prom_mutation is True:
                             ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
                                                         int(ratt_blast_results[locus_tag][2]))
@@ -1214,13 +1194,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                     mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                     modified_features.append(mod_feature)
                                 else:
-                                    logger.debug('Modified feature location incorrect')
-                                    logger.debug(stdout)
-                                    logger.debug(check_feature_seq)
-                                    logger.debug(mod_feature_seq)
                                     feature_prokka.location = original_location
-                                    logger.debug(feature_prokka.qualifiers['translation'][0])
-                                    logger.debug(feature_prokka)
                                     modified_features.append(feature_prokka)
                             else:
                                 change_start = int(line_elements[8]) - int(line_elements[6])
@@ -1265,13 +1239,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                                 mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                                 modified_features.append(mod_feature)
                                             else:
-                                                logger.debug('Modified feature location incorrect')
-                                                logger.debug(stdout_2)
-                                                logger.debug(check_feature_seq)
-                                                logger.debug(mod_feature_seq)
                                                 feature_prokka.location = original_location
-                                                logger.debug(feature_prokka.qualifiers['translation'][0])
-                                                logger.debug(feature_prokka)
                                                 modified_features.append(feature_prokka)
                                         else:
                                             modified_features.append(feature_prokka)
@@ -1292,13 +1260,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                     mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                     modified_features.append(mod_feature)
                                 else:
-                                    logger.debug('Modified feature location incorrect')
-                                    logger.debug(stdout)
-                                    logger.debug(check_feature_seq)
-                                    logger.debug(mod_feature_seq)
                                     feature_prokka.location = original_location
-                                    logger.debug(feature_prokka.qualifiers['translation'][0])
-                                    logger.debug(feature_prokka)
                                     modified_features.append(feature_prokka)
                             else:
                                 change_start = int(line_elements[6]) - int(line_elements[8])
@@ -1345,13 +1307,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                                 mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                                 modified_features.append(mod_feature)
                                             else:
-                                                logger.debug('Modified feature location incorrect')
-                                                logger.debug(stdout_2)
-                                                logger.debug(check_feature_seq)
-                                                logger.debug(mod_feature_seq)
                                                 feature_prokka.location = original_location
-                                                logger.debug(feature_prokka.qualifiers['translation'][0])
-                                                logger.debug(feature_prokka)
                                                 modified_features.append(feature_prokka)
                                         else:
                                             modified_features.append(feature_prokka)
@@ -1422,8 +1378,6 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
     logger = logging.getLogger('BestFeatureHit')
     gene = ratt_feature.qualifiers['locus_tag'][0]
     if gene not in ref_genes_positions.keys():
-        logger.debug('This is a merged gene. Therefore, RATT annotation is kept')
-        logger.debug(ratt_feature)
         take_ratt = True
         return take_ratt
     startpos = ref_genes_positions[gene][0]
@@ -1469,7 +1423,6 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
                 else:
                     take_ratt = True
     else:
-        logger.debug('No Blast Hits for the RATT annotation, hence Prokka annotation is chosen: ' + gene)
         take_ratt = False
     return take_ratt
 
@@ -1616,7 +1569,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 break
     logger.debug('Number of genes with incorrect start predictions by Prodigal: ' +
                  str(len(incorrect_coords_dict.keys())))
-    logger.debug(sorted(incorrect_coords_dict.keys()))
     pickle.dump(incorrect_coords_dict, open(dict_save_fp, "wb"))
 
     prodigal_correction_dict = incorrect_coords_dict
@@ -1629,7 +1581,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     ref_prom_fp_dict = get_prom_for_gene(ref_features, ref_sequence)
 
     for i in range(0, len(ratt_gbk_files)):
-        logger.debug('Contig ' + str(i+1))
         ratt_contig_record = SeqIO.read(ratt_gbk_files[i], 'genbank')
         global record_sequence
         record_sequence = ratt_contig_record.seq
@@ -1719,13 +1670,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 else:
                     feature_additions[prokka_feature.type] += 1
                     feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
-            logger.debug('Contig Number: ' + str(i + 1) + '\n')
-            for f in feature_lengths.keys():
-                logger.debug(str('Feature: ' + f + '\n'))
-                logger.debug(str('Number of ' + f + ': ' + str(feature_additions[f]) + '\n'))
-                logger.debug(str('Min length: ' + str(min(feature_lengths[f])) + '\n'))
-                logger.debug(str('Max length: ' + str(max(feature_lengths[f])) + '\n'))
-                logger.debug(str('Median length: ' + str(median(feature_lengths[f])) + '\n'))
             continue
         elif len(prokka_contig_features) == 0:
             logger.warning("NO PROKKA ANNOTATION FOR CONTIG " + str(i + 1))
@@ -1774,10 +1718,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
             prokka_features_not_in_ratt, ratt_overlapping_genes = \
                 remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
-            for feature in prokka_features_not_in_ratt:
-                logger.debug(feature)
-            logger.debug('Number of prokka features not in RATT')
-            logger.debug(str(len(prokka_features_not_in_ratt.keys())))
+            logger.debug('Number of prokka features not in RATT ' + str(len(prokka_features_not_in_ratt.keys())))
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
@@ -1985,7 +1926,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             for prokka_ref_feat in add_features_from_prokka_ref:
                 add_prokka_contig_record.features.append(prokka_ref_feat)
             annomerge_records.append(add_prokka_contig_record)
-            logger.debug('To add from ref: ' + str(len(add_features_from_prokka_ref)))
     # Post-processing of genbank file to remove duplicates and rename locus_tag for
     # Prokka annotations
     prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbk'
@@ -2135,10 +2075,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             prokka_rec.features = ordered_features_final
             records, positions, pre, post = get_interregions(prokka_rec, intergene_length=1)
             positions_lengths = [len(p) for p in records]
-            if len(positions_lengths) != 0:
-                logger.debug(str('Minimum length of unannotated region: ' + str(min(positions_lengths)) + '\n'))
-                logger.debug(str('Maximum length of unannotated region: ' + str(max(positions_lengths)) + '\n'))
-                logger.debug(str('Median length of unannotated region: ' + str(median(positions_lengths)) + '\n'))
             add_features_from_prokka_noref = []
             sorted_positions = sorted(positions)
             prokka_noref_features_sorted = get_ordered_features(prokka_noref_rec.features)
