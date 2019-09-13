@@ -36,6 +36,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
         os.chdir(isolate)
         cmd = [script_dir + '/lib/ratt_prokka.sh',
                ref_dir,
+               isolate + '_2',
                fasta,
                isolate,
                ref_cds,

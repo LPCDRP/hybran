@@ -1965,7 +1965,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                     added_cds[loc_key] = feature
                     prokka_rec.features.append(feature)
-            if feature.type == 'CDS' and feature.qualifiers['locus_tag'][0][0] == 'L' and \
+            if feature.type == 'CDS' and feature.qualifiers['locus_tag'][0].split('_')[0] == isolate_id and \
                     'gene' in feature.qualifiers.keys():
                 if '_' in feature.qualifiers['gene'][0]:
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
@@ -1982,15 +1982,15 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     else:
                         feature_noref = feature
                     if 'gene' in feature_noref.qualifiers.keys() and '_' in feature_noref.qualifiers['gene'][0]:
-                        new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                        new_locus_tag = isolate_id + '_2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
                         feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
-                        new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                        new_protein_id = 'C:' + isolate_id + '_2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
                         feature_noref.qualifiers['protein_id'] = [new_protein_id]
                         feature_noref.qualifiers['gene'] = feature_noref.qualifiers['locus_tag']
                     else:
-                        new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                        new_locus_tag = isolate_id + '_2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
                         feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
-                        new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                        new_protein_id = 'C:' + isolate_id + '_2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
                         feature_noref.qualifiers['protein_id'] = [new_protein_id]
                     added_cds[loc_key] = feature_noref
                     prokka_rec.features.append(feature_noref)
@@ -2018,11 +2018,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             mtb_fasta = mtb_fasta_fp
             for feature in prokka_rec.features:
                 if feature.type == 'CDS' and (('gene' not in feature.qualifiers.keys() and
-                                               ('L_' in feature.qualifiers['locus_tag'][0] or
-                                                'L2_' in feature.qualifiers['locus_tag'][0])) or
+                                               (isolate_id in feature.qualifiers['locus_tag'][0] or
+                                                isolate_id + '_2_' in feature.qualifiers['locus_tag'][0])) or
                                               ('gene' in feature.qualifiers.keys() and
                                                '_' in feature.qualifiers['gene'][0] and
-                                               'L2_' in feature.qualifiers['locus_tag'][0])):
+                                               isolate_id + '_2_' in feature.qualifiers['locus_tag'][0])):
                     query_sequence = feature.qualifiers['translation'][0]
                     blast_to_mtb = NcbiblastpCommandline(subject=mtb_fasta, outfmt='"7 qseqid qlen sseqid slen qlen '
                                                                                    'length pident qcovs"')
@@ -2054,12 +2054,13 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     if 'gene' not in feature.qualifiers.keys():
                         feature.qualifiers['gene'] = [new_locus_tag]
                     else:
-                        if '_' in feature.qualifiers['gene'][0] and (feature.qualifiers['gene'][0][:2] != 'L_' or
-                                                                 feature.qualifiers['gene'][0][:3] != 'L2_'):
+                        if '_' in feature.qualifiers['gene'][0] and \
+                                (not feature.qualifiers['gene'][0].startswith(isolate_id) or
+                                 not feature.qualifiers['gene'][0].startswith(isolate_id + '_2_')):
                             if '_' not in feature.qualifiers['locus_tag'][0]:
                                 feature.qualifiers['locus_tag'] = [new_locus_tag]
                             else:
-                                new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
+                                new_locus_tag = isolate_id + '_2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
                                 feature.qualifiers['locus_tag'] = [new_locus_tag]
                                 feature.qualifiers['gene'] = [new_locus_tag]
                     if new_locus_tag in essential_genes:
@@ -2127,15 +2128,15 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
             # Check if same locus tag is annotated with 2 different sequences
             final_feature_name = feature_final.qualifiers['locus_tag'][0]
-            if final_feature_name in added_ltags and (final_feature_name.startswith('L_') or
-                                                      final_feature_name.startswith('L2_')):
+            if final_feature_name in added_ltags and (final_feature_name.startswith(isolate_id) or
+                                                      final_feature_name.startswith(isolate_id + '_2_')):
                 prev_ltag = final_feature_name.split('_')[1]
-                ltag = final_feature_name.split('_')[0][-1]
-                if ltag == 'L':
-                    renamed_ltag = 'L2_' + str(prev_ltag)
+                ltag = final_feature_name.split('_')[0]
+                if ltag == isolate_id:
+                    renamed_ltag = isolate_id + '_2_' + str(prev_ltag)
                 else:
                     add_digit = int(ltag) + 1
-                    renamed_ltag = 'L' + str(add_digit) + '_' + str(prev_ltag)
+                    renamed_ltag = isolate_id + str(add_digit) + '_' + str(prev_ltag)
                 feature_final.qualifiers['locus_tag'] = [renamed_ltag]
             if 'gene' not in feature_final.qualifiers.keys():
                 feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
@@ -2213,4 +2214,4 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         os.unlink(temp_file)
     final_cdss = [f for f in output_isolate_recs[0].features if f.type == 'CDS']
     logger.debug('Number of CDSs annomerge: ' + str(len(final_cdss)))
-    logger.debug('Run Time: ' + str(time.time() - start_time))
+    logger.debug('Run Time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
