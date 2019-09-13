@@ -57,7 +57,6 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                                 gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
                                 if not locus_tag.startswith('Rv') and not locus_tag.startswith(isolate_id):
                                     gene = locus_tag
-                                    locus_tag = ''
                                 isolate_id_ltag[gene_id] = (locus_tag, gene)
                         gff_dictionary[isolate_id] = isolate_id_ltag
             except IOError:
