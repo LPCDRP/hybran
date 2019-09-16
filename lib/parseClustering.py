@@ -695,7 +695,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
     """
     logger = logging.getLogger('ClustersWithManyGeneNames')
     logger.debug('Number of clusters that have many gene names and genes with no name ' + str(len(in_dict.keys())))
-    mgc_output = []
 
     num_multi = 0
     for gene in in_dict.keys():
@@ -714,11 +713,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                 true_multi_cluster = True
         if true_multi_cluster:
             output_line = output_line + gene
-            for gene_in_cluster in in_dict[gene]:
-                gene_str = ','.join(gene_in_cluster)
-                output_line = output_line + '\t' + gene_str
-            output_line = output_line + '\n'
-            mgc_output.append(output_line)
             all_genes_annotated = cluster_annotation_presence(in_dict[gene])
             # If all genes in the cluster are annotated, do nothing. If there is an unannotated gene in the cluster,
             # blast it to all annotated genes in cluster and annotated with top hit
@@ -752,9 +746,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
             if len(unassigned_l_tags) > 0:
                 single_gene_cluster_complete[gene] = in_dict[gene]
             continue
-    with open('clustering/multi_gene_clusters.tsv', 'w') as out:
-        for line in mgc_output:
-            out.write(line)
     return mtb_increment, single_gene_cluster_complete
 
 
