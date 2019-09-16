@@ -153,7 +153,6 @@ def main():
     run.clustering(target_genomes=list(set(sorted(genomes_annotate))),
                    nproc=args.nproc,
                    out_dir=args.output)
-    exit()
     run.eggnog_mapper(script_dir=script_dir,
                       nproc=args.nproc,
                       emapper_loc=args.database_dir)
