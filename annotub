@@ -48,6 +48,9 @@ def cmds():
     optional.add_argument('-k', '--keep-intermediates', dest='intermediates', action='store_true',
                           help='Flag if all intermediate files created by AnnoTUB should not be deleted. By default, '
                                'they are deleted.')
+    optional.add_argument('-f', '--force', action='store_true',
+                          help='Force overwrite intermediate files (does not overwrite annotation files already '
+                               'annotated using annotub.')
     optional.add_argument('--verbose', action='store_true', help='Verbose output')
     optional.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
     optional.add_argument('-v', '--version', help='Print version and exit',
@@ -99,7 +102,14 @@ def main():
 
     # Setting up RATT references
     refdir, embl_dir, embls = fileManager.ratt_references(args)
-
+    intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
+                        [d for d in glob.glob('emappertmp*/')]
+    intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
+    if all(intermediate_files + intermediate_dirs) in os.listdir(args.output) and not args.force:
+        print 'It seems annotub has been executed before. Please use the -f/--force flag if you would like to ' \
+              'overwrite intermediate files ' \
+              '(does not overwrite Genbank/GFF files created in a previous run of annotub).'
+        exit()
     # Getting first reference information
     if not args.first_gbk:
         first_reference_embl = embls[0]
@@ -144,9 +154,7 @@ def main():
                       nproc=args.nproc,
                       emapper_loc=args.database_dir)
     if not args.intermediates:
-        intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
-                            [g for g in genomes] + [d for d in glob.glob('emappertmp*/')]
-        intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
+        intermediate_dirs += [g for g in genomes]
         fileManager.remove_dir(d_list=intermediate_dirs)
         fileManager.remove_file(f_list=intermediate_files)
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
