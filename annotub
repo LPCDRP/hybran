@@ -118,6 +118,7 @@ def main():
         first_reference_gbk = args.references + first_reference_embl.split('.')[0] + '.gbk'
     else:
         first_reference_gbk = args.first_gbk
+        first_reference_embl = first_reference_gbk.split('.')[0] + '.embl'
     ref_cds, ref_genome = firstReference.get_first_reference_proteome(first_reference_gbk)
 
     # Calling all steps for AnnoTUB
