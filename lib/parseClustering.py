@@ -601,6 +601,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         top_hit, all_hits = identify_top_hits('\n'.join(lines))
         isolate = qid.split('|')[0]
         locus = qid.split('|')[1]
+        gene = qid.split('|')[2]
         assign_mtb = False
         name_to_assign = top_hit
         if top_hit is None:
@@ -619,6 +620,8 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             new_unannotated_genes.append(seq_record)
             name_to_assign = mtb_id
         update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
+        for other_genes_in_cluster in in_dict[','.join([isolate, locus, gene])]:
+            update_dictionary_ltag_assignments(other_genes_in_cluster[0], other_genes_in_cluster[1], name_to_assign)
     with open(unannotated_fasta, 'a') as mtb_fasta:
         for s in new_unannotated_genes:
             SeqIO.write(s, mtb_fasta, 'fasta')

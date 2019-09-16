@@ -38,7 +38,7 @@ def cmds():
     required.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
                           dest='database_dir')
-    optional.add_argument('-f', '--first-reference', required=False, dest='first_gbk',
+    optional.add_argument('-t', '--first-reference', required=False, dest='first_gbk',
                           help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
                                ' Default is the first reference annotation (Genbank) in -r/--references.')
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
@@ -153,6 +153,7 @@ def main():
     run.clustering(target_genomes=list(set(sorted(genomes_annotate))),
                    nproc=args.nproc,
                    out_dir=args.output)
+    exit()
     run.eggnog_mapper(script_dir=script_dir,
                       nproc=args.nproc,
                       emapper_loc=args.database_dir)
