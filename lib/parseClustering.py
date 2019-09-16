@@ -55,7 +55,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                                 gene_id = ''.join([i.split('=')[1] for i in info if i.startswith('ID=')])
                                 locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('locus_tag=')])
                                 gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
-                                if not locus_tag.startswith('Rv') and not locus_tag.startswith(isolate_id):
+                                if not locus_tag.startswith('Rv') and not locus_tag.startswith('L'):
                                     gene = locus_tag
                                 isolate_id_ltag[gene_id] = (locus_tag, gene)
                         gff_dictionary[isolate_id] = isolate_id_ltag
@@ -89,8 +89,9 @@ def parse_clustered_proteins(clustered_proteins, annotations):
         for line in clustered_proteins_file:
             isolates_ids = line.rstrip('\n').split('\t')
             representative_seq_id = isolates_ids[0].split(': ')[1]
-            rep_isolate = representative_seq_id.split('_')[0]
-            representative_ltag_gene_tup = gffs[rep_isolate][representative_seq_id]
+            rep_isolate = representative_seq_id.split('-L')[0]
+            rep_seq_id = 'L' + representative_seq_id.split('-L')[1]
+            representative_ltag_gene_tup = gffs[rep_isolate][rep_seq_id]
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
 
             representative_fasta_list.append([rep_isolate] + list(representative_ltag_gene_tup))
@@ -101,38 +102,38 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             cluster_list.append(representative_ltag_gene_tup)
             cluster_list_w_isolate.append([rep_isolate] + list(representative_ltag_gene_tup))
             for isolate_gene_id in isolates_ids[1:]:
-                isolate = isolate_gene_id.split('_')[0]
-                cluster_list.append(gffs[isolate][isolate_gene_id])
-                cluster_list_w_isolate.append([isolate] + list(gffs[isolate][isolate_gene_id]))
-                gene_cluster[representative].append(','.join([isolate, ','.join(gffs[isolate][isolate_gene_id])]))
+                isolate = isolate_gene_id.split('-L')[0]
+                gene_id = 'L' + isolate_gene_id.split('-L')[1]
+                cluster_list.append(gffs[isolate][gene_id])
+                cluster_list_w_isolate.append([isolate] + list(gffs[isolate][gene_id]))
+                gene_cluster[representative].append(','.join([isolate, ','.join(gffs[isolate][gene_id])]))
             number_genes, number_locus_tags = different_genes(cluster_list)
             unique_genes = []
             unique_locus = []
-            isolates = [i.split('_')[0] for i in isolates_ids]
             for data in number_genes:
-                if data.split('_')[0] not in isolates:
+                if not data.startswith('L'):
                     unique_genes.append(data)
             for data in number_locus_tags:
-                if data.split('_')[0] not in [i.split('_')[0] for i in isolates_ids]:
+                if not data.startswith('L'):
                     unique_locus.append(data)
             # Getting clusters with only 1 gene that is an L tag or an underscore
             if (len(unique_genes) == 1 or len(unique_locus) == 1) and \
-                    any([gene for gene in cluster_list if gene[1].split('_')[0] in isolates]):
+                    any([gene[1].startswith('L') for gene in cluster_list]):
                 same_genes_cluster_w_ltags[representative] = cluster_list_w_isolate
             elif (len(isolates_ids) == 1 and
-                    (representative_ltag_gene_tup[1].split('_')[0] in isolates) or
+                    (representative_ltag_gene_tup[1].startswith('L')) or
                      underscore_re.search(representative_ltag_gene_tup[1])):
                 unique_genes_list.append([rep_isolate] + list(representative_ltag_gene_tup))
             # All different with L tags
             elif (len(unique_genes) > 1 or len(unique_locus) > 1) and \
-                    any([gene for gene in cluster_list if gene[1].split('_')[0] in isolates]):
+                    any([gene[1].startswith('L') for gene in cluster_list]):
                 different_genes_cluster_w_ltags[representative] = cluster_list_w_isolate
             #
             # L tag only clusters
-            elif all(gene for gene in cluster_list if gene[1].split('_')[0] in isolates):
+            elif all(locus[1].startswith('L') for locus in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
     return [different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, l_tag_only_clusters,
-            unique_genes_list, list(set(sorted(gffs.keys())))]
+            unique_genes_list]
 
 
 def get_top_hit(all_hits_dict):
@@ -178,8 +179,7 @@ def identify_top_hits(blast_output_file, identity=95, coverage=95):
             iden = float(line_elements[5])
             qcov = (float(line_elements[4]) / float(line_elements[1])) * 100.0
             scov = (float(line_elements[4]) / float(line_elements[3])) * 100.0
-            if iden >= identity and qcov >= coverage and scov >= coverage and \
-                    line_elements[2].split('_')[0] not in isolate_list:
+            if iden >= identity and qcov >= coverage and scov >= coverage and not line_elements[2].startswith('L'):
                 rv_hit = True
                 if '|' in line_elements[2]:
                     corresponding_rv_hit = line_elements[2].split('|')[-1]
@@ -234,7 +234,7 @@ def get_cluster_fasta(rep, cluster_list):
     added_seq = []
     unannotated_genes_list = []
     fasta_tmp = open(cluster_temp_fasta, 'w')
-    if rep_locus.split('_')[0] not in isolate_list and rep_gene_name.split('_')[0] not in isolate_list:
+    if not (rep_locus.startswith('L') and rep_gene_name.startswith('L')):
         rep_sequence = isolate_sequences[rep_isolate_id][rep_locus]
         rep_sequence_object = rep_sequence
         seq_id = '|'.join([rep_isolate_id, rep_locus, rep_gene_name])
@@ -248,7 +248,7 @@ def get_cluster_fasta(rep, cluster_list):
         gene_isolate_id = gene[0]
         gene_locus = gene[1]
         gene_name = gene[2]
-        if gene_locus.split('_')[0] not in isolate_list and gene_name.split('_')[0] not in isolate_list:
+        if gene_locus.startswith('L') and gene_name.startswith('L'):
             unannotated_genes_list.append(gene)
         else:
             gene_id = '|'.join([gene_isolate_id, gene_locus, gene_name])
@@ -276,7 +276,7 @@ def cluster_annotation_presence(cluster_list):
     for gene in cluster_list:
         gene_locus = gene[1]
         gene_name = gene[2]
-        if gene_locus.split('_')[0] not in isolate_list and gene_name.split('_')[0] not in isolate_list:
+        if not (gene_locus.startswith('L') and gene_name.startswith('L')):
             annotated += 1
     if annotated == len(cluster_list):
         return True
@@ -522,7 +522,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
         isolate_id = single_gene[0]
         locus_tag = single_gene[1]
         gene_name = single_gene[2]
-        if gene_name.split('_')[0] not in isolate_list and locus_tag.split('_')[0] not in isolate_list:
+        if gene_name.startswith('L') and locus_tag.startswith('L'):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
             stdout = blast(reference_fasta, gene_sequence)
             top_hit, all_hits = identify_top_hits(stdout)
@@ -646,8 +646,7 @@ def single_gene_clusters(single_gene_dict):
             gene_to_add = key_elements_sgc[1]
         elif key_elements_sgc[2].startswith('Rv'):
             gene_to_add = key_elements_sgc[2]
-        elif key_elements_sgc[1].split('_')[0] not in isolate_list \
-                and key_elements_sgc[2].split('_')[0] not in isolate_list:
+        elif key_elements_sgc[1].startswith('L') and key_elements_sgc[2].startswith('L'):
             rep_ltag = True
             rep_ltag_keys.append(key_sgc)
         else:
@@ -656,7 +655,7 @@ def single_gene_clusters(single_gene_dict):
         if not rep_ltag:
             genes_in_cluster = single_gene_dict[key_sgc]
             for gene in genes_in_cluster:
-                if gene[1].split('_')[0] not in isolate_list and gene[2].split('_')[0] not in isolate_list:
+                if gene[1].startswith('L') and gene[2].startswith('L'):
                     update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
                 else:
                     continue
@@ -665,17 +664,17 @@ def single_gene_clusters(single_gene_dict):
             genes_in_cluster = single_gene_dict[key_sgc]
             gene_to_add = ''
             for gene in genes_in_cluster:
-                if gene[1].split('_')[0] not in isolate_list and gene[2].split('_')[0] not in isolate_list:
+                if gene[1].startswith('L') and gene[2].startswith('L'):
                     continue
                 else:
-                    if not gene[1].split('_')[0] not in isolate_list:
+                    if not gene[1].startswith('L'):
                         gene_to_add = gene[1]
                     else:
                         gene_to_add = gene[2]
                     break
             if len(gene_to_add) != 0:
                 for gene in genes_in_cluster:
-                    if gene[1].split('_')[0] not in isolate_list and gene[2].split('_')[0] not in isolate_list:
+                    if gene[1].startswith('L') and gene[2].startswith('L'):
                         update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
                     else:
                         continue
@@ -706,8 +705,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
         for gene_in_cluster in in_dict[gene]:
             if gene_in_cluster[1] in gene_elements or gene_in_cluster[2] in gene_elements:
                 continue
-            elif gene_in_cluster[1].split('_')[0] not in isolate_list \
-                    and gene_in_cluster[2].split('_')[0] not in isolate_list:
+            elif gene_in_cluster[1].startswith('L') and gene_in_cluster[2].startswith('L'):
                 unassigned_l_tags.append(gene_in_cluster)
             else:
                 true_multi_cluster = True
@@ -785,7 +783,7 @@ def add_gene_names_to_gbk(mtbs, gbk_dir):
                         gene_synonym = []
                     if locus_tag in locus_to_update and \
                             locus_tag not in modified_locus:
-                        if gene_name.startswith(isolate):
+                        if gene_name.startswith('L'):
                             feature.qualifiers['gene'] = update_mtb_dict[locus_tag]
                         elif gene_name == update_mtb_dict[locus_tag]:
                             modified_locus.append(locus_tag)
@@ -820,7 +818,7 @@ def parseClustersUpdateGBKs(target_gffs, clusters):
     """
     logger = logging.getLogger('ParseClusters')
 
-    global isolate_update_dictionary, isolate_sequences, isolate_list
+    global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
     logger.debug('Retrieving reference protein sequences from GFFs')
     reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=target_gffs)
@@ -834,7 +832,6 @@ def parseClustersUpdateGBKs(target_gffs, clusters):
     single_gene_cluster = clusters[1]
     candidate_novel_gene_cluster = clusters[2]
     unique_gene_cluster = clusters[3]
-    isolate_list = clusters[4]
     candidate_novel_gene_cluster_complete = candidate_novel_gene_cluster.copy()
     single_gene_cluster_complete = single_gene_cluster.copy()
     logger.debug('Annotating genes that do not have a gene name but cluster with genes that have many gene names')
