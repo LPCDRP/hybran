@@ -38,6 +38,9 @@ def cmds():
     required.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
                           dest='database_dir')
+    optional.add_argument('-f', '--first-reference', required=False, dest='first_gbk',
+                          help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
+                               ' Default is the first reference annotation (Genbank) in -r/--references.')
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
                                                  '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
@@ -98,8 +101,11 @@ def main():
     refdir, embl_dir, embls = fileManager.ratt_references(args)
 
     # Getting first reference information
-    first_reference_embl = embls[0]
-    first_reference_gbk = args.references + first_reference_embl.split('.')[0] + '.gbk'
+    if not args.first_gbk:
+        first_reference_embl = embls[0]
+        first_reference_gbk = args.references + first_reference_embl.split('.')[0] + '.gbk'
+    else:
+        first_reference_gbk = args.first_gbk
     ref_cds, ref_genome = firstReference.get_first_reference_proteome(first_reference_gbk)
 
     # Calling all steps for AnnoTUB
