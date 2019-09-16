@@ -28,7 +28,7 @@ wait
 
 if [ ! -f prokka-noreference/"$isolate".gbk ]
 then
-  prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus "$nproc" --outdir prokka-noreference --prefix "$isolate" --force --centre C --locustag "$prokka_noref_ltag" --quiet "$fasta"
+	prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus "$nproc" --outdir prokka-noreference --prefix "$isolate" --force --centre C --locustag L2 --quiet "$fasta"
 fi
 
 wait
