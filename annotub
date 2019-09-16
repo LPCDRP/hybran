@@ -45,9 +45,9 @@ def cmds():
                                                  '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
                           default='1')
-    optional.add_argument('-k', '--keep-intermediates', dest='intermediates', action='store_true',
-                          help='Flag if all intermediate files created by AnnoTUB should not be deleted. By default, '
-                               'they are deleted.')
+    optional.add_argument('-rm', '--remove', action='store_true',
+                          help='Flag if all intermediate files created by AnnoTUB should be deleted. By default, '
+                               'they are kept.')
     optional.add_argument('-f', '--force', action='store_true',
                           help='Force overwrite intermediate files (does not overwrite annotation files already '
                                'annotated using annotub.')
@@ -156,7 +156,7 @@ def main():
     run.eggnog_mapper(script_dir=script_dir,
                       nproc=args.nproc,
                       emapper_loc=args.database_dir)
-    if not args.intermediates:
+    if args.remove:
         intermediate_dirs += [g for g in genomes]
         fileManager.remove_dir(d_list=intermediate_dirs)
         fileManager.remove_file(f_list=intermediate_files)
