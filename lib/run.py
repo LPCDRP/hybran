@@ -64,7 +64,7 @@ def clustering(target_genomes, out_dir, nproc):
     fasta = 'cds_seqs.fasta'
     if 'clustered_proteins' not in os.listdir(os.getcwd()):
         gff_gene_dict = {}
-        gff_gene_dict.update(fastaFromGFF.create_fasta(directory=out_dir))
+        gff_gene_dict.update(fastaFromGFF.create_fasta(directory=target_genomes))
         clusters = CDHIT.cd_hit(nproc=nproc,
                                 fasta=fasta,
                                 out='cdhit_clusters.fasta')
