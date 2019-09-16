@@ -83,10 +83,12 @@ def main():
     if not args.quiet:
         if args.verbose:
             logging.basicConfig(level=logging.DEBUG,
-                                format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
+                                format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
+                                datefmt='%H:%M:%S %m-%d')
         else:
             logging.basicConfig(level=logging.INFO,
-                                format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
+                                format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
+                                datefmt='%H:%M:%S %m-%d')
     logger = logging.getLogger('AnnoTUB')
     if not args.output:
         args.output = args.references
