@@ -38,9 +38,9 @@ def main():
     else:
         print 'Did not provide -d/--dir or -f/--fasta. A choice is required. Exiting...'
         exit()
-    clusters = CDHIT.cd_hit(nproc=args.nproc,
-                            fasta=fasta,
-                            out='cdhit_clusters.fasta')
+    clusters = CDHIT.run(nproc=args.nproc,
+                         fasta=fasta,
+                         out='cdhit_clusters.fasta')
     BLAST.run_blast(fastafile='cdhit_clusters.fasta',
                     nproc=args.nproc)
     MCL.run_mcl(in_blast='blast_results',

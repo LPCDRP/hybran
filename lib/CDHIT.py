@@ -64,7 +64,7 @@ def create_reps_fasta(output, reps, rep_seq_id_dict):
     SeqIO.write(seq_list, output, "fasta")
 
 
-def cd_hit(nproc, fasta, out):
+def run(nproc, fasta, out):
     logger = logging.getLogger('CDHIT')
     logger.info('Running CDHIT')
     cdhit_stdout = run_cdhit(nproc, fasta, out)
