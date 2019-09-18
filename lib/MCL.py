@@ -35,7 +35,7 @@ def inflate_mcl_clusters(mcl_output, cdhit_groups, gene_key):
         for line in mcl:
             names = line.rstrip('\n').split('\t')
             try:
-                inflated_cluster = names + [cdhit_groups[n] for n in names][0]
+                inflated_cluster = names + list(set(sorted([m for n in names for m in cdhit_groups[n]])))
             except KeyError:
                 inflated_cluster = names
             if gene_key:
