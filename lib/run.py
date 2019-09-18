@@ -68,10 +68,10 @@ def clustering(target_genomes, out_dir, nproc):
         clusters = CDHIT.run(nproc=nproc,
                              fasta=fasta,
                              out='cdhit_clusters.fasta')
-        if 'blast_results' not in os.getcwd():
+        if 'blast_results' not in os.listdir(os.getcwd()):
             BLAST.run_blast(fastafile='cdhit_clusters.fasta',
                             nproc=nproc)
-        if 'clustered_proteins' not in os.getcwd():
+        if 'clustered_proteins' not in os.listdir(os.getcwd()):
             MCL.run_mcl(in_blast='blast_results',
                         cdhit_clusters=clusters,
                         out_name='clustered_proteins',
