@@ -11,7 +11,7 @@ def verify_installations(eggnog_databases):
     logger = logging.getLogger('VerifyInstallations')
 
     # Verify the RATT_HOME variable is set
-    if not os.environ['RATT_HOME']:
+    if 'RATT_HOME' not in os.environ.keys():
         logger.error('RATT_HOME variable is not defined. '
                      'Please export RATT_HOME=[location of downloaded ratt executable/config')
         exit(EnvironmentError)
