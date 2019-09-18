@@ -124,9 +124,10 @@ def main():
     # Calling all steps for AnnoTUB
     genome_count = 0
     genomes_annotate = []
+    all_genomes = []
     genomes = []
     for f in os.listdir(args.genomes):
-        if f.endswith('.fasta'):
+        if f.endswith('.fasta') and not f.startswith('ref'):
             filename = f.split('.')[0]
             if filename + '.gff' not in args.output:
                 genome_count += 1
@@ -149,12 +150,16 @@ def main():
                 genomes_annotate.append(args.output + filename + '.gff')
             else:
                 logger.info(f + ' as already been annotated.')
-    genomes_annotate += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')]
-    run.clustering(target_genomes=list(set(sorted(genomes_annotate))),
+    all_genomes += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')] + genomes_annotate
+    run.clustering(all_genomes=list(set(sorted(all_genomes))),
+                   target_genomes=genomes_annotate,
                    nproc=args.nproc)
-    run.eggnog_mapper(script_dir=script_dir,
-                      nproc=args.nproc,
-                      emapper_loc=args.database_dir)
+    if 'eggnog_seqs.fasta' in cwd:
+        run.eggnog_mapper(script_dir=script_dir,
+                          nproc=args.nproc,
+                          emapper_loc=args.database_dir)
+    else:
+        logger.info('No genes to annotated with eggnog, continuing')
     if args.remove:
         intermediate_dirs += [g for g in genomes]
         fileManager.remove_dir(d_list=intermediate_dirs)

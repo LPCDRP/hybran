@@ -439,7 +439,7 @@ def ref_seqs(gbk_dir):
                         eggnog = True
                     record = SeqRecord(Seq(translation.rstrip('\n')),
                                        id=gene,
-                                       description=str(eggnog))
+                                       description=str(eggnog) + '|' + gff_name)
                     isolate_seqs[gff_name][locus_tag] = Seq(translation.rstrip('\n'))
                     protein_cds.append(record)
     all_proteins = 'clustering/ref_cdss_protein-all.fasta'
@@ -482,7 +482,7 @@ def find_unannotated_genes(reference_protein_fasta):
     return 'clustering/unannotated_seqs.fasta'
 
 
-def prepare_for_eggnog(unannotated_seqs):
+def prepare_for_eggnog(unannotated_seqs, target_genomes):
     """
     Creates a FASTA file of unannotated sequences that have not
     been annotated through EggNOG
@@ -492,11 +492,12 @@ def prepare_for_eggnog(unannotated_seqs):
     """
     eggnog_seqs = []
     for record in SeqIO.parse(unannotated_seqs, 'fasta'):
-        if 'False' in record.description:
+        if 'False' in record.description.split('|')[0] and record.description.split('|')[1] in target_genomes:
             eggnog_seqs.append(record)
-    with open('eggnog_seqs.fasta', 'w') as out:
-        for s in eggnog_seqs:
-            SeqIO.write(s, out, 'fasta')
+    if eggnog_seqs:
+        with open('eggnog_seqs.fasta', 'w') as out:
+            for s in eggnog_seqs:
+                SeqIO.write(s, out, 'fasta')
 
 
 def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_increment):
@@ -810,7 +811,7 @@ def add_gene_names_to_gbk(mtbs, gbk_dir):
             SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 
-def parseClustersUpdateGBKs(target_gffs, clusters):
+def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate):
     """
     Executes all functions to parse the clustering file and update
     all Genbanks
@@ -858,4 +859,5 @@ def parseClustersUpdateGBKs(target_gffs, clusters):
     add_gene_names_to_gbk(mtbs=isolate_update_dictionary,
                           gbk_dir=os.getcwd())
     logger.info('Preparing FASTA for eggNOG functional assignments')
-    prepare_for_eggnog(unannotated_seqs=mtb_genes_fp)
+    prepare_for_eggnog(unannotated_seqs=mtb_genes_fp,
+                       target_genomes=[r.split('/')[-1].split('.')[0] for r in genomes_to_annotate])
