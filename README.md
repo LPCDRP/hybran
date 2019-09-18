@@ -38,5 +38,15 @@ annotub                                                     \
     --nproc 2
 ```
 
+A sample FASTA is available to demo annotub:
+```
+annotub 
+    --genomes sample/
+    --references annotations/
+    --eggnog-databases eggnog-mapper/data/
+    --output ./
+    --nproc 4
+```
+
 ### How to cite
 [Manuscript submitted]
