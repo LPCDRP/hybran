@@ -151,8 +151,7 @@ def main():
                 logger.info(f + ' as already been annotated.')
     genomes_annotate += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')]
     run.clustering(target_genomes=list(set(sorted(genomes_annotate))),
-                   nproc=args.nproc,
-                   out_dir=args.output)
+                   nproc=args.nproc)
     run.eggnog_mapper(script_dir=script_dir,
                       nproc=args.nproc,
                       emapper_loc=args.database_dir)

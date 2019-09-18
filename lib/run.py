@@ -44,7 +44,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
         os.chdir(c)
 
 
-def clustering(target_genomes, out_dir, nproc):
+def clustering(target_genomes, nproc):
     """
     Runs the clustering pipeline which uses CDHIT and MCL
     to cluster orthologous genes. File IO is handled by
@@ -54,7 +54,6 @@ def clustering(target_genomes, out_dir, nproc):
     :param nproc: str number of processors
     :return: None
     """
-    logger = logging.getLogger('ClusterProteins')
     c = os.getcwd()
     try:
         os.mkdir('clustering')
