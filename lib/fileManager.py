@@ -1,6 +1,7 @@
 import os
 import shutil
 import logging
+import converter
 
 
 def full_path(p):
@@ -44,6 +45,10 @@ def ratt_references(args):
     except OSError:
         pass
     all_embls = [i for i in os.listdir(args.references) if i.endswith('.embl')]
+    if not all_embls:
+        for i in os.listdir(args.references):
+            if i.endswith('.gbk'):
+                converter.convert_gbk_to_embl(args.references + i)
     if len(all_embls) >= 30:
         embls = all_embls[0:30]
     else:

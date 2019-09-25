@@ -33,3 +33,20 @@ def convert_embl_to_gbk(embl_filename):
     with open(os.devnull, 'w') as devnull:
         subprocess.call(seqret_cmd, stderr=devnull)
     return embl_filename.rstrip('embl') + 'gbk'
+
+
+def convert_gbk_to_embl(genbank_filename):
+    """
+    Runs a subprocess seqret call to convert the input
+    Genbank to a EMBL
+
+    :param genbank_filename: str filename of a EMBL file that needs to be converted to Genbank
+    :return: None
+    """
+    seqret_cmd = ['seqret',
+                  genbank_filename,
+                  genbank_filename.rstrip('gbk') + 'embl',
+                  '-feature', '-osf', 'embl']
+    with open(os.devnull, 'w') as devnull:
+        subprocess.call(seqret_cmd, stderr=devnull)
+    return genbank_filename.rstrip('gbk') + 'embl'
