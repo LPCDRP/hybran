@@ -33,7 +33,7 @@ def remove_dir(d_list):
 
 def ratt_references(args):
     logger = logging.getLogger('RATTReferences')
-    refdir = args.output + 'temp_references/'
+    refdir = args.references + 'temp_references/'
     embl_dir = refdir + '/embls/'
 
     try:
