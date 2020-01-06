@@ -206,15 +206,15 @@ def check_for_dnaA(feature_list):
         else:
             gene_name = feature_dictionary[cds].qualifiers['gene'][0]
         if feature_dictionary[cds].qualifiers['locus_tag'][0] != 'Rv0001' and gene_name != 'dnaA':
-            logger.debug('DnaA is not the first gene in this genome. Possible circularization error')
-            logger.debug('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
+            logger.error('DnaA is not the first gene in this genome. Possible circularization error')
+            logger.error('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
             sys.exit()
         elif (feature_dictionary[cds].qualifiers['locus_tag'][0] == 'Rv0001' or gene_name == 'dnaA') and \
                 int(feature_dictionary[cds].location.start) == 0:
             break
         else:
-            logger.debug('DnaA is the first gene in this genome. But the position is off.')
-            logger.debug('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
+            logger.error('DnaA is the first gene in this genome. But the position is off.')
+            logger.error('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
             sys.exit()
     return
 
