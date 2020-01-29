@@ -6,6 +6,8 @@ isolate=$3
 ref_cds=$4
 nproc=$5
 
+set -x
+
 mkdir -p prokka prokka-noreference ratt annomerge
 
 if [ ! -f ratt/ratt-done ]
