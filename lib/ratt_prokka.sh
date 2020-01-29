@@ -11,7 +11,7 @@ mkdir -p prokka prokka-noreference ratt annomerge
 if [ ! -f ratt/ratt-done ]
 then
 	cd ratt/;
-	$RATT_HOME/start.ratt.sh "$references" "$fasta" "$isolate" Strain || exit 1
+	ratt -p "$isolate" -t Strain "$references" "$fasta"
 	touch ratt-done;
 	cd ..
 fi
