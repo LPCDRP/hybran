@@ -20,14 +20,14 @@ fi
 
 wait
 
-if [ ! -f prokka/"$isolate".gbk ]
+if [ ! -f prokka/"$isolate".gbf ]
 then
 	prokka --genus Mycobacterium --kingdom bacteria --rfam --proteins "$ref_cds" --rnammer --gram pos --usegenus --cpus "$nproc" --outdir prokka --prefix "$isolate" --force --centre C --locustag L --quiet "$fasta"
 fi
 
 wait
 
-if [ ! -f prokka-noreference/"$isolate".gbk ]
+if [ ! -f prokka-noreference/"$isolate".gbf ]
 then
 	prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus "$nproc" --outdir prokka-noreference --prefix "$isolate" --force --centre C --locustag L --quiet "$fasta"
 fi

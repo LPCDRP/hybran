@@ -1517,7 +1517,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     except OSError:
         logger.error('Expecting RATT annotation files but found none')
     try:
-        input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbk'
+        input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbf'
     except OSError:
         logger.error('Expecting Prokka annotation file but found none')
     output_merged_genes = isolate_id + '/annomerge/merged_genes.gbk'
@@ -1525,7 +1525,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     add_noref_annotations = fill_gaps
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
     isolate_sequence = prokka_records[0].seq
-    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbk'
+    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbf'
     prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
     annomerge_records = []
 
@@ -1928,7 +1928,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             annomerge_records.append(add_prokka_contig_record)
     # Post-processing of genbank file to remove duplicates and rename locus_tag for
     # Prokka annotations
-    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbk'
+    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbf'
     prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
     annomerge_records_post_processed = []
     for rec_num in range(0, len(annomerge_records)):
