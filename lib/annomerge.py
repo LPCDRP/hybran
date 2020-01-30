@@ -1504,9 +1504,9 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         file_path = annotation_fp + '/' + isolate_id + '/'
     ratt_file_path = file_path + 'ratt'
     ratt_correction_files = []
+    ratt_gbk_files = []
     try:
         ratt_embl_files = [embl_file for embl_file in os.listdir(ratt_file_path) if embl_file.endswith('.final.embl')]
-        ratt_gbk_files = []
         for embl_file in ratt_embl_files:
             gbk = converter.convert_embl_to_gbk(ratt_file_path + '/' + embl_file)
             ratt_gbk_files.append(gbk)
@@ -1516,6 +1516,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             ratt_correction_files.append(corr_file_path)
     except OSError:
         logger.error('Expecting RATT annotation files but found none')
+    if not ratt_gbk_files:
+        logger.error('RATT did not complete running. Please see the log for more details.')
     try:
         input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbf'
     except OSError:
