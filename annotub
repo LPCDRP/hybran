@@ -155,8 +155,8 @@ def main():
                                 script_dir=script_dir,
                                 cpus=args.nproc)
                 if filename + '.gbk' not in os.listdir(os.getcwd()):
-                    logger.info('Merging RATT and Prokka annotations for ' + filename)
-                    annomerge.run(isolate_id=filename,
+                    logger.info('Merging RATT and Prokka annotations for ' + filename.split('/')[-1])
+                    annomerge.run(isolate_id=filename.split('/')[-1],
                                   annotation_fp=os.getcwd() + '/',
                                   ref_proteins_fasta=ref_cds,
                                   ref_embl_fp=embl_dir + first_reference_embl,
