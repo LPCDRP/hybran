@@ -36,10 +36,12 @@ def cmds():
                                                      'annotations to transfer. Only the first 30 reference annotations '
                                                      'will be transferred with RATT and the first annotation will '
                                                      'be used as the reference database in the Prokka reference '
-                                                     'step.')
+                                                     'step.',
+                          required=True)
     required.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
-                          dest='database_dir')
+                          dest='database_dir',
+                          required=True)
     optional.add_argument('-t', '--first-reference', required=False, dest='first_gbk',
                           help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
                                ' Default is the first reference annotation (Genbank) in -r/--references.')
