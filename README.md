@@ -25,6 +25,11 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 python2.7 setup.py install --prefix=~/bin/
 ```
 
+### Set up the anaconda environment
+```
+conda env create -f env.yaml
+```
+
 ### How to run
 This can be executed on one or many genomes. The more reference
 annotations included, the more accurate the annotation will be 
