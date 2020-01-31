@@ -38,11 +38,11 @@ and less ambiguity will exist for the target genomes. Input can
 be a FASTA, a list of FASTAs (space-separated), a directory containing
 FASTAs, or a File Of FileNames (FOFN) of FASTAs.
 ```
-annotub                                                     \
-    --genomes /dir/to/FASTAs                                \
-    --references /dir/to/reference/annotation(s)            \
-    --eggnog-databases /dir/to/eggnog-mapper-database/data/ \
-    --output ./                                             \
+annotub                                                                          \
+    --genomes /dir/to/FASTAs | in.fasta [in2.fasta in3.fasta ...] | fastas.fofn  \
+    --references /dir/to/reference/annotation(s)                                 \
+    --eggnog-databases /dir/to/eggnog-mapper-database/data/                      \
+    --output ./                                                                  \
     --nproc 2
 ```
 
