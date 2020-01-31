@@ -16,6 +16,7 @@ dependencies:
   - bzip2=1.0.8=h516909a_2
   - ca-certificates=2019.11.28=hecc5488_0
   - cairo=1.16.0=hfb77d84_1002
+  - cd-hit=4.8.1=h8b12597_3
   - certifi=2019.11.28=py27_0
   - clustalw=2.1=hc9558a2_5
   - curl=7.65.3=hf8cf82a_0
@@ -66,7 +67,9 @@ dependencies:
   - libxcb=1.13=h14c3975_1002
   - libxml2=2.9.10=hee79883_0
   - libxslt=1.1.33=h31b3aaa_0
+  - llvm-openmp=8.0.1=hc9558a2_0
   - lz4-c=1.8.3=he1b5a44_1001
+  - mcl=14.137=pl526h516909a_5
   - minced=0.4.2=0
   - mmtf-python=1.0.2=py27_0
   - msgpack-python=0.6.2=py27hc9558a2_0
@@ -75,6 +78,7 @@ dependencies:
   - numpy=1.16.5=py27h95a1406_0
   - olefile=0.46=py_0
   - openjdk=11.0.1=h600c080_1018
+  - openmp=8.0.1=0
   - openssl=1.1.1d=h516909a_0
   - paml=4.9=h516909a_5
   - pango=1.42.4=ha030887_1

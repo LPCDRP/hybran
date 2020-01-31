@@ -334,7 +334,7 @@ def ref_seqs(gbk_dir):
         :param output: str output file name
         :return: subprocess.stdout
         """
-        cmd = ['cdhit',
+        cmd = ['cd-hit',
                '-i', input,
                '-o', output,
                '-c', '0.99',
