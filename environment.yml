@@ -10,13 +10,17 @@ dependencies:
   - aragorn=1.2.38=h470a237_2
   - barrnap=0.9=3
   - bedtools=2.29.2=hc088bd4_0
+  - biopython=1.68=py27_0
   - blast=2.9.0=pl526h3066fca_4
+  - boost-cpp=1.70.0=h8e57a91_2
   - bzip2=1.0.8=h516909a_2
   - ca-certificates=2019.11.28=hecc5488_0
   - cairo=1.16.0=hfb77d84_1002
   - certifi=2019.11.28=py27_0
   - clustalw=2.1=hc9558a2_5
   - curl=7.65.3=hf8cf82a_0
+  - diamond=0.9.29=h56fc30b_0
+  - eggnog-mapper=2.0.1=py_1
   - entrez-direct=11.0=pl526_1
   - expat=2.2.9=he1b5a44_2
   - fontconfig=2.13.1=h86ecdb6_1001
@@ -37,15 +41,17 @@ dependencies:
   - libblas=3.8.0=14_openblas
   - libcblas=3.8.0=14_openblas
   - libcurl=7.65.3=hda55be3_0
-  - libdb=6.1.26=he1b5a44_2001
+  - libdb=6.1.26=0
   - libedit=3.1.20170329=hf8c457e_1001
   - libffi=3.2.1=he1b5a44_1006
+  - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=9.2.0=h24d8f2e_2
   - libgd=2.2.5=h307a58e_1007
   - libgfortran-ng=7.3.0=hdf63c60_4
   - libgomp=9.2.0=h24d8f2e_2
   - libiconv=1.15=h516909a_1005
   - libidn11=1.34=h1cef754_0
+  - libidn2=2.3.0=h516909a_0
   - liblapack=3.8.0=14_openblas
   - libopenblas=0.3.7=h5ec1e0e_6
   - libpng=1.6.37=hed695b0_0
@@ -53,6 +59,7 @@ dependencies:
   - libstdcxx-ng=9.2.0=hdf63c60_2
   - libtiff=4.1.0=hc3755c2_3
   - libtool=2.4.6=h14c3975_1002
+  - libunistring=0.9.10=h14c3975_0
   - libuuid=2.32.1=h14c3975_1000
   - libwebp=1.0.2=h56121f0_5
   - libxcb=1.13=h14c3975_1002
@@ -60,14 +67,17 @@ dependencies:
   - libxslt=1.1.33=h31b3aaa_0
   - lz4-c=1.8.3=he1b5a44_1001
   - minced=0.4.2=0
+  - mmtf-python=1.0.2=py27_0
+  - msgpack-python=0.6.2=py27hc9558a2_0
   - mummer=3.23=pl526he1b5a44_10
   - ncurses=6.1=hf484d3e_1002
   - numpy=1.16.5=py27h95a1406_0
+  - olefile=0.46=py_0
   - openjdk=11.0.1=h600c080_1018
   - openssl=1.1.1d=h516909a_0
   - paml=4.9=h516909a_5
   - pango=1.42.4=ha030887_1
-  - parallel=20200122=0
+  - parallel=20160622=1
   - pcre=8.43=he1b5a44_0
   - perl=5.26.2=h516909a_1006
   - perl-aceperl=1.92=pl526_2
@@ -247,6 +257,7 @@ dependencies:
   - perl-test-requiresinternet=0.05=pl526_0
   - perl-test-warn=0.36=pl526_1
   - perl-text-diff=1.45=pl526_0
+  - perl-threaded=5.26.0=0
   - perl-tie-ixhash=1.23=pl526_2
   - perl-time-hires=1.9760=pl526h14c3975_1
   - perl-time-local=1.28=pl526_1
@@ -264,7 +275,7 @@ dependencies:
   - perl-xml-libxml=2.0132=pl526h7ec2d77_1
   - perl-xml-libxslt=1.94=pl526_1
   - perl-xml-namespacesupport=1.12=pl526_0
-  - perl-xml-parser=2.44_01=pl526ha1d75be_1002
+  - perl-xml-parser=2.44=pl526h4e0c4b3_7
   - perl-xml-regexp=0.04=pl526_2
   - perl-xml-sax=1.02=pl526_0
   - perl-xml-sax-base=1.09=pl526_0
@@ -277,20 +288,23 @@ dependencies:
   - perl-xml-xpathengine=0.14=pl526_2
   - perl-xsloader=0.24=pl526_0
   - perl-yaml=1.29=pl526_0
+  - pillow=6.2.1=py27hd70f55b_1
   - pip=20.0.2=py27_0
   - pixman=0.38.0=h516909a_1003
   - prodigal=2.6.3=h516909a_2
-  - prokka=1.14.5=pl526_0
+  - prokka=1.13=3
   - pthread-stubs=0.4=h14c3975_1001
   - python=2.7.15=h5a48372_1009
   - ratt=1.0.3=0
   - readline=8.0=hf8c457e_0
+  - reportlab=3.5.32=py27h7d98c4e_0
   - setuptools=44.0.0=py27_0
   - sqlite=3.30.1=hcee41ef_0
   - t_coffee=11.0.8=py27hea885bf_8
   - tbl2asn=25.7=0
   - tidyp=1.04=1
   - tk=8.6.10=hed695b0_0
+  - wget=1.20.1=h22169c7_0
   - wheel=0.34.1=py27_0
   - xorg-fixesproto=5.0=h14c3975_1002
   - xorg-inputproto=2.3.2=h14c3975_1002
