@@ -21,6 +21,7 @@ dependencies:
   - curl=7.65.3=hf8cf82a_0
   - diamond=0.9.29=h56fc30b_0
   - eggnog-mapper=2.0.1=py_1
+  - emboss=6.6.0=he06d7ca_1
   - entrez-direct=11.0=pl526_1
   - expat=2.2.9=he1b5a44_2
   - fontconfig=2.13.1=h86ecdb6_1001
