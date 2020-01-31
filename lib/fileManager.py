@@ -49,19 +49,19 @@ def ratt_references(args):
         for i in os.listdir(args.references):
             if i.endswith('.gbk'):
                 converter.convert_gbk_to_embl(args.references + i)
-    if len(all_embls) >= 30:
-        embls = all_embls[0:30]
-    else:
-        embls = all_embls
-    if sorted(embls) != sorted(os.listdir(refdir + '/embls/')):
-        logger.info('Getting first ' + str(len(embls)) + ' reference annotations')
-        for e in embls:
-            gbk = e.split('/')[-1].split('.')[0] + '.gbk'
-            gff = e.split('/')[-1].split('.')[0] + '.gff'
-            try:
+    embls = []
+    embl_count = 0
+    logger.info('Getting all reference annotations')
+    for e in all_embls:
+        gbk = e.split('/')[-1].split('.')[0] + '.gbk'
+        gff = e.split('/')[-1].split('.')[0] + '.gff'
+        try:
+            if embl_count <= 30:
                 shutil.copyfile(args.references + e, embl_dir + e)
-                shutil.copyfile(args.references + gbk, refdir + gbk)
-                shutil.copyfile(args.references + gff, refdir + gff)
-            except OSError:
-                continue
+                embls.append(e)
+            shutil.copyfile(args.references + gbk, refdir + gbk)
+            shutil.copyfile(args.references + gff, refdir + gff)
+            embl_count += 1
+        except OSError:
+            continue
     return refdir, embl_dir, embls
