@@ -33,7 +33,9 @@ conda env create -f environment.yml
 ### How to run
 This can be executed on one or many genomes. The more reference
 annotations included, the more accurate the annotation will be 
-and less ambiguity will exist for the target genomes.
+and less ambiguity will exist for the target genomes. Input can
+be a FASTA, a list of FASTAs (space-separated), a directory containing
+FASTAs, or a File Of FileNames (FOFN) of FASTAs.
 ```
 annotub                                                     \
     --genomes /dir/to/FASTAs                                \
