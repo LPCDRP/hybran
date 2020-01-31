@@ -8,8 +8,8 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 * Install time ~5 minutes
 
 ### Dependencies
-* [RATT](http://ratt.sourceforge.net/) >= v18 (requires perl 5 version 20 )
-* [Prokka](https://github.com/tseemann/prokka) >=v1.13
+* [RATT](http://ratt.sourceforge.net/)
+* [Prokka](https://github.com/tseemann/prokka)
 * [EMBOSS (seqret)](http://emboss.sourceforge.net/download/)
 * [python2.7](https://www.python.org/downloads/release/python-2715/)
 * [Biopython](https://biopython.org/wiki/Download)
@@ -19,6 +19,7 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 * [eggnog-mapper](https://github.com/eggnogdb/eggnog-mapper)
     * Required database: bactNOG v4.5.0
     * To download: `download_eggnog_data.py -y bactNOG`
+* All dependencies are available within the `environment.yml` within an anaconda environment
 
 ### How to install
 ```
