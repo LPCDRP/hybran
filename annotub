@@ -56,8 +56,9 @@ def cmds():
     optional.add_argument('-f', '--force', action='store_true',
                           help='Force overwrite intermediate files (does not overwrite annotation files already '
                                'annotated using annotub.')
-    optional.add_argument('--verbose', action='store_true', help='Verbose output')
-    optional.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
+    logging_level = optional.add_mutually_exclusive_group()
+    logging_level.add_argument('--verbose', action='store_true', help='Verbose output')
+    logging_level.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
     optional.add_argument('-v', '--version', help='Print version and exit',
                           action='store_true')
     return parser.parse_args()
