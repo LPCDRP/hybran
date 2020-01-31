@@ -27,7 +27,7 @@ python2.7 setup.py install --prefix=~/bin/
 
 ### Set up the anaconda environment
 ```
-conda env create -f env.yaml
+conda env create -f environment.yml
 ```
 
 ### How to run
