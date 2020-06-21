@@ -22,13 +22,14 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 ##### All dependencies are available within the `environment.yml` within an anaconda environment
 
 ### How to install
-```
-python2.7 setup.py install --prefix=~/bin/
-```
 
-### Set up the anaconda environment
 ```
-conda env create -f environment.yml
+# Set up the anaconda environment with the dependencies
+conda env create -n annotub -f environment.yml
+
+# install annotub into the newly created environment
+conda activate annotub
+python setup.py install
 ```
 
 ### How to run

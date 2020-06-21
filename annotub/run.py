@@ -2,7 +2,7 @@ import os
 import logging
 import subprocess
 
-from lib import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
+from . import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
 
 
 def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):

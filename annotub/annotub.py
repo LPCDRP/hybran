@@ -5,7 +5,7 @@ import logging
 import time
 import glob
 
-from lib import \
+from . import \
     verifyInstallations, \
     fileManager, \
     firstReference, \
