@@ -34,7 +34,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
         except OSError:
             pass
         os.chdir(isolate)
-        cmd = [script_dir + '/lib/ratt_prokka.sh',
+        cmd = [os.sep.join([script_dir,'ratt_prokka.sh']),
                ref_dir,
                fasta,
                isolate,
@@ -98,7 +98,7 @@ def eggnog_mapper(script_dir, nproc, emapper_loc):
         os.mkdir('eggnog-mapper-annotations')
     except OSError:
         pass
-    cmd = [script_dir + '/lib/run_emapper.sh',
+    cmd = [os.sep.join([script_dir, 'run_emapper.sh']),
            nproc,
            emapper_loc]
     subprocess.call(cmd)
