@@ -107,7 +107,7 @@ def main():
     elif len(args.genomes) > 1:
         args.genomes = [fileManager.full_path(g) for g in args.genomes]
     elif args.genomes[0].endswith('.fasta') or args.genomes[0].endswith('.fna') or args.genomes[0].endswith('.fa'):
-        args.genomes = [fileManager.full_path(args.genomes)]
+        args.genomes = [fileManager.full_path(args.genomes[0])]
     else:
         genomes = []
         with open(args.genomes[0], 'r') as genome:
