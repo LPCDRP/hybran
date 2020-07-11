@@ -56,9 +56,8 @@ def ratt_references(args):
         gbk = e.split('/')[-1].split('.')[0] + '.gbk'
         gff = e.split('/')[-1].split('.')[0] + '.gff'
         try:
-            if embl_count <= 30:
-                shutil.copyfile(args.references + e, embl_dir + e)
-                embls.append(e)
+            shutil.copyfile(args.references + e, embl_dir + e)
+            embls.append(e)
             shutil.copyfile(args.references + gbk, refdir + gbk)
             shutil.copyfile(args.references + gff, refdir + gff)
             embl_count += 1
