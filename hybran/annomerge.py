@@ -1478,7 +1478,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     :param ref_proteins_fasta: File path for proteome fasta of reference strain
     :param ref_embl_fp: File path for annotated EMBL file for reference strain
     :param reference_genome: File path for nucleotide fasta of assembled genome
-    :param script_dir: Directory where annotub scripts are located
+    :param script_dir: Directory where hybran scripts are located
     :param illumina: Flag to check circularization. Default is False. If set to True, circularization with not be
     checked and dnaA might not be the first gene.
     :param fill_gaps: Flag to fill gaps in annotation from prokka no-reference. Default is true. If set to false,

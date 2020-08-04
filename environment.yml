@@ -1,4 +1,4 @@
-name: annotub
+name: hybran
 channels:
   - conda-forge
   - bioconda
