@@ -51,11 +51,11 @@ def cmds():
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
                           default='1')
     optional.add_argument('-rm', '--remove', action='store_true',
-                          help='Flag if all intermediate files created by AnnoTUB should be deleted. By default, '
+                          help='Flag if all intermediate files created by Hybran should be deleted. By default, '
                                'they are kept.')
     optional.add_argument('-f', '--force', action='store_true',
                           help='Force overwrite intermediate files (does not overwrite annotation files already '
-                               'annotated using annotub.')
+                               'annotated using hybran.')
     logging_level = optional.add_mutually_exclusive_group()
     logging_level.add_argument('--verbose', action='store_true', help='Verbose output')
     logging_level.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
@@ -95,7 +95,7 @@ def main():
             logging.basicConfig(level=logging.INFO,
                                 format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
                                 datefmt='%H:%M:%S %m-%d')
-    logger = logging.getLogger('AnnoTUB')
+    logger = logging.getLogger('Hybran')
     if not args.output:
         args.output = args.references
     cwd = os.getcwd() + '/'
@@ -126,9 +126,9 @@ def main():
                         [d for d in glob.glob('emappertmp*/')]
     intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
     if all(intermediate_files + intermediate_dirs) in os.listdir(args.output) and not args.force:
-        print 'It seems annotub has been executed before. Please use the -f/--force flag if you would like to ' \
+        print 'It seems hybran has been executed before. Please use the -f/--force flag if you would like to ' \
               'overwrite intermediate files ' \
-              '(does not overwrite Genbank/GFF files created in a previous run of annotub).'
+              '(does not overwrite Genbank/GFF files created in a previous run of hybran).'
         exit()
     # Getting first reference information
     if not args.first_gbk:
@@ -139,7 +139,7 @@ def main():
         first_reference_embl = args.first_gbk.split('.')[0] + '.embl'
     ref_cds, ref_genome = firstReference.get_first_reference_proteome(first_reference_gbk)
 
-    # Calling all steps for AnnoTUB
+    # Calling all steps for Hybran
     genome_count = 0
     genomes_annotate = []
     all_genomes = []
@@ -185,7 +185,7 @@ def main():
         fileManager.remove_file(f_list=intermediate_files)
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
-    print 'Thank you for using AnnoTUB. We hope to see you again!'
+    print 'Thank you for using Hybran. We hope to see you again!'
 
 
 if __name__ == '__main__':

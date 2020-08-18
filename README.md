@@ -25,10 +25,10 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 
 ```
 # Set up the anaconda environment with the dependencies
-conda env create -n annotub -f environment.yml
+conda env create -n hybran -f environment.yml
 
-# install annotub into the newly created environment
-conda activate annotub
+# install hybran into the newly created environment
+conda activate hybran
 python setup.py install
 ```
 
@@ -39,7 +39,7 @@ and less ambiguity will exist for the target genomes. Input can
 be a FASTA, a list of FASTAs (space-separated), a directory containing
 FASTAs, or a File Of FileNames (FOFN) of FASTAs.
 ```
-annotub                                                                          \
+hybran                                                                          \
     --genomes /dir/to/FASTAs | in.fasta [in2.fasta in3.fasta ...] | fastas.fofn  \
     --references /dir/to/reference/annotation(s)                                 \
     --eggnog-databases /dir/to/eggnog-mapper-database/data/                      \
@@ -47,9 +47,9 @@ annotub                                                                         
     --nproc 2
 ```
 
-A sample FASTA is available to demo annotub:
+A sample FASTA is available to demo hybran:
 ```
-annotub 
+hybran 
     --genomes sample/
     --references annotations/
     --eggnog-databases eggnog-mapper/data/

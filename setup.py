@@ -2,15 +2,15 @@ from setuptools import setup, find_packages
 from glob import glob
 
 setup(
-    name='annotub',
+    name='hybran',
     license='LICENSE',
     packages=find_packages('.'),
     package_dir={'': '.'},
     zip_safe=False,
-    entry_points=dict(console_scripts=['annotub = annotub.annotub:main', ]),
-    package_data={'annotub': ['*.sh']},
+    entry_points=dict(console_scripts=['hybran = hybran.hybran:main', ]),
+    package_data={'hybran': ['*.sh']},
     data_files=[
-        ('annotub/resources', glob("resources/*")),
+        ('hybran/resources', glob("resources/*")),
     ],
     install_requires=['biopython', ],
     test_suite='nose.collector',
