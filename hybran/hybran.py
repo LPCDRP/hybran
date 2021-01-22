@@ -80,12 +80,12 @@ def main():
     script_dir = os.path.abspath(os.path.dirname(__file__))
 
     if args.version:
-        print __version__
+        print(__version__)
         exit()
 
     # Check that the identity threshold is valid
     if not (args.identity_threshold <= 1.0 and args.identity_threshold >= 0.0):
-        print "error: invalid value for --identity-threshold. Must be between 0 and 1."
+        print("error: invalid value for --identity-threshold. Must be between 0 and 1.")
         exit(10)
 
     # Confirming all installations are valid
@@ -93,7 +93,7 @@ def main():
 
     # Setting up logging
     start_time = time.time()
-    print '\n\t\t\tPlease cite:\n\t\t\t[manuscript submitted]\n\n'
+    print('\n\t\t\tPlease cite:\n\t\t\t[manuscript submitted]\n\n')
     if not args.quiet:
         if args.verbose:
             logging.basicConfig(level=logging.DEBUG,
@@ -134,9 +134,9 @@ def main():
                         [d for d in glob.glob('emappertmp*/')]
     intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
     if all(intermediate_files + intermediate_dirs) in os.listdir(args.output) and not args.force:
-        print 'It seems hybran has been executed before. Please use the -f/--force flag if you would like to ' \
+        print('It seems hybran has been executed before. Please use the -f/--force flag if you would like to ' \
               'overwrite intermediate files ' \
-              '(does not overwrite Genbank/GFF files created in a previous run of hybran).'
+              '(does not overwrite Genbank/GFF files created in a previous run of hybran).')
         exit()
     # Getting first reference information
     if not args.first_gbk:
@@ -194,7 +194,7 @@ def main():
         fileManager.remove_file(f_list=intermediate_files)
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
-    print 'Thank you for using Hybran. We hope to see you again!'
+    print('Thank you for using Hybran. We hope to see you again!')
 
 
 if __name__ == '__main__':

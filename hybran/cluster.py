@@ -2,10 +2,10 @@
 import os
 import argparse
 import logging
-import fastaFromGFF
-import BLAST
-import CDHIT
-import MCL
+from . import fastaFromGFF
+from . import BLAST
+from . import CDHIT
+from . import MCL
 
 
 def arguments():
@@ -36,7 +36,7 @@ def main():
         fasta = args.fasta
         gff_gene_dict = ''
     else:
-        print 'Did not provide -d/--dir or -f/--fasta. A choice is required. Exiting...'
+        print('Did not provide -d/--dir or -f/--fasta. A choice is required. Exiting...')
         exit()
     clusters = CDHIT.run(nproc=args.nproc,
                          fasta=fasta,

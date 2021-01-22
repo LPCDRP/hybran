@@ -1,7 +1,7 @@
 import os
 import shutil
 import logging
-import converter
+from . import converter
 
 
 def full_path(p):
