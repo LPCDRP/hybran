@@ -13,12 +13,12 @@ def create_allseq_dict(fa):
     return fasta_dict
     
 
-def run_cdhit(nproc, input, output):
+def run_cdhit(nproc, input, seq_ident, output):
     """Runs cdhit with a sequence identity threshold of 0.95."""
     cmd = ['cd-hit',
            '-i', input,
            '-o', output,
-           '-c', '0.95',
+           '-c', seq_ident,
            '-T', str(nproc),
            '-g', '1',
            '-s', '1',
@@ -64,10 +64,10 @@ def create_reps_fasta(output, reps, rep_seq_id_dict):
     SeqIO.write(seq_list, output, "fasta")
 
 
-def run(nproc, fasta, out):
+def run(nproc, fasta, seq_ident, out):
     logger = logging.getLogger('CDHIT')
     logger.info('Running CDHIT')
-    cdhit_stdout = run_cdhit(nproc, fasta, out)
+    cdhit_stdout = run_cdhit(nproc, fasta, seq_ident, out)
     OGdict = create_allseq_dict(fasta)
     logger.info('Parsing CDHIT output (' + out + '.clstr)')
     REPdict, rep_list = create_reps_dict(out + ".clstr")

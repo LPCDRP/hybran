@@ -46,6 +46,9 @@ def cmds():
     optional.add_argument('-t', '--first-reference', required=False, dest='first_gbk',
                           help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
                                ' Default is the first reference annotation (Genbank) in -r/--references.')
+    optional.add_argument('-c', '--identity-threshold', required=False, type=float,
+                          help='Sequence identity threshold to use during CD-HIT clustering. Default is 0.95',
+                          default=0.95)
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
                                                  '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
@@ -79,6 +82,11 @@ def main():
     if args.version:
         print __version__
         exit()
+
+    # Check that the identity threshold is valid
+    if not (args.identity_threshold <= 1.0 and args.identity_threshold >= 0.0):
+        print "error: invalid value for --identity-threshold. Must be between 0 and 1."
+        exit(10)
 
     # Confirming all installations are valid
     verifyInstallations.verify_installations(args.database_dir)
@@ -172,7 +180,8 @@ def main():
         all_genomes += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')] + genomes_annotate
         run.clustering(all_genomes=list(set(sorted(all_genomes))),
                        target_genomes=genomes_annotate,
-                       nproc=args.nproc)
+                       nproc=args.nproc,
+                       seq_ident=args.identity_threshold)
         if 'eggnog_seqs.fasta' in cwd:
             run.eggnog_mapper(script_dir=script_dir,
                               nproc=args.nproc,
