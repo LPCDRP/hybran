@@ -8,7 +8,8 @@ dependencies:
   - blast
   - cd-hit
   - diamond
-  - eggnog-mapper
+# https://github.com/eggnogdb/eggnog-mapper/issues/272
+#  - eggnog-mapper
   - emboss
   - entrez-direct
   - mcl
