@@ -4,7 +4,6 @@ import re
 import tempfile
 import subprocess
 import logging
-from sets import Set
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -805,9 +804,9 @@ def add_gene_names_to_gbk(mtbs, gbk_dir):
                         logger.debug('Updated locus tag previously')
                     else:
                         continue
-                if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
+                if len(set(locus_to_update).intersection(set(modified_locus))) < len(locus_to_update):
                     logger.warning('The following locus_tags are missing in the genbank file')
-                    logger.warning(Set(locus_to_update).difference(Set(modified_locus)))
+                    logger.warning(set(locus_to_update).difference(set(modified_locus)))
             SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 

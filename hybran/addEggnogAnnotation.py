@@ -1,7 +1,6 @@
 
 import os
 from Bio import SeqIO
-from sets import Set
 from . import converter
 
 
@@ -158,7 +157,7 @@ def update_gbks(script_dir):
                     eggnog_gene = annotation_info[1].split('.')[1]
                     eggnog_annotation = annotation_info[2]
                     corresponding_rv = mtb_genes_in_isolate[feature.qualifiers['gene'][0]]
-                    num_of_unique_mtbs = Set(rv_mtb_dict[corresponding_rv])
+                    num_of_unique_mtbs = set(rv_mtb_dict[corresponding_rv])
                     if len(num_of_unique_mtbs) > 1:
                         feature.qualifiers['note'].append(
                             'This Rv is possibly split across multiple CDSs: Multiple MTBs '
