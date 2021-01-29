@@ -53,9 +53,8 @@ def cmds():
                                                  '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
                           default='1')
-    optional.add_argument('-rm', '--remove', action='store_true',
-                          help='Flag if all intermediate files created by Hybran should be deleted. By default, '
-                               'they are kept.')
+    optional.add_argument('-d', '--debug', action='store_true',
+                          help="Don't delete temporary files created by Hybran.")
     optional.add_argument('-f', '--force', action='store_true',
                           help='Force overwrite intermediate files (does not overwrite annotation files already '
                                'annotated using hybran.')
