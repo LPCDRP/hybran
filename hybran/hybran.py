@@ -14,6 +14,7 @@ from . import \
 
 __version__ = '1.0'
 
+args = None
 
 def cmds():
     """
@@ -74,6 +75,7 @@ def main():
 
     :return: None
     """
+    global args
     args = cmds()
     # Obtaining the absolute path to all scripts
     script_dir = os.path.abspath(os.path.dirname(__file__))
