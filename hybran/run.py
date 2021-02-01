@@ -3,7 +3,7 @@ import logging
 import subprocess
 
 from . import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
-
+from . import config
 
 def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
     """
@@ -54,12 +54,13 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident):
     :param nproc: str number of processors
     :return: None
     """
+    hybran_tmp_dir = config.hybran_tmp_dir
     c = os.getcwd()
     try:
-        os.mkdir('clustering')
+        os.mkdir(hybran_tmp_dir + '/clustering')
     except OSError:
         pass
-    os.chdir('clustering')
+    os.chdir(hybran_tmp_dir + '/clustering')
     fasta = 'cds_seqs.fasta'
     if 'clustered_proteins' not in os.listdir(os.getcwd()):
         gff_gene_dict = {}
@@ -68,21 +69,22 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident):
                              fasta=fasta,
                              seq_ident=seq_ident,
                              out='cdhit_clusters.fasta')
-        if 'blast_results' not in os.listdir(os.getcwd()):
+        if 'blast_results' not in os.listdir(hybran_tmp_dir):
             BLAST.run_blast(fastafile='cdhit_clusters.fasta',
                             nproc=nproc)
         if 'clustered_proteins' not in os.listdir(os.getcwd()):
-            MCL.run_mcl(in_blast='blast_results',
+            MCL.run_mcl(in_blast=hybran_tmp_dir + '/blast_results',
                         cdhit_clusters=clusters,
                         out_name='clustered_proteins',
                         gene_names=gff_gene_dict)
     os.chdir(c)
     parseClustering.parseClustersUpdateGBKs(target_gffs=all_genomes,
-                                            clusters='clustering/clustered_proteins',
+                                            clusters=hybran_tmp_dir +
+                                            '/clustering/clustered_proteins',
                                             genomes_to_annotate=target_genomes)
 
 
-def eggnog_mapper(script_dir, nproc, emapper_loc):
+def eggnog_mapper(script_dir, nproc, emapper_loc, temp_dir):
     """
     Runs the run_emapper.sh which executes emapper.py for
     both diamond and hmmer algorithms. The shell script handles
@@ -91,16 +93,20 @@ def eggnog_mapper(script_dir, nproc, emapper_loc):
     :param script_dir: str absolute path to run_emapper.sh
     :param nproc: str number of processors
     :param emapper_loc: str absolute path to eggnog database
+    :param temp_dir: str path to hybran temporary directory
     :return: None
     """
+
+    hybran_tmp_dir = config.hybran_tmp_dir
     logger = logging.getLogger('OrthologousAnnotation')
     logger.info('Functional annotation with eggnog_mapper')
     try:
-        os.mkdir('eggnog-mapper-annotations')
+        os.mkdir(hybran_tmp_dir + '/eggnog-mapper-annotations')
     except OSError:
         pass
     cmd = [os.sep.join([script_dir, 'run_emapper.sh']),
            nproc,
-           emapper_loc]
+           emapper_loc,
+           temp_dir]
     subprocess.call(cmd)
     addEggnogAnnotation.update_gbks(script_dir)

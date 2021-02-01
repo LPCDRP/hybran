@@ -9,6 +9,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from collections import OrderedDict
 from Bio.Blast.Applications import NcbiblastpCommandline
+from . import config
 
 
 def parse_clustered_proteins(clustered_proteins, annotations):
@@ -225,10 +226,13 @@ def get_cluster_fasta(rep, cluster_list):
     :param cluster_list: list of isolates that have the gene
     :return: FASTA file name and list of unannotated genes
     """
+    hybran_tmp_dir = config.hybran_tmp_dir
     rep_isolate_id = rep.split(',')[0]
     rep_locus = rep.split(',')[1]
     rep_gene_name = rep.split(',')[2]
-    cluster_fasta_fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
+    cluster_fasta_fp = tempfile.NamedTemporaryFile(suffix='.fasta',
+                                                   dir=hybran_tmp_dir,
+                                                   delete=False)
     cluster_temp_fasta = cluster_fasta_fp.name
     added_seq = []
     unannotated_genes_list = []
@@ -308,6 +312,7 @@ def ref_seqs(gbk_dir):
     :param gbk_dir: str directory name
     :return: str FASTA file name and a dictionary of dictionaries
     """
+    hybran_tmp_dir = config.hybran_tmp_dir
     def create_allseq_dict(fa):
         """
         Parses FASTA input, creates dictionary with
@@ -417,6 +422,7 @@ def ref_seqs(gbk_dir):
         :param gff: str GFF file anme
         :return: list of GFF lines
         """
+        hybran_tmp_dir = config.hybran_tmp_dir
         cmd = ['grep', 'translation=', gff]
         translations = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         return [line for line in translations.stdout]
@@ -441,8 +447,8 @@ def ref_seqs(gbk_dir):
                                        description=str(eggnog) + '|' + gff_name)
                     isolate_seqs[gff_name][locus_tag] = Seq(translation.rstrip('\n'))
                     protein_cds.append(record)
-    all_proteins = 'clustering/ref_cdss_protein-all.fasta'
-    final_proteins = 'clustering/ref_cdss_protein.fasta'
+    all_proteins = hybran_tmp_dir + '/clustering/ref_cdss_protein-all.fasta'
+    final_proteins = hybran_tmp_dir + '/clustering/ref_cdss_protein.fasta'
     with open(all_proteins, 'w') as ref_cds_out:
         for s in protein_cds:
             SeqIO.write(s, ref_cds_out, 'fasta')
@@ -471,22 +477,25 @@ def find_unannotated_genes(reference_protein_fasta):
     :param reference_protein_fasta: str FASTA file
     :return: str unannotated FASTA file name
     """
+    hybran_tmp_dir = config.hybran_tmp_dir
     unannotated_seqs = []
     for record in SeqIO.parse(reference_protein_fasta, 'fasta'):
         if record.id.startswith('MTB'):
             unannotated_seqs.append(record)
-    with open('clustering/unannotated_seqs.fasta', 'w') as out:
+    with open(hybran_tmp_dir + '/clustering/unannotated_seqs.fasta', 'w') as \
+            out:
         for s in unannotated_seqs:
             SeqIO.write(s, out, 'fasta')
-    return 'clustering/unannotated_seqs.fasta'
+    return hybran_tmp_dir + '/clustering/unannotated_seqs.fasta'
 
 
-def prepare_for_eggnog(unannotated_seqs, target_genomes):
+def prepare_for_eggnog(unannotated_seqs, target_genomes, temp_dir):
     """
     Creates a FASTA file of unannotated sequences that have not
     been annotated through EggNOG
 
     :param unannotated_seqs: str FASTA file name
+    :param temp_dir: str path to hybran temporary directory
     :return: None
     """
     eggnog_seqs = []
@@ -494,7 +503,7 @@ def prepare_for_eggnog(unannotated_seqs, target_genomes):
         if 'False' in record.description.split('|')[0] and record.description.split('|')[1] in target_genomes:
             eggnog_seqs.append(record)
     if eggnog_seqs:
-        with open('eggnog_seqs.fasta', 'w') as out:
+        with open(temp_dir + '/eggnog_seqs.fasta', 'w') as out:
             for s in eggnog_seqs:
                 SeqIO.write(s, out, 'fasta')
 
@@ -566,6 +575,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     :param mtb_increment: int increment to start new MTBs
     :return: int updated increment of MTBs
     """
+    hybran_tmp_dir = config.hybran_tmp_dir
     logger = logging.getLogger('NewGeneClusters')
 
     logger.debug('Number of clusters with no gene names: ' + str(len(list(in_dict.keys()))))
@@ -580,7 +590,9 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
                                description='')
         rep_records.append(rep_record)
 
-    rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta', dir='/tmp/')
+    rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta',
+                                         dir=hybran_tmp_dir,
+                                         delete=False)
     rep_temp_fasta = rep_fp.name
     with open(rep_temp_fasta, 'w') as fasta_tmp:
         for s in rep_records:
@@ -742,7 +754,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                             SeqIO.write(seq_record, mtb_fasta, 'fasta')
                         name_to_assign = mtb_id
                     update_dictionary_ltag_assignments(unannotated_gene_isolate, unannotated_gene_locus, name_to_assign)
-                os.unlink(fasta_fp_to_blast)
         else:
             if len(unassigned_l_tags) > 0:
                 single_gene_cluster_complete[gene] = in_dict[gene]
@@ -820,7 +831,7 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate):
     :return: None
     """
     logger = logging.getLogger('ParseClusters')
-
+    hybran_tmp_dir = config.hybran_tmp_dir
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
     logger.debug('Retrieving reference protein sequences from GFFs')
@@ -859,4 +870,6 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate):
                           gbk_dir=os.getcwd())
     logger.info('Preparing FASTA for eggNOG functional assignments')
     prepare_for_eggnog(unannotated_seqs=mtb_genes_fp,
-                       target_genomes=[r.split('/')[-1].split('.')[0] for r in genomes_to_annotate])
+                       target_genomes=[r.split('/')[-1].split('.')[0] for r
+                                       in genomes_to_annotate],
+                       temp_dir=hybran_tmp_dir)

@@ -3,6 +3,7 @@ from Bio import SeqIO
 from Bio.Blast.Applications import NcbiblastpCommandline
 import multiprocessing
 from functools import partial
+from . import config
 
 
 def create_raw_seq_list(input_file):
@@ -60,8 +61,9 @@ def write(all_results_list):
     Joins list of all results into a continuous
     string and writes this string to a new file
     """
+    hybran_tmp_dir = config.hybran_tmp_dir
     joined_string = '\n'.join(all_results_list)
-    with open('blast_results', 'w') as all_v_all:
+    with open(hybran_tmp_dir + '/blast_results', 'w') as all_v_all:
         all_v_all.write(joined_string)
     return all_v_all
 
@@ -71,5 +73,6 @@ def run_blast(fastafile, nproc):
     logger.info('Running pairwise all-against-all BLAST on ' + fastafile + ' using ' + str(nproc) + ' CPUs')
     seq_string_list = create_raw_seq_list(fastafile)
     all_results_list = iterate(fastafile, seq_string_list, nproc)
-    logger.info('Writing BLAST results to blast_results')
+    logger.info('Writing BLAST results to blast_results in Hybran temporary '
+                'directory.')
     write(all_results_list)

@@ -5,6 +5,7 @@ from . import fastaFromGFF
 from . import BLAST
 from . import CDHIT
 from . import MCL
+from .config import hybran_tmp_dir
 
 
 def arguments():
@@ -42,18 +43,10 @@ def main():
                          out='cdhit_clusters.fasta')
     BLAST.run_blast(fastafile='cdhit_clusters.fasta',
                     nproc=args.nproc)
-    MCL.run_mcl(in_blast='blast_results',
+    MCL.run_mcl(in_blast=hybran_tmp_dir + '/blast_results',
                 cdhit_clusters=clusters,
                 out_name=args.output,
                 gene_names=gff_gene_dict)
-    if args.remove:
-        files_to_remove = ['blast_results', 'cdhit_seqs.fasta', 'cdhit_seqs.fasta.clstr', 'mcxdeblast_results', 'mcl']
-        logger.info('Removing ' + ', '.join(files_to_remove))
-        for f in files_to_remove:
-            try:
-                os.remove(f)
-            except OSError:
-                continue
     logger.info('Finished. Goodbye!')
 
 

@@ -28,6 +28,7 @@ import time
 import subprocess
 
 from . import converter
+from . import config
 
 
 def load_reference_info(proteome_fasta):
@@ -42,6 +43,7 @@ def load_reference_info(proteome_fasta):
     7. A dict with locus tags as keys and amino acid lengths as values
     8. A dict with locus tags as keys and nucleotide lengths as values
     """
+    hybran_tmp_dir = config.hybran_tmp_dir
     reference_gene_list = []
     reference_locus_list = []
     reference_locus_gene_dict = {}
@@ -66,7 +68,10 @@ def load_reference_info(proteome_fasta):
         reference_locus_list.append(locus)
         reference_gene_locus_dict[gene] = locus
         reference_locus_gene_dict[locus] = gene
-        fp = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False, mode='w')
+        fp = tempfile.NamedTemporaryFile(suffix='.fasta',
+                                         dir=hybran_tmp_dir,
+                                         delete=False,
+                                         mode='w')
         ref_temp_fasta_dict[locus] = fp.name
         header = '>' + locus + '\n'
         seq = str(record.seq)
@@ -87,6 +92,7 @@ def get_prom_for_gene(feature_list, source_seq):
     :return: Dictionary key to reference temporary FASTA file with promoter sequences, key is the locus tag from feature
      list and value is the FASTA header
     """
+    hybran_tmp_dir = config.hybran_tmp_dir
     ref_prom_dict = {}
     for f in feature_list:
         if f.type != 'CDS':
@@ -113,7 +119,10 @@ def get_prom_for_gene(feature_list, source_seq):
             prom_start = feature_stop
             prom_end = feature_stop + 40
             prom_seq = str(source_seq[prom_start:prom_end])
-        fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta', delete=False, mode='w')
+        fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
+                                              dir=hybran_tmp_dir,
+                                              delete=False,
+                                              mode='w')
         ref_prom_dict[locus] = fp_prom.name
         header_prom = '>' + locus + '_prom\n'
         seq_prom = prom_seq + '\n'
@@ -1066,8 +1075,12 @@ def blast_ratt_anno_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_featur
     :return:
     """
 
+    hybran_tmp_dir = config.hybran_tmp_dir
     same_gene = False
-    fp = tempfile.NamedTemporaryFile(suffix='_ratt.fasta', delete=False, mode='w')
+    fp = tempfile.NamedTemporaryFile(suffix='_ratt.fasta',
+                                     dir=hybran_tmp_dir,
+                                     delete=False,
+                                     mode='w')
     header = '>' + str(ratt_overlap_feature.qualifiers['locus_tag'][0]) + '\n'
     seq = str(ratt_overlap_feature.qualifiers['translation'][0])
     fp.write(header)
@@ -1087,7 +1100,6 @@ def blast_ratt_anno_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_featur
             same_gene = False
         else:
             same_gene = True
-    os.unlink(fp.name)
     return same_gene
 
 
@@ -1103,6 +1115,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
     :param rv_cds_dict:
     :return:
     """
+    hybran_tmp_dir = config.hybran_tmp_dir
     logger = logging.getLogger('CorrectCoords')
     modified_prokka_record = prokka_record[:]
     modified_prokka_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab initio ' \
@@ -1116,8 +1129,14 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
         rv_feature = rv_cds_dict[rv]
         rv_feat_seq = str(rv_seq)[int(rv_feature.location.start):int(rv_feature.location.end)]
         rv_prom_seq = str(rv_seq)[int(rv_feature.location.start)-40:int(rv_feature.location.start)]
-        fp = tempfile.NamedTemporaryFile(suffix='_nuc.fasta', delete=False, mode='w')
-        fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta', delete=False, mode='w')
+        fp = tempfile.NamedTemporaryFile(suffix='_nuc.fasta',
+                                         dir=hybran_tmp_dir,
+                                         delete=False,
+                                         mode='w')
+        fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
+                                              dir=hybran_tmp_dir,
+                                              delete=False,
+                                              mode='w')
         rv_temp_nuc_fasta_dict[rv] = fp.name
         rv_temp_prom_fasta_dict[rv] = fp_prom.name
         header = '>' + rv + '\n'
@@ -1159,7 +1178,10 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
             if rv_id in correction_dict.keys():
                 # If Prokka annotation of gene is in a different strand, prodigal start coordinates are considered
                 # as is
-                query_temp = tempfile.NamedTemporaryFile(suffix='_query_nuc.fasta', delete=False, mode='w')
+                query_temp = tempfile.NamedTemporaryFile(suffix='_query_nuc.fasta',
+                                                         dir=hybran_tmp_dir,
+                                                         delete=False,
+                                                         mode='w')
                 prokka_nuc_seq = str(fasta_seq)[int(feature_prokka.location.start):int(feature_prokka.location.end)]
                 q_header = '>' + rv_id + '_query\n'
                 query_temp.write(q_header)
@@ -1323,10 +1345,6 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                 modified_features.append(feature_prokka)
         else:
             modified_features.append(feature_prokka)
-    for temp_file in rv_temp_nuc_fasta_dict.values():
-        os.unlink(temp_file)
-    for temp_file in rv_temp_prom_fasta_dict.values():
-        os.unlink(temp_file)
     modified_prokka_record.features = get_ordered_features(modified_features)
     return modified_prokka_record
 
@@ -1375,6 +1393,8 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
     :param prokka_feature:
     :return:
     """
+
+    hybran_tmp_dir = config.hybran_tmp_dir
     logger = logging.getLogger('BestFeatureHit')
     gene = ratt_feature.qualifiers['locus_tag'][0]
     if gene not in ref_genes_positions.keys():
@@ -1385,10 +1405,15 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
     prokka_seq = isolate_sequence[prokka_feature.location.start:prokka_feature.location.end]
     ratt_seq = isolate_sequence[ratt_feature.location.start:ratt_feature.location.end]
     ref_gene_seq = ref_sequence[startpos - 1: stoppos]
-    with open(gene + '.fasta', 'w') as f:
-        SeqIO.write(SeqRecord(ref_gene_seq, id=gene, description=''), f, 'fasta')
-    blast_out = blast(gene + '.fasta', ratt_seq)
-    os.remove(gene + '.fasta')
+
+    f = tempfile.NamedTemporaryFile(prefix=gene,
+                                     suffix='.fasta',
+                                     dir=hybran_tmp_dir,
+                                     delete=False, mode='w')
+    gene_fasta = f.name
+    SeqIO.write(SeqRecord(ref_gene_seq, id=gene, description=''), gene_fasta, 'fasta')
+
+    blast_out = blast(gene_fasta, ratt_seq)
     blast_results = False
     for i in blast_out:
         if i.startswith('Query'):
@@ -1411,11 +1436,17 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
             ratt_prom_start = send + ratt_feature.location.end.position
             ratt_prom_end = ratt_prom_start + 40
             rv_seq = ref_sequence[stoppos - 1: rv_prom_end]
-        with open(gene + '-prom.fasta', 'w') as f:
-            SeqIO.write(SeqRecord(rv_seq, id=gene, description=''), f, 'fasta')
+
+        prom_f = tempfile.NamedTemporaryFile(prefix=gene,
+                                         suffix='-prom.fasta',
+                                         dir=hybran_tmp_dir,
+                                         delete=False, mode='w')
+        prom_fasta = prom_f.name
+        SeqIO.write(SeqRecord(rv_seq, id=gene, description=''), prom_fasta, 'fasta')
+
         take_ratt = True
-        prom_blast = blast(gene + '-prom.fasta', isolate_sequence[ratt_prom_start:ratt_prom_end])
-        os.remove(gene + '-prom.fasta')
+        prom_blast = blast(prom_fasta,
+                           isolate_sequence[ratt_prom_start:ratt_prom_end])
         for i in prom_blast:
             if i.startswith('Query'):
                 if int(i.split('\t')[2]) < 100.0:
@@ -1445,17 +1476,18 @@ def fix_embl_id_line(embl_file):
             out.write(line)
 
 
-def run_prodigal(reference_genome):
+def run_prodigal(reference_genome, temp_dir):
     """
-
     :param reference_genome:
+    :param temp_dir: str path to hybran temporary directory
     :return:
     """
     logger = logging.getLogger('Prodigal')
     c = os.getcwd()
     logger.debug('Executing Prodigal on ' + reference_genome)
     cmd = [os.sep.join([script_dir, 'prodigal.sh']),
-           reference_genome]
+           reference_genome,
+           temp_dir]
     subprocess.call(cmd)
     os.chdir(c)
 
@@ -1490,6 +1522,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     :return: EMBL record (SeqRecord) of annotated isolate
     """
 
+    hybran_tmp_dir = config.hybran_tmp_dir
     global script_dir
     script_dir = script_directory
     logger = logging.getLogger('Annomerge')
@@ -1522,7 +1555,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbk'
     except OSError:
         logger.error('Expecting Prokka annotation file but found none')
-    output_merged_genes = isolate_id + '/annomerge/merged_genes.gbk'
+    output_merged_genes = hybran_tmp_dir + '/' + isolate_id + '/annomerge/merged_genes.gbk'
     output_genbank = isolate_id + '.gbk'
     add_noref_annotations = fill_gaps
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
@@ -1535,9 +1568,9 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     embl_dict = {}
     prodigal_list = []
     incorrect_coords_dict = {}
-    prodigal_results_fp = annotation_fp + '/prodigal-test/reference_prodigal'
+    prodigal_results_fp = hybran_tmp_dir + '/prodigal-test/reference_prodigal'
     if not os.path.exists(prodigal_results_fp):
-        run_prodigal(reference_genome)
+        run_prodigal(reference_genome, hybran_tmp_dir)
 
     dict_save_fp = prodigal_results_fp + 'reference_prodigal.p'
     ref_embl_record = SeqIO.read(ref_embl_fp, 'embl')
@@ -2211,8 +2244,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         output_isolate_recs[0].features = ordered_feats[:]
 
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
-    for temp_file in ref_temp_fasta_dict.values():
-        os.unlink(temp_file)
     final_cdss = [f for f in output_isolate_recs[0].features if f.type == 'CDS']
     logger.debug('Number of CDSs annomerge: ' + str(len(final_cdss)))
     logger.debug('annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')
