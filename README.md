@@ -1,4 +1,4 @@
-# AnnoTUB (Annotate TUBerculosis)
+# Hybran
 
 Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled genomes
 
