@@ -21,7 +21,7 @@ def cmds():
 
     :return: argparse.parse_args() object
     """
-    parser = argparse.ArgumentParser(description='Annotate TUBerculosis: a pipeline to annotate Mycobacterium '
+    parser = argparse.ArgumentParser(description='Hybran: a pipeline to annotate Mycobacterium '
                                                  'tuberculosis de novo assembled genomes. Annotation of other species '
                                                  'or mixing species within an annotation run is NOT recommended.'
                                                  '\n\nPlease cite: [manuscript submitted]')
@@ -68,7 +68,7 @@ def cmds():
 
 def main():
     """
-    Annotate TUBerculosis: a pipeline to annotate Mycobacterium
+    Hybran: a pipeline to annotate Mycobacterium
     tuberculosis de novo assembled genomes. Annotation of other species
     or mixing species within an annotation run is NOT recommended.
 
