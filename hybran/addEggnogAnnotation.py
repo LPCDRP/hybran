@@ -1,8 +1,7 @@
 
 import os
 from Bio import SeqIO
-from sets import Set
-import converter
+from . import converter
 
 
 def parse_eggnog():
@@ -30,7 +29,7 @@ def parse_eggnog():
             dict_val = ('Eggnog:diamond-seed', line_elements[1], annotation)
             annotation_dict[line_elements[0]] = dict_val
 
-    annotated_mtbs = annotation_dict.keys()
+    annotated_mtbs = list(annotation_dict.keys())
     with open('eggnog-mapper-annotations/mtb_diamond.emapper.annotations.orthologs', 'r') as diamond_results_orthologs:
         for line in diamond_results_orthologs:
             line_elements = line.strip().split('\t')
@@ -65,7 +64,7 @@ def parse_eggnog():
             dict_val = ('Eggnog:hmm-seed', line_elements[1], annotation)
             annotation_dict[line_elements[0]] = dict_val
 
-    annotated_mtbs = annotation_dict.keys()
+    annotated_mtbs = list(annotation_dict.keys())
     with open('eggnog-mapper-annotations/mtb_hmm.emapper.annotations.orthologs', 'r') as hmm_results_orthologs:
         for line in hmm_results_orthologs:
             line_elements = line.strip().split('\t')
@@ -158,7 +157,7 @@ def update_gbks(script_dir):
                     eggnog_gene = annotation_info[1].split('.')[1]
                     eggnog_annotation = annotation_info[2]
                     corresponding_rv = mtb_genes_in_isolate[feature.qualifiers['gene'][0]]
-                    num_of_unique_mtbs = Set(rv_mtb_dict[corresponding_rv])
+                    num_of_unique_mtbs = set(rv_mtb_dict[corresponding_rv])
                     if len(num_of_unique_mtbs) > 1:
                         feature.qualifiers['note'].append(
                             'This Rv is possibly split across multiple CDSs: Multiple MTBs '

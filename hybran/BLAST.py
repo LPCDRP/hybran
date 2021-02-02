@@ -51,7 +51,7 @@ def iterate(fa, seq_list, nproc):
     list_of_lists = pool.map(partial_blast,seq_list)
     pool.close()
     pool.join()
-    all_results_list = map('\n'.join, list_of_lists)
+    all_results_list = list(map('\n'.join, list_of_lists))
     return all_results_list
 
 

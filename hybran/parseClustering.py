@@ -4,7 +4,6 @@ import re
 import tempfile
 import subprocess
 import logging
-from sets import Set
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -569,7 +568,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     """
     logger = logging.getLogger('NewGeneClusters')
 
-    logger.debug('Number of clusters with no gene names: ' + str(len(in_dict.keys())))
+    logger.debug('Number of clusters with no gene names: ' + str(len(list(in_dict.keys()))))
     new_unannotated_genes = []
     rep_records = []
     for rep_gene in in_dict.keys():
@@ -598,7 +597,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
                 hits[line.split('\t')[0]] += [line]
             except KeyError:
                 hits[line.split('\t')[0]] = [line]
-    for qid, lines in hits.iteritems():
+    for qid, lines in hits.items():
         top_hit, all_hits = identify_top_hits('\n'.join(lines))
         isolate = qid.split('|')[0]
         locus = qid.split('|')[1]
@@ -642,7 +641,7 @@ def single_gene_clusters(single_gene_dict):
     logger = logging.getLogger('ClustersWithOneGeneName')
 
     rep_ltag_keys = []
-    logger.debug('Number of clusters with single genes: ' + str(len(single_gene_dict.keys())))
+    logger.debug('Number of clusters with single genes: ' + str(len(list(single_gene_dict.keys()))))
     for key_sgc in single_gene_dict:
         rep_ltag = False
         key_elements_sgc = key_sgc.split(',')
@@ -697,7 +696,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
     :return: int updated increment of MTBs
     """
     logger = logging.getLogger('ClustersWithManyGeneNames')
-    logger.debug('Number of clusters that have many gene names and genes with no name ' + str(len(in_dict.keys())))
+    logger.debug('Number of clusters that have many gene names and genes with no name ' + str(len(list(in_dict.keys()))))
 
     num_multi = 0
     for gene in in_dict.keys():
@@ -769,7 +768,7 @@ def add_gene_names_to_gbk(mtbs, gbk_dir):
             genbank_file = gbk_dir + '/' + isolate + '.gbk'
             isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
             update_mtb_dict = mtbs[isolate]
-            locus_to_update = update_mtb_dict.keys()
+            locus_to_update = list(update_mtb_dict.keys())
             modified_locus = []
             rec_num = 1
             for rec in isolate_records:
@@ -805,9 +804,9 @@ def add_gene_names_to_gbk(mtbs, gbk_dir):
                         logger.debug('Updated locus tag previously')
                     else:
                         continue
-                if len(Set(locus_to_update).intersection(Set(modified_locus))) < len(locus_to_update):
+                if len(set(locus_to_update).intersection(set(modified_locus))) < len(locus_to_update):
                     logger.warning('The following locus_tags are missing in the genbank file')
-                    logger.warning(Set(locus_to_update).difference(Set(modified_locus)))
+                    logger.warning(set(locus_to_update).difference(set(modified_locus)))
             SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 

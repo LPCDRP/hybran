@@ -1,5 +1,5 @@
-import fastaFromGFF
-import BLAST
-import CDHIT
-import MCL
-import addEggnogAnnotation
+from . import fastaFromGFF
+from . import BLAST
+from . import CDHIT
+from . import MCL
+from . import addEggnogAnnotation

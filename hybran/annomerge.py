@@ -27,7 +27,7 @@ import logging
 import time
 import subprocess
 
-import converter
+from . import converter
 
 
 def load_reference_info(proteome_fasta):
@@ -823,7 +823,7 @@ def identify_top_hits(blast_output_file, identity=95, coverage=95, mtb=False):
                 continue
         if rv_hit:
             top_hit = get_top_hit(all_hits_dict)
-        elif len(all_hits_dict.keys()) != 0:
+        elif len(list(all_hits_dict.keys())) != 0:
             top_hit = 'MTB:' + get_top_hit(all_hits_dict)
         else:
             top_hit = None
@@ -979,10 +979,10 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                     elif locus_tag not in ratt_features:
                         mod_feature = feature
                     elif locus_tag in ratt_features and locus_tag in ratt_blast_results.keys():
-                        ratt_start = int(ratt_locations.values()[0][0])
-                        ratt_stop = int(ratt_locations.values()[0][1])
+                        ratt_start = int(list(ratt_locations.values())[0][0])
+                        ratt_stop = int(list(ratt_locations.values())[0][1])
                         prom_mutation = False
-                        if ratt_locations.values()[0][2] == 1:
+                        if list(ratt_locations.values())[0][2] == 1:
                             if ratt_start == 0:
                                 ratt_prom_end = len(record_sequence)
                                 ratt_prom_start = len(record_sequence) - 40
@@ -1570,7 +1570,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                                   'start_change': start_change}
                 break
     logger.debug('Number of genes with incorrect start predictions by Prodigal: ' +
-                 str(len(incorrect_coords_dict.keys())))
+                 str(len(list(incorrect_coords_dict.keys()))))
     pickle.dump(incorrect_coords_dict, open(dict_save_fp, "wb"))
 
     prodigal_correction_dict = incorrect_coords_dict
@@ -1720,7 +1720,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
             prokka_features_not_in_ratt, ratt_overlapping_genes = \
                 remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
-            logger.debug('Number of prokka features not in RATT ' + str(len(prokka_features_not_in_ratt.keys())))
+            logger.debug('Number of prokka features not in RATT ' + str(len(list(prokka_features_not_in_ratt.keys()))))
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
