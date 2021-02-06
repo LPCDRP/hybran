@@ -357,7 +357,7 @@ def ref_seqs(gbk_dir):
         and the corresponding sequences as the value.
 
         :param  in_clusters: str file name of clusters
-        :return: dict of representatives and the CDHIT clusters and a list of represetatives
+        :return: dict of representatives and the CDHIT clusters and a list of representatives
         """
         clusters = []
         rep_dict = {}

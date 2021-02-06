@@ -148,7 +148,8 @@ def main():
     intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
     if all(intermediate_files + intermediate_dirs) in os.listdir(hybran_tmp_dir) and \
             not args.force:
-        print 'It seems hybran has been executed before. Please use the -f/--force flag if you would like to ' \
+        print('It seems hybran has been executed before. Please use the '
+              '-f/--force flag if you would like to ' \
               'overwrite intermediate files ' \
               '(does not overwrite Genbank/GFF files created in a previous run of hybran).')
         exit()
