@@ -347,7 +347,7 @@ def ref_seqs(gbk_dir):
                '-s', '1.0',
                '-d', '256',
                '-A', '1.0']
-        out = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        out = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
         return out
 
     def create_reps_dict(in_clusters):
@@ -424,7 +424,7 @@ def ref_seqs(gbk_dir):
         """
         hybran_tmp_dir = config.hybran_tmp_dir
         cmd = ['grep', 'translation=', gff]
-        translations = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        translations = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
         return [line for line in translations.stdout]
     protein_cds = []
     isolate_seqs = {}

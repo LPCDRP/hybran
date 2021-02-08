@@ -13,7 +13,7 @@ def execute_mcxdeblast(blast):
                       blast]
     mcxdeblast_out = subprocess.Popen(mcxdeblast_cmd,
                                       stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE)
+                                      stderr=subprocess.PIPE, text=True)
 
 
 def execute_mcl():
@@ -26,7 +26,7 @@ def execute_mcl():
                '-q', 'x',
                '-V', 'all']
     mcl_out = subprocess.Popen(mcl_cmd,
-                               stdout=subprocess.PIPE)
+                               stdout=subprocess.PIPE, text=True)
     return mcl_out
 
 

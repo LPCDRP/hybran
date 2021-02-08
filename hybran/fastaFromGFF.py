@@ -8,7 +8,7 @@ from Bio.Seq import Seq
 
 def grep_seqs(gff):
     cmd = ['grep', 'translation=', gff]
-    translations = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    translations = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
     return [line for line in translations.stdout]
 
 
