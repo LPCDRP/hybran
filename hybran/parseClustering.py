@@ -232,7 +232,7 @@ def get_cluster_fasta(rep, cluster_list):
     rep_gene_name = rep.split(',')[2]
     cluster_fasta_fp = tempfile.NamedTemporaryFile(suffix='.fasta',
                                                    dir=hybran_tmp_dir,
-                                                   delete=False)
+                                                   delete=False, mode='w')
     cluster_temp_fasta = cluster_fasta_fp.name
     added_seq = []
     unannotated_genes_list = []
@@ -592,7 +592,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
 
     rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta',
                                          dir=hybran_tmp_dir,
-                                         delete=False)
+                                         delete=False, mode='w')
     rep_temp_fasta = rep_fp.name
     with open(rep_temp_fasta, 'w') as fasta_tmp:
         for s in rep_records:
