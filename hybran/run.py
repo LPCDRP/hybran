@@ -39,7 +39,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
                fasta,
                isolate,
                ref_cds,
-               cpus]
+               str(cpus)]
         subprocess.call(cmd)
         os.chdir(c)
 
@@ -105,7 +105,7 @@ def eggnog_mapper(script_dir, nproc, emapper_loc, temp_dir):
     except OSError:
         pass
     cmd = [os.sep.join([script_dir, 'run_emapper.sh']),
-           nproc,
+           str(nproc),
            emapper_loc,
            temp_dir]
     subprocess.call(cmd)

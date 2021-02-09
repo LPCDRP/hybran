@@ -18,7 +18,7 @@ def run_cdhit(nproc, input, seq_ident, output):
     cmd = ['cd-hit',
            '-i', input,
            '-o', output,
-           '-c', seq_ident,
+           '-c', str(seq_ident),
            '-T', str(nproc),
            '-g', '1',
            '-s', '1',
