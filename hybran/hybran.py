@@ -191,7 +191,7 @@ def main():
                 logger.info(genome + ' as already been annotated.')
             if filename.split('/')[-1] + '.gff' not in os.listdir(args.output):
                 converter.convert_gbk_to_gff(args.output + filename.split('/')[-1] + '.gbk')
-    if not all([os.path.isfile(args.output + '/' + g.split('/')[-1] + '.gff') for g in genomes]):
+    if all([os.path.isfile(args.output + '/' + g.split('/')[-1] + '.gff') for g in genomes]):
         all_genomes += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')] + genomes_annotate
         run.clustering(all_genomes=list(set(sorted(all_genomes))),
                        target_genomes=genomes_annotate,
