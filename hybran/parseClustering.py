@@ -500,7 +500,13 @@ def prepare_for_eggnog(unannotated_seqs, target_genomes, temp_dir):
     """
     eggnog_seqs = []
     for record in SeqIO.parse(unannotated_seqs, 'fasta'):
-        if 'False' in record.description.split('|')[0] and record.description.split('|')[1] in target_genomes:
+        header = record.description.split('|')
+        state = header[0]
+        if len(header) == 2:
+            targeted = header[1] in target_genomes
+        else:
+            targeted = False
+        if 'False' in state and targeted:
             eggnog_seqs.append(record)
     if eggnog_seqs:
         with open(temp_dir + '/eggnog_seqs.fasta', 'w') as out:
