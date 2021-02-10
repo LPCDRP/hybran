@@ -24,8 +24,8 @@ def blast(seq_string, fa):
     Returns a list of BLAST runs that
     meet the 95% identity threshold
     """
-    blast_outfmt = ' "6 qseqid sseqid pident length mismatch gapopen ' \
-                   'qstart qend sstart send evalue bitscore qlen slen"'
+    blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
+                   "qstart qend sstart send evalue bitscore qlen slen"
     blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
     stdout, stderr=blast_to_all(stdin=seq_string[1])
     blast_filtered = []
