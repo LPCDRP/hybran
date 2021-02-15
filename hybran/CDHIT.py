@@ -67,7 +67,7 @@ def create_reps_fasta(output, reps, rep_seq_id_dict):
 def run(nproc, fasta, seq_ident, out):
     logger = logging.getLogger('CDHIT')
     logger.info('Running CDHIT')
-    cdhit_stdout = run_cdhit(nproc, fasta, seq_ident, out)
+    run_cdhit(nproc, fasta, seq_ident, out)
     OGdict = create_allseq_dict(fasta)
     logger.info('Parsing CDHIT output (' + out + '.clstr)')
     REPdict, rep_list = create_reps_dict(out + ".clstr")
