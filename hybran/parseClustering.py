@@ -422,10 +422,15 @@ def ref_seqs(gbk_dir):
         :param gff: str GFF file anme
         :return: list of GFF lines
         """
-        hybran_tmp_dir = config.hybran_tmp_dir
+        gff_lines = []
         cmd = ['grep', 'translation=', gff]
         translations = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
-        return [line for line in translations.stdout]
+        for line in translations.stdout:
+            try:
+                gff_lines.append(line)
+            except TypeError:
+                continue
+        return gff_lines
     protein_cds = []
     isolate_seqs = {}
     for gff in gbk_dir:
