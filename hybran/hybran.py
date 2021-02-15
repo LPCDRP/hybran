@@ -197,7 +197,7 @@ def main():
                        target_genomes=genomes_annotate,
                        nproc=args.nproc,
                        seq_ident=args.identity_threshold)
-        if 'eggnog_seqs.fasta' in hybran_tmp_dir:
+        if 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
             run.eggnog_mapper(script_dir=script_dir,
                               nproc=args.nproc,
                               emapper_loc=args.database_dir,
