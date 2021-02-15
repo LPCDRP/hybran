@@ -347,7 +347,7 @@ def ref_seqs(gbk_dir):
                '-s', '1.0',
                '-d', '256',
                '-A', '1.0']
-        out = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
+        out = subprocess.run(cmd, stdout=subprocess.PIPE)
         return out
 
     def create_reps_dict(in_clusters):

@@ -11,9 +11,7 @@ def execute_mcxdeblast(blast):
                       '--line-mode=abc',
                       '--out=' + hybran_tmp_dir + '/mcxdeblast_results',
                       blast]
-    mcxdeblast_out = subprocess.Popen(mcxdeblast_cmd,
-                                      stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE, text=True)
+    mcxdeblast_out = subprocess.run(mcxdeblast_cmd, stdout=subprocess.PIPE)
 
 
 def execute_mcl():
@@ -25,8 +23,7 @@ def execute_mcl():
                '-o', hybran_tmp_dir + '/mcl',
                '-q', 'x',
                '-V', 'all']
-    mcl_out = subprocess.Popen(mcl_cmd,
-                               stdout=subprocess.PIPE, text=True)
+    mcl_out = subprocess.run(mcl_cmd, stdout=subprocess.PIPE)
     return mcl_out
 
 

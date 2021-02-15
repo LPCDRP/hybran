@@ -23,7 +23,7 @@ def run_cdhit(nproc, input, seq_ident, output):
            '-g', '1',
            '-s', '1',
            '-d', '256']
-    out = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
+    out = subprocess.run(cmd, stdout=subprocess.PIPE)
     return out
 
 
