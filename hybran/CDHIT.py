@@ -70,7 +70,7 @@ def run(nproc, fasta, seq_ident, out):
     run_cdhit(nproc, fasta, seq_ident, out)
     OGdict = create_allseq_dict(fasta)
     logger.info('Parsing CDHIT output (' + out + '.clstr)')
-    REPdict, rep_list = create_reps_dict(out + ".clstr")
+    REPdict, rep_list = create_reps_dict(out + '.clstr')
     logger.info('Creating FASTA of CDHIT clusters representatives')
     create_reps_fasta(out, rep_list, OGdict)
     return REPdict
