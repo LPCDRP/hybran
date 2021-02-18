@@ -116,12 +116,12 @@ def update_gbks(script_dir):
         gbk_fp = gbk
         output_fp = gbk
         counter = 1
-        output_recs = set()
+        output_recs = []
         rv_mtb_dict = {}
         mtb_genes_in_isolate = {}
         for record in SeqIO.parse(gbk_fp, 'genbank'):
             if counter > 1:
-                output_recs.add(record)
+                output_recs.append(record)
                 counter += 1
                 continue
             rec_features = record.features
@@ -173,7 +173,7 @@ def update_gbks(script_dir):
                             feature.qualifiers['gene'][0] = h37rv_genes[eggnog_gene]
                         except KeyError:
                             feature.qualifiers['gene'][0] = eggnog_gene
-            output_recs.add(record)
+            output_recs.append(record)
             counter += 1
         SeqIO.write(list(output_recs), output_fp, 'genbank')
         converter.convert_gbk_to_gff(output_fp)
