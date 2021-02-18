@@ -93,7 +93,7 @@ def eggnog_mapper(script_dir, nproc, emapper_loc, temp_dir):
     :param script_dir: str absolute path to run_emapper.sh
     :param nproc: str number of processors
     :param emapper_loc: str absolute path to eggnog database
-    :param temp_dir: str path to hybran temporary directory
+    :param temp_dir: str path to Hybran temporary directory
     :return: None
     """
 

@@ -500,7 +500,7 @@ def prepare_for_eggnog(unannotated_seqs, target_genomes, temp_dir):
     been annotated through EggNOG
 
     :param unannotated_seqs: str FASTA file name
-    :param temp_dir: str path to hybran temporary directory
+    :param temp_dir: str path to Hybran temporary directory
     :return: None
     """
     eggnog_seqs = []

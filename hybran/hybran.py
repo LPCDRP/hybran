@@ -203,7 +203,7 @@ def main():
                               emapper_loc=args.database_dir,
                               temp_dir=hybran_tmp_dir)
         else:
-            logger.info('No genes to annotated with eggnog, continuing')
+            logger.info('No genes to be annotated with eggnog, continuing')
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
     print('Thank you for using Hybran. We hope to see you again!')

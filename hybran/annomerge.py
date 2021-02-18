@@ -1479,7 +1479,7 @@ def fix_embl_id_line(embl_file):
 def run_prodigal(reference_genome, temp_dir):
     """
     :param reference_genome:
-    :param temp_dir: str path to hybran temporary directory
+    :param temp_dir: str path to Hybran temporary directory
     :return:
     """
     logger = logging.getLogger('Prodigal')
