@@ -33,7 +33,7 @@ def parse_eggnog():
 
     annotated_mtbs = list(annotation_dict.keys())
     with open(hybran_tmp_dir +
-              '/eggnog-mapper-annotations/mtb_diamond.emapper.annotations.orthologs', 'r') as diamond_results_orthologs:
+              '/eggnog-mapper-annotations/mtb_diamond.emapper.orthologs', 'r') as diamond_results_orthologs:
         for line in diamond_results_orthologs:
             line_elements = line.strip().split('\t')
             if line_elements[0] in annotated_mtbs:
@@ -69,7 +69,7 @@ def parse_eggnog():
             annotation_dict[line_elements[0]] = dict_val
 
     annotated_mtbs = list(annotation_dict.keys())
-    with open(hybran_tmp_dir + '/eggnog-mapper-annotations/mtb_hmm.emapper.annotations.orthologs', 'r') as hmm_results_orthologs:
+    with open(hybran_tmp_dir + '/eggnog-mapper-annotations/mtb_hmm.emapper.orthologs', 'r') as hmm_results_orthologs:
         for line in hmm_results_orthologs:
             line_elements = line.strip().split('\t')
             if line_elements[0] in annotated_mtbs:
