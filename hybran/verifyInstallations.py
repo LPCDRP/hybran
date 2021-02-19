@@ -4,7 +4,6 @@ import logging
 
 def verify_installations(eggnog_databases):
     """
-
     :param eggnog_databases:
     :return:
     """

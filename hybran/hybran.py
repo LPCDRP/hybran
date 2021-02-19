@@ -3,6 +3,9 @@ import argparse
 import logging
 import time
 import glob
+import tempfile
+import atexit
+import shutil
 
 from . import \
     verifyInstallations, \
@@ -10,7 +13,9 @@ from . import \
     firstReference, \
     run, \
     annomerge, \
-    converter
+    converter, \
+    config
+
 
 __version__ = '1.0'
 
@@ -52,9 +57,8 @@ def cmds():
                                                  '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
                           default='1')
-    optional.add_argument('-rm', '--remove', action='store_true',
-                          help='Flag if all intermediate files created by Hybran should be deleted. By default, '
-                               'they are kept.')
+    optional.add_argument('-d', '--debug', action='store_true',
+                          help="Don't delete temporary files created by Hybran.")
     optional.add_argument('-f', '--force', action='store_true',
                           help='Force overwrite intermediate files (does not overwrite annotation files already '
                                'annotated using hybran.')
@@ -74,9 +78,19 @@ def main():
 
     :return: None
     """
+    global args
     args = cmds()
     # Obtaining the absolute path to all scripts
     script_dir = os.path.abspath(os.path.dirname(__file__))
+
+    # Setting up the Hybran temporary directory
+    config.init()
+    hybran_tmp_dir = config.hybran_tmp_dir
+
+    # Cleanup the temporary files directory and its contents at exit unless
+    # --debug is set
+    if not args.debug:
+        atexit.register(shutil.rmtree, path=hybran_tmp_dir)
 
     if args.version:
         print(__version__)
@@ -132,8 +146,10 @@ def main():
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]
     intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
-    if all(intermediate_files + intermediate_dirs) in os.listdir(args.output) and not args.force:
-        print('It seems hybran has been executed before. Please use the -f/--force flag if you would like to ' \
+    if all(intermediate_files + intermediate_dirs) in os.listdir(hybran_tmp_dir) and \
+            not args.force:
+        print('It seems hybran has been executed before. Please use the '
+              '-f/--force flag if you would like to ' \
               'overwrite intermediate files ' \
               '(does not overwrite Genbank/GFF files created in a previous run of hybran).')
         exit()
@@ -159,7 +175,7 @@ def main():
                 genomes.append(filename)
                 run.ratt_prokka(ref_dir=embl_dir,
                                 fasta=genome,
-                                ref_cds=args.output + ref_cds,
+                                ref_cds=ref_cds,
                                 script_dir=script_dir,
                                 cpus=args.nproc)
                 if filename.split('/')[-1] + '.gbk' not in os.listdir(os.getcwd()):
@@ -173,24 +189,21 @@ def main():
                 genomes_annotate.append(args.output + filename.split('/')[-1] + '.gff')
             else:
                 logger.info(genome + ' as already been annotated.')
-            if filename.split('/')[-1] + '.gff' not in os.listdir(os.getcwd()):
+            if filename.split('/')[-1] + '.gff' not in os.listdir(args.output):
                 converter.convert_gbk_to_gff(args.output + filename.split('/')[-1] + '.gbk')
-    if not all([os.path.isfile(args.output + '/' + g.split('/')[-1] + '.gff') for g in genomes]):
+    if all([os.path.isfile(args.output + g.split('/')[-1] + '.gff') for g in genomes]):
         all_genomes += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')] + genomes_annotate
         run.clustering(all_genomes=list(set(sorted(all_genomes))),
                        target_genomes=genomes_annotate,
                        nproc=args.nproc,
                        seq_ident=args.identity_threshold)
-        if 'eggnog_seqs.fasta' in cwd:
+        if 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
             run.eggnog_mapper(script_dir=script_dir,
                               nproc=args.nproc,
-                              emapper_loc=args.database_dir)
+                              emapper_loc=args.database_dir,
+                              temp_dir=hybran_tmp_dir)
         else:
-            logger.info('No genes to annotated with eggnog, continuing')
-    if args.remove:
-        intermediate_dirs += [g.split('/')[-1] for g in genomes]
-        fileManager.remove_dir(d_list=intermediate_dirs)
-        fileManager.remove_file(f_list=intermediate_files)
+            logger.info('No genes to be annotated with eggnog, continuing')
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
     print('Thank you for using Hybran. We hope to see you again!')

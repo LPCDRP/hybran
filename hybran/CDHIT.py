@@ -18,12 +18,12 @@ def run_cdhit(nproc, input, seq_ident, output):
     cmd = ['cd-hit',
            '-i', input,
            '-o', output,
-           '-c', seq_ident,
+           '-c', str(seq_ident),
            '-T', str(nproc),
            '-g', '1',
            '-s', '1',
            '-d', '256']
-    out = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    out = subprocess.run(cmd, stdout=subprocess.PIPE)
     return out
 
 
@@ -67,10 +67,10 @@ def create_reps_fasta(output, reps, rep_seq_id_dict):
 def run(nproc, fasta, seq_ident, out):
     logger = logging.getLogger('CDHIT')
     logger.info('Running CDHIT')
-    cdhit_stdout = run_cdhit(nproc, fasta, seq_ident, out)
+    run_cdhit(nproc, fasta, seq_ident, out)
     OGdict = create_allseq_dict(fasta)
     logger.info('Parsing CDHIT output (' + out + '.clstr)')
-    REPdict, rep_list = create_reps_dict(out + ".clstr")
+    REPdict, rep_list = create_reps_dict(out + '.clstr')
     logger.info('Creating FASTA of CDHIT clusters representatives')
     create_reps_fasta(out, rep_list, OGdict)
     return REPdict

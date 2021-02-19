@@ -2,7 +2,7 @@ import os
 import shutil
 import logging
 from . import converter
-
+from . import config
 
 def full_path(p):
     """
@@ -15,26 +15,11 @@ def full_path(p):
     return p
 
 
-def remove_file(f_list):
-    for f in f_list:
-        try:
-            os.remove(f)
-        except OSError:
-            pass
-
-
-def remove_dir(d_list):
-    for d in d_list:
-        try:
-            shutil.rmtree(d)
-        except OSError:
-            pass
-
-
 def ratt_references(args):
+    hybran_tmp_dir = config.hybran_tmp_dir
     logger = logging.getLogger('RATTReferences')
-    refdir = args.references + 'temp_references/'
-    embl_dir = refdir + '/embls/'
+    refdir = hybran_tmp_dir + '/temp_references/'
+    embl_dir = refdir + 'embls/'
 
     try:
         os.mkdir(refdir)

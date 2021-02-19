@@ -7,9 +7,15 @@ from Bio.Seq import Seq
 
 
 def grep_seqs(gff):
+    gff_lines = []
     cmd = ['grep', 'translation=', gff]
-    translations = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    return [line for line in translations.stdout]
+    translations = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
+    for line in translations.stdout:
+        try:
+            gff_lines.append(line)
+        except TypeError:
+            continue
+    return gff_lines
 
 
 def create_fasta(directory):
