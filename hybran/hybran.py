@@ -66,7 +66,8 @@ def cmds():
     logging_level.add_argument('--verbose', action='store_true', help='Verbose output')
     logging_level.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
     optional.add_argument('-v', '--version', help='Print version and exit',
-                          action='store_true')
+                          action='version',
+                          version=__version__)
     return parser.parse_args()
 
 
@@ -91,10 +92,6 @@ def main():
     # --debug is set
     if not args.debug:
         atexit.register(shutil.rmtree, path=hybran_tmp_dir)
-
-    if args.version:
-        print(__version__)
-        exit()
 
     # Check that the identity threshold is valid
     if not (args.identity_threshold <= 1.0 and args.identity_threshold >= 0.0):
