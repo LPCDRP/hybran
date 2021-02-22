@@ -2,16 +2,10 @@
 
 Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled genomes
 
-### System Requirements
-* Linux OS required
-* Tested on Debian 8 (jessie)
-* Install time ~5 minutes
-
 ### Dependencies
 * [RATT](http://ratt.sourceforge.net/)
 * [Prokka](https://github.com/tseemann/prokka)
 * [EMBOSS (seqret)](http://emboss.sourceforge.net/download/)
-* [python2.7](https://www.python.org/downloads/release/python-2715/)
 * [Biopython](https://biopython.org/wiki/Download)
 * [CD-HIT](https://github.com/weizhongli/cdhit)
 * [MCL](https://github.com/JohannesBuchner/mcl)
