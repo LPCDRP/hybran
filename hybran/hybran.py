@@ -38,8 +38,7 @@ def cmds():
                           required=True,
                           nargs='+')
     required.add_argument('-r', '--references', help='Directory containing Genbank files of reference '
-                                                     'annotations to transfer. Only the first 30 reference annotations '
-                                                     'will be transferred with RATT and the first annotation will '
+                                                     'annotations to transfer. Only the first annotation will '
                                                      'be used as the reference database in the Prokka reference '
                                                      'step.',
                           required=True)
