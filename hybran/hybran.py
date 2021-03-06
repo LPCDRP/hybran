@@ -200,6 +200,11 @@ def main():
                               temp_dir=hybran_tmp_dir)
         else:
             logger.info('No genes to be annotated with eggnog, continuing')
+
+        for gbk in os.listdir(args.output):
+            if gbk.endswith('.gbk'):
+                converter.convert_gbk_to_gff(gbk)
+
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
     print('Thank you for using Hybran. We hope to see you again!')
