@@ -20,7 +20,7 @@ def grep_seqs(gff):
 
 def create_fasta(directory):
     """Writes cds_seqs.fasta, which contains the CDSs and protein sequences
-    from the input genome(s) GFF file(s)."""
+    from the reference and input genome(s) GFF files."""
     logger = logging.getLogger('CreateFASTA')
     seqs = []
     gff_gene_dict = {}
