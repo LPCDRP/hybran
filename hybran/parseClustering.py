@@ -89,8 +89,8 @@ def parse_clustered_proteins(clustered_proteins, annotations):
         for line in clustered_proteins_file:
             isolates_ids = line.rstrip('\n').split('\t')
             representative_seq_id = isolates_ids[0].split(': ')[1]
-            rep_isolate = representative_seq_id.split('-L')[0]
-            rep_seq_id = 'L' + representative_seq_id.split('-L')[1]
+            rep_seq_id = representative_seq_id.split('-')[-1]
+            rep_isolate = representative_seq_id.replace('-' + rep_seq_id, '')
             representative_ltag_gene_tup = gffs[rep_isolate][rep_seq_id]
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
 
@@ -102,8 +102,8 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             cluster_list.append(representative_ltag_gene_tup)
             cluster_list_w_isolate.append([rep_isolate] + list(representative_ltag_gene_tup))
             for isolate_gene_id in isolates_ids[1:]:
-                isolate = isolate_gene_id.split('-L')[0]
-                gene_id = 'L' + isolate_gene_id.split('-L')[1]
+                gene_id = isolate_gene_id.split('-')[-1]
+                isolate = isolate_gene_id.replace('-' + gene_id, '')
                 cluster_list.append(gffs[isolate][gene_id])
                 cluster_list_w_isolate.append([isolate] + list(gffs[isolate][gene_id]))
                 gene_cluster[representative].append(','.join([isolate, ','.join(gffs[isolate][gene_id])]))
