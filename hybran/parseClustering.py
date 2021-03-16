@@ -445,8 +445,14 @@ def ref_seqs(gbk_dir):
             isolate_seqs[gff_name] = {}
             for line in raw_out:
                 if line.split('\t')[2] == 'CDS':
-                    locus_tag = [i.split('=')[1].rstrip('\n') for i in line.split(';') if i.startswith('locus_tag=')][0]
-                    gene = [i.split('=')[1].rstrip('\n') for i in line.split(';') if i.startswith('gene=')][0]
+                    gene = None
+                    for i in line.split(';'):
+                        if i.startswith('gene='):
+                            gene = [i.split('=')[1].rstrip('\n')][0]
+                        if i.startswith('locus_tag='):
+                            locus_tag = [i.split('=')[1].rstrip('\n')][0]
+                    if not gene:
+                        gene = locus_tag
                     translation = [i.split('=')[1] for i in line.split(';') if i.startswith('translation=')][0]
                     eggnog_annot = [i for i in line.split(';') if i.startswith('note=') and 'Eggnog' in i.split('=')[1]]
                     eggnog = False

@@ -30,7 +30,14 @@ def create_fasta(directory):
         for line in raw_out:
             gff_id = gff_name + '-' + [j.split('=')[1] for i in line.split('\t')
                                        if i.startswith('ID=') for j in i.split(';')][0]
-            gene = [i.split('=')[1].rstrip('\n') for i in line.split(';') if i.startswith('gene=')][0]
+            gene = None
+            for i in line.split(';'):
+                if i.startswith('gene='):
+                    gene = [i.split('=')[1].rstrip('\n')][0]
+                if i.startswith('locus_tag='):
+                    locus_tag = [i.split('=')[1].rstrip('\n')][0]
+            if not gene:
+                gene = locus_tag
             gff_gene_dict[gff_id] = gene
             translation = [i.split('=')[1] for i in line.split(';') if i.startswith('translation=')][0]
             record = SeqRecord(Seq(translation.rstrip('\n')),
