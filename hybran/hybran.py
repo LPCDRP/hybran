@@ -179,7 +179,7 @@ def main():
                     annomerge.run(isolate_id=filename.split('/')[-1],
                                   annotation_fp=os.getcwd() + '/',
                                   ref_proteins_fasta=ref_cds,
-                                  ref_embl_fp=embl_dir + first_reference_embl,
+                                  ref_embl_fp=first_reference_embl,
                                   reference_genome=ref_genome,
                                   script_directory=script_dir)
                 genomes_annotate.append(args.output + filename.split('/')[-1] + '.gff')
