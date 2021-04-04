@@ -26,7 +26,7 @@ def create_fasta(directory):
     gff_gene_dict = {}
     for gff in directory:
         raw_out = grep_seqs(gff)
-        gff_name = gff.split('/')[-1].split('.')[0]
+        gff_name = os.path.splitext(os.path.basename(gff))[0]
         for line in raw_out:
             gff_id = gff_name + '-' + [j.split('=')[1] for i in line.split('\t')
                                        if i.startswith('ID=') for j in i.split(';')][0]

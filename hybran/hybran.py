@@ -165,8 +165,9 @@ def main():
     genomes = []
     for genome in args.genomes:
         if genome.endswith('.fasta') and not genome.startswith('ref'):
-            filename = genome.split('.')[0]
-            if filename.split('/')[-1] + '.gbk' not in args.output:
+            filename = os.path.splitext(genome)[0]
+            samplename = os.path.basename(filename)
+            if samplename + '.gbk' not in args.output:
                 genome_count += 1
                 genomes.append(filename)
                 run.ratt_prokka(ref_dir=embl_dir,
@@ -174,20 +175,20 @@ def main():
                                 ref_cds=ref_cds,
                                 script_dir=script_dir,
                                 cpus=args.nproc)
-                if filename.split('/')[-1] + '.gbk' not in os.listdir(os.getcwd()):
-                    logger.info('Merging RATT and Prokka annotations for ' + filename.split('/')[-1])
-                    annomerge.run(isolate_id=filename.split('/')[-1],
+                if samplename + '.gbk' not in os.listdir(os.getcwd()):
+                    logger.info('Merging RATT and Prokka annotations for ' + samplename)
+                    annomerge.run(isolate_id=samplename,
                                   annotation_fp=os.getcwd() + '/',
                                   ref_proteins_fasta=ref_cds,
                                   ref_embl_fp=first_reference_embl,
                                   reference_genome=ref_genome,
                                   script_directory=script_dir)
-                genomes_annotate.append(args.output + filename.split('/')[-1] + '.gff')
+                genomes_annotate.append(os.path.join(args.output, samplename + '.gff'))
             else:
                 logger.info(genome + ' as already been annotated.')
-            if filename.split('/')[-1] + '.gff' not in os.listdir(args.output):
-                converter.convert_gbk_to_gff(args.output + filename.split('/')[-1] + '.gbk')
-    if all([os.path.isfile(args.output + g.split('/')[-1] + '.gff') for g in genomes]):
+            if samplename + '.gff' not in os.listdir(args.output):
+                converter.convert_gbk_to_gff(os.path.join(args.output, samplename + '.gbk'))
+    if all([os.path.isfile(os.path.join(args.output, os.path.basename(g) + '.gff')) for g in genomes]):
         all_genomes += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')] + genomes_annotate
         run.clustering(all_genomes=list(set(sorted(all_genomes))),
                        target_genomes=genomes_annotate,

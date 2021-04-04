@@ -1,4 +1,5 @@
 import logging
+import os
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -15,7 +16,7 @@ def get_first_reference_proteome(genbank):
     logger.info('Creating a reference proteome FASTA for Prokka from ' + genbank)
     seqs = []
     for record in SeqIO.parse(genbank, 'genbank'):
-        seq = SeqRecord(record.seq, id=genbank.split('/')[-1].split('.')[0],
+        seq = SeqRecord(record.seq, id=os.path.splitext(os.path.basename(genbank))[0],
                         description='')
         if record.features:
             for feature in record.features:

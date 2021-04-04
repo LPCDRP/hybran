@@ -19,7 +19,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
     """
     logger = logging.getLogger('ProkkaRATTAnnomerge')
     c = os.getcwd()
-    isolate = fasta.split('/')[-1].split('.')[0]
+    isolate = os.path.splitext(os.path.basename(fasta))[0]
 
     if isolate not in os.listdir(os.getcwd()) or \
         ('ratt' not in os.listdir(isolate) or
@@ -34,7 +34,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
         except OSError:
             pass
         os.chdir(isolate)
-        cmd = [os.sep.join([script_dir,'ratt_prokka.sh']),
+        cmd = [os.path.join(script_dir,'ratt_prokka.sh'),
                ref_dir,
                fasta,
                isolate,
