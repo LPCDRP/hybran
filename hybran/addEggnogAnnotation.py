@@ -176,4 +176,3 @@ def update_gbks(script_dir):
             output_recs.append(record)
             counter += 1
         SeqIO.write(list(output_recs), output_fp, 'genbank')
-        converter.convert_gbk_to_gff(output_fp)

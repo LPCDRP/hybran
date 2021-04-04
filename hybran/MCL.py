@@ -28,6 +28,8 @@ def execute_mcl():
 
 
 def inflate_mcl_clusters(mcl_output, cdhit_groups, gene_key):
+    """Produces the contents of the clustered_proteins file, which is
+    some combination of the MCL output and the CD-HIT ouput."""
     inflated_output = []
     with open(mcl_output, 'r') as mcl:
         for line in mcl:
@@ -63,4 +65,5 @@ def run_mcl(in_blast, cdhit_clusters, out_name, gene_names):
                                   cdhit_groups=cdhit_clusters,
                                   gene_key=gene_names)
     logger.info('Writing final output ' + out_name)
+    # Write clustered_proteins file
     writer(output, out_name)

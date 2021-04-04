@@ -89,8 +89,8 @@ def parse_clustered_proteins(clustered_proteins, annotations):
         for line in clustered_proteins_file:
             isolates_ids = line.rstrip('\n').split('\t')
             representative_seq_id = isolates_ids[0].split(': ')[1]
-            rep_isolate = representative_seq_id.split('-L')[0]
-            rep_seq_id = 'L' + representative_seq_id.split('-L')[1]
+            rep_seq_id = representative_seq_id.split('-')[-1]
+            rep_isolate = representative_seq_id.replace('-' + rep_seq_id, '')
             representative_ltag_gene_tup = gffs[rep_isolate][rep_seq_id]
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
 
@@ -102,8 +102,8 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             cluster_list.append(representative_ltag_gene_tup)
             cluster_list_w_isolate.append([rep_isolate] + list(representative_ltag_gene_tup))
             for isolate_gene_id in isolates_ids[1:]:
-                isolate = isolate_gene_id.split('-L')[0]
-                gene_id = 'L' + isolate_gene_id.split('-L')[1]
+                gene_id = isolate_gene_id.split('-')[-1]
+                isolate = isolate_gene_id.replace('-' + gene_id, '')
                 cluster_list.append(gffs[isolate][gene_id])
                 cluster_list_w_isolate.append([isolate] + list(gffs[isolate][gene_id]))
                 gene_cluster[representative].append(','.join([isolate, ','.join(gffs[isolate][gene_id])]))
@@ -298,16 +298,18 @@ def find_largest_mtb_increment(unannotated_fasta):
     mtbs = []
     for record in SeqIO.parse(unannotated_fasta, 'fasta'):
         mtbs.append(record.id)
-    largest_mtb = sorted(mtbs)[-1]
-    if largest_mtb:
+    if mtbs:
+        largest_mtb = sorted(mtbs)[-1]
         return int(largest_mtb.replace('MTB', ''))
-    return 0
+    else:
+        return 1
 
 
 def ref_seqs(gbk_dir):
     """
     Creates a FASTA with unique sequences based on a given directory
-    of reference Genbank files
+    of reference Genbank files. Uses GFFs from referene and input
+    genomes to create content for the output ref_cdss_protein-all.fasta
 
     :param gbk_dir: str directory name
     :return: str FASTA file name and a dictionary of dictionaries
@@ -332,6 +334,9 @@ def ref_seqs(gbk_dir):
     def run_cdhit(nproc, input, output):
         """
         Runs cdhit with a sequence identity threshold of 0.99.
+
+        CDHIT outputs a fasta file of representative sequences (ref_cdss_protein.fasta)
+        and a text file of list of clusters (ref_cdss_protein.fasta.clstr).
 
         :param nproc: str number of processors to use
         :param input: str input file name
@@ -440,8 +445,14 @@ def ref_seqs(gbk_dir):
             isolate_seqs[gff_name] = {}
             for line in raw_out:
                 if line.split('\t')[2] == 'CDS':
-                    locus_tag = [i.split('=')[1].rstrip('\n') for i in line.split(';') if i.startswith('locus_tag=')][0]
-                    gene = [i.split('=')[1].rstrip('\n') for i in line.split(';') if i.startswith('gene=')][0]
+                    gene = None
+                    for i in line.split(';'):
+                        if i.startswith('gene='):
+                            gene = [i.split('=')[1].rstrip('\n')][0]
+                        if i.startswith('locus_tag='):
+                            locus_tag = [i.split('=')[1].rstrip('\n')][0]
+                    if not gene:
+                        gene = locus_tag
                     translation = [i.split('=')[1] for i in line.split(';') if i.startswith('translation=')][0]
                     eggnog_annot = [i for i in line.split(';') if i.startswith('note=') and 'Eggnog' in i.split('=')[1]]
                     eggnog = False
@@ -454,6 +465,7 @@ def ref_seqs(gbk_dir):
                     protein_cds.append(record)
     all_proteins = hybran_tmp_dir + '/clustering/ref_cdss_protein-all.fasta'
     final_proteins = hybran_tmp_dir + '/clustering/ref_cdss_protein.fasta'
+    # Write ref_cdss_protein-all.fasta
     with open(all_proteins, 'w') as ref_cds_out:
         for s in protein_cds:
             SeqIO.write(s, ref_cds_out, 'fasta')
@@ -477,7 +489,8 @@ def blast(subject, stdin_seq):
 
 def find_unannotated_genes(reference_protein_fasta):
     """
-    Identifies all unannotated sequences in the reference proteome
+    Identifies all unannotated sequences in the reference proteome by
+    looking for all the MTB#### genes in the given FASTA.
 
     :param reference_protein_fasta: str FASTA file
     :return: str unannotated FASTA file name
@@ -550,11 +563,12 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
             name_to_assign = top_hit
             if top_hit is None:
                 assign_mtb = True
-                stdout_2 = blast(unannotated_fasta, gene_sequence)
-                top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
-                if top_hit_mtb is not None:
-                    assign_mtb = False
-                    name_to_assign = top_hit_mtb
+                if os.stat(unannotated_fasta).st_size:
+                    stdout_2 = blast(unannotated_fasta, gene_sequence)
+                    top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
+                    if top_hit_mtb is not None:
+                        assign_mtb = False
+                        name_to_assign = top_hit_mtb
             if assign_mtb:
                 mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
                 mtb_increment = mtb_increment + 1
@@ -629,12 +643,13 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         name_to_assign = top_hit
         if top_hit is None:
             assign_mtb = True
-            rep_seq = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
-            stdout_2 = blast(unannotated_fasta, rep_seq)
-            top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
-            if top_hit_mtb is not None:
-                assign_mtb = False
-                name_to_assign = top_hit_mtb
+            if os.stat(unannotated_fasta).st_size:
+                rep_seq = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
+                stdout_2 = blast(unannotated_fasta, rep_seq)
+                top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
+                if top_hit_mtb is not None:
+                    assign_mtb = False
+                    name_to_assign = top_hit_mtb
         if assign_mtb:
             mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
             mtb_increment = mtb_increment + 1
@@ -752,11 +767,12 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                     name_to_assign = top_hit
                     if top_hit is None:
                         assign_mtb = True
-                        stdout_2 = blast(unannotated_fasta, unannotated_gene_seq)
-                        top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
-                        if top_hit_mtb is not None:
-                            assign_mtb = False
-                            name_to_assign = top_hit_mtb
+                        if os.stat(unannotated_fasta).st_size:
+                            stdout_2 = blast(unannotated_fasta, unannotated_gene_seq)
+                            top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2)
+                            if top_hit_mtb is not None:
+                                assign_mtb = False
+                                name_to_assign = top_hit_mtb
                     if assign_mtb:
                         mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
                         mtb_increment = mtb_increment + 1
@@ -846,8 +862,10 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate):
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
     logger.debug('Retrieving reference protein sequences from GFFs')
+    # Run CD-HIT on ref_cdss_protein-all.fasta as part of calling ref_seqs
     reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=target_gffs)
     logger.debug('Identifying unannotated proteins (signified by absence of a gene name)')
+    # Identify all the MTB#### genes in ref_cdss_protein-all.fasta
     mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
     mtb_increment = find_largest_mtb_increment(unannotated_fasta=mtb_genes_fp)
     logger.info('Parsing ' + clusters)

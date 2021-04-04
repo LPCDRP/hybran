@@ -14,7 +14,10 @@ def create_allseq_dict(fa):
     
 
 def run_cdhit(nproc, input, seq_ident, output):
-    """Runs cdhit with a sequence identity threshold of 0.95."""
+    """Runs cdhit with a sequence identity threshold of 0.95.
+
+    CDHIT outputs a fasta file of representative sequences (cdhit_clusters.fasta)
+    and a text file of list of clusters (cdhit_clusters.fasta.clstr)."""
     cmd = ['cd-hit',
            '-i', input,
            '-o', output,

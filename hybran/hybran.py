@@ -137,8 +137,8 @@ def main():
     # Moving into the desired annotation directory
     os.chdir(args.output)
 
-    # Setting up RATT references
-    refdir, embl_dir, embls = fileManager.ratt_references(args)
+    # Setting up references for RATT, as well as versions in GFF format used later
+    refdir, embl_dir, embls = fileManager.prepare_references(args)
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]
     intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
@@ -152,10 +152,10 @@ def main():
     # Getting first reference information
     if not args.first_gbk:
         first_reference_embl = embls[0]
-        first_reference_gbk = args.references + first_reference_embl.split('.')[0] + '.gbk'
+        first_reference_gbk = os.path.splitext(first_reference_embl)[0] + '.gbk'
     else:
-        first_reference_gbk = args.references + args.first_gbk
-        first_reference_embl = args.first_gbk.split('.')[0] + '.embl'
+        first_reference_gbk = os.path.join(refdir, args.first_gbk)
+        first_reference_embl = os.path.splitext(args.first_gbk)[0] + '.embl'
     ref_cds, ref_genome = firstReference.get_first_reference_proteome(first_reference_gbk)
 
     # Calling all steps for Hybran
@@ -200,6 +200,11 @@ def main():
                               temp_dir=hybran_tmp_dir)
         else:
             logger.info('No genes to be annotated with eggnog, continuing')
+
+        for gbk in os.listdir(args.output):
+            if gbk.endswith('.gbk'):
+                converter.convert_gbk_to_gff(gbk)
+
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
     print('Thank you for using Hybran. We hope to see you again!')

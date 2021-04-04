@@ -1,3 +1,4 @@
+import glob
 import os
 import shutil
 import logging
@@ -15,9 +16,9 @@ def full_path(p):
     return p
 
 
-def ratt_references(args):
+def prepare_references(args):
     hybran_tmp_dir = config.hybran_tmp_dir
-    logger = logging.getLogger('RATTReferences')
+    logger = logging.getLogger('PrepareReferences')
     refdir = hybran_tmp_dir + '/temp_references/'
     embl_dir = refdir + 'embls/'
 
@@ -29,23 +30,21 @@ def ratt_references(args):
         os.mkdir(embl_dir)
     except OSError:
         pass
-    all_embls = [i for i in os.listdir(args.references) if i.endswith('.embl')]
-    if not all_embls:
-        for i in os.listdir(args.references):
-            if i.endswith('.gbk'):
-                converter.convert_gbk_to_embl(args.references + i)
     embls = []
     embl_count = 0
     logger.info('Getting all reference annotations')
-    for e in all_embls:
-        gbk = e.split('/')[-1].split('.')[0] + '.gbk'
-        gff = e.split('/')[-1].split('.')[0] + '.gff'
-        try:
-            shutil.copyfile(args.references + e, embl_dir + e)
-            embls.append(e)
-            shutil.copyfile(args.references + gbk, refdir + gbk)
-            shutil.copyfile(args.references + gff, refdir + gff)
-            embl_count += 1
-        except OSError:
-            continue
+    for i in glob.iglob(os.path.join(args.references, '*.gbk')):
+        # we will be using the references exclusively from our temporary directory
+        # genbank
+        gbk = os.path.join(refdir, os.path.basename(i))
+        os.symlink(i, gbk)
+        # embl - RATT needs them in their own directory, but they're sometimes looked for in
+        #        the top-level folder.
+        embl = converter.convert_gbk_to_embl(gbk)
+        os.symlink(embl, os.path.join(embl_dir, os.path.basename(embl)))
+        # gff
+        converter.convert_gbk_to_gff(gbk)
+
+    embls = glob.glob(os.path.join(refdir, '*.embl'))
+
     return refdir, embl_dir, embls
