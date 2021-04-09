@@ -50,10 +50,10 @@ def cmds():
                           help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
                                ' Default is the first reference annotation (Genbank) in -r/--references.')
     optional.add_argument('-i', '--identity-threshold', required=False, type=int,
-                          help='Sequence identity threshold to use during CD-HIT clustering and BLASTP. Default is 95%',
+                          help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP. Default is 95',
                           default=95)
     optional.add_argument('-c', '--coverage-threshold', required=False, type=int,
-                          help='Sequence coverage threshold to use during CD-HIT clustering and BLASTP. Default is 95%',
+                          help='Percent sequence coverage threshold to use during CD-HIT clustering and BLASTP. Default is 95',
                           default=95)
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
                                                  '-r/--references directory. Full path only')
