@@ -44,7 +44,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
         os.chdir(c)
 
 
-def clustering(all_genomes, target_genomes, nproc, seq_ident):
+def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
     """
     Runs the clustering pipeline which uses CDHIT and MCL
     to cluster orthologous genes. File IO is handled by
@@ -72,7 +72,8 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident):
                              out='cdhit_clusters.fasta')
         if 'blast_results' not in os.listdir(hybran_tmp_dir):
             BLAST.run_blast(fastafile='cdhit_clusters.fasta',
-                            nproc=nproc)
+                            nproc=nproc,
+                            seq_ident=seq_ident)
         if 'clustered_proteins' not in os.listdir(os.getcwd()):
             MCL.run_mcl(in_blast=hybran_tmp_dir + '/blast_results',
                         cdhit_clusters=clusters,
@@ -82,7 +83,9 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident):
     parseClustering.parseClustersUpdateGBKs(target_gffs=all_genomes,
                                             clusters=hybran_tmp_dir +
                                             '/clustering/clustered_proteins',
-                                            genomes_to_annotate=target_genomes)
+                                            genomes_to_annotate=target_genomes,
+                                            seq_ident=seq_ident,
+                                            seq_covg=seq_covg)
 
 
 def eggnog_mapper(script_dir, nproc, emapper_loc, temp_dir):

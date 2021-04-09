@@ -17,13 +17,14 @@ def create_raw_seq_list(input_file):
     return seq_list
 
 
-def blast(seq_string, fa):
+def blast(seq_string, fa, seq_ident):
     """
     Runs BLAST with one sequence as the query and
     the fasta file as the subject.
     Returns a list of BLAST runs that
     meet the 95% identity threshold
     """
+    ident_float = seq_ident * 0.01
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
                    "qstart qend sstart send evalue bitscore qlen slen"
     blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
@@ -36,18 +37,18 @@ def blast(seq_string, fa):
             length = float(column[3])
             qlen = float(column[12])
             slen = float(column[13])
-            if identity > 95 and length / qlen >= 0.95 and length / slen >= 0.95:
+            if (identity > seq_ident) and ((length / qlen) >= ident_float) and ((length / slen) >= ident_float):
                 column[0] = seq_string[0]
                 blast_filtered.append('\t'.join(column))
     return blast_filtered
 
 
-def iterate(fa, seq_list, nproc):
+def iterate(fa, seq_list, nproc, seq_ident):
     """
     Runs BLAST function for each query.
     Returns list of all results.
     """
-    partial_blast = partial(blast, fa=fa)
+    partial_blast = partial(blast, fa=fa, seq_ident=seq_ident)
     pool = multiprocessing.Pool(int(nproc))
     list_of_lists = pool.map(partial_blast,seq_list)
     pool.close()
@@ -68,11 +69,11 @@ def write(all_results_list):
     return all_v_all
 
 
-def run_blast(fastafile, nproc):
+def run_blast(fastafile, nproc, seq_ident):
     logger = logging.getLogger('BLAST')
     logger.info('Running pairwise all-against-all BLAST on ' + fastafile + ' using ' + str(nproc) + ' CPUs')
     seq_string_list = create_raw_seq_list(fastafile)
-    all_results_list = iterate(fastafile, seq_string_list, nproc)
+    all_results_list = iterate(fastafile, seq_string_list, nproc, seq_ident=seq_ident)
     logger.info('Writing BLAST results to blast_results in Hybran temporary '
                 'directory.')
     write(all_results_list)

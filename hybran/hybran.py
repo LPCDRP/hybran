@@ -182,7 +182,9 @@ def main():
                                   ref_proteins_fasta=ref_cds,
                                   ref_embl_fp=first_reference_embl,
                                   reference_genome=ref_genome,
-                                  script_directory=script_dir)
+                                  script_directory=script_dir,
+                                  seq_ident=args.identity_threshold,
+                                  seq_covg=args.coverage_threshold)
                 genomes_annotate.append(os.path.join(args.output, samplename + '.gff'))
             else:
                 logger.info(genome + ' as already been annotated.')
@@ -193,7 +195,8 @@ def main():
         run.clustering(all_genomes=list(set(sorted(all_genomes))),
                        target_genomes=genomes_annotate,
                        nproc=args.nproc,
-                       seq_ident=args.identity_threshold)
+                       seq_ident=args.identity_threshold,
+                       seq_covg=args.coverage_threshold)
         if 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
             run.eggnog_mapper(script_dir=script_dir,
                               nproc=args.nproc,
