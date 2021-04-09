@@ -49,9 +49,12 @@ def cmds():
     optional.add_argument('-t', '--first-reference', required=False, dest='first_gbk',
                           help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
                                ' Default is the first reference annotation (Genbank) in -r/--references.')
-    optional.add_argument('-c', '--identity-threshold', required=False, type=float,
-                          help='Sequence identity threshold to use during CD-HIT clustering. Default is 0.95',
-                          default=0.95)
+    optional.add_argument('-i', '--identity-threshold', required=False, type=int,
+                          help='Sequence identity threshold to use during CD-HIT clustering and BLASTP. Default is 95%',
+                          default=95)
+    optional.add_argument('-c', '--coverage-threshold', required=False, type=int,
+                          help='Sequence coverage threshold to use during CD-HIT clustering and BLASTP. Default is 95%',
+                          default=95)
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
                                                  '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
@@ -93,8 +96,13 @@ def main():
         atexit.register(shutil.rmtree, path=hybran_tmp_dir)
 
     # Check that the identity threshold is valid
-    if not (args.identity_threshold <= 1.0 and args.identity_threshold >= 0.0):
-        print("error: invalid value for --identity-threshold. Must be between 0 and 1.")
+    if not (args.identity_threshold <= 100 and args.identity_threshold >= 0):
+        print("error: invalid value for --identity-threshold. Must be between 0 and 100.")
+        exit(10)
+
+    # Check that the coverage threshold is valid
+    if not (args.coverage_threshold <= 100 and args.coverage_threshold >= 0):
+        print("error: invalid value for --coverage-threshold. Must be between 0 and 100.")
         exit(10)
 
     # Confirming all installations are valid
