@@ -69,6 +69,7 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
         clusters = CDHIT.run(nproc=nproc,
                              fasta=fasta,
                              seq_ident=seq_ident,
+                             seq_covg=seq_covg,
                              out='cdhit_clusters.fasta')
         if 'blast_results' not in os.listdir(hybran_tmp_dir):
             BLAST.run_blast(fastafile='cdhit_clusters.fasta',

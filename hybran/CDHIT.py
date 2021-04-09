@@ -13,15 +13,21 @@ def create_allseq_dict(fa):
     return fasta_dict
     
 
-def run_cdhit(nproc, input, seq_ident, output):
-    """Runs cdhit with a sequence identity threshold of 0.95.
+def run_cdhit(nproc, input, output, seq_ident=95, seq_covg=95):
+    """Runs cdhit. Uses a sequence identity and coverage threshold of 0.95 by default.
+
+    Coverage flag descriptions from the CD-HIT wiki:
+    -aL alignment coverage for the longer sequence
+    -aS alignment coverage for the shorter sequence
 
     CDHIT outputs a fasta file of representative sequences (cdhit_clusters.fasta)
     and a text file of list of clusters (cdhit_clusters.fasta.clstr)."""
     cmd = ['cd-hit',
            '-i', input,
            '-o', output,
-           '-c', str(seq_ident),
+           '-c', str(seq_ident * 0.01),
+           '-aL',str(seq_covg * 0.01),
+           '-aS',str(seq_covg * 0.01),
            '-T', str(nproc),
            '-g', '1',
            '-s', '1',
@@ -67,10 +73,10 @@ def create_reps_fasta(output, reps, rep_seq_id_dict):
     SeqIO.write(seq_list, output, "fasta")
 
 
-def run(nproc, fasta, seq_ident, out):
+def run(nproc, fasta, seq_ident,seq_covg, out):
     logger = logging.getLogger('CDHIT')
     logger.info('Running CDHIT')
-    run_cdhit(nproc, fasta, seq_ident, out)
+    run_cdhit(nproc, fasta, out, seq_ident, seq_covg)
     OGdict = create_allseq_dict(fasta)
     logger.info('Parsing CDHIT output (' + out + '.clstr)')
     REPdict, rep_list = create_reps_dict(out + '.clstr')
