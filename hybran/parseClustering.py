@@ -157,7 +157,7 @@ def get_top_hit(all_hits_dict):
     return top_hit
 
 
-def identify_top_hits(blast_output_file, identity=95, coverage=95):
+def identify_top_hits(blast_output_file, identity, coverage):
     """
     Iterates over BLASTP output and determines all the best
     hits based on identity and alignment coverage

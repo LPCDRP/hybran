@@ -13,8 +13,8 @@ def create_allseq_dict(fa):
     return fasta_dict
     
 
-def run_cdhit(nproc, input, output, seq_ident=95, seq_covg=95):
-    """Runs cdhit. Uses a sequence identity and coverage threshold of 0.95 by default.
+def run_cdhit(nproc, input, output, seq_ident, seq_covg):
+    """Runs cdhit.
 
     Coverage flag descriptions from the CD-HIT wiki:
     -aL alignment coverage for the longer sequence

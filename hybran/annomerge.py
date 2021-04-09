@@ -788,7 +788,7 @@ def get_top_hit(all_hits_dict):
     return top_hit
 
 
-def identify_top_hits_mtb(blast_output_file, identity=95, coverage=95, mtb=False):
+def identify_top_hits_mtb(blast_output_file, identity, coverage, mtb=False):
     """
     This function gets the hits from BLAST tha passes the identity and coverage thresholds in the function
     :param blast_output_file: Output file from Blastp
