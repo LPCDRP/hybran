@@ -1466,7 +1466,7 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
                            isolate_sequence[ratt_prom_start:ratt_prom_end])
         for i in prom_blast:
             if i.startswith('Query'):
-                if int(i.split('\t')[2]) < 100.0:
+                if float(i.split('\t')[2]) < 100.0:
                     take_ratt = False
                 else:
                     take_ratt = True
