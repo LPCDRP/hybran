@@ -20,7 +20,7 @@ def get_first_reference_proteome(genbank):
                         description='')
         if record.features:
             for feature in record.features:
-                if feature.type == 'CDS':
+                if feature.type == 'CDS' and 'pseudogene' not in feature.qualifiers:
                     try:
                         gene = feature.qualifiers['gene'][0]
                     except KeyError:
