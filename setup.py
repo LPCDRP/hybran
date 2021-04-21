@@ -8,7 +8,7 @@ setup(
     package_dir={'': '.'},
     zip_safe=False,
     entry_points=dict(console_scripts=['hybran = hybran.hybran:main', ]),
-    package_data={'hybran': ['*.sh']},
+    package_data={'hybran': ['*.sh','RATT.config']},
     data_files=[
         ('hybran/resources', glob("resources/*")),
     ],

@@ -166,6 +166,13 @@ def main():
         first_reference_embl = os.path.splitext(args.first_gbk)[0] + '.embl'
     ref_cds, ref_genome = firstReference.get_first_reference_proteome(first_reference_gbk)
 
+
+    # Configure RATT start/stop codons and other settings,
+    # but only if the user hasn't defined their own
+    if 'RATT_CONFIG' not in os.environ:
+        os.environ['RATT_CONFIG'] = os.path.join(script_dir,'RATT.config')
+
+
     # Calling all steps for Hybran
     genome_count = 0
     genomes_annotate = []
