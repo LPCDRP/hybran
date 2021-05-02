@@ -22,9 +22,6 @@ Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled ge
 conda env create -n hybran -f environment.yml
 conda activate hybran
 
-# install the Python 3 version of eggnog-mapper into the conda environment
-pip install eggnog-mapper
-
 # install hybran
 python setup.py install
 ```
