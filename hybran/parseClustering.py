@@ -182,7 +182,11 @@ def identify_top_hits(blast_output_file, identity, coverage):
             if iden >= identity and qcov >= coverage and scov >= coverage and not line_elements[2].startswith('L'):
                 rv_hit = True
                 if '|' in line_elements[2]:
-                    corresponding_rv_hit = line_elements[2].split('|')[-1]
+                    [seqid, locus_tag, gene_name] = line_elements[2].split('|')
+                    if gene_name:
+                        corresponding_rv_hit = gene_name
+                    else:
+                        corresponding_rv_hit = locus_tag
                 else:
                     corresponding_rv_hit = line_elements[2]
                 all_hits_dict[corresponding_rv_hit] = iden
