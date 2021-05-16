@@ -798,7 +798,7 @@ def add_gene_names_to_gbk(mtbs, gbk_dir):
     """
     logger = logging.getLogger('UpdateGenbank')
     gbk_files = os.listdir(gbk_dir)
-    isolates = [isolate_id.split('.')[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
+    isolates = [os.path.splitext(isolate_id)[0] for isolate_id in gbk_files if isolate_id.endswith('.gbk')]
     for isolate in mtbs.keys():
         if isolate not in isolates:
             logger.error('Isolate ' + isolate + ' absent in ' + gbk_dir)
