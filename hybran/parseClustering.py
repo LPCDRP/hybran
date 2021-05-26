@@ -587,7 +587,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
     with open(unannotated_fasta, 'a') as mtb_fasta:
         for s in new_unannotated_seqs:
             SeqIO.write(s, mtb_fasta, 'fasta')
-    with open('./singleton_mtb_clusters.txt', 'w') as f:
+    with open('./clustering/singleton_clusters.txt', 'w') as f:
         for line in out_list:
             f.write(str(line) + '\n')
     return mtb_increment
@@ -674,7 +674,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     with open(unannotated_fasta, 'a') as mtb_fasta:
         for s in new_unannotated_genes:
             SeqIO.write(s, mtb_fasta, 'fasta')
-    with open('./onlyltag_mtb_clusters.txt', 'w') as f:
+    with open('./clustering/onlyltag_clusters.txt', 'w') as f:
         for line in out_list:
             f.write(str(line) + '\n')
     return mtb_increment
@@ -800,7 +800,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
             if len(unassigned_l_tags) > 0:
                 single_gene_cluster_complete[gene] = in_dict[gene]
             continue
-    with open('./multigene_mtb_clusters.txt', 'w') as f:
+    with open('./clustering/multigene_clusters.txt', 'w') as f:
         for line in out_list:
             f.write(str(line) + '\n')
     return mtb_increment, single_gene_cluster_complete
