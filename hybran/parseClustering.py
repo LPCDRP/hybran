@@ -580,7 +580,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
                 seq_record = SeqRecord(gene_sequence, id=mtb_id, description='False')
                 new_unannotated_seqs.append(seq_record)
                 name_to_assign = mtb_id
-                out_list.append((mtb_id, single_gene))
+                out_list.append(mtb_id + ': ' + str(single_gene))
             update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
         else:
             continue
@@ -667,7 +667,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             seq_record = SeqRecord(rep_sequence, id=mtb_id, description='False')
             new_unannotated_genes.append(seq_record)
             name_to_assign = mtb_id
-            out_list.append((mtb_id, rep_gene, in_dict[rep_gene]))
+            out_list.append(mtb_id + ': ' + rep_gene + ' ' + str(in_dict[rep_gene]))
         update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
         for other_genes_in_cluster in in_dict[','.join([isolate, locus, gene])]:
             update_dictionary_ltag_assignments(other_genes_in_cluster[0], other_genes_in_cluster[1], name_to_assign)
@@ -794,7 +794,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                         with open(unannotated_fasta, 'a') as mtb_fasta:
                             SeqIO.write(seq_record, mtb_fasta, 'fasta')
                         name_to_assign = mtb_id
-                        out_list.append((mtb_id, gene, in_dict[gene]))
+                        out_list.append(mtb_id + ': ' + gene + ' ' + str(in_dict[gene]))
                     update_dictionary_ltag_assignments(unannotated_gene_isolate, unannotated_gene_locus, name_to_assign)
         else:
             if len(unassigned_l_tags) > 0:
