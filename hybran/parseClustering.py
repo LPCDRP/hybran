@@ -753,7 +753,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
     out_list = []
     for gene in in_dict.keys():
         num_multi += 1
-        output_line = ''
         unassigned_l_tags = []
         true_multi_cluster = False
         gene_elements = gene.split(',')
@@ -765,7 +764,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
             else:
                 true_multi_cluster = True
         if true_multi_cluster:
-            output_line = output_line + gene
             all_genes_annotated = cluster_annotation_presence(in_dict[gene])
             # If all genes in the cluster are annotated, do nothing. If there is an unannotated gene in the cluster,
             # blast it to all annotated genes in cluster and annotated with top hit
