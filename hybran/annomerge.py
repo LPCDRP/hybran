@@ -1623,6 +1623,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                  str(len(list(incorrect_coords_dict.keys()))))
     pickle.dump(incorrect_coords_dict, open(dict_save_fp, "wb"))
 
+    # Write out the genes with incorrect start predictions by Prodigal
+    with open('./logging/incorrect_coords_dict.txt', 'w') as f:
+        for key in incorrect_coords_dict.keys():
+            f.write(str(key) + ': ' + str(incorrect_coords_dict[key]) + '\n')
+
     prodigal_correction_dict = incorrect_coords_dict
     ref_feature_dict = get_feature_by_locustag(ref_embl_record)
     global ref_sequence
@@ -1667,6 +1672,12 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 ratt_contig_non_cds.append(feature)
         logger.debug('Number of non-CDS elements')
         logger.debug(len(ratt_contig_non_cds))
+
+        # Write out the non-CDS elements
+        with open('./logging/ratt_contig_non_cds.txt', 'w') as f:
+            for feature in ratt_contig_non_cds:
+                f.write(str(feature) + '\n')
+
         ratt_contig_features, ratt_blast_results = isolate_valid_ratt_annotations(ratt_contig_features,
                                                                                   ref_temp_fasta_dict,
                                                                                   reference_locus_list,
@@ -1674,11 +1685,19 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                                                   seq_covg=seq_covg)
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
         cds_from_ratt = 0
+        cds_from_ratt_list = []
         for feature in ratt_contig_features:
             if feature.type == 'CDS':
                 cds_from_ratt += 1
+                cds_from_ratt_list.append(feature)
         logger.debug('Number of CDSs from RATT')
         logger.debug(str(cds_from_ratt))
+
+        # Write out the CDSs from RATT
+        with open('./logging/cds_from_ratt.txt', 'w') as f:
+            for feature in cds_from_ratt_list:
+                f.write(str(feature) + '\n')
+
         ratt_contig_features = get_ordered_features(ratt_contig_features)
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
         if check_prokka:
@@ -1773,6 +1792,12 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             prokka_features_not_in_ratt, ratt_overlapping_genes = \
                 remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
             logger.debug('Number of prokka features not in RATT ' + str(len(list(prokka_features_not_in_ratt.keys()))))
+
+            # Write out the prokka features not in RATT
+            with open('./logging/prokka_features_not_in_ratt.txt', 'w') as f:
+                for key in prokka_features_not_in_ratt.keys():
+                    f.write(str(key) + ': ' + str(prokka_features_not_in_ratt[key]) + '\n')
+
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
@@ -2177,6 +2202,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         prokka_rec.features.append(noref_feat)
             logger.debug('To add from noref: ' + str(len(add_features_from_prokka_noref)))
 
+            # Write out what is to add from noref
+            with open('./logging/add_features_from_prokka_noref.txt', 'w') as f:
+                for feature in add_features_from_prokka_noref:
+                    f.write(str(feature) + '\n')
+
         # Removing gene names assigned based on domains
         logger.debug('Final feature annotation verification')
         added_ltags = []
@@ -2277,4 +2307,10 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
     final_cdss = [f for f in output_isolate_recs[0].features if f.type == 'CDS']
     logger.debug('Number of CDSs annomerge: ' + str(len(final_cdss)))
+
+    # Write out the CDSs annomerge
+    with open('./logging/final_cdss.txt', 'w') as f:
+        for feature in final_cdss:
+            f.write(str(feature) + '\n')
+
     logger.debug('annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')

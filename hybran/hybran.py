@@ -142,6 +142,9 @@ def main():
     args.references = fileManager.full_path(args.references)
     args.output = fileManager.full_path(args.output)
 
+    # Setting up the logging directory
+    os.mkdir(args.output + '/logging')
+
     # Moving into the desired annotation directory
     os.chdir(args.output)
 

@@ -554,6 +554,13 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
     logger = logging.getLogger('SingletonClusters')
 
     logger.debug('Number of singleton clusters with single genes: ' + str(len(singleton_dict)))
+
+    # Write out the singleton clusters with single genes
+    with open('./logging/SingletonClusters.txt', 'w') as f:
+        # singleton_dict is actually a list
+        for i in singleton_dict:
+            f.write(str(i) + '\n')
+
     new_unannotated_seqs = []
     out_list = []
     for single_gene in singleton_dict:
@@ -613,6 +620,12 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     logger = logging.getLogger('NewGeneClusters')
 
     logger.debug('Number of clusters with no gene names: ' + str(len(list(in_dict.keys()))))
+
+    # Write out the clusters with no gene names
+    with open('./logging/clusters_no_gene_name.txt', 'w') as f:
+        for key in in_dict.keys():
+            f.write(str(key) + ': ' + str(in_dict[key]) + '\n')
+
     new_unannotated_genes = []
     rep_records = []
     out_list = []
@@ -694,6 +707,12 @@ def single_gene_clusters(single_gene_dict):
 
     rep_ltag_keys = []
     logger.debug('Number of clusters with single genes: ' + str(len(list(single_gene_dict.keys()))))
+
+    # Write out the clusters with single genes
+    with open('./logging/single_gene_dict.txt', 'w') as f:
+        for key in single_gene_dict.keys():
+            f.write(str(key) + ': ' + str(single_gene_dict[key]) + '\n')
+
     for key_sgc in single_gene_dict:
         rep_ltag = False
         key_elements_sgc = key_sgc.split(',')
@@ -748,6 +767,11 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
     """
     logger = logging.getLogger('ClustersWithManyGeneNames')
     logger.debug('Number of clusters that have many gene names and genes with no name ' + str(len(list(in_dict.keys()))))
+
+    # Write out the clusters that have many gene names and genes with no name
+    with open('./logging/ClustersWithManyGeneNames.txt', 'w') as f:
+        for key in in_dict.keys():
+            f.write(str(key) + ': ' + str(in_dict[key]) + '\n')
 
     num_multi = 0
     out_list = []
