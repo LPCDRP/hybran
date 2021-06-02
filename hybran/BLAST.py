@@ -21,8 +21,8 @@ def blast(seq_string, fa, seq_ident, seq_covg):
     """
     Runs BLAST with one sequence as the query and
     the fasta file as the subject.
-    Returns a list of BLAST runs that
-    meet the 95% identity threshold
+    Returns a list of BLAST runs that meet the
+    identity and coverage thresholds.
     """
     covg_float = seq_covg * 0.01
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
