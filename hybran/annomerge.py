@@ -31,6 +31,19 @@ from . import converter
 from . import config
 
 
+def log_feature_fate(feature, logfile, remark=""):
+    """
+    General-purpose logging function to print out a gene's information and a comment
+    :param feature: A SeqFeature object
+    :param logfile: An open filehandle
+    :param remark: (str) A comment
+    """
+    if 'locus_tag' in feature.qualifiers:
+        locus_tag = feature.qualifiers['locus_tag'][0]
+    else:
+        locus_tag = feature.id
+    print('\t'.join([locus_tag, remark]), file=logfile)
+
 def load_reference_info(proteome_fasta):
     """
     This function gets all the global variables for annomerge.
@@ -489,19 +502,23 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     non_cds_features = []
     broken_cds = []
     ratt_blast_results = {}
+    rejects = []
     for feature in feature_list:
         # Identify features with 'joins'
         if feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
             locus_tag = feature.qualifiers['locus_tag'][0]
             if locus_tag not in broken_cds:
                 broken_cds.append(locus_tag)
+                rejects.append((feature, "compound location"))
             num_joins += 1
         elif feature.type == 'CDS' and feature.location is None:
             logger.warning('Invalid CDS: Location of CDS is missing')
             logger.warning(feature)
+            rejects.append((feature, "location of CDS is missing"))
         elif feature.type == 'CDS' and (len(feature.location) % 3) != 0:
             logger.warning('Nucleotide sequence is not divisible by 3')
             logger.warning(feature)
+            rejects.append((feature, "nucleotide sequence is not divisible by 3"))
         elif feature.type == 'CDS':
             unbroken_cds.append(feature)
         else:
@@ -512,6 +529,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
         feature_sequence = translate(cds_feature.extract(record_sequence), table=11, to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
         if len(feature_sequence) == 0:
+            rejects.append((cds_feature, "length of AA sequence is 0"))
             continue
         else:
             add_sequence, blast_stats = blast_feature_sequence_to_ref(str(feature_sequence), cds_locus_tag,
@@ -525,9 +543,12 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 cds_feature.qualifiers['translation'] = [str(feature_sequence)]
                 valid_features.append(cds_feature)
             else:
+                # TODO - might be good to show the best blast hit stats against the reference,
+                #        but that'll require some changes to the top_hit functions.
+                rejects.append((cds_feature, "No blastp hit to corresponding reference CDS at specified thresholds."))
                 continue
     logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features)))
-    return valid_features, ratt_blast_results
+    return valid_features, ratt_blast_results, rejects
 
 
 def remove_duplicate_annotations(ratt_features, prokka_features_dictionary):
@@ -1579,6 +1600,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     isolate_sequence = prokka_records[0].seq
     prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbk'
     prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
+    ratt_rejects = []
+    ratt_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'ratt_unused.tsv')
     annomerge_records = []
 
     # RUNNING PRODIGAL
@@ -1673,16 +1696,13 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         logger.debug('Number of non-CDS elements')
         logger.debug(len(ratt_contig_non_cds))
 
-        # Write out the non-CDS elements
-        with open('./logging/ratt_contig_non_cds.txt', 'w') as f:
-            for feature in ratt_contig_non_cds:
-                f.write(str(feature) + '\n')
-
-        ratt_contig_features, ratt_blast_results = isolate_valid_ratt_annotations(ratt_contig_features,
-                                                                                  ref_temp_fasta_dict,
-                                                                                  reference_locus_list,
-                                                                                  seq_ident=seq_ident,
-                                                                                  seq_covg=seq_covg)
+        ratt_contig_features, ratt_blast_results, invalid_ratt_features = \
+            isolate_valid_ratt_annotations(feature_list=ratt_contig_features,
+                                           ref_temp_fasta_dict=ref_temp_fasta_dict,
+                                           reference_locus_list=reference_locus_list,
+                                           seq_ident=seq_ident,
+                                           seq_covg=seq_covg)
+        ratt_rejects += invalid_ratt_features
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
         cds_from_ratt = 0
         cds_from_ratt_list = []
@@ -2303,6 +2323,9 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 output_isolate_recs[0].features.append(prokka_annotation)
         ordered_feats = get_ordered_features(output_isolate_recs[0].features)
         output_isolate_recs[0].features = ordered_feats[:]
+
+    with open(ratt_rejects_logfile, 'w') as ratt_rejects_log:
+        [log_feature_fate(_[0], ratt_rejects_log, _[1]) for _ in ratt_rejects]
 
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
     final_cdss = [f for f in output_isolate_recs[0].features if f.type == 'CDS']
