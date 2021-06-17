@@ -1493,10 +1493,10 @@ def fix_embl_id_line(embl_file):
             out.write(line)
 
 
-def run_prodigal(reference_genome, temp_dir):
+def run_prodigal(reference_genome, outfile):
     """
     :param reference_genome:
-    :param temp_dir: str path to Hybran temporary directory
+    :param outfile: str path to file that prodigal should output
     :return:
     """
     logger = logging.getLogger('Prodigal')
@@ -1504,7 +1504,7 @@ def run_prodigal(reference_genome, temp_dir):
     logger.debug('Executing Prodigal on ' + reference_genome)
     cmd = [os.sep.join([script_dir, 'prodigal.sh']),
            reference_genome,
-           temp_dir]
+           outfile]
     subprocess.call(cmd)
     os.chdir(c)
 
@@ -1585,11 +1585,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     embl_dict = {}
     prodigal_list = []
     incorrect_coords_dict = {}
-    prodigal_results_fp = hybran_tmp_dir + '/prodigal-test/reference_prodigal'
+    prodigal_results_fp = os.path.join('prodigal-test', 'reference_prodigal')
     if not os.path.exists(prodigal_results_fp):
-        run_prodigal(reference_genome, hybran_tmp_dir)
+        run_prodigal(reference_genome, prodigal_results_fp)
 
-    dict_save_fp = prodigal_results_fp + 'reference_prodigal.p'
+    dict_save_fp = prodigal_results_fp + '.p'
     ref_embl_record = SeqIO.read(ref_embl_fp, 'embl')
     prodigal_raw = open(prodigal_results_fp, "r").readlines()
     for feat in ref_embl_record.features:
