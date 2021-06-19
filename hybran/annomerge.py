@@ -1647,9 +1647,14 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     pickle.dump(incorrect_coords_dict, open(dict_save_fp, "wb"))
 
     # Write out the genes with incorrect start predictions by Prodigal
-    with open('./logging/incorrect_coords_dict.txt', 'w') as f:
+    with open(os.path.join('prodigal-test','incorrect_starts.txt'), 'w') as f:
+        print('\t'.join(['reference_locus_tag', 'length_according_to_prodigal','start_change']),
+              file=f)
         for key in incorrect_coords_dict.keys():
-            f.write(str(key) + ': ' + str(incorrect_coords_dict[key]) + '\n')
+            print('\t'.join([str(key),
+                             str(incorrect_coords_dict[key]['length']),
+                             str(incorrect_coords_dict[key]['start_change'])]),
+                  file=f)
 
     prodigal_correction_dict = incorrect_coords_dict
     ref_feature_dict = get_feature_by_locustag(ref_embl_record)
