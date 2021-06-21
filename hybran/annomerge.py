@@ -1142,7 +1142,7 @@ def blast_ratt_anno_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_featur
 
 
 def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict, reference_locus_list,
-                                reference_gene_locus_dict):
+                                reference_gene_locus_dict, log):
     """
     This function parses through prokka records and corrects start coordinates for cases where Prodigal
     annotates these incorrectly
@@ -1151,9 +1151,11 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
     :param fasta_seq:
     :param rv_seq:
     :param rv_cds_dict:
+    :param log: filename in which to log corrections
     :return:
     """
     hybran_tmp_dir = config.hybran_tmp_dir
+    report = []
     logger = logging.getLogger('CorrectCoords')
     modified_prokka_record = prokka_record[:]
     modified_prokka_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab initio ' \
@@ -1383,6 +1385,36 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                 modified_features.append(feature_prokka)
         else:
             modified_features.append(feature_prokka)
+
+        if modified_features[-1] != feature_prokka:
+            data = [
+                rv_id,
+                feature_prokka.qualifiers['locus_tag'][0],
+                str(int(feature_prokka.location.start) + 1),
+                str(int(feature_prokka.location.end) + 1),
+                str(feature_prokka.location.strand),
+                str(int(modified_features[-1].location.start) + 1),
+                str(int(modified_features[-1].location.end) + 1),
+                str(modified_features[-1].location.strand),
+                str(int(modified_features[-1].location.start) - int(feature_prokka.location.start)),
+            ]
+            report.append(data)
+
+    with open(log, 'w') as logfile:
+        print('\t'.join([
+            "reference_locus_tag",
+            "locus_tag",
+            "original_start",
+            "original_end",
+            "original_strand",
+            "start",
+            "end",
+            "strand",
+            "start_shift",
+            ]),
+              file=logfile)
+        for entry in report:
+            print('\t'.join(entry), file=logfile)
     modified_prokka_record.features = get_ordered_features(modified_features)
     return modified_prokka_record
 
@@ -1672,13 +1704,15 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         prokka_noref_rec_pre = prokka_record_noref[i]
         prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict, record_sequence,
                                                        ref_sequence, ref_feature_dict, reference_locus_list,
-                                                       reference_gene_locus_dict)
+                                                       reference_gene_locus_dict,
+                                                       os.path.join(isolate_id, 'prokka-noreference','hybran_coord_corrections.tsv'))
         global prokka_noref_dictionary
         prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features)
         prokka_contig_record_pre = prokka_records[i]
         prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, prodigal_correction_dict,
                                                            record_sequence, ref_sequence, ref_feature_dict,
-                                                           reference_locus_list, reference_gene_locus_dict)
+                                                           reference_locus_list, reference_gene_locus_dict,
+                                                           os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv'))
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
         if i == 0 and not illumina:
@@ -2052,7 +2086,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         prokka_noref_rec_pre = prokka_record_noref[rec_num]
         prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict, record_sequence,
                                                        ref_sequence, ref_feature_dict, reference_locus_list,
-                                                       reference_gene_locus_dict)
+                                                       reference_gene_locus_dict,
+                                                       os.path.join(isolate_id,'annomerge','hybran_coord_corrections.tsv'))
         prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features)
         raw_features_unflattened = prokka_rec.features[:]
         raw_features = []
