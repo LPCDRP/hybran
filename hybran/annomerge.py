@@ -11,6 +11,7 @@ __status__ = "Development"
 # predominantly from RATT and the intergenic regions annotated by RATT are filled with Prokka. This script also
 # generates a log file to indicate characteristics of the transferred features from Prokka.
 
+from copy import deepcopy
 import sys
 import Bio
 from Bio import SeqIO
@@ -1210,11 +1211,6 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
         else:
             rv_id = ''
         if feature_prokka.type == 'CDS' and len(rv_id) > 0:
-            original_start = int(feature_prokka.location.start)
-            original_end = int(feature_prokka.location.end)
-            original_strand = int(feature_prokka.location.strand)
-            original_location = FeatureLocation(ExactPosition(original_start), ExactPosition(original_end),
-                                                strand=original_strand)
             if rv_id in correction_dict.keys():
                 # If Prokka annotation of gene is in a different strand, prodigal start coordinates are considered
                 # as is
@@ -1244,7 +1240,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                         if int(line_elements[6]) < int(line_elements[8]):
                             if int(feature_prokka.location.start) < 40 or int(rv_cds_dict[rv_id].location.start) < 40:
                                 change_start = int(line_elements[8]) - int(line_elements[6])
-                                mod_feature = feature_prokka
+                                mod_feature = deepcopy(feature_prokka)
                                 mod_start = int(feature_prokka.location.start) - change_start
                                 mod_end = int(feature_prokka.location.end)
                                 mod_strand = int(feature_prokka.location.strand)
@@ -1256,7 +1252,6 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                     mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                     modified_features.append(mod_feature)
                                 else:
-                                    feature_prokka.location = original_location
                                     modified_features.append(feature_prokka)
                             else:
                                 change_start = int(line_elements[8]) - int(line_elements[6])
@@ -1288,7 +1283,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                     else:
                                         line_elements = line.strip().split('\t')
                                         if float(line_elements[2]) == 100.0 and int(line_elements[12]) == 0:
-                                            mod_feature = feature_prokka
+                                            mod_feature = deepcopy(feature_prokka)
                                             mod_start = int(feature_prokka.location.start) - change_start
                                             mod_end = int(feature_prokka.location.end)
                                             mod_strand = int(feature_prokka.location.strand)
@@ -1301,7 +1296,6 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                                 mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                                 modified_features.append(mod_feature)
                                             else:
-                                                feature_prokka.location = original_location
                                                 modified_features.append(feature_prokka)
                                         else:
                                             modified_features.append(feature_prokka)
@@ -1310,7 +1304,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                         elif int(line_elements[6]) > int(line_elements[8]):
                             if int(feature_prokka.location.start) < 40 or int(rv_cds_dict[rv_id].location.start) < 40:
                                 change_start = int(line_elements[6]) - int(line_elements[8])
-                                mod_feature = feature_prokka
+                                mod_feature = deepcopy(feature_prokka)
                                 mod_start = int(feature_prokka.location.start) + change_start
                                 mod_end = int(feature_prokka.location.end)
                                 mod_strand = int(feature_prokka.location.strand)
@@ -1322,7 +1316,6 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                     mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                     modified_features.append(mod_feature)
                                 else:
-                                    feature_prokka.location = original_location
                                     modified_features.append(feature_prokka)
                             else:
                                 change_start = int(line_elements[6]) - int(line_elements[8])
@@ -1354,7 +1347,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                     else:
                                         line_elements = line.strip().split('\t')
                                         if float(line_elements[2]) == 100.0 and int(line_elements[12]) == 0:
-                                            mod_feature = feature_prokka
+                                            mod_feature = deepcopy(feature_prokka)
                                             mod_start = int(feature_prokka.location.start) + change_start
                                             mod_end = int(feature_prokka.location.end)
                                             mod_strand = int(feature_prokka.location.strand)
@@ -1369,7 +1362,6 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                                 mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                                 modified_features.append(mod_feature)
                                             else:
-                                                feature_prokka.location = original_location
                                                 modified_features.append(feature_prokka)
                                         else:
                                             modified_features.append(feature_prokka)
