@@ -1696,6 +1696,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 ratt_corrected_genes = []
         ratt_contig_non_cds = []
         for feature in ratt_contig_features:
+            # maybe RATT should be adding this inference tag itself
+            if 'inference' not in feature.qualifiers:
+                feature.qualifiers['inference'] = ["alignment:RATT"]
+            else:
+                feature.qualifiers['inference'].append("alignment:RATT")
             if feature.type == 'mRNA' or feature.type == 'rRNA':
                 ratt_contig_non_cds.append(feature)
         logger.debug('Number of non-CDS elements')
@@ -1717,11 +1722,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 cds_from_ratt_list.append(feature)
         logger.debug('Number of CDSs from RATT')
         logger.debug(str(cds_from_ratt))
-
-        # Write out the CDSs from RATT
-        with open('./logging/cds_from_ratt.txt', 'w') as f:
-            for feature in cds_from_ratt_list:
-                f.write(str(feature) + '\n')
 
         ratt_contig_features = get_ordered_features(ratt_contig_features)
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
