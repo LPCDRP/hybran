@@ -760,8 +760,8 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     # preferred
     elif ('gene' not in ratt_annotation.qualifiers.keys() or 'gene' not in prokka_annotation.qualifiers.keys()) and \
             ('product' in ratt_annotation.qualifiers.keys() and 'product' in prokka_annotation.qualifiers.keys()):
-        if ratt_annotation.qualifiers['product'] == 'hypothetical protein' or \
-                        prokka_annotation.qualifiers['product'] == 'hypothetical protein':
+        if ratt_annotation.qualifiers['product'][0] == 'hypothetical protein' or \
+                        prokka_annotation.qualifiers['product'][0] == 'hypothetical protein':
             mod_prokka_annotation, invalid_prokka, remark = \
                 validate_prokka_feature_annotation(prokka_annotation,
                                                    prokka_noref_dictionary,
