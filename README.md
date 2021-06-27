@@ -73,6 +73,7 @@ outdir/
 │   │   ├── <i>sample1</i>.gff
 │   │   ├── hybran_coord_corrections.tsv
 │   │   ├── merged_genes.gbk
+│   │   ├── prokka_unused.tsv
 │   │   └── ratt_unused.tsv
 |   ├── ratt/
 │   │   └── ...
@@ -119,6 +120,12 @@ Its values for all three metrics are shown in the next columns.
 * % AA sequence identity
 * % subject(ref) coverage
 * % query coverage
+
+##### `annomerge/*/{ratt,prokka}_unused.tsv`
+
+Two columns: the locus tag and the reason why it was excluded from the final annotation.
+`prokka_unused.tsv` refers to the Prokka-reference run.
+
 
 ##### `*/*/hybran_coord_corrections.tsv`
 
