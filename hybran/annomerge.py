@@ -1893,11 +1893,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             prokka_rejects += prokka_duplicates
             logger.debug('Number of prokka features not in RATT ' + str(len(list(prokka_features_not_in_ratt.keys()))))
 
-            # Write out the prokka features not in RATT
-            with open('./logging/prokka_features_not_in_ratt.txt', 'w') as f:
-                for key in prokka_features_not_in_ratt.keys():
-                    f.write(str(key) + ': ' + str(prokka_features_not_in_ratt[key]) + '\n')
-
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
@@ -2431,10 +2426,5 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
     final_cdss = [f for f in output_isolate_recs[0].features if f.type == 'CDS']
     logger.debug('Number of CDSs annomerge: ' + str(len(final_cdss)))
-
-    # Write out the CDSs annomerge
-    with open('./logging/final_cdss.txt', 'w') as f:
-        for feature in final_cdss:
-            f.write(str(feature) + '\n')
 
     logger.debug('annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')

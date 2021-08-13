@@ -142,12 +142,6 @@ def main():
     args.references = fileManager.full_path(args.references)
     args.output = fileManager.full_path(args.output)
 
-    # Setting up the logging directory
-    log_dir = args.output + '/logging'
-    if os.path.exists(log_dir):
-        shutil.rmtree(log_dir)
-    os.mkdir(log_dir)
-
     # Moving into the desired annotation directory
     os.chdir(args.output)
 
