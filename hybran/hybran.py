@@ -143,6 +143,11 @@ def main():
     args.output = fileManager.full_path(args.output)
 
     # Moving into the desired annotation directory
+    if not os.path.isdir(args.output):
+        try:
+            os.mkdir(args.output)
+        except:
+            sys.exit("Could not create directory " + args.output)
     os.chdir(args.output)
 
     # Setting up references for RATT, as well as versions in GFF format used later
