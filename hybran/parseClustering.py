@@ -792,7 +792,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
              list report of closest matches for novel genes
     """
     logger = logging.getLogger('ClustersWithManyGeneNames')
-    logger.debug('Number of clusters that have many gene names and genes with no name ' + str(len(list(in_dict.keys()))))
+    logger.debug('Number of clusters that have many gene names and genes with no name: ' + str(len(list(in_dict.keys()))))
 
     num_multi = 0
     out_list = []
