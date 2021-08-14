@@ -57,6 +57,10 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
     hybran_tmp_dir = config.hybran_tmp_dir
     c = os.getcwd()
     try:
+        os.mkdir(c + '/clustering')
+    except OSError:
+        pass
+    try:
         os.mkdir(hybran_tmp_dir + '/clustering')
     except OSError:
         pass

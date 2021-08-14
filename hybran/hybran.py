@@ -143,6 +143,11 @@ def main():
     args.output = fileManager.full_path(args.output)
 
     # Moving into the desired annotation directory
+    if not os.path.isdir(args.output):
+        try:
+            os.mkdir(args.output)
+        except:
+            sys.exit("Could not create directory " + args.output)
     os.chdir(args.output)
 
     # Setting up references for RATT, as well as versions in GFF format used later
@@ -182,6 +187,8 @@ def main():
         if genome.endswith('.fasta') and not genome.startswith('ref'):
             filename = os.path.splitext(genome)[0]
             samplename = os.path.basename(filename)
+            annomerge_gbk = os.path.join(args.output, samplename, 'annomerge', samplename + '.gbk')
+            annomerge_gff = os.path.join(args.output, samplename, 'annomerge', samplename + '.gff')
             if samplename + '.gbk' not in args.output:
                 genome_count += 1
                 genomes.append(filename)
@@ -190,7 +197,7 @@ def main():
                                 ref_cds=ref_cds,
                                 script_dir=script_dir,
                                 cpus=args.nproc)
-                if samplename + '.gbk' not in os.listdir(os.getcwd()):
+                if not os.path.isfile(annomerge_gbk):
                     logger.info('Merging RATT and Prokka annotations for ' + samplename)
                     annomerge.run(isolate_id=samplename,
                                   annotation_fp=os.getcwd() + '/',
@@ -200,11 +207,13 @@ def main():
                                   script_directory=script_dir,
                                   seq_ident=args.identity_threshold,
                                   seq_covg=args.coverage_threshold)
+                    converter.convert_gbk_to_gff(annomerge_gbk)
                 genomes_annotate.append(os.path.join(args.output, samplename + '.gff'))
             else:
                 logger.info(genome + ' as already been annotated.')
             if samplename + '.gff' not in os.listdir(args.output):
-                converter.convert_gbk_to_gff(os.path.join(args.output, samplename + '.gbk'))
+                shutil.copy(annomerge_gbk, args.output)
+                shutil.copy(annomerge_gff, args.output)
     if all([os.path.isfile(os.path.join(args.output, os.path.basename(g) + '.gff')) for g in genomes]):
         all_genomes += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')] + genomes_annotate
         run.clustering(all_genomes=list(set(sorted(all_genomes))),

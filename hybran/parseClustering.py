@@ -165,8 +165,12 @@ def identify_top_hits(blast_output_file, identity, coverage):
     :param blast_output_file: Output file from Blastp
     :return: Dictionary of top hits for each unannotated locus that
     passes the identity and coverage threshold
+             If none exist, a list of three report strings for the next-closest matches by each category are reported
     """
     all_hits_dict = {}
+    subcritical_hits_iden = {}
+    subcritical_hits_scov = {}
+    subcritical_hits_qcov = {}
     blast_output_raw = blast_output_file.split('\n')
     rv_hit = False
     for line in blast_output_raw:
@@ -179,8 +183,7 @@ def identify_top_hits(blast_output_file, identity, coverage):
             iden = float(line_elements[5])
             qcov = (float(line_elements[4]) / float(line_elements[1])) * 100.0
             scov = (float(line_elements[4]) / float(line_elements[3])) * 100.0
-            if iden >= identity and qcov >= coverage and scov >= coverage and not line_elements[2].startswith('L'):
-                rv_hit = True
+            if not line_elements[2].startswith('L'):
                 if '|' in line_elements[2]:
                     [seqid, locus_tag, gene_name] = line_elements[2].split('|')
                     if gene_name:
@@ -189,14 +192,38 @@ def identify_top_hits(blast_output_file, identity, coverage):
                         corresponding_rv_hit = locus_tag
                 else:
                     corresponding_rv_hit = line_elements[2]
-                all_hits_dict[corresponding_rv_hit] = iden
+
+                if iden >= identity and qcov >= coverage and scov >= coverage:
+                    rv_hit = True
+                    all_hits_dict[corresponding_rv_hit] = iden
+                # Rv hits that don't meet the threshold.
+                # Keep track of them so we know how close we were to getting a good match
+                else:
+                    subcritical_hits_iden[corresponding_rv_hit] = iden
+                    subcritical_hits_scov[corresponding_rv_hit] = scov
+                    subcritical_hits_qcov[corresponding_rv_hit] = qcov
             else:
                 continue
     if rv_hit:
         top_hit = get_top_hit(all_hits_dict)
+        best_subcriticals = []
     else:
         top_hit = None
-    return top_hit, all_hits_dict
+        if subcritical_hits_iden:
+            best_subc_iden = max(subcritical_hits_iden, key=lambda _: subcritical_hits_iden[_])
+            best_subc_scov = max(subcritical_hits_scov, key=lambda _: subcritical_hits_scov[_])
+            best_subc_qcov = max(subcritical_hits_qcov, key=lambda _: subcritical_hits_qcov[_])
+            best_subcriticals = [
+                '\t'.join([_[0],
+                           _[1],
+                           str(subcritical_hits_iden[_[0]]),
+                           str(subcritical_hits_scov[_[0]]),
+                           str(subcritical_hits_qcov[_[0]])])
+                for _ in zip([best_subc_iden, best_subc_scov, best_subc_qcov],
+                             ['identity','scov','qcov'])]
+        else:
+            best_subcriticals = []
+    return top_hit, best_subcriticals, all_hits_dict
 
 
 def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
@@ -554,22 +581,27 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
     logger = logging.getLogger('SingletonClusters')
 
     logger.debug('Number of singleton clusters with single genes: ' + str(len(singleton_dict)))
+
     new_unannotated_seqs = []
+    out_list = []
+    novel_genes_closest_refs = []
     for single_gene in singleton_dict:
         isolate_id = single_gene[0]
         locus_tag = single_gene[1]
         gene_name = single_gene[2]
+        out_list.append(str(single_gene))
         if gene_name.startswith('L') and locus_tag.startswith('L'):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
             stdout = blast(reference_fasta, gene_sequence)
-            top_hit, all_hits = identify_top_hits(stdout, identity=seq_ident, coverage=seq_covg)
+            top_hit, best_subcriticals, all_hits = identify_top_hits(stdout, identity=seq_ident, coverage=seq_covg)
             assign_mtb = False
             name_to_assign = top_hit
             if top_hit is None:
                 assign_mtb = True
                 if os.stat(unannotated_fasta).st_size:
                     stdout_2 = blast(unannotated_fasta, gene_sequence)
-                    top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2, identity=seq_ident, coverage=seq_covg)
+                    top_hit_mtb, best_subcriticals_mtb, all_hits_mtb = identify_top_hits(stdout_2, identity=seq_ident, coverage=seq_covg)
+                    best_subcriticals += best_subcriticals_mtb
                     if top_hit_mtb is not None:
                         assign_mtb = False
                         name_to_assign = top_hit_mtb
@@ -579,13 +611,21 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
                 seq_record = SeqRecord(gene_sequence, id=mtb_id, description='False')
                 new_unannotated_seqs.append(seq_record)
                 name_to_assign = mtb_id
+                best_subcriticals = ['\t'.join(['singleton', mtb_id, hit])
+                                     for hit in best_subcriticals]
+                novel_genes_closest_refs += best_subcriticals
+                if not novel_genes_closest_refs:
+                    novel_genes_closest_refs = ['\t'.join(['singleton', mtb_id])]
             update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
         else:
             continue
     with open(unannotated_fasta, 'a') as mtb_fasta:
         for s in new_unannotated_seqs:
             SeqIO.write(s, mtb_fasta, 'fasta')
-    return mtb_increment
+    with open('./clustering/singleton_clusters.txt', 'w') as f:
+        for line in out_list:
+            f.write(str(line) + '\n')
+    return mtb_increment, novel_genes_closest_refs
 
 
 def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_increment, seq_ident, seq_covg):
@@ -608,8 +648,11 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     logger = logging.getLogger('NewGeneClusters')
 
     logger.debug('Number of clusters with no gene names: ' + str(len(list(in_dict.keys()))))
+
     new_unannotated_genes = []
     rep_records = []
+    out_list = []
+    novel_genes_closest_refs = []
     for rep_gene in in_dict.keys():
         rep_isolate_id = rep_gene.split(',')[0]
         rep_locus = rep_gene.split(',')[1]
@@ -618,6 +661,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         rep_record = SeqRecord(rep_sequence, id='|'.join([rep_isolate_id, rep_locus, rep_gene_name]),
                                description='')
         rep_records.append(rep_record)
+        out_list.append(rep_gene + ': ' + str(in_dict[rep_gene]))
 
     rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta',
                                          dir=hybran_tmp_dir,
@@ -639,7 +683,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             except KeyError:
                 hits[line.split('\t')[0]] = [line]
     for qid, lines in hits.items():
-        top_hit, all_hits = identify_top_hits('\n'.join(lines), identity=seq_ident, coverage=seq_covg)
+        top_hit, best_subcriticals, all_hits = identify_top_hits('\n'.join(lines), identity=seq_ident, coverage=seq_covg)
         isolate = qid.split('|')[0]
         locus = qid.split('|')[1]
         gene = qid.split('|')[2]
@@ -650,7 +694,8 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             if os.stat(unannotated_fasta).st_size:
                 rep_seq = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
                 stdout_2 = blast(unannotated_fasta, rep_seq)
-                top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2, identity=seq_ident, coverage=seq_covg)
+                top_hit_mtb, best_subcriticals_mtb, all_hits_mtb = identify_top_hits(stdout_2, identity=seq_ident, coverage=seq_covg)
+                best_subcriticals += best_subcriticals_mtb
                 if top_hit_mtb is not None:
                     assign_mtb = False
                     name_to_assign = top_hit_mtb
@@ -661,13 +706,21 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             seq_record = SeqRecord(rep_sequence, id=mtb_id, description='False')
             new_unannotated_genes.append(seq_record)
             name_to_assign = mtb_id
+            best_subcriticals = ['\t'.join(['no_refs', mtb_id, hit])
+                                 for hit in best_subcriticals]
+            novel_genes_closest_refs += best_subcriticals
+            if not novel_genes_closest_refs:
+                novel_genes_closest_refs = ['\t'.join(['no_refs', mtb_id])]
         update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
         for other_genes_in_cluster in in_dict[','.join([isolate, locus, gene])]:
             update_dictionary_ltag_assignments(other_genes_in_cluster[0], other_genes_in_cluster[1], name_to_assign)
     with open(unannotated_fasta, 'a') as mtb_fasta:
         for s in new_unannotated_genes:
             SeqIO.write(s, mtb_fasta, 'fasta')
-    return mtb_increment
+    with open('./clustering/onlyltag_clusters.txt', 'w') as f:
+        for line in out_list:
+            f.write(str(line) + '\n')
+    return mtb_increment, novel_genes_closest_refs
 
 
 def single_gene_clusters(single_gene_dict):
@@ -684,6 +737,7 @@ def single_gene_clusters(single_gene_dict):
 
     rep_ltag_keys = []
     logger.debug('Number of clusters with single genes: ' + str(len(list(single_gene_dict.keys()))))
+
     for key_sgc in single_gene_dict:
         rep_ltag = False
         key_elements_sgc = key_sgc.split(',')
@@ -735,17 +789,20 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
     :param unannotated_fasta: str unannotated FASTA file
     :param mtb_increment: int increment to start new MTBs
     :return: int updated increment of MTBs
+             list report of closest matches for novel genes
     """
     logger = logging.getLogger('ClustersWithManyGeneNames')
-    logger.debug('Number of clusters that have many gene names and genes with no name ' + str(len(list(in_dict.keys()))))
+    logger.debug('Number of clusters that have many gene names and genes with no name: ' + str(len(list(in_dict.keys()))))
 
     num_multi = 0
+    out_list = []
+    novel_genes_closest_refs = []
     for gene in in_dict.keys():
         num_multi += 1
-        output_line = ''
         unassigned_l_tags = []
         true_multi_cluster = False
         gene_elements = gene.split(',')
+        out_list.append(gene + ': ' + str(in_dict[gene]))
         for gene_in_cluster in in_dict[gene]:
             if gene_in_cluster[1] in gene_elements or gene_in_cluster[2] in gene_elements:
                 continue
@@ -754,7 +811,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
             else:
                 true_multi_cluster = True
         if true_multi_cluster:
-            output_line = output_line + gene
             all_genes_annotated = cluster_annotation_presence(in_dict[gene])
             # If all genes in the cluster are annotated, do nothing. If there is an unannotated gene in the cluster,
             # blast it to all annotated genes in cluster and annotated with top hit
@@ -765,14 +821,15 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                     unannotated_gene_locus = unannotated_gene[1]
                     unannotated_gene_seq = isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus]
                     stdout = blast(fasta_fp_to_blast, unannotated_gene_seq)
-                    top_hit, all_hits = identify_top_hits(stdout, identity=seq_ident, coverage=seq_covg)
+                    top_hit, best_subcriticals, all_hits = identify_top_hits(stdout, identity=seq_ident, coverage=seq_covg)
                     assign_mtb = False
                     name_to_assign = top_hit
                     if top_hit is None:
                         assign_mtb = True
                         if os.stat(unannotated_fasta).st_size:
                             stdout_2 = blast(unannotated_fasta, unannotated_gene_seq)
-                            top_hit_mtb, all_hits_mtb = identify_top_hits(stdout_2, identity=seq_ident, coverage=seq_covg)
+                            top_hit_mtb, best_subcriticals_mtb, all_hits_mtb = identify_top_hits(stdout_2, identity=seq_ident, coverage=seq_covg)
+                            best_subcriticals += best_subcriticals_mtb
                             if top_hit_mtb is not None:
                                 assign_mtb = False
                                 name_to_assign = top_hit_mtb
@@ -783,12 +840,20 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                         with open(unannotated_fasta, 'a') as mtb_fasta:
                             SeqIO.write(seq_record, mtb_fasta, 'fasta')
                         name_to_assign = mtb_id
+                        best_subcriticals = ['\t'.join(['multiref', mtb_id, hit])
+                                             for hit in best_subcriticals]
+                        novel_genes_closest_refs += best_subcriticals
+                        if not novel_genes_closest_refs:
+                            novel_genes_closest_refs = ['\t'.join(['multiref', mtb_id])]
                     update_dictionary_ltag_assignments(unannotated_gene_isolate, unannotated_gene_locus, name_to_assign)
         else:
             if len(unassigned_l_tags) > 0:
                 single_gene_cluster_complete[gene] = in_dict[gene]
             continue
-    return mtb_increment, single_gene_cluster_complete
+    with open('./clustering/multigene_clusters.txt', 'w') as f:
+        for line in out_list:
+            f.write(str(line) + '\n')
+    return mtb_increment, single_gene_cluster_complete, novel_genes_closest_refs
 
 
 def add_gene_names_to_gbk(mtbs, gbk_dir):
@@ -882,7 +947,8 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     single_gene_cluster_complete = single_gene_cluster.copy()
     logger.debug('Annotating genes that do not have a gene name but cluster with genes that have many gene names')
     mtb_increment, \
-        updated_single_gene_clusters = multigene_clusters(in_dict=multi_gene_cluster,
+        updated_single_gene_clusters, \
+        novelty_report_multiref = multigene_clusters(in_dict=multi_gene_cluster,
                                                           single_gene_cluster_complete=single_gene_cluster_complete,
                                                           unannotated_fasta=mtb_genes_fp,
                                                           mtb_increment=mtb_increment,
@@ -890,19 +956,31 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
                                                           seq_covg=seq_covg)
     logger.debug('Annotating genes that do not have a gene name but cluster with genes that have the same gene name')
     single_gene_clusters(updated_single_gene_clusters)
-    mtb_increment = only_ltag_clusters(in_dict=candidate_novel_gene_cluster_complete,
+    mtb_increment, novelty_report_noref = only_ltag_clusters(in_dict=candidate_novel_gene_cluster_complete,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment,
                                        reference_fasta=reference_protein_fastas,
                                        seq_ident=seq_ident,
                                        seq_covg=seq_covg)
     logger.debug('Annotating genes that do not have a gene name and exist in a single isolate')
-    mtb_increment = singleton_clusters(singleton_dict=unique_gene_cluster,
+    mtb_increment, novelty_report_singleton = singleton_clusters(singleton_dict=unique_gene_cluster,
                                        reference_fasta=reference_protein_fastas,
                                        unannotated_fasta=mtb_genes_fp,
                                        mtb_increment=mtb_increment,
                                        seq_ident=seq_ident,
                                        seq_covg=seq_covg)
+    with open('clustering/novelty_report.tsv','w') as novelty_report:
+        print('\t'.join(['cluster_type',
+                         'candidate_novel_gene',
+                         'nearest_ref_match',
+                         'metric',
+                         '% AA sequence identity',
+                         '% subject(ref) coverage',
+                         '% query coverage',
+                         ]),
+              file=novelty_report)
+        for report in novelty_report_singleton + novelty_report_noref + novelty_report_multiref:
+            print(report, file=novelty_report)
     logger.info('Updating Genbank files in ' + os.getcwd())
     add_gene_names_to_gbk(mtbs=isolate_update_dictionary,
                           gbk_dir=os.getcwd())

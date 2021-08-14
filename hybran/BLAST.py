@@ -21,8 +21,8 @@ def blast(seq_string, fa, seq_ident, seq_covg):
     """
     Runs BLAST with one sequence as the query and
     the fasta file as the subject.
-    Returns a list of BLAST runs that
-    meet the 95% identity threshold
+    Returns a list of BLAST runs that meet the
+    identity and coverage thresholds.
     """
     covg_float = seq_covg * 0.01
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
@@ -30,6 +30,7 @@ def blast(seq_string, fa, seq_ident, seq_covg):
     blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
     stdout, stderr=blast_to_all(stdin=seq_string[1])
     blast_filtered = []
+    blast_rejects = []
     for line in stdout.split('\n'):
         if line:
             column = line.split('\t')
@@ -40,6 +41,16 @@ def blast(seq_string, fa, seq_ident, seq_covg):
             if (identity > seq_ident) and ((length / qlen) >= covg_float) and ((length / slen) >= covg_float):
                 column[0] = seq_string[0]
                 blast_filtered.append('\t'.join(column))
+            else:
+                # Capture the rejected hits
+                column[0] = seq_string[0]
+                blast_rejects.append('\t'.join(column))
+
+    # Append the rejected hits
+    with open('../blast_rejects', 'a') as f:
+        for line in blast_rejects:
+            f.write(str(line) + '\n')
+
     return blast_filtered
 
 
