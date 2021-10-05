@@ -4,8 +4,8 @@ from glob import glob
 setup(
     name='hybran',
     license='LICENSE',
-    packages=find_packages('.'),
-    package_dir={'': '.'},
+    packages=find_packages('src'),
+    package_dir={'': 'src'},
     zip_safe=False,
     entry_points=dict(console_scripts=['hybran = hybran.hybran:main', ]),
     package_data={'hybran': ['*.sh','RATT.config']},
