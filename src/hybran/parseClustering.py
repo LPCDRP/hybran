@@ -734,8 +734,11 @@ def single_gene_clusters(single_gene_dict):
     for key_sgc in single_gene_dict:
         rep_ltag = False
         key_elements_sgc = key_sgc.split(',')
-        if key_elements_sgc[1].startswith('Rv') and key_elements_sgc[2]:
-            gene_to_add = key_elements_sgc[2]
+        if key_elements_sgc[1].startswith('Rv'):
+            if key_elements_sgc[2]:
+                gene_to_add = key_elements_sgc[2]
+            else:
+                gene_to_add = key_elements_sgc[1]
         elif key_elements_sgc[1].startswith('L') and key_elements_sgc[2].startswith('L'):
             rep_ltag = True
             rep_ltag_keys.append(key_sgc)
