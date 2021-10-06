@@ -21,7 +21,6 @@ MRVLVTKPDGTQVEVHLDQGFRFLGTETVDND
     )
     outfile = StringIO()
     parseClustering.prepare_for_eggnog(unannotated_seqs = unannotated_seqs,
-                                       target_genomes = ['a'],
                                        outfile = outfile)
     assert StringIO.getvalue(outfile) == \
 """>MTB0084 False
