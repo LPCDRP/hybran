@@ -538,13 +538,13 @@ def find_unannotated_genes(reference_protein_fasta):
     return hybran_tmp_dir + '/clustering/unannotated_seqs.fasta'
 
 
-def prepare_for_eggnog(unannotated_seqs, target_genomes, temp_dir):
+def prepare_for_eggnog(unannotated_seqs, target_genomes, outfile):
     """
     Creates a FASTA file of unannotated sequences that have not
     been annotated through EggNOG
 
     :param unannotated_seqs: str FASTA file name
-    :param temp_dir: str path to Hybran temporary directory
+    :param outfile: file handle for output FASTA file name
     :return: None
     """
     eggnog_seqs = []
@@ -557,10 +557,7 @@ def prepare_for_eggnog(unannotated_seqs, target_genomes, temp_dir):
             targeted = False
         if 'False' in state and targeted:
             eggnog_seqs.append(record)
-    if eggnog_seqs:
-        with open(temp_dir + '/eggnog_seqs.fasta', 'w') as out:
-            for s in eggnog_seqs:
-                SeqIO.write(s, out, 'fasta')
+    SeqIO.write(eggnog_seqs, outfile, 'fasta')
 
 
 def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_increment, seq_ident, seq_covg):
@@ -985,7 +982,8 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     add_gene_names_to_gbk(mtbs=isolate_update_dictionary,
                           gbk_dir=os.getcwd())
     logger.info('Preparing FASTA for eggNOG functional assignments')
-    prepare_for_eggnog(unannotated_seqs=mtb_genes_fp,
-                       target_genomes=[r.split('/')[-1].split('.')[0] for r
-                                       in genomes_to_annotate],
-                       temp_dir=hybran_tmp_dir)
+    with open(os.path.join(hybran_tmp_dir,'eggnog_seqs.fasta'), 'w') as eggnog_seqs:
+        prepare_for_eggnog(unannotated_seqs=mtb_genes_fp,
+                           target_genomes=[os.path.splitext(os.path.basename(_))[0] for _
+                                           in genomes_to_annotate],
+                           outfile = eggnog_seqs)
