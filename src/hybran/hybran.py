@@ -196,7 +196,8 @@ def main():
                                 fasta=genome,
                                 ref_cds=ref_cds,
                                 script_dir=script_dir,
-                                cpus=args.nproc)
+                                cpus=args.nproc,
+                                qcov=args.coverage_threshold)
                 if not os.path.isfile(annomerge_gbk):
                     logger.info('Merging RATT and Prokka annotations for ' + samplename)
                     annomerge.run(isolate_id=samplename,

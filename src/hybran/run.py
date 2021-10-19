@@ -5,7 +5,7 @@ import subprocess
 from . import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
 from . import config
 
-def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
+def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus, qcov):
     """
     Executes RATT and Prokka that resides in ratt_prokka.sh
     File IO is handled by ratt_prokka.sh
@@ -15,6 +15,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
     :param ref_cds: str FASTA proteome of the reference for Prokka
     :param script_dir: str absolute path to ratt_prokka.sh
     :param cpus: str number of processors/cpus
+    :param qcov: int minimum % query coverage (Prokka doesn't have a way of setting ref coverage)
     :return: None
     """
     logger = logging.getLogger('ProkkaRATTAnnomerge')
@@ -39,7 +40,9 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus):
                fasta,
                isolate,
                ref_cds,
-               str(cpus)]
+               str(cpus),
+               str(qcov),
+               ]
         subprocess.call(cmd)
         os.chdir(c)
 
