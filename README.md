@@ -1,32 +1,10 @@
 # Hybran
 
-Genome annotation pipeline for *Mycobacterium tuberculosis* de novo assembled genomes
+Hybran is a hybrid reference-based and ab initio genome annotation pipeline for prokaryotic genomes.
+It was originally developed for and tested on *Mycobacterium tuberculosis* clinical isolates.
 
-### Dependencies
-* [RATT](http://ratt.sourceforge.net/)
-* [Prokka](https://github.com/tseemann/prokka)
-* [EMBOSS (seqret)](http://emboss.sourceforge.net/download/)
-* [Biopython](https://biopython.org/wiki/Download)
-* [CD-HIT](https://github.com/weizhongli/cdhit)
-* [MCL](https://github.com/JohannesBuchner/mcl)
-* [NCBI-BLAST](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/)
-* [eggnog-mapper](https://github.com/eggnogdb/eggnog-mapper)
-    * Required database: bactNOG v4.5.0
-    * To download: `download_eggnog_data.py -y bactNOG`
-##### All dependencies are available within the `environment.yml` within an anaconda environment
+## Execution
 
-### How to install
-
-```
-# Set up the anaconda environment with the dependencies
-conda env create -n hybran -f environment.yml
-conda activate hybran
-
-# install hybran
-python setup.py install
-```
-
-### How to run
 This can be executed on one or many genomes. The more reference
 annotations included, the more accurate the annotation will be 
 and less ambiguity will exist for the target genomes. Input can
@@ -43,24 +21,15 @@ hybran                                                                          
 
 A sample FASTA is available to demo hybran:
 ```
-hybran 
-    --genomes sample/
-    --references annotations/
-    --eggnog-databases eggnog-mapper/data/
-    --output ./
+hybran \
+    --genomes sample/ \
+    --references annotations/ \
+    --eggnog-databases eggnog-mapper/data/ \
+    --output ./ \
     --nproc 4
 ```
-#### Large Number of References
 
-If you are using a large number of references, you may get an error during the annotation transfer step like this:
-
-```
-ERROR: mummer and/or mgaps returned non-zero
-```
-
-If so, you should recompile mummer using `make CPPFLAGS="-O3 -DSIXTYFOURBITS"` as described at <https://sourceforge.net/p/mummer/mailman/message/34069398/>.
-
-### Output
+## Output
 
 Final annotations are created in Genbank and GFF formats in the output directory.
 The output directory also contains intermediate files and informative logs:
@@ -154,5 +123,5 @@ Genes with differing start positions are looked for in each sample and their coo
 - start_change
 
 
-### How to cite
+## Citation
 [Manuscript submitted]

@@ -1,0 +1,14 @@
+site_name: Hybran
+site_url: https://lpcdrp.gitlab.io/hybran
+site_description: hybrid prokaryotic genome annotation
+repo_url: https://gitlab.com/LPCDRP/hybran
+site_dir: public
+nav:
+    - Getting Started: index.md
+    - Installation: install.md
+    - Special Considerations: faq.md
+    - Issues and Questions: 'https://gitlab.com/LPCDRP/hybran/issues'
+markdown_extensions:
+    - toc:
+        permalink: True
+theme: readthedocs
