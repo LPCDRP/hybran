@@ -130,7 +130,7 @@ def main():
     # Convert all input paths to full path if not given as full path
     args.genomes = fileManager.file_list(args.genomes, file_type="fasta")
     args.references = fileManager.file_list(args.references, file_type="genbank")
-    args.output = fileManager.full_path(args.output)
+    args.output = os.path.abspath(args.output)
 
     # Moving into the desired annotation directory
     if not os.path.isdir(args.output):

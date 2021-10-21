@@ -5,15 +5,6 @@ import logging
 from . import converter
 from . import config
 
-def full_path(p):
-    """
-
-    :param p:
-    :return:
-    """
-    if not p.startswith('/'):
-        return os.getcwd() + '/' + p
-    return p
 
 def file_list(glist, file_type="fasta"):
     """
