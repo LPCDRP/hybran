@@ -37,11 +37,13 @@ def cmds():
                                                       'FASTA format required.',
                           required=True,
                           nargs='+')
-    required.add_argument('-r', '--references', help='Directory containing Genbank files of reference '
+    required.add_argument('-r', '--references', help='Directory, a space-separated list of GBKs, or a FOFN '
+                                                     'containing Genbank files of reference '
                                                      'annotations to transfer. Only the first annotation will '
                                                      'be used as the reference database in the Prokka reference '
                                                      'step.',
-                          required=True)
+                          required=True,
+                          nargs='+')
     required.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
                           dest='database_dir',
@@ -126,8 +128,8 @@ def main():
     cwd = os.getcwd() + '/'
 
     # Convert all input paths to full path if not given as full path
-    args.genomes = fileManager.genome_list(args.genomes)
-    args.references = fileManager.full_path(args.references)
+    args.genomes = fileManager.file_list(args.genomes, file_type="fasta")
+    args.references = fileManager.file_list(args.references, file_type="genbank")
     args.output = fileManager.full_path(args.output)
 
     # Moving into the desired annotation directory
@@ -139,7 +141,7 @@ def main():
     os.chdir(args.output)
 
     # Setting up references for RATT, as well as versions in GFF format used later
-    refdir, embl_dir, embls = fileManager.prepare_references(args)
+    refdir, embl_dir, embls = fileManager.prepare_references(args.references)
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]
     intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']

@@ -15,22 +15,26 @@ def full_path(p):
         return os.getcwd() + '/' + p
     return p
 
-def genome_list(glist):
+def file_list(glist, file_type="fasta"):
     """
     parse a genome list argument, which may contain individual file names, a directory,
     or a file of file names, and return a list of absolute paths to fasta files
     :param glist: a list of strings
+    :param file_type: str file format to look for. fasta or genbank
     :return genomes: a list of absolute paths
     """
-    fasta_exts = ['fna', 'fasta', 'fa']
+    exts = dict(
+        fasta=['fna', 'fasta', 'fa'],
+        genbank=['gbk','gbf','gb'],
+    )
     if os.path.isdir(glist[0]):
         genomes = []
-        for ext in fasta_exts:
+        for ext in exts[file_type]:
             genomes += glob.glob(os.path.join(glist[0],'*.'+ext))
         genomes = [os.path.abspath(_) for _ in genomes]
     elif len(glist) > 1:
         genomes = [os.path.abspath(g) for g in glist]
-    elif any([glist[0].endswith('.'+ext) for ext in fasta_exts]):
+    elif any([glist[0].endswith('.'+ext) for ext in exts[file_type]]):
         genomes = [os.path.abspath(glist[0])]
     else:
         genomes = []
@@ -39,7 +43,7 @@ def genome_list(glist):
                 genomes.append(line.rstrip('\n'))
     return genomes
 
-def prepare_references(args):
+def prepare_references(references):
     hybran_tmp_dir = config.hybran_tmp_dir
     logger = logging.getLogger('PrepareReferences')
     refdir = hybran_tmp_dir + '/temp_references/'
@@ -56,7 +60,7 @@ def prepare_references(args):
     embls = []
     embl_count = 0
     logger.info('Getting all reference annotations')
-    for i in glob.iglob(os.path.join(args.references, '*.gbk')):
+    for i in references:
         # we will be using the references exclusively from our temporary directory
         # genbank
         gbk = os.path.join(refdir, os.path.basename(i))
