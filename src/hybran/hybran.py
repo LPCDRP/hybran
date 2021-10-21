@@ -126,19 +126,7 @@ def main():
     cwd = os.getcwd() + '/'
 
     # Convert all input paths to full path if not given as full path
-    if os.path.isdir(args.genomes[0]):
-        genomes = os.listdir(fileManager.full_path(args.genomes[0]))
-        args.genomes = [args.genomes[0] + g for g in genomes]
-    elif len(args.genomes) > 1:
-        args.genomes = [fileManager.full_path(g) for g in args.genomes]
-    elif args.genomes[0].endswith('.fasta') or args.genomes[0].endswith('.fna') or args.genomes[0].endswith('.fa'):
-        args.genomes = [fileManager.full_path(args.genomes[0])]
-    else:
-        genomes = []
-        with open(args.genomes[0], 'r') as genome:
-            for line in genome:
-                genomes.append(line.rstrip('\n'))
-        args.genomes = genomes
+    args.genomes = fileManager.genome_list(args.genomes)
     args.references = fileManager.full_path(args.references)
     args.output = fileManager.full_path(args.output)
 
