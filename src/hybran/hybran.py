@@ -66,6 +66,8 @@ def cmds():
     optional.add_argument('-f', '--force', action='store_true',
                           help='Force overwrite intermediate files (does not overwrite annotation files already '
                                'annotated using hybran.')
+    optional.add_argument('--filter-ratt', action='store_true',
+                          help='Enforce identity/coverage thresholds on RATT-transferred annotations.')
     logging_level = optional.add_mutually_exclusive_group()
     logging_level.add_argument('--verbose', action='store_true', help='Verbose output')
     logging_level.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
@@ -197,7 +199,8 @@ def main():
                                   reference_genome=ref_genome,
                                   script_directory=script_dir,
                                   seq_ident=args.identity_threshold,
-                                  seq_covg=args.coverage_threshold)
+                                  seq_covg=args.coverage_threshold,
+                                  ratt_enforce_thresholds=args.filter_ratt)
                     converter.convert_gbk_to_gff(annomerge_gbk)
                 genomes_annotate.append(os.path.join(args.output, samplename + '.gff'))
             else:

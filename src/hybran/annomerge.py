@@ -1601,8 +1601,8 @@ def run_prodigal(reference_genome, outfile):
     os.chdir(c)
 
 
-def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, illumina=False,
-        fill_gaps=True, check_mtb=False, mtb_fasta_fp='', essentiality=False):
+def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
+        illumina=False, fill_gaps=True, check_mtb=False, mtb_fasta_fp='', essentiality=False):
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
     <output_merged_genes> from the commandline. The log file output stats about the features that are added to the
@@ -1620,6 +1620,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     :param ref_embl_fp: File path for annotated EMBL file for reference strain
     :param reference_genome: File path for nucleotide fasta of assembled genome
     :param script_dir: Directory where hybran scripts are located
+    :param ratt_enforce_thresholds: boolean - whether to enforce seq_ident/seq_covg for RATT-transferred annotations
     :param illumina: Flag to check circularization. Default is False. If set to True, circularization with not be
     checked and dnaA might not be the first gene.
     :param fill_gaps: Flag to fill gaps in annotation from prokka no-reference. Default is true. If set to false,
@@ -1739,6 +1740,12 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     global ref_prom_fp_dict
     ref_prom_fp_dict = get_prom_for_gene(ref_features, ref_sequence)
 
+    if ratt_enforce_thresholds:
+        ratt_seq_ident = seq_ident
+        ratt_seq_covg = seq_covg
+    else:
+        ratt_seq_ident = ratt_seq_covg = 0
+
     for i in range(0, len(ratt_gbk_files)):
         ratt_contig_record = SeqIO.read(ratt_gbk_files[i], 'genbank')
         global record_sequence
@@ -1785,8 +1792,9 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             isolate_valid_ratt_annotations(feature_list=ratt_contig_features,
                                            ref_temp_fasta_dict=ref_temp_fasta_dict,
                                            reference_locus_list=reference_locus_list,
-                                           seq_ident=seq_ident,
-                                           seq_covg=seq_covg)
+                                           seq_ident=ratt_seq_ident,
+                                           seq_covg=ratt_seq_covg)
+
         ratt_rejects += invalid_ratt_features
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
         cds_from_ratt = 0

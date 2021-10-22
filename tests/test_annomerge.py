@@ -23,14 +23,18 @@ def test_isolate_valid_ratt_annotations(filter):
         )
 
     reference_locus_list = ['Rv0001','Rv0071','Rv2434c']
-    seq_ident = seq_covg = 95
+    if filter:
+        seq_ident = seq_covg = 95
+    else:
+        seq_ident = seq_covg = 0
 
     annomerge.record_sequence = SeqIO.read("/grp/valafar/data/genomes/1-0009.fasta",format="fasta").seq
     expected = {True : ([Rv0001],
                         {"Rv0001": [99.803, 100.0, 100.0]},
                         [(Rv2434c, "compound location"), (Rv0071, "No blastp hit to corresponding reference CDS at specified thresholds.")]),
                 False : ([Rv0001, Rv0071],
-                         None,
+                         {"Rv0001": [99.803, 100.0, 100.0],
+                          "Rv0071": [35.714, 5.957446808510639, 3.977272727272727]},
                          [(Rv2434c, "compound location")])
                 }
 
