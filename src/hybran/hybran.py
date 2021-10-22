@@ -159,7 +159,12 @@ def main():
     else:
         first_reference_gbk = os.path.join(refdir, args.first_gbk)
         first_reference_embl = os.path.splitext(args.first_gbk)[0] + '.embl'
-    ref_cds, ref_genome = firstReference.get_first_reference_proteome(first_reference_gbk)
+    ref_cds     = os.path.join(hybran_tmp_dir, 'ref.fasta')
+    ref_genome  = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
+    with open(ref_cds,'w') as ref_cds_fh, open(ref_genome,'w') as ref_genome_fh:
+        firstReference.get_first_reference_proteome(genbank = first_reference_gbk,
+                                                    out_cds = ref_cds_fh,
+                                                    out_genome = ref_genome_fh)
 
 
     # Configure RATT start/stop codons and other settings,

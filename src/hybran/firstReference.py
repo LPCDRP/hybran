@@ -3,15 +3,15 @@ import os
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from . import config
 
-def get_first_reference_proteome(genbank):
+def get_first_reference_proteome(genbank, out_cds, out_genome):
     """
 
     :param genbank:
+    :param out_cds: file handle in which to write CDS sequences
+    :param out_genome: file handle in which to write genome sequence
     :return:
     """
-    hybran_tmp_dir = config.hybran_tmp_dir
     logger = logging.getLogger('ReferenceDatabase')
     logger.info('Creating a reference proteome FASTA for Prokka from ' + genbank)
     seqs = []
@@ -38,9 +38,7 @@ def get_first_reference_proteome(genbank):
                                            id=seq_record_id,
                                            description='')
                     seqs.append(seq_record)
-    with open(hybran_tmp_dir + '/ref_proteome.fasta', 'w') as output:
-        for s in seqs:
-            SeqIO.write(s, output, 'fasta')
-    with open(hybran_tmp_dir + '/ref.fasta', 'w') as output:
-        SeqIO.write(seq, output, 'fasta')
-    return hybran_tmp_dir + '/ref_proteome.fasta', hybran_tmp_dir + '/ref.fasta'
+    for s in seqs:
+        SeqIO.write(s, out_cds, 'fasta')
+    SeqIO.write(seq, out_genome, 'fasta')
+    return
