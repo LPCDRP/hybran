@@ -472,6 +472,7 @@ def blast_feature_sequence_to_ref(query, locus_tag, reference_locus_list, ref_te
         blast_to_rv = NcbiblastpCommandline(subject=subject_fp, outfmt='"7 qseqid qlen sseqid slen qlen length'
                                                                        ' pident qcovs"')
         stdout, stderr = blast_to_rv(stdin=query)
+        stdout = '\t'.join(['Query_0','1',locus_tag,'1','0','0','0']) + '\n' + stdout
         if to_print:
             logger.debug(stdout)
         hit, all_hits, note = identify_top_hits_mtb(stdout, identity=seq_ident, coverage=seq_covg)
@@ -812,7 +813,7 @@ def get_top_hit(all_hits_dict):
      is all the top Rv hits separated by ':'
     """
 
-    top_hit_identity = 0
+    top_hit_identity = -1
     for gene in all_hits_dict.keys():
         if all_hits_dict[gene][0] > top_hit_identity:
             top_hit_identity = all_hits_dict[gene]
