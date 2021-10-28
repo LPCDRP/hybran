@@ -1,4 +1,3 @@
-from . import fastaFromGFF
 from . import BLAST
 from . import CDHIT
 from . import MCL
