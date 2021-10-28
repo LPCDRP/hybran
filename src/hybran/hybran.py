@@ -159,8 +159,8 @@ def main():
     else:
         first_reference_gbk = os.path.join(refdir, args.first_gbk)
         first_reference_embl = os.path.splitext(args.first_gbk)[0] + '.embl'
-    ref_cds     = os.path.join(hybran_tmp_dir, 'ref.fasta')
-    ref_genome  = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
+    ref_cds     = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
+    ref_genome  = os.path.join(hybran_tmp_dir, 'ref.fasta')
     logger.info('Creating a reference proteome FASTA for Prokka from ' + first_reference_gbk)
     extractor.fastaFromGbk(
         genbank = first_reference_gbk,
