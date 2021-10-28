@@ -11,6 +11,7 @@ from . import \
     verifyInstallations, \
     fileManager, \
     extractor, \
+    refManager, \
     run, \
     annomerge, \
     converter, \
@@ -48,6 +49,9 @@ def cmds():
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
                           dest='database_dir',
                           required=True)
+    optional.add_argument('--dedupe-references',
+                          action='store_true',
+                          help='Identify duplicate genes in the reference annotations and assign one name to all copies.')
     optional.add_argument('-t', '--first-reference', required=False, dest='first_gbk',
                           help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
                                ' Default is the first reference annotation (Genbank) in -r/--references.')
@@ -141,6 +145,13 @@ def main():
     os.chdir(args.output)
 
     # Setting up references for RATT, as well as versions in GFF format used later
+    if args.dedupe_references:
+        if not os.path.isdir('deduped-refs'):
+            try:
+                os.mkdir('deduped-refs')
+            except:
+                sys.exit("Could not create directory: deduped-refs ")
+        args.references = refManager.dedupe(args.references, outdir='deduped-refs')
     refdir, embl_dir, embls = fileManager.prepare_references(args.references)
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]
