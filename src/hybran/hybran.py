@@ -161,10 +161,12 @@ def main():
         first_reference_embl = os.path.splitext(args.first_gbk)[0] + '.embl'
     ref_cds     = os.path.join(hybran_tmp_dir, 'ref.fasta')
     ref_genome  = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
-    with open(ref_cds,'w') as ref_cds_fh, open(ref_genome,'w') as ref_genome_fh:
-        extractor.get_first_reference_proteome(genbank = first_reference_gbk,
-                                                    out_cds = ref_cds_fh,
-                                                    out_genome = ref_genome_fh)
+    logger.info('Creating a reference proteome FASTA for Prokka from ' + first_reference_gbk)
+    extractor.fastaFromGbk(
+        genbank = first_reference_gbk,
+        out_cds = ref_cds,
+        out_genome = ref_genome,
+    )
 
 
     # Configure RATT start/stop codons and other settings,

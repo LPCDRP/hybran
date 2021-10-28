@@ -7,16 +7,16 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 
-def get_first_reference_proteome(genbank, out_cds, out_genome):
+def fastaFromGbk(genbank, out_cds, out_genome):
     """
+    Extracts amino acid CDS sequences from a Genbank annotation file
 
     :param genbank:
-    :param out_cds: file handle in which to write CDS sequences
-    :param out_genome: file handle in which to write genome sequence
+    :param out_cds: file name or handle in which to write CDS sequences
+    :param out_genome: file name or handle in which to write genome sequence
     :return:
     """
-    logger = logging.getLogger('ReferenceDatabase')
-    logger.info('Creating a reference proteome FASTA for Prokka from ' + genbank)
+    logger = logging.getLogger('FastaFromGbk')
     seqs = []
     for record in SeqIO.parse(genbank, 'genbank'):
         seq = SeqRecord(record.seq, id=os.path.splitext(os.path.basename(genbank))[0],
@@ -41,8 +41,7 @@ def get_first_reference_proteome(genbank, out_cds, out_genome):
                                            id=seq_record_id,
                                            description='')
                     seqs.append(seq_record)
-    for s in seqs:
-        SeqIO.write(s, out_cds, 'fasta')
+    SeqIO.write(seqs, out_cds, 'fasta')
     SeqIO.write(seq, out_genome, 'fasta')
     return
 
@@ -59,13 +58,18 @@ def grep_seqs(gff):
     return gff_lines
 
 
-def create_fasta(directory):
-    """Writes cds_seqs.fasta, which contains the CDSs and protein sequences
-    from the reference and input genome(s) GFF files."""
-    logger = logging.getLogger('CreateFASTA')
+def fastaFromGffList(gffs, out_cds):
+    """
+    Extracts amino acid CDS sequences from GFF annotation files
+
+    :param gffs: list of GFF annotation file names
+    :param out_cds: file name or handle in which to write CDS sequences
+    :return gff_gene_dict: dictionary of CDS sequences by sample-recordID
+    """
+    logger = logging.getLogger('FastaFromGff')
     seqs = []
     gff_gene_dict = {}
-    for gff in directory:
+    for gff in gffs:
         raw_out = grep_seqs(gff)
         gff_name = os.path.splitext(os.path.basename(gff))[0]
         for line in raw_out:
@@ -85,8 +89,6 @@ def create_fasta(directory):
                                id=gff_id,
                                description='')
             seqs.append(record)
-    logger.info('Writing FASTA to cds_seqs.fasta')
-    with open('cds_seqs.fasta', 'w') as out:
-        for s in seqs:
-            SeqIO.write(s, out, 'fasta')
+
+    SeqIO.write(seqs, out_cds, 'fasta')
     return gff_gene_dict
