@@ -7,7 +7,24 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 
-def fastaFromGbk(genbank, out_cds, out_genome):
+def get_ltag(feature):
+    try:
+        ltag = feature.qualifiers['locus_tag'][0]
+    except KeyError:
+        exit("No locus tag for " + str(feature))
+    return ltag
+
+def get_gene(feature):
+    try:
+        gene = feature.qualifiers['gene'][0]
+    except KeyError:
+        gene = get_ltag(feature)
+    return gene
+
+def fastaFromGbk(genbank, out_cds, out_genome,
+                 identify = lambda f: ':'.join([get_ltag(f),
+                                                get_gene(f)]),
+                 ):
     """
     Extracts amino acid CDS sequences from a Genbank annotation file
 
@@ -24,21 +41,8 @@ def fastaFromGbk(genbank, out_cds, out_genome):
         if record.features:
             for feature in record.features:
                 if feature.type == 'CDS' and 'pseudogene' not in feature.qualifiers:
-                    try:
-                        gene = feature.qualifiers['gene'][0]
-                    except KeyError:
-                        gene = ''
-                    try:
-                        locus_tag = feature.qualifiers['locus_tag'][0]
-                    except KeyError:
-                        locus_tag = ''
-                    if not locus_tag and not gene:
-                        logger.error('No locus tag or gene name for the following Genbank entry. Please check the '
-                                     'Genbank file\n' + str(feature))
-                        exit(KeyError)
-                    seq_record_id = locus_tag + ':' + gene
                     seq_record = SeqRecord(Seq(feature.qualifiers['translation'][0]),
-                                           id=seq_record_id,
+                                           id=identify(feature),
                                            description='')
                     seqs.append(seq_record)
     SeqIO.write(seqs, out_cds, 'fasta')
