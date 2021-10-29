@@ -47,10 +47,18 @@ def dedupe(annotations, outdir, seq_ident=99, seq_covg=99):
     )
 
 
-    # TODO - this function currently doesn't work with our input since our seq id headers are not
-    #        just the gene names. they're Ref:locus_tag:gene_name
-    #increment = parseClustering.find_largest_mtb_increment(ref_cdss_all_fp)
-    increment = 0
+    # look for existing MTB* names in our gene names,
+    # which are the third token in the colon-delimited string
+    # Ref:locus_tag:gene_name
+    existing_generigenes_fasta = os.path.join(dedupe_tmp,
+                                              'preexisting_generigenes.fasta')
+    parseClustering.find_unannotated_genes(
+        ref_cdss_all_fp,
+        outseq = existing_generigenes_fasta,
+        identify = lambda _: _.split(':')[2]
+    )
+    increment = parseClustering.find_largest_mtb_increment(existing_generigenes_fasta)
+
 
     subs = defaultdict(dict)
     subs_report = ''

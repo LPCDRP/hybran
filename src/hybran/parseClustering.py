@@ -420,24 +420,23 @@ def blast(subject, stdin_seq):
     return stdout
 
 
-def find_unannotated_genes(reference_protein_fasta):
+def find_unannotated_genes(reference_protein_fasta, outseq,
+                           identify = lambda _:_):
     """
     Identifies all unannotated sequences in the reference proteome by
     looking for all the MTB#### genes in the given FASTA.
 
     :param reference_protein_fasta: str FASTA file
-    :return: str unannotated FASTA file name
+    :param outseq: filehandle|str  output FASTA file name
+    :param identify: func to apply to record.id
     """
     hybran_tmp_dir = config.hybran_tmp_dir
     unannotated_seqs = []
     for record in SeqIO.parse(reference_protein_fasta, 'fasta'):
+        record.id = identify(record.id)
         if record.id.startswith('MTB'):
             unannotated_seqs.append(record)
-    with open(hybran_tmp_dir + '/clustering/unannotated_seqs.fasta', 'w') as \
-            out:
-        for s in unannotated_seqs:
-            SeqIO.write(s, out, 'fasta')
-    return hybran_tmp_dir + '/clustering/unannotated_seqs.fasta'
+    SeqIO.write(unannotated_seqs, outseq, 'fasta')
 
 
 def prepare_for_eggnog(unannotated_seqs, outfile):
@@ -832,7 +831,11 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=target_gffs)
     logger.debug('Identifying unannotated proteins (signified by absence of a gene name)')
     # Identify all the MTB#### genes in ref_cdss_protein-all.fasta
-    mtb_genes_fp = find_unannotated_genes(reference_protein_fasta=reference_protein_fastas)
+    mtb_genes_fp = os.path.join(hybran_tmp_dir,
+                                'clustering',
+                                'unannotated_seqs.fasta')
+    find_unannotated_genes(reference_protein_fasta=reference_protein_fastas,
+                           outseq = mtb_genes_fp)
     mtb_increment = find_largest_mtb_increment(unannotated_fasta=mtb_genes_fp)
     logger.info('Parsing ' + clusters)
     clusters = parse_clustered_proteins(clustered_proteins=clusters,
