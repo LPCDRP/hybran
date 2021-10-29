@@ -104,6 +104,23 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
     return list(ann_sources.values())
 
 def name_cluster(cluster, increment, subs, subs_report):
+    """
+    choose a single gene name to apply to all members of a cluster.
+    If there is one unique name and the rest of the cluster members are unnamed
+    (that is, either an empty string or just the locus_tag), the existing name is
+    used. If there are multiple unique names, or all members are unnamed, then a
+    generic gene name is issued and incremented.
+
+    :param cluster: list of strings representing cluster members,
+                    in the form Ref:locus_tag:gene_name
+    :param increment: last used number from the generic genes counter
+    :param subs: nested dictionary giving the name to substitute for a locus tag in
+                 a referene. Ex: subs['H37Rv']['Rv1164'] = 'MTB0001'
+    :param subs_report: str in which to append tab-delimited summary of substitutions
+                        in the following format:
+                        Reference  locus_tag  original_gene_name  new_generic_name
+    :returns: updated increment, subs, and subs_report
+    """
     ref_names, ltags, gene_names = list(zip(*(_.split(':') for _ in cluster)))
 
     if len(cluster) == 1:
