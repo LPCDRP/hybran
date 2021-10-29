@@ -2,7 +2,7 @@ import os
 import logging
 import subprocess
 
-from . import fastaFromGFF, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
+from . import extractor, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
 from . import config
 
 def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus, qcov):
@@ -71,7 +71,7 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
     fasta = 'cds_seqs.fasta'
     if 'clustered_proteins' not in os.listdir(os.getcwd()):
         gff_gene_dict = {}
-        gff_gene_dict.update(fastaFromGFF.create_fasta(directory=all_genomes))
+        gff_gene_dict.update(extractor.fastaFromGffList(gffs=all_genomes, out_cds=fasta))
         # Run CD-HIT on cds_seqs.fasta
         clusters = CDHIT.run(nproc=nproc,
                              fasta=fasta,

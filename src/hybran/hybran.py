@@ -10,7 +10,8 @@ import shutil
 from . import \
     verifyInstallations, \
     fileManager, \
-    firstReference, \
+    extractor, \
+    refManager, \
     run, \
     annomerge, \
     converter, \
@@ -48,6 +49,9 @@ def cmds():
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
                           dest='database_dir',
                           required=True)
+    optional.add_argument('--dedupe-references',
+                          action='store_true',
+                          help='Identify duplicate genes in the reference annotations and assign one name to all copies.')
     optional.add_argument('-t', '--first-reference', required=False, dest='first_gbk',
                           help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
                                ' Default is the first reference annotation (Genbank) in -r/--references.')
@@ -143,6 +147,13 @@ def main():
     os.chdir(args.output)
 
     # Setting up references for RATT, as well as versions in GFF format used later
+    if args.dedupe_references:
+        if not os.path.isdir('deduped-refs'):
+            try:
+                os.mkdir('deduped-refs')
+            except:
+                sys.exit("Could not create directory: deduped-refs ")
+        args.references = refManager.dedupe(args.references, outdir='deduped-refs', tmpdir=hybran_tmp_dir)
     refdir, embl_dir, embls = fileManager.prepare_references(args.references)
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]
@@ -161,12 +172,14 @@ def main():
     else:
         first_reference_gbk = os.path.join(refdir, args.first_gbk)
         first_reference_embl = os.path.splitext(args.first_gbk)[0] + '.embl'
-    ref_cds     = os.path.join(hybran_tmp_dir, 'ref.fasta')
-    ref_genome  = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
-    with open(ref_cds,'w') as ref_cds_fh, open(ref_genome,'w') as ref_genome_fh:
-        firstReference.get_first_reference_proteome(genbank = first_reference_gbk,
-                                                    out_cds = ref_cds_fh,
-                                                    out_genome = ref_genome_fh)
+    ref_cds     = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
+    ref_genome  = os.path.join(hybran_tmp_dir, 'ref.fasta')
+    logger.info('Creating a reference proteome FASTA for Prokka from ' + first_reference_gbk)
+    extractor.fastaFromGbk(
+        genbank = first_reference_gbk,
+        out_cds = ref_cds,
+        out_genome = ref_genome,
+    )
 
 
     # Configure RATT start/stop codons and other settings,
