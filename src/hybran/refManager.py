@@ -78,7 +78,7 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
         )
 
     with open(os.path.join(outdir,'duplicates.tsv'),'w') as report:
-        print(subs_report, file=report)
+        report.write(subs_report)
 
     for ref in subs.keys():
         revised_records = []
