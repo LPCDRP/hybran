@@ -151,7 +151,7 @@ def main():
                 os.mkdir('deduped-refs')
             except:
                 sys.exit("Could not create directory: deduped-refs ")
-        args.references = refManager.dedupe(args.references, outdir='deduped-refs')
+        args.references = refManager.dedupe(args.references, outdir='deduped-refs', tmpdir=hybran_tmp_dir)
     refdir, embl_dir, embls = fileManager.prepare_references(args.references)
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]

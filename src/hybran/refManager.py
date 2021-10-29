@@ -6,7 +6,7 @@ from Bio import SeqIO
 from . import CDHIT, extractor, parseClustering
 
 
-def dedupe(annotations, outdir, seq_ident=99, seq_covg=99):
+def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
     """"
     Identify duplicate genes among the reference annotation and assign all instances a
     single name. If dupicates had different actual gene names, these original names are
@@ -14,13 +14,20 @@ def dedupe(annotations, outdir, seq_ident=99, seq_covg=99):
 
     :param annotations: list of annotation file names
     :param outdir: str directory path in which to write revised annotations
+    :param tmpdir: str path to pipeline's temporary directory
     :param seq_ident: int sequence identity threshold for matching duplicates
     :param seq_covg: int alignment coverage threshold for matching duplicates
     :return: list of paths to deduplicated annotation files
     """
 
-    ref_cdss_all_fp = os.path.join(outdir,'ref_cdss.faa')
-    ref_cdss_unique_fp = os.path.join(outdir,'ref_cdss_unique.faa')
+    dedupe_tmp = os.path.join(tmpdir,'ref-dedupe')
+    try:
+        os.mkdir(dedupe_tmp)
+    except:
+        sys.exit("Could not create temporary directory in " + tmpdir)
+
+    ref_cdss_all_fp = os.path.join(dedupe_tmp,'ref_cdss.faa')
+    ref_cdss_unique_fp = os.path.join(dedupe_tmp,'ref_cdss_unique.faa')
 
     ann_sources = dict()
     with open(ref_cdss_all_fp,'w') as ref_cdss:
