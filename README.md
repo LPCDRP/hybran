@@ -55,6 +55,11 @@ outdir/
 ├── <i>sampleN</i>/
 │   └── ...
 │
+├──deduped-refs/ (if run with <i>--dedupe-references</i>)
+│   ├── duplicates.tsv
+│   ├── <i>reference1</i>.gbk
+│   ├── ...
+│   └── <i>referenceN</i>.gbk
 ├── prodigal-test/
 │   ├── incorrect_starts.txt
 │   └── reference_prodigal
@@ -73,6 +78,19 @@ outdir/
 </code></pre>
 
 #### Logs and Reports
+
+##### `deduped-refs/duplicates.tsv`
+
+If `hybran` was called with `--dedupe-references`, revised reference annotations will be generated in the `deduped-refs` directory.
+These annotations differ from the original in that each set of duplicate genes is assigned a single name used for all instances.
+The original name is retained as a `gene_synonym` qualifier in the annotation file.
+The file `duplicates.tsv` will list duplicate genes found in the reference annotations and the name they were assigned.
+Columns in this file are
+
+* reference name
+* reference locus tag
+* reference gene name
+* unified name
 
 ##### `clustering/novelty_report.tsv`
 
