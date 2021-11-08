@@ -2097,9 +2097,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     elif ref_feat_start < fill_pos[0] and ref_feat_end < fill_pos[0]:
                         continue
                     elif ref_feat_start > fill_pos[0] and ref_feat_end < fill_pos[1]:
-                        if ref_feat.qualifiers['product'][0] == 'hypothetical protein':
-                            prokka_rejects.append((ref_feat, "hypothetical protein"))
-                            continue
                         if 'gene' in ref_feat.qualifiers.keys() and '_' in ref_feat.qualifiers['gene'][0]:
                             ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
                         elif 'gene' not in ref_feat.qualifiers.keys():
@@ -2298,8 +2295,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     elif noref_feat_start < fill_pos[0] and noref_feat_end < fill_pos[0]:
                         continue
                     elif noref_feat_start > fill_pos[0] and noref_feat_end < fill_pos[1]:
-                        if noref_feat.qualifiers['product'][0] == 'hypothetical protein':
-                            continue
                         if 'gene' in noref_feat.qualifiers.keys() and '_' in noref_feat.qualifiers['gene'][0]:
                             noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
                         elif 'gene' not in noref_feat.qualifiers.keys():
