@@ -535,14 +535,15 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             rejects.append((cds_feature, "length of AA sequence is 0"))
             continue
         else:
-            add_sequence, blast_stats = blast_feature_sequence_to_ref(str(feature_sequence), cds_locus_tag,
-                                                                      reference_locus_list,
-                                                                      ref_temp_fasta_dict,
-                                                                      seq_ident=seq_ident,
-                                                                      seq_covg=seq_covg)
-            if add_sequence:
-                if len(blast_stats) > 0:
-                    ratt_blast_results[cds_locus_tag] = blast_stats
+            blast_stats = BLAST.blastp(
+                query=SeqRecord(feature_sequence),
+                subject=ref_temp_fasta_dict[cds_locus_tag],
+                seq_ident=seq_ident,
+                seq_covg=seq_covg
+            )
+
+            if blast_stats:
+                ratt_blast_results.update(BLAST.summarize(blast_stats))
                 cds_feature.qualifiers['translation'] = [str(feature_sequence)]
                 valid_features.append(cds_feature)
             else:

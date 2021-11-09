@@ -11,6 +11,18 @@ from functools import partial
 from . import config
 
 
+def summarize(blast_results):
+    """
+    Convert output of blastp() into a dictionary of the following form:
+    {id: [iden,scov,qcov]}
+    """
+
+    # TODO - this uses the same logic as what was in annomerge, but
+    #        it has the problem that multiple hits for the same subject
+    #        will get overwritten by the last one in the blast output list.
+    return {_[1]: [float(_[2]), float(_[15]), float(_[14])] for _ in
+            [line.split('\t') for line in blast_results]}
+
 def blastp(query, subject, seq_ident, seq_covg):
     """
     Runs BLAST with one sequence as the query and
@@ -23,6 +35,7 @@ def blastp(query, subject, seq_ident, seq_covg):
     :return: list of tab-delimited strings corresponding to BLAST hits meeting the thresholds
     """
     if isinstance(subject, SeqRecord):
+        subject_id = subject.id
         with tempfile.SpooledTemporaryFile(
                 suffix='.fasta',
                 dir=os.path.join(config.hybran_tmp_dir,'seqs'),
@@ -33,11 +46,28 @@ def blastp(query, subject, seq_ident, seq_covg):
             SeqIO.write(subject, fa, "fasta")
     else:
         fa = subject
+        # quickly check how many sequences are in here. if it's just one,
+        # we want to pad the output.
+        count = 1
+        for rec in SeqIO.parse(fa,'fasta'):
+            if count > 1:
+                subject_id = ''
+                break
+            subject_id = rec.id
+            count += 1
 
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
                    "qstart qend sstart send evalue bitscore qlen slen qseq sseq"
+    # for a single alignment, add a dummy hit with 0% identity so that 0-thresholds are valid
+    # when there are no hits at all.
+    if subject_id:
+        dummy_hit = '\t'.join([query.id, subject_id,'0','0','0','0',
+                               '','','','','1','0','1','1','',''])+'\n'
+    else:
+        dummy_hit = ''
     blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
     stdout, stderr=blast_to_all(stdin=str(query.seq))
+    stdout = dummy_hit + stdout
     blast_filtered = []
     blast_rejects = []
     for line in stdout.split('\n'):
