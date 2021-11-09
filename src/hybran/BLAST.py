@@ -38,7 +38,7 @@ def blast(seq_string, fa, seq_ident, seq_covg):
             length = float(column[3])
             qlen = float(column[12])
             slen = float(column[13])
-            if (identity > seq_ident) and ((length / qlen) >= covg_float) and ((length / slen) >= covg_float):
+            if (identity >= seq_ident) and ((length / qlen) >= covg_float) and ((length / slen) >= covg_float):
                 column[0] = seq_string[0]
                 blast_filtered.append('\t'.join(column))
             else:
