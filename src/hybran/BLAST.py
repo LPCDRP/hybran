@@ -34,9 +34,8 @@ def blastp(query, subject, seq_ident, seq_covg):
     else:
         fa = subject
 
-    covg_float = seq_covg * 0.01
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
-                   "qstart qend sstart send evalue bitscore qlen slen"
+                   "qstart qend sstart send evalue bitscore qlen slen qseq sseq"
     blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
     stdout, stderr=blast_to_all(stdin=str(query.seq))
     blast_filtered = []
@@ -48,8 +47,12 @@ def blastp(query, subject, seq_ident, seq_covg):
             length = float(column[3])
             qlen = float(column[12])
             slen = float(column[13])
+            qseq, sseq = column[14:16]
+            qcov = (len(qseq.replace("-","")) / qlen) * 100
+            scov = (len(sseq.replace("-","")) / slen) * 100
+            column[14:16] = str(qcov), str(scov)
             column[0] = query.id
-            if (identity >= seq_ident) and ((length / qlen) >= covg_float) and ((length / slen) >= covg_float):
+            if (identity >= seq_ident) and (qcov >= seq_covg) and (scov >= seq_covg):
                 blast_filtered.append('\t'.join(column))
             else:
                 # Capture the rejected hits
