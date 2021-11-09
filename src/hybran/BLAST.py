@@ -17,7 +17,7 @@ def create_raw_seq_list(input_file):
     return seq_list
 
 
-def blast(seq_string, fa, seq_ident, seq_covg):
+def blastp(seq_string, fa, seq_ident, seq_covg):
     """
     Runs BLAST with one sequence as the query and
     the fasta file as the subject.
@@ -59,7 +59,7 @@ def iterate(fa, seq_list, nproc, seq_ident, seq_covg):
     Runs BLAST function for each query.
     Returns list of all results.
     """
-    partial_blast = partial(blast, fa=fa, seq_ident=seq_ident, seq_covg=seq_covg)
+    partial_blast = partial(blastp, fa=fa, seq_ident=seq_ident, seq_covg=seq_covg)
     pool = multiprocessing.Pool(int(nproc))
     list_of_lists = pool.map(partial_blast,seq_list)
     pool.close()
