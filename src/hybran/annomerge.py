@@ -884,29 +884,6 @@ def identify_top_hits_mtb(blast_output_file, identity, coverage, mtb=False):
         return top_hit, all_hits_dict, notes
 
 
-def get_essential_genes(gene_essentiality_fp=None):
-    """
-    This functions gets a set of Essential genes in H37Rv reported by DeJesus, 2017
-    :param gene_essentiality_fp: Filepath to gene essentiality results (Default:
-    'resources/gene_essentiality_dejesus_2017.tsv')
-    :return: list od essential genes
-    """
-    # TODO : Checking for annotation validity against essential genes reported can be removed
-
-    essential_genes = []
-    if gene_essentiality_fp is None:
-        gene_essentiality_fp = 'resources/gene_essentiality_dejesus_2017.tsv'
-        gene_essentiality_raw = open(gene_essentiality_fp, 'r').readlines()
-        for line in gene_essentiality_raw:
-            line_elements = line.strip().split('\t')
-            if line_elements[1] == 'ES':
-                essential_genes.append(line_elements[0])
-    else:
-        gene_essentiality_raw = open(gene_essentiality_fp, 'r').readlines()
-        essential_genes = [line.strip() for line in gene_essentiality_raw]
-    return essential_genes
-
-
 def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_locus_dict, reference_locus_gene_dict,
                                        ref_temp_fasta_dict, ratt_blast_results, reference_locus_list,
                                        seq_ident, seq_covg,
@@ -1603,7 +1580,7 @@ def run_prodigal(reference_genome, outfile):
 
 
 def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
-        illumina=False, fill_gaps=True, check_mtb=False, mtb_fasta_fp='', essentiality=False):
+        illumina=False, fill_gaps=True):
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
     <output_merged_genes> from the commandline. The log file output stats about the features that are added to the
@@ -1626,10 +1603,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     checked and dnaA might not be the first gene.
     :param fill_gaps: Flag to fill gaps in annotation from prokka no-reference. Default is true. If set to false,
     unannotated regions will not be check against prokka noreference run.
-    :param check_mtb: Flag to check if genes should be blasted against existing set of novel genes. Default is false
-    and if set to True, mtb_fasta_fp should be provided.
-    :param mtb_fasta_fp: File path for amino acid fasta of novel genes.
-    :param essentiality: Check annotation of essential genes in isolate
     :return: EMBL record (SeqRecord) of annotated isolate
     """
 
@@ -2208,66 +2181,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     continue
                 else:
                     prokka_rec.features.append(feature)
-        # Blasting unannotated CDSs from Prokka with H37Rv
-        # TODO: Delete this part. This is for internal use where unannotated genes are blasted to previously assigned
-        # novel genes to transfer annotation.
-        if check_mtb and len(mtb_fasta_fp) == 0:
-            logger.warning('File path for novel genes not specified')
-        elif check_mtb:
-            mtb_fasta = mtb_fasta_fp
-            for feature in prokka_rec.features:
-                if feature.type == 'CDS' and (('gene' not in feature.qualifiers.keys() and
-                                               ('L_' in feature.qualifiers['locus_tag'][0] or
-                                                'L2_' in feature.qualifiers['locus_tag'][0])) or
-                                              ('gene' in feature.qualifiers.keys() and
-                                               '_' in feature.qualifiers['gene'][0] and
-                                               'L2_' in feature.qualifiers['locus_tag'][0])):
-                    query_sequence = feature.qualifiers['translation'][0]
-                    blast_to_mtb = NcbiblastpCommandline(subject=mtb_fasta, outfmt='"7 qseqid qlen sseqid slen qlen '
-                                                                                   'length pident qcovs"')
-                    stdout_2, stderr_2 = blast_to_mtb(stdin=query_sequence)
-                    mtb_hit, all_hits_mtb = identify_top_hits_mtb(stdout_2, identity=seq_ident, coverage=seq_covg, mtb=True)
-                    for gene in all_hits_mtb.keys():
-                        note = 'locus_tag:' + gene + ':' + str(all_hits_mtb[gene])
-                        if 'note' in feature.qualifiers.keys():
-                            feature.qualifiers['note'].append(note)
-                        else:
-                            feature.qualifiers['note'] = [note]
         # Adding translated sequence to RATT annotations
         for feature in prokka_rec.features:
             if feature.type == 'CDS' and 'translation' not in feature.qualifiers.keys():
                 feature_sequence = translate(feature.extract(record_sequence), table=11, to_stop=True)
                 feature.qualifiers['translation'] = [feature_sequence]
-        # Verifying annotations for essential genes
-        if essentiality:
-            essential_genes = get_essential_genes()
-            all_rv_genes_in_isolate = []
-            for feature in prokka_rec.features:
-                if feature.type == 'CDS':
-                    locus_tag = feature.qualifiers['locus_tag'][0]
-                    if locus_tag[:2] == 'Rv':
-                        all_rv_genes_in_isolate.append(locus_tag)
-                        if 'gene' not in feature.qualifiers.keys() and locus_tag in reference_locus_gene_dict.keys():
-                            feature.qualifiers['gene'] = [reference_locus_gene_dict[locus_tag]]
-                    new_locus_tag = feature.qualifiers['locus_tag'][0]
-                    if 'gene' not in feature.qualifiers.keys():
-                        feature.qualifiers['gene'] = [new_locus_tag]
-                    else:
-                        if '_' in feature.qualifiers['gene'][0] and (feature.qualifiers['gene'][0][:2] != 'L_' or
-                                                                 feature.qualifiers['gene'][0][:3] != 'L2_'):
-                            if '_' not in feature.qualifiers['locus_tag'][0]:
-                                feature.qualifiers['locus_tag'] = [new_locus_tag]
-                            else:
-                                new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
-                                feature.qualifiers['locus_tag'] = [new_locus_tag]
-                                feature.qualifiers['gene'] = [new_locus_tag]
-                    if new_locus_tag in essential_genes:
-                        rv_length = ref_protein_lengths[new_locus_tag]
-                        feature_length = len(feature.qualifiers['translation'][0])
-                        feature_coverage = float(feature_length)/float(rv_length)
-                        if feature_coverage <= 0.95:
-                            logger.warning('Essential gene ' + new_locus_tag + ' is truncated in isolate ' +
-                                         isolate_id + '. Coverage: ' + str(feature_coverage*100))
         # Get remaining unannotated region
         if add_noref_annotations:
             ordered_features_final = get_ordered_features(prokka_rec.features)
