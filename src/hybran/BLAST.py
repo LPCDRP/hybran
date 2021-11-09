@@ -6,29 +6,22 @@ from functools import partial
 from . import config
 
 
-def create_raw_seq_list(input_file):
-    """
-    Parses the fasta file of sequences and
-    creates a list containing each header + sequence string.
-       """
-    seq_list = []
-    for record in SeqIO.parse(input_file, 'fasta'):
-        seq_list.append([record.id, str(record.seq)])
-    return seq_list
-
-
-def blastp(seq_string, fa, seq_ident, seq_covg):
+def blastp(query, fa, seq_ident, seq_covg):
     """
     Runs BLAST with one sequence as the query and
     the fasta file as the subject.
-    Returns a list of BLAST runs that meet the
-    identity and coverage thresholds.
+
+    :param query: SeqRecord object containing the query sequence/id/description
+    :param fa: str subject fasta file name
+    :param seq_ident: sequence identity threshold
+    :param seq_covg: alignment coverage threshold
+    :return: list of tab-delimited strings corresponding to BLAST hits meeting the thresholds
     """
     covg_float = seq_covg * 0.01
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
                    "qstart qend sstart send evalue bitscore qlen slen"
     blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
-    stdout, stderr=blast_to_all(stdin=seq_string[1])
+    stdout, stderr=blast_to_all(stdin=str(query.seq))
     blast_filtered = []
     blast_rejects = []
     for line in stdout.split('\n'):
@@ -38,12 +31,11 @@ def blastp(seq_string, fa, seq_ident, seq_covg):
             length = float(column[3])
             qlen = float(column[12])
             slen = float(column[13])
+            column[0] = query.id
             if (identity >= seq_ident) and ((length / qlen) >= covg_float) and ((length / slen) >= covg_float):
-                column[0] = seq_string[0]
                 blast_filtered.append('\t'.join(column))
             else:
                 # Capture the rejected hits
-                column[0] = seq_string[0]
                 blast_rejects.append('\t'.join(column))
 
     # Append the rejected hits
@@ -83,7 +75,7 @@ def write(all_results_list):
 def run_blast(fastafile, nproc, seq_ident, seq_covg):
     logger = logging.getLogger('BLAST')
     logger.info('Running pairwise all-against-all BLAST on ' + fastafile + ' using ' + str(nproc) + ' CPUs')
-    seq_string_list = create_raw_seq_list(fastafile)
+    seq_string_list = SeqIO.parse(fastafile, 'fasta')
     all_results_list = iterate(fastafile, seq_string_list, nproc, seq_ident=seq_ident, seq_covg=seq_covg)
     logger.info('Writing BLAST results to blast_results in Hybran temporary '
                 'directory.')
