@@ -1,22 +1,39 @@
 import logging
+import os
+import tempfile
+
 from Bio import SeqIO
 from Bio.Blast.Applications import NcbiblastpCommandline
 import multiprocessing
+from Bio.SeqRecord import SeqRecord
+
 from functools import partial
 from . import config
 
 
-def blastp(query, fa, seq_ident, seq_covg):
+def blastp(query, subject, seq_ident, seq_covg):
     """
     Runs BLAST with one sequence as the query and
     the fasta file as the subject.
 
     :param query: SeqRecord object containing the query sequence/id/description
-    :param fa: str subject fasta file name
+    :param subject: str subject fasta file name or SeqRecord
     :param seq_ident: sequence identity threshold
     :param seq_covg: alignment coverage threshold
     :return: list of tab-delimited strings corresponding to BLAST hits meeting the thresholds
     """
+    if isinstance(subject, SeqRecord):
+        with tempfile.SpooledTemporaryFile(
+                suffix='.fasta',
+                dir=os.path.join(config.hybran_tmp_dir,'seqs'),
+                delete=False,
+                mode='w',
+        ) as fa_handle:
+            fa = fa_handle.name
+            SeqIO.write(subject, fa, "fasta")
+    else:
+        fa = subject
+
     covg_float = seq_covg * 0.01
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
                    "qstart qend sstart send evalue bitscore qlen slen"
@@ -51,7 +68,7 @@ def iterate(fa, seq_list, nproc, seq_ident, seq_covg):
     Runs BLAST function for each query.
     Returns list of all results.
     """
-    partial_blast = partial(blastp, fa=fa, seq_ident=seq_ident, seq_covg=seq_covg)
+    partial_blast = partial(blastp, subject=fa, seq_ident=seq_ident, seq_covg=seq_covg)
     pool = multiprocessing.Pool(int(nproc))
     list_of_lists = pool.map(partial_blast,seq_list)
     pool.close()

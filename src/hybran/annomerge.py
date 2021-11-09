@@ -28,6 +28,7 @@ import logging
 import time
 import subprocess
 
+from . import BLAST
 from . import converter
 from . import config
 
@@ -1115,42 +1116,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
     return mod_feature, do_not_add_prokka, remark
 
 
-def blast_ratt_anno_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_feature, seq_ident, seq_covg):
-    """
-
-    :param ratt_overlap_feature:
-    :param prokka_overlap_feature:
-    :return:
-    """
-
-    hybran_tmp_dir = config.hybran_tmp_dir
-    same_gene = False
-    fp = tempfile.NamedTemporaryFile(suffix='_ratt.fasta',
-                                     dir=hybran_tmp_dir,
-                                     delete=False,
-                                     mode='w')
-    header = '>' + str(ratt_overlap_feature.qualifiers['locus_tag'][0]) + '\n'
-    seq = str(ratt_overlap_feature.qualifiers['translation'][0])
-    fp.write(header)
-    fp.write(seq)
-    fp.close()
-    prokka_seq = str(prokka_overlap_feature.qualifiers['translation'][0])
-    try:
-        blast_to_ratt_rv = NcbiblastpCommandline(subject=fp.name, outfmt='"7 qseqid qlen sseqid slen qlen length pident'
-                                                                         ' qcovs"')
-        stdout_rv, stderr_rv = blast_to_ratt_rv(stdin=prokka_seq)
-        is_hit = True
-    except Bio.Application.ApplicationError:
-        is_hit = False
-    if is_hit:
-        hit, all_hits, note = identify_top_hits_mtb(stdout_rv, identity=seq_ident, coverage=seq_covg)
-        if len(all_hits) == 0:
-            same_gene = False
-        else:
-            same_gene = True
-    return same_gene
-
-
 def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict, reference_locus_list,
                                 reference_gene_locus_dict, log):
     """
@@ -2004,11 +1969,14 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                 # If Prokka feature is annotated as an L_tag and not a gene, blast it with
                                 # overlapping Rv and then Blast it with reference to get the closer hit
                                 if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
-                                    check_if_same_gene = blast_ratt_anno_with_prokka_ltag(ratt_overlapping_feature,
-                                                                                          prokka_feature,
-                                                                                          seq_ident=seq_ident,
-                                                                                          seq_covg=seq_covg)
-                                    if check_if_same_gene:
+                                    ratt_prokka_hits = BLAST.blastp(
+                                        query=SeqRecord(prokka_feature.qualifiers['translation'][0]),
+                                        subject=SeqRecord(ratt_overlapping_feature.qualifiers['translation'][0],
+                                                          id=ratt_overlapping_feature.qualifiers['locus_tag'][0]),
+                                        seq_ident=seq_ident,
+                                        seq_covg=seq_covg,
+                                    )
+                                    if ratt_prokka_hits:
                                         prokka_feature.qualifiers['gene'] = \
                                             ratt_overlapping_feature.qualifiers['locus_tag']
 
