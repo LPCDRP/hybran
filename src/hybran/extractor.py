@@ -4,6 +4,7 @@ import subprocess
 
 from Bio import SeqIO
 from Bio.Seq import Seq
+from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 
 
@@ -40,10 +41,17 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                         description='')
         if record.features:
             for feature in record.features:
-                if feature.type == 'CDS' and 'pseudogene' not in feature.qualifiers:
-                    seq_record = SeqRecord(Seq(feature.qualifiers['translation'][0]),
-                                           id=identify(feature),
-                                           description='')
+                if feature.type == 'CDS':
+                    if 'pseudogene' in feature.qualifiers:
+                        seq_record = SeqRecord(
+                            translate(feature.extract(record.seq), table=11, to_stop=True),
+                            id=identify(feature),
+                            description='')
+                    else:
+                        seq_record = SeqRecord(
+                            Seq(feature.qualifiers['translation'][0]),
+                            id=identify(feature),
+                            description='')
                     seqs.append(seq_record)
     SeqIO.write(seqs, out_cds, 'fasta')
     SeqIO.write(seq, out_genome, 'fasta')
