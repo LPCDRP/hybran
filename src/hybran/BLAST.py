@@ -56,6 +56,8 @@ def blastp(query, subject, seq_ident, seq_covg):
             subject_id = rec.id
             count += 1
 
+    # column orders up until bitscore are as expected for mcxdeblast --m9
+    # <https://github.com/JohannesBuchner/mcl/blob/5208b974324621f510abb6a29e046a38f6d85f10/src/alien/oxygen/src/mcxdeblast#L259>
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
                    "qstart qend sstart send evalue bitscore qlen slen qseq sseq"
     # for a single alignment, add a dummy hit with 0% identity so that 0-thresholds are valid
