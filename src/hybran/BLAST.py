@@ -36,9 +36,9 @@ def blastp(query, subject, seq_ident, seq_covg):
     """
     if isinstance(subject, SeqRecord):
         subject_id = subject.id
-        with tempfile.SpooledTemporaryFile(
+        with tempfile.NamedTemporaryFile(
                 suffix='.fasta',
-                dir=os.path.join(config.hybran_tmp_dir,'seqs'),
+                dir=config.hybran_tmp_dir,
                 delete=False,
                 mode='w',
         ) as fa_handle:
