@@ -15,6 +15,7 @@ from copy import deepcopy
 import sys
 import Bio
 from Bio import SeqIO
+from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
@@ -800,7 +801,7 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
     if 'gene' not in feature.qualifiers.keys():
         mod_feature = feature
     else:
-        feature_seq = feature.qualifiers['translation'][0]
+        feature_seq = Seq(feature.qualifiers['translation'][0])
         if feature.qualifiers['gene'][0] in reference_locus_gene_dict.keys():
             locus_tag = feature.qualifiers['gene'][0]
             prokka_blast_list.append(locus_tag)
@@ -1860,8 +1861,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                 # overlapping Rv and then Blast it with reference to get the closer hit
                                 if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
                                     ratt_prokka_hits = BLAST.blastp(
-                                        query=SeqRecord(prokka_feature.qualifiers['translation'][0]),
-                                        subject=SeqRecord(ratt_overlapping_feature.qualifiers['translation'][0],
+                                        query=SeqRecord(Seq(prokka_feature.qualifiers['translation'][0])),
+                                        subject=SeqRecord(Seq(ratt_overlapping_feature.qualifiers['translation'][0]),
                                                           id=ratt_overlapping_feature.qualifiers['locus_tag'][0]),
                                         seq_ident=seq_ident,
                                         seq_covg=seq_covg,
