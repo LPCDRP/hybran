@@ -11,6 +11,11 @@ from functools import partial
 from . import config
 
 
+# blast wants to phone home, but we run blast too many times
+# and don't want to slow down the program, especially if
+# you have no network connection.
+os.environ["BLAST_USAGE_REPORT"] = "false"
+
 def summarize(blast_results):
     """
     Convert output of blastp() into a dictionary of the following form:
