@@ -36,7 +36,11 @@ def blastp(query, subject, seq_ident, seq_covg):
     :param subject: str subject fasta file name or SeqRecord
     :param seq_ident: sequence identity threshold
     :param seq_covg: alignment coverage threshold
-    :return: list of tab-delimited strings corresponding to BLAST hits meeting the thresholds
+    :returns:
+        - blast_filtered (:py:class:`list`) - list of tab-delimited strings corresponding
+                                              to BLAST hits meeting the thresholds
+        - blast_rejects (:py:class:`list`) - list of tab-delimited strings corresponding
+                                              to BLAST hits falling short of the thresholds
     """
     if isinstance(subject, SeqRecord):
         subject_id = subject.id
@@ -94,12 +98,7 @@ def blastp(query, subject, seq_ident, seq_covg):
                 # Capture the rejected hits
                 blast_rejects.append('\t'.join(column))
 
-    # Append the rejected hits
-    with open('../blast_rejects', 'a') as f:
-        for line in blast_rejects:
-            f.write(str(line) + '\n')
-
-    return blast_filtered
+    return blast_filtered, blast_rejects
 
 
 def iterate(fa, seq_list, nproc, seq_ident, seq_covg):
@@ -109,10 +108,10 @@ def iterate(fa, seq_list, nproc, seq_ident, seq_covg):
     """
     partial_blast = partial(blastp, subject=fa, seq_ident=seq_ident, seq_covg=seq_covg)
     pool = multiprocessing.Pool(int(nproc))
-    list_of_lists = pool.map(partial_blast,seq_list)
+    hits, misses = zip(*pool.map(partial_blast,seq_list))
     pool.close()
     pool.join()
-    all_results_list = list(map('\n'.join, list_of_lists))
+    all_results_list = list(map('\n'.join, list(hits)))
     return all_results_list
 
 

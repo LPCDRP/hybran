@@ -508,15 +508,13 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 subject=ref_temp_fasta_dict[cds_locus_tag],
                 seq_ident=seq_ident,
                 seq_covg=seq_covg
-            )
+            )[0]
 
             if blast_stats:
                 ratt_blast_results.update(BLAST.summarize(blast_stats))
                 cds_feature.qualifiers['translation'] = [str(feature_sequence)]
                 valid_features.append(cds_feature)
             else:
-                # TODO - might be good to show the best blast hit stats against the reference,
-                #        but that'll require some changes to the top_hit functions.
                 rejects.append((cds_feature, "No blastp hit to corresponding reference CDS at specified thresholds."))
                 continue
     logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features)))
@@ -810,7 +808,7 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                 subject = ref_temp_fasta_dict[locus_tag],
                 seq_ident = seq_ident,
                 seq_covg = seq_covg,
-            )
+            )[0]
             if blast_stats:
                 blast_stats = BLAST.summarize(blast_stats)[locus_tag]
                 mod_feature = feature
@@ -910,7 +908,7 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                 subject = ref_temp_fasta_dict[locus_tag],
                 seq_ident = seq_ident,
                 seq_covg = seq_covg,
-            )
+            )[0]
             if blast_stats:
                 blast_stats = BLAST.summarize(blast_stats)[locus_tag]
                 mod_feature = feature
@@ -1866,7 +1864,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                           id=ratt_overlapping_feature.qualifiers['locus_tag'][0]),
                                         seq_ident=seq_ident,
                                         seq_covg=seq_covg,
-                                    )
+                                    )[0]
                                     if ratt_prokka_hits:
                                         prokka_feature.qualifiers['gene'] = \
                                             ratt_overlapping_feature.qualifiers['locus_tag']
