@@ -15,13 +15,12 @@ def summarize(blast_results):
     """
     Convert output of blastp() into a dictionary of the following form:
     {id: [iden,scov,qcov]}
+    If there are multiple hits against a single subject ID,
+    the top-most hit as sorted by blast is retained.
     """
 
-    # TODO - this uses the same logic as what was in annomerge, but
-    #        it has the problem that multiple hits for the same subject
-    #        will get overwritten by the last one in the blast output list.
     return {_[1]: [float(_[2]), float(_[15]), float(_[14])] for _ in
-            [line.split('\t') for line in blast_results]}
+            [line.split('\t') for line in reversed(blast_results)]}
 
 def blastp(query, subject, seq_ident, seq_covg):
     """
@@ -69,7 +68,7 @@ def blastp(query, subject, seq_ident, seq_covg):
         dummy_hit = ''
     blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
     stdout, stderr=blast_to_all(stdin=str(query.seq))
-    stdout = dummy_hit + stdout
+    stdout += dummy_hit
     blast_filtered = []
     blast_rejects = []
     for line in stdout.split('\n'):
