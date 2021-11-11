@@ -12,6 +12,7 @@ from Bio.Blast.Applications import NcbiblastpCommandline
 
 from . import CDHIT
 from . import config
+from . import extractor
 
 
 def parse_clustered_proteins(clustered_proteins, annotations):
@@ -338,13 +339,13 @@ def find_largest_mtb_increment(unannotated_fasta):
         return 1
 
 
-def ref_seqs(gbk_dir):
+def unique_seqs(annotations):
     """
     Creates a FASTA with unique sequences based on a given directory
     of reference Genbank files. Uses GFFs from referene and input
     genomes to create content for the output ref_cdss_protein-all.fasta
 
-    :param gbk_dir: str directory name
+    :param annotations: list of annotation files in GFF format
     :return: str FASTA file name and a dictionary of dictionaries
     """
     hybran_tmp_dir = config.hybran_tmp_dir
@@ -367,7 +368,7 @@ def ref_seqs(gbk_dir):
         return gff_lines
     protein_cds = []
     isolate_seqs = {}
-    for gff in gbk_dir:
+    for gff in annotations:
         if gff.endswith('.gff'):
             raw_out = grep_seqs(gff)
             gff_name = os.path.splitext(os.path.basename(gff))[0]
@@ -392,8 +393,8 @@ def ref_seqs(gbk_dir):
                                        description=str(eggnog) + '|' + gff_name)
                     isolate_seqs[gff_name][locus_tag] = Seq(translation.rstrip('\n'))
                     protein_cds.append(record)
-    all_proteins = hybran_tmp_dir + '/clustering/ref_cdss_protein-all.fasta'
-    final_proteins = hybran_tmp_dir + '/clustering/ref_cdss_protein.fasta'
+    all_proteins = hybran_tmp_dir + '/clustering/cdss_protein-all.fasta'
+    final_proteins = hybran_tmp_dir + '/clustering/cdss_protein.fasta'
     # Write ref_cdss_protein-all.fasta
     with open(all_proteins, 'w') as ref_cds_out:
         for s in protein_cds:
@@ -418,25 +419,6 @@ def blast(subject, stdin_seq):
                                           outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
     stdout, stderr = blast_command(stdin=str(stdin_seq))
     return stdout
-
-
-def find_unannotated_genes(reference_protein_fasta, outseq,
-                           identify = lambda _:_):
-    """
-    Identifies all unannotated sequences in the reference proteome by
-    looking for all the MTB#### genes in the given FASTA.
-
-    :param reference_protein_fasta: str FASTA file
-    :param outseq: filehandle|str  output FASTA file name
-    :param identify: func to apply to record.id
-    """
-    hybran_tmp_dir = config.hybran_tmp_dir
-    unannotated_seqs = []
-    for record in SeqIO.parse(reference_protein_fasta, 'fasta'):
-        record.id = identify(record.id)
-        if record.id.startswith('MTB'):
-            unannotated_seqs.append(record)
-    SeqIO.write(unannotated_seqs, outseq, 'fasta')
 
 
 def prepare_for_eggnog(unannotated_seqs, outfile):
@@ -826,16 +808,30 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     hybran_tmp_dir = config.hybran_tmp_dir
     global isolate_update_dictionary, isolate_sequences
     isolate_update_dictionary = {}
-    logger.debug('Retrieving reference protein sequences from GFFs')
-    # Run CD-HIT on ref_cdss_protein-all.fasta as part of calling ref_seqs
-    reference_protein_fastas, isolate_sequences = ref_seqs(gbk_dir=target_gffs)
+    logger.debug('Retrieving unique protein sequences from GFFs')
+    # Run CD-HIT on cdss_protein-all.fasta as part of calling ref_seqs
+    unique_protein_fastas, isolate_sequences = unique_seqs(annotations=target_gffs)
+    logger.debug('Identifying reference and reference-transferred proteins')
+    reference_protein_fastas = os.path.join(
+        hybran_tmp_dir,
+        'clustering',
+        'ref_cdss_protein.fasta'
+    )
+    extractor.subset_fasta(
+        inseq = unique_protein_fastas,
+        outseq = reference_protein_fastas,
+        match = extractor.is_reference,
+    )
     logger.debug('Identifying unannotated proteins (signified by absence of a gene name)')
-    # Identify all the MTB#### genes in ref_cdss_protein-all.fasta
+    # Identify all the candidate novel genes in cdss_protein.fasta
     mtb_genes_fp = os.path.join(hybran_tmp_dir,
                                 'clustering',
                                 'unannotated_seqs.fasta')
-    find_unannotated_genes(reference_protein_fasta=reference_protein_fastas,
-                           outseq = mtb_genes_fp)
+    extractor.subset_fasta(
+        inseq = unique_protein_fastas,
+        outseq = mtb_genes_fp,
+        match = extractor.is_unannotated,
+    )
     mtb_increment = find_largest_mtb_increment(unannotated_fasta=mtb_genes_fp)
     logger.info('Parsing ' + clusters)
     clusters = parse_clustered_proteins(clustered_proteins=clusters,

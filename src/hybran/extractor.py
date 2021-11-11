@@ -57,6 +57,30 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     SeqIO.write(seq, out_genome, 'fasta')
     return
 
+#
+# Helper functions for subset_fasta() that can be used for its `match` argument
+#
+def is_unannotated(name):
+    return name.startswith('MTB')
+
+def is_reference(name):
+    return not name.startswith(('MTB','L_','L2_'))
+
+def subset_fasta(inseq, outseq, match, identify = lambda _:_):
+    """
+    write a new fasta file containing only sequences with
+    matching record IDs.
+    :param infile: str input fasta file name
+    :param outseq: str output fasta file name
+    :param match: function to apply to record.id for a Boolean result
+    :param identify: function to transform record.id prior to matching
+    """
+    seqs = []
+    for record in SeqIO.parse(inseq, 'fasta'):
+        record.id = identify(record.id)
+        if match(record.id):
+            seqs.append(record)
+    SeqIO.write(seqs, outseq, 'fasta')
 
 def grep_seqs(gff):
     gff_lines = []
