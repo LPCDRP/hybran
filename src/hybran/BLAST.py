@@ -16,15 +16,24 @@ from . import config
 # you have no network connection.
 os.environ["BLAST_USAGE_REPORT"] = "false"
 
-def summarize(blast_results):
+def summarize(blast_results, identify = lambda _:_):
     """
     Convert output of blastp() into a dictionary of the following form:
-    {id: [iden,scov,qcov]}
+    {id1: {'iden': %-identity, 'scov':scov, 'qcov':qcov}, ...}
     If there are multiple hits against a single subject ID,
     the top-most hit as sorted by blast is retained.
+
+    :param blast_results: list of strings as output by blastp()
+    :param identify: function to apply to the subject_id column of
+                     the blast results whose value will be used as
+                     the outer dictionary key.
+    :returns: dictionary of subject IDs to metrics to values
     """
 
-    return {_[1]: [float(_[2]), float(_[15]), float(_[14])] for _ in
+    return {identify(_[1]): dict(iden=float(_[2]),
+                       qcov=float(_[14]),
+                       scov=float(_[15])
+            ) for _ in
             [line.split('\t') for line in reversed(blast_results)]}
 
 def blastp(query, subject, seq_ident, seq_covg):

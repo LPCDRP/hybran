@@ -856,9 +856,9 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                             else:
                                 prom_mutation = True
                         if prom_mutation is True:
-                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
-                                                        int(ratt_blast_results[locus_tag][2]))
-                            prokka_coverage_measure = abs(int(blast_stats[1]) - int(blast_stats[2]))
+                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag]['scov']) -
+                                                        int(ratt_blast_results[locus_tag]['qcov']))
+                            prokka_coverage_measure = abs(int(blast_stats['scov']) - int(blast_stats['qcov']))
                             if ratt_coverage_measure < prokka_coverage_measure:
                                 do_not_add_prokka = True
                                 remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
@@ -872,10 +872,10 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                 do_not_add_prokka = False
                             elif ratt_coverage_measure == prokka_coverage_measure:
                                 # Checking for identity if coverage is the same
-                                if int(ratt_blast_results[locus_tag][0]) > int(blast_stats[0]):
+                                if int(ratt_blast_results[locus_tag]['iden']) > int(blast_stats['iden']):
                                     do_not_add_prokka = True
                                     remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
-                                elif int(blast_stats[0]) > int(ratt_blast_results[locus_tag][0]):
+                                elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
                                     logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
                                     if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
                                         ratt_rejects.append(
@@ -956,9 +956,9 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                             else:
                                 prom_mutation = True
                         if prom_mutation is True:
-                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
-                                                        int(ratt_blast_results[locus_tag][2]))
-                            prokka_coverage_measure = abs(int(blast_stats[1]) - int(blast_stats[2]))
+                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag]['scov']) -
+                                                        int(ratt_blast_results[locus_tag]['qcov']))
+                            prokka_coverage_measure = abs(int(blast_stats['scov']) - int(blast_stats['qcov']))
                             if ratt_coverage_measure < prokka_coverage_measure:
                                 do_not_add_prokka = True
                                 remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
@@ -972,10 +972,10 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                 do_not_add_prokka = False
                             elif ratt_coverage_measure == prokka_coverage_measure:
                                 # Checking for identity if coverage is the same
-                                if int(ratt_blast_results[locus_tag][0]) > int(blast_stats[0]):
+                                if int(ratt_blast_results[locus_tag]['iden']) > int(blast_stats['iden']):
                                     do_not_add_prokka = True
                                     remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
-                                elif int(blast_stats[0]) > int(ratt_blast_results[locus_tag][0]):
+                                elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
                                     logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
                                     if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
                                         ratt_rejects.append(

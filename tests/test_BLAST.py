@@ -10,8 +10,17 @@ def test_summarize():
          'Rv2434c\tRv2434c\t96.000\t481\t0\t0\t1\t481\t1\t481\t0.0\t966\t481\t481\t100.0\t100.0',
          ]
     assert BLAST.summarize(blast_results) == \
-        {'Rv2434c':[100.0, 100.0, 100.0],
-         'Rv0000':[100.0, 100.0, 100.0]}
+        {'Rv2434c': {
+            'iden': 100.0,
+            'scov': 100.0,
+            'qcov': 100.0,
+         },
+         'Rv0000': {
+             'iden': 100.0,
+             'scov': 100.0,
+             'qcov': 100.0,
+         }
+        }
 
 def test_blastp():
     record = SeqIO.read("gene-seqs/Rv2434c.fasta", 'fasta')
