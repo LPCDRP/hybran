@@ -16,6 +16,16 @@ from . import config
 # you have no network connection.
 os.environ["BLAST_USAGE_REPORT"] = "false"
 
+def top_hit(blast_summary, metric='iden'):
+    """
+    Get the best hit according to the given metric.
+
+    :param blast_summary: dictionary of blast results as output by summarize()
+    :param metric: str inner dictionary key of blast_summary by which to maximize
+    :returns: str subject id of the best hit
+    """
+    return max(blast_summary, key=lambda gene: blast_summary[gene][metric])
+
 def summarize(blast_results, identify = lambda _:_):
     """
     Convert output of blastp() into a dictionary of the following form:

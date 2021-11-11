@@ -8,8 +8,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from collections import OrderedDict
-from Bio.Blast.Applications import NcbiblastpCommandline
 
+from . import BLAST
 from . import CDHIT
 from . import config
 from . import extractor
@@ -139,94 +139,52 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             unique_genes_list]
 
 
-def get_top_hit(all_hits_dict):
-    """
-    Gets best BLASTP hit based on amino acid sequence identity
+def get_gene_name(id_string):
+    if '|' in id_string:
+        [seqid, locus_tag, gene_name] = id_string.split('|')
+        if gene_name:
+            return gene_name
+        else:
+            return locus_tag
+    else:
+        return id_string
 
-    :param all_hits_dict: This dictionary consists of all Blast hits
-    with corresponding unannotated locus_tag that have
-    passed the defined thresholds for amino acid identity and coverage
-    :return: list of only the elements of top hits with the locus tag.
-    The key is the 'L(2)_' locus tag and the value is
-     corresponding top hit in H37Rv. If multiple top hits are
-     present with same identity and coverage values, the value
-     is all the top Rv hits separated by ':'
-    """
-    top_hit_identity = 0
-    for gene in all_hits_dict.keys():
-        if all_hits_dict[gene] > top_hit_identity:
-            top_hit_identity = all_hits_dict[gene]
-            top_hit = gene
-    return top_hit
-
-
-def identify_top_hits(blast_output_file, identity, coverage):
+def identify_top_hits(passes, subcriticals):
     """
     Iterates over BLASTP output and determines all the best
     hits based on identity and alignment coverage
 
-    :param blast_output_file: Output file from Blastp
-    :return: Dictionary of top hits for each unannotated locus that
-    passes the identity and coverage threshold
-             If none exist, a list of three report strings for the next-closest matches by each category are reported
+    :param passes: list of strings from BLAST.blastp() for hits passing thresholds
+    :param subcriticals: list of strings from BLAST.blastp() for remaining hits
+    :returns:
+       - str ID of best hit (by sequence identity) of all hits meeting/exceeding
+         all three thresholds. Otherwise None if none exist
+       - empty list (if there's a passing best hit) or list of three report strings
+         for the best subcritical matches by each category.
     """
-    all_hits_dict = {}
-    subcritical_hits_iden = {}
-    subcritical_hits_scov = {}
-    subcritical_hits_qcov = {}
-    blast_output_raw = blast_output_file.split('\n')
-    rv_hit = False
-    for line in blast_output_raw:
-        if len(line) == 0:
-            continue
-        if line[0] == '#':
-            continue
-        line_elements = line.split('\t')
-        if line_elements and line_elements != [' ']:
-            iden = float(line_elements[5])
-            qcov = (float(line_elements[4]) / float(line_elements[1])) * 100.0
-            scov = (float(line_elements[4]) / float(line_elements[3])) * 100.0
-            if not line_elements[2].startswith('L'):
-                if '|' in line_elements[2]:
-                    [seqid, locus_tag, gene_name] = line_elements[2].split('|')
-                    if gene_name:
-                        corresponding_rv_hit = gene_name
-                    else:
-                        corresponding_rv_hit = locus_tag
-                else:
-                    corresponding_rv_hit = line_elements[2]
 
-                if iden >= identity and qcov >= coverage and scov >= coverage:
-                    rv_hit = True
-                    all_hits_dict[corresponding_rv_hit] = iden
-                # Rv hits that don't meet the threshold.
-                # Keep track of them so we know how close we were to getting a good match
-                else:
-                    subcritical_hits_iden[corresponding_rv_hit] = iden
-                    subcritical_hits_scov[corresponding_rv_hit] = scov
-                    subcritical_hits_qcov[corresponding_rv_hit] = qcov
-            else:
-                continue
-    if rv_hit:
-        top_hit = get_top_hit(all_hits_dict)
+    if passes:
+        all_hits_dict = BLAST.summarize(passes, identify=get_gene_name)
+        top_hit = BLAST.top_hit(all_hits_dict)
         best_subcriticals = []
     else:
         top_hit = None
-        if subcritical_hits_iden:
-            best_subc_iden = max(subcritical_hits_iden, key=lambda _: subcritical_hits_iden[_])
-            best_subc_scov = max(subcritical_hits_scov, key=lambda _: subcritical_hits_scov[_])
-            best_subc_qcov = max(subcritical_hits_qcov, key=lambda _: subcritical_hits_qcov[_])
+        if subcriticals:
+            subcriticals = BLAST.summarize(subcriticals, identify=get_gene_name)
+            best_subc_iden = BLAST.top_hit(subcriticals, metric='iden')
+            best_subc_scov = BLAST.top_hit(subcriticals, metric='scov')
+            best_subc_qcov = BLAST.top_hit(subcriticals, metric='qcov')
             best_subcriticals = [
                 '\t'.join([_[0],
                            _[1],
-                           str(subcritical_hits_iden[_[0]]),
-                           str(subcritical_hits_scov[_[0]]),
-                           str(subcritical_hits_qcov[_[0]])])
+                           str(subcriticals[_[0]]['iden']),
+                           str(subcriticals[_[0]]['scov']),
+                           str(subcriticals[_[0]]['qcov'])])
                 for _ in zip([best_subc_iden, best_subc_scov, best_subc_qcov],
                              ['identity','scov','qcov'])]
         else:
             best_subcriticals = []
-    return top_hit, best_subcriticals, all_hits_dict
+    return top_hit, best_subcriticals
 
 
 def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
@@ -406,21 +364,6 @@ def unique_seqs(annotations):
               out=final_proteins)
     return final_proteins, isolate_seqs
 
-
-def blast(subject, stdin_seq):
-    """
-    BLASTP the stdin_seq against the subject file
-
-    :param subject: str FASTA file name
-    :param stdin_seq: str amino acid sequence
-    :return: list BLAST output
-    """
-    blast_command = NcbiblastpCommandline(subject=subject,
-                                          outfmt='"7 qseqid qlen sseqid slen qlen length pident qcovs"')
-    stdout, stderr = blast_command(stdin=str(stdin_seq))
-    return stdout
-
-
 def prepare_for_eggnog(unannotated_seqs, outfile):
     """
     Creates a FASTA file of unannotated sequences that have not
@@ -468,15 +411,31 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, mtb_i
         out_list.append(str(single_gene))
         if gene_name.startswith('L') and locus_tag.startswith('L'):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
-            stdout = blast(reference_fasta, gene_sequence)
-            top_hit, best_subcriticals, all_hits = identify_top_hits(stdout, identity=seq_ident, coverage=seq_covg)
+            ref_hits, ref_misses = BLAST.blastp(
+                query = SeqRecord(gene_sequence),
+                subject = reference_fasta,
+                seq_ident = seq_ident,
+                seq_covg = seq_covg,
+            )
+            top_hit, best_subcriticals = identify_top_hits(
+                ref_hits,
+                ref_misses,
+            )
             assign_mtb = False
             name_to_assign = top_hit
             if top_hit is None:
                 assign_mtb = True
                 if os.stat(unannotated_fasta).st_size:
-                    stdout_2 = blast(unannotated_fasta, gene_sequence)
-                    top_hit_mtb, best_subcriticals_mtb, all_hits_mtb = identify_top_hits(stdout_2, identity=seq_ident, coverage=seq_covg)
+                    cn_hits, cn_misses = BLAST.blastp(
+                        query = SeqRecord(gene_sequence),
+                        subject = unannotated_fasta,
+                        seq_ident = seq_ident,
+                        seq_covg = seq_covg,
+                    )
+                    top_hit_mtb, best_subcriticals_mtb = identify_top_hits(
+                        cn_hits,
+                        cn_misses,
+                    )
                     best_subcriticals += best_subcriticals_mtb
                     if top_hit_mtb is not None:
                         assign_mtb = False
@@ -530,47 +489,38 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
     out_list = []
     novel_genes_closest_refs = []
     for rep_gene in in_dict.keys():
-        rep_isolate_id = rep_gene.split(',')[0]
-        rep_locus = rep_gene.split(',')[1]
-        rep_gene_name = rep_gene.split(',')[2]
-        rep_sequence = isolate_sequences[rep_isolate_id][rep_locus]
-        rep_record = SeqRecord(rep_sequence, id='|'.join([rep_isolate_id, rep_locus, rep_gene_name]),
-                               description='')
-        rep_records.append(rep_record)
         out_list.append(rep_gene + ': ' + str(in_dict[rep_gene]))
+        isolate = rep_gene.split(',')[0]
+        locus = rep_gene.split(',')[1]
+        gene = rep_gene.split(',')[2]
+        rep_sequence = isolate_sequences[isolate][locus]
+        rep_record = SeqRecord(rep_sequence, id='', description='')
+        ref_hits, ref_misses = BLAST.blastp(
+            query = rep_record,
+            subject = reference_fasta,
+            seq_ident = seq_ident,
+            seq_covg = seq_covg,
+        )
+        top_hit, best_subcriticals = identify_top_hits(
+            ref_hits,
+            ref_misses,
+        )
 
-    rep_fp = tempfile.NamedTemporaryFile(suffix='.fasta',
-                                         dir=hybran_tmp_dir,
-                                         delete=False, mode='w')
-    rep_temp_fasta = rep_fp.name
-    with open(rep_temp_fasta, 'w') as fasta_tmp:
-        for s in rep_records:
-            SeqIO.write(s, fasta_tmp, 'fasta')
-    blastcmd = NcbiblastpCommandline(subject=reference_fasta,
-                                     query=rep_temp_fasta,
-                                     outfmt='"6 qseqid qlen sseqid slen qlen length pident qcovs"')
-    stdout, stderr = blastcmd()
-    rep_fp.close()
-    hits = {}
-    for line in stdout.split('\n'):
-        if line:
-            try:
-                hits[line.split('\t')[0]] += [line]
-            except KeyError:
-                hits[line.split('\t')[0]] = [line]
-    for qid, lines in hits.items():
-        top_hit, best_subcriticals, all_hits = identify_top_hits('\n'.join(lines), identity=seq_ident, coverage=seq_covg)
-        isolate = qid.split('|')[0]
-        locus = qid.split('|')[1]
-        gene = qid.split('|')[2]
         assign_mtb = False
         name_to_assign = top_hit
         if top_hit is None:
             assign_mtb = True
             if os.stat(unannotated_fasta).st_size:
-                rep_seq = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
-                stdout_2 = blast(unannotated_fasta, rep_seq)
-                top_hit_mtb, best_subcriticals_mtb, all_hits_mtb = identify_top_hits(stdout_2, identity=seq_ident, coverage=seq_covg)
+                cn_hits, cn_misses = BLAST.blastp(
+                    query = rep_record,
+                    subject = unannotated_fasta,
+                    seq_ident = seq_ident,
+                    seq_covg = seq_covg,
+                )
+                top_hit_mtb, best_subcriticals_mtb = identify_top_hits(
+                    cn_hits,
+                    cn_misses,
+                )
                 best_subcriticals += best_subcriticals_mtb
                 if top_hit_mtb is not None:
                     assign_mtb = False
@@ -578,7 +528,6 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
         if assign_mtb:
             mtb_id = 'MTB' + "%04g" % (int('0001') + mtb_increment)
             mtb_increment = mtb_increment + 1
-            rep_sequence = isolate_sequences[qid.split('\t')[0].split('|')[0]][qid.split('\t')[0].split('|')[1]]
             seq_record = SeqRecord(rep_sequence, id=mtb_id, description='False')
             new_unannotated_genes.append(seq_record)
             name_to_assign = mtb_id
@@ -588,7 +537,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, mtb_incremen
             if not novel_genes_closest_refs:
                 novel_genes_closest_refs = ['\t'.join(['no_refs', mtb_id])]
         update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
-        for other_genes_in_cluster in in_dict[','.join([isolate, locus, gene])]:
+        for other_genes_in_cluster in in_dict[rep_gene]:
             update_dictionary_ltag_assignments(other_genes_in_cluster[0], other_genes_in_cluster[1], name_to_assign)
     with open(unannotated_fasta, 'a') as mtb_fasta:
         for s in new_unannotated_genes:
@@ -699,15 +648,28 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
                     unannotated_gene_seq = isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus]
-                    stdout = blast(fasta_fp_to_blast, unannotated_gene_seq)
-                    top_hit, best_subcriticals, all_hits = identify_top_hits(stdout, identity=seq_ident, coverage=seq_covg)
+                    hits, misses = BLAST.blastp(
+                        query = SeqRecord(unannotated_gene_seq),
+                        subject = fasta_fp_to_blast,
+                        seq_ident = seq_ident,
+                        seq_covg = seq_covg,
+                    )
+                    top_hit, best_subcriticals = identify_top_hits(hits, misses)
                     assign_mtb = False
                     name_to_assign = top_hit
                     if top_hit is None:
                         assign_mtb = True
                         if os.stat(unannotated_fasta).st_size:
-                            stdout_2 = blast(unannotated_fasta, unannotated_gene_seq)
-                            top_hit_mtb, best_subcriticals_mtb, all_hits_mtb = identify_top_hits(stdout_2, identity=seq_ident, coverage=seq_covg)
+                            cn_hits, cn_misses = BLAST.blastp(
+                                query = SeqRecord(unannotated_gene_seq),
+                                subject = unannotated_fasta,
+                                seq_ident = seq_ident,
+                                seq_covg = seq_covg,
+                            )
+                            top_hit_mtb, best_subcriticals_mtb = identify_top_hits(
+                                cn_hits,
+                                cn_misses,
+                            )
                             best_subcriticals += best_subcriticals_mtb
                             if top_hit_mtb is not None:
                                 assign_mtb = False

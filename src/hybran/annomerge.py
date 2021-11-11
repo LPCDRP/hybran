@@ -17,7 +17,7 @@ import Bio
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
-from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastnCommandline
+from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import FeatureLocation, ExactPosition
 import collections
