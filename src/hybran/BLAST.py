@@ -1,34 +1,102 @@
 import logging
+import os
+import tempfile
+
 from Bio import SeqIO
 from Bio.Blast.Applications import NcbiblastpCommandline
 import multiprocessing
+from Bio.SeqRecord import SeqRecord
+
 from functools import partial
 from . import config
 
 
-def create_raw_seq_list(input_file):
+# blast wants to phone home, but we run blast too many times
+# and don't want to slow down the program, especially if
+# you have no network connection.
+os.environ["BLAST_USAGE_REPORT"] = "false"
+
+def top_hit(blast_summary, metric='iden'):
     """
-    Parses the fasta file of sequences and
-    creates a list containing each header + sequence string.
-       """
-    seq_list = []
-    for record in SeqIO.parse(input_file, 'fasta'):
-        seq_list.append([record.id, str(record.seq)])
-    return seq_list
+    Get the best hit according to the given metric.
 
+    :param blast_summary: dictionary of blast results as output by summarize()
+    :param metric: str inner dictionary key of blast_summary by which to maximize
+    :returns: str subject id of the best hit
+    """
+    return max(blast_summary, key=lambda gene: blast_summary[gene][metric])
 
-def blast(seq_string, fa, seq_ident, seq_covg):
+def summarize(blast_results, identify = lambda _:_):
+    """
+    Convert output of blastp() into a dictionary of the following form:
+    {id1: {'iden': %-identity, 'scov':scov, 'qcov':qcov}, ...}
+    If there are multiple hits against a single subject ID,
+    the top-most hit as sorted by blast is retained.
+
+    :param blast_results: list of strings as output by blastp()
+    :param identify: function to apply to the subject_id column of
+                     the blast results whose value will be used as
+                     the outer dictionary key.
+    :returns: dictionary of subject IDs to metrics to values
+    """
+
+    return {identify(_[1]): dict(iden=float(_[2]),
+                       qcov=float(_[14]),
+                       scov=float(_[15])
+            ) for _ in
+            [line.split('\t') for line in reversed(blast_results)]}
+
+def blastp(query, subject, seq_ident, seq_covg):
     """
     Runs BLAST with one sequence as the query and
     the fasta file as the subject.
-    Returns a list of BLAST runs that meet the
-    identity and coverage thresholds.
+
+    :param query: SeqRecord object containing the query sequence/id/description
+    :param subject: str subject fasta file name or SeqRecord
+    :param seq_ident: sequence identity threshold
+    :param seq_covg: alignment coverage threshold
+    :returns:
+        - blast_filtered (:py:class:`list`) - list of tab-delimited strings corresponding
+                                              to BLAST hits meeting the thresholds
+        - blast_rejects (:py:class:`list`) - list of tab-delimited strings corresponding
+                                              to BLAST hits falling short of the thresholds
     """
-    covg_float = seq_covg * 0.01
+    if isinstance(subject, SeqRecord):
+        subject_id = subject.id
+        with tempfile.NamedTemporaryFile(
+                suffix='.fasta',
+                dir=config.hybran_tmp_dir,
+                delete=False,
+                mode='w',
+        ) as fa_handle:
+            fa = fa_handle.name
+            SeqIO.write(subject, fa, "fasta")
+    else:
+        fa = subject
+        # quickly check how many sequences are in here. if it's just one,
+        # we want to pad the output.
+        count = 1
+        for rec in SeqIO.parse(fa,'fasta'):
+            if count > 1:
+                subject_id = ''
+                break
+            subject_id = rec.id
+            count += 1
+
+    # column orders up until bitscore are as expected for mcxdeblast --m9
+    # <https://github.com/JohannesBuchner/mcl/blob/5208b974324621f510abb6a29e046a38f6d85f10/src/alien/oxygen/src/mcxdeblast#L259>
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
-                   "qstart qend sstart send evalue bitscore qlen slen"
+                   "qstart qend sstart send evalue bitscore qlen slen qseq sseq"
+    # for a single alignment, add a dummy hit with 0% identity so that 0-thresholds are valid
+    # when there are no hits at all.
+    if subject_id:
+        dummy_hit = '\t'.join([query.id, subject_id,'0','0','0','0',
+                               '','','','','1','0','1','1','',''])+'\n'
+    else:
+        dummy_hit = ''
     blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
-    stdout, stderr=blast_to_all(stdin=seq_string[1])
+    stdout, stderr=blast_to_all(stdin=str(query.seq))
+    stdout += dummy_hit
     blast_filtered = []
     blast_rejects = []
     for line in stdout.split('\n'):
@@ -38,20 +106,18 @@ def blast(seq_string, fa, seq_ident, seq_covg):
             length = float(column[3])
             qlen = float(column[12])
             slen = float(column[13])
-            if (identity > seq_ident) and ((length / qlen) >= covg_float) and ((length / slen) >= covg_float):
-                column[0] = seq_string[0]
+            qseq, sseq = column[14:16]
+            qcov = (len(qseq.replace("-","")) / qlen) * 100
+            scov = (len(sseq.replace("-","")) / slen) * 100
+            column[14:16] = str(qcov), str(scov)
+            column[0] = query.id
+            if (identity >= seq_ident) and (qcov >= seq_covg) and (scov >= seq_covg):
                 blast_filtered.append('\t'.join(column))
             else:
                 # Capture the rejected hits
-                column[0] = seq_string[0]
                 blast_rejects.append('\t'.join(column))
 
-    # Append the rejected hits
-    with open('../blast_rejects', 'a') as f:
-        for line in blast_rejects:
-            f.write(str(line) + '\n')
-
-    return blast_filtered
+    return blast_filtered, blast_rejects
 
 
 def iterate(fa, seq_list, nproc, seq_ident, seq_covg):
@@ -59,12 +125,12 @@ def iterate(fa, seq_list, nproc, seq_ident, seq_covg):
     Runs BLAST function for each query.
     Returns list of all results.
     """
-    partial_blast = partial(blast, fa=fa, seq_ident=seq_ident, seq_covg=seq_covg)
+    partial_blast = partial(blastp, subject=fa, seq_ident=seq_ident, seq_covg=seq_covg)
     pool = multiprocessing.Pool(int(nproc))
-    list_of_lists = pool.map(partial_blast,seq_list)
+    hits, misses = zip(*pool.map(partial_blast,seq_list))
     pool.close()
     pool.join()
-    all_results_list = list(map('\n'.join, list_of_lists))
+    all_results_list = list(map('\n'.join, list(hits)))
     return all_results_list
 
 
@@ -83,7 +149,7 @@ def write(all_results_list):
 def run_blast(fastafile, nproc, seq_ident, seq_covg):
     logger = logging.getLogger('BLAST')
     logger.info('Running pairwise all-against-all BLAST on ' + fastafile + ' using ' + str(nproc) + ' CPUs')
-    seq_string_list = create_raw_seq_list(fastafile)
+    seq_string_list = SeqIO.parse(fastafile, 'fasta')
     all_results_list = iterate(fastafile, seq_string_list, nproc, seq_ident=seq_ident, seq_covg=seq_covg)
     logger.info('Writing BLAST results to blast_results in Hybran temporary '
                 'directory.')

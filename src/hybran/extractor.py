@@ -4,6 +4,7 @@ import subprocess
 
 from Bio import SeqIO
 from Bio.Seq import Seq
+from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 
 
@@ -40,15 +41,46 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                         description='')
         if record.features:
             for feature in record.features:
-                if feature.type == 'CDS' and 'pseudogene' not in feature.qualifiers:
-                    seq_record = SeqRecord(Seq(feature.qualifiers['translation'][0]),
-                                           id=identify(feature),
-                                           description='')
+                if feature.type == 'CDS':
+                    if 'pseudogene' in feature.qualifiers:
+                        seq_record = SeqRecord(
+                            translate(feature.extract(record.seq), table=11, to_stop=True),
+                            id=identify(feature),
+                            description='')
+                    else:
+                        seq_record = SeqRecord(
+                            Seq(feature.qualifiers['translation'][0]),
+                            id=identify(feature),
+                            description='')
                     seqs.append(seq_record)
     SeqIO.write(seqs, out_cds, 'fasta')
     SeqIO.write(seq, out_genome, 'fasta')
     return
 
+#
+# Helper functions for subset_fasta() that can be used for its `match` argument
+#
+def is_unannotated(name):
+    return name.startswith('MTB')
+
+def is_reference(name):
+    return not name.startswith(('MTB','L_','L2_'))
+
+def subset_fasta(inseq, outseq, match, identify = lambda _:_):
+    """
+    write a new fasta file containing only sequences with
+    matching record IDs.
+    :param infile: str input fasta file name
+    :param outseq: str output fasta file name
+    :param match: function to apply to record.id for a Boolean result
+    :param identify: function to transform record.id prior to matching
+    """
+    seqs = []
+    for record in SeqIO.parse(inseq, 'fasta'):
+        record.id = identify(record.id)
+        if match(record.id):
+            seqs.append(record)
+    SeqIO.write(seqs, outseq, 'fasta')
 
 def grep_seqs(gff):
     gff_lines = []

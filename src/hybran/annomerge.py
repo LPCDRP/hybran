@@ -15,8 +15,9 @@ from copy import deepcopy
 import sys
 import Bio
 from Bio import SeqIO
+from Bio.Seq import Seq
 from Bio.Seq import translate
-from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastnCommandline
+from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import FeatureLocation, ExactPosition
 import collections
@@ -28,6 +29,7 @@ import logging
 import time
 import subprocess
 
+from . import BLAST
 from . import converter
 from . import config
 
@@ -455,39 +457,6 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     return merged_features_addition, corner_cases, merged_genes, final_ratt_features, final_prokka_features
 
 
-def blast_feature_sequence_to_ref(query, locus_tag, reference_locus_list, ref_temp_fasta_dict, seq_ident, seq_covg, to_print=False):
-    """
-    Blasts feature sequence to corresponding amino acid from reference FASTA file.
-    :param query: Amino acid sequence (String format)
-    :param locus_tag: Locus tag of corresponding amino acid sequence
-    :param to_print: Boolean value to indicate whether BLAST results should be printed to log file
-    :return: boolean value to indicate whether annotation should be added on not and dictionary of all BLAST hits with
-    corresponding locus tag as key and list as values where list contains [percent identity of hit, subject coverage,
-    query coverage]
-    """
-
-    logger = logging.getLogger('BlastFeatureToRef')
-    if locus_tag in reference_locus_list:
-        subject_fp = ref_temp_fasta_dict[locus_tag]
-        blast_to_rv = NcbiblastpCommandline(subject=subject_fp, outfmt='"7 qseqid qlen sseqid slen qlen length'
-                                                                       ' pident qcovs"')
-        stdout, stderr = blast_to_rv(stdin=query)
-        stdout = '\t'.join(['Query_0','1',locus_tag,'1','0','0','0']) + '\n' + stdout
-        if to_print:
-            logger.debug(stdout)
-        hit, all_hits, note = identify_top_hits_mtb(stdout, identity=seq_ident, coverage=seq_covg)
-        if hit == locus_tag:
-            add_annotation = True
-            hit_stats = all_hits[hit]
-        else:
-            add_annotation = False
-            hit_stats = []
-    else:
-        add_annotation = True
-        hit_stats = []
-    return add_annotation, hit_stats
-
-
 def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg):
     """
     This function takes as input a list of features and checks if the length of the CDSs are divisible by
@@ -534,19 +503,18 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             rejects.append((cds_feature, "length of AA sequence is 0"))
             continue
         else:
-            add_sequence, blast_stats = blast_feature_sequence_to_ref(str(feature_sequence), cds_locus_tag,
-                                                                      reference_locus_list,
-                                                                      ref_temp_fasta_dict,
-                                                                      seq_ident=seq_ident,
-                                                                      seq_covg=seq_covg)
-            if add_sequence:
-                if len(blast_stats) > 0:
-                    ratt_blast_results[cds_locus_tag] = blast_stats
+            blast_stats = BLAST.blastp(
+                query=SeqRecord(feature_sequence),
+                subject=ref_temp_fasta_dict[cds_locus_tag],
+                seq_ident=seq_ident,
+                seq_covg=seq_covg
+            )[0]
+
+            if blast_stats:
+                ratt_blast_results.update(BLAST.summarize(blast_stats))
                 cds_feature.qualifiers['translation'] = [str(feature_sequence)]
                 valid_features.append(cds_feature)
             else:
-                # TODO - might be good to show the best blast hit stats against the reference,
-                #        but that'll require some changes to the top_hit functions.
                 rejects.append((cds_feature, "No blastp hit to corresponding reference CDS at specified thresholds."))
                 continue
     logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features)))
@@ -802,111 +770,6 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     return embl_file, included, remark
 
 
-def get_top_hit(all_hits_dict):
-
-    """
-    This function parses through BLAST results to get the top hits.
-    :param all_hits_dict: This dictionary consists of all Blast hits with corresponding unannotated locus_tag that have
-    passed the defined thresholds for amino acid identity and coverage
-    :return: returns only the elements of top hits with the locus tag. The key is the 'L(2)_' locus tag and the value is
-     corresponding top hit in H37Rv. If multiple top hits are present with same identity and coverage values, the value
-     is all the top Rv hits separated by ':'
-    """
-
-    top_hit_identity = -1
-    for gene in all_hits_dict.keys():
-        if all_hits_dict[gene][0] > top_hit_identity:
-            top_hit_identity = all_hits_dict[gene]
-            top_hit = gene
-    return top_hit
-
-
-def identify_top_hits_mtb(blast_output_file, identity, coverage, mtb=False):
-    """
-    This function gets the hits from BLAST tha passes the identity and coverage thresholds in the function
-    :param blast_output_file: Output file from Blastp
-    :param identity: identity threshold cutoff (Default: 95%)
-    :param coverage: coverage threshold cutoff (Default: 95%)
-    :param mtb: Internal parameter (to check for hits against previously reported MTB genes)
-    :return: Dictionary of top hits for each unannotated locus that passes the identity and coverage threshold
-    """
-    if mtb:
-        all_hits_dict = {}
-        blast_output_raw = blast_output_file.split('\n')
-        mtb_hit = False
-        for line in blast_output_raw:
-            if len(line) == 0:
-                continue
-            if line[0] == '#':
-                continue
-            line_elements = line.split('\t')
-            iden = float(line_elements[5])
-            qcov = (float(line_elements[4]) / float(line_elements[1])) * 100.0
-            scov = (float(line_elements[4]) / float(line_elements[3])) * 100.0
-            if iden >= identity and qcov >= coverage and scov >= coverage:
-                mtb_hit = True
-                corresponding_mtb_hit = line_elements[2]
-                all_hits_dict[corresponding_mtb_hit] = [iden, scov, qcov]
-        if mtb_hit:
-            top_hit = get_top_hit(all_hits_dict)
-        else:
-            top_hit = None
-        return top_hit, all_hits_dict
-    else:
-        all_hits_dict = {}
-        notes = {}
-        blast_output_raw = blast_output_file.split('\n')
-        rv_hit = False
-        for line in blast_output_raw:
-            if len(line) == 0:
-                continue
-            if line[0] == '#':
-                continue
-            line_elements = line.split('\t')
-            iden = float(line_elements[5])
-            qcov = (float(line_elements[4]) / float(line_elements[1])) * 100.0
-            scov = (float(line_elements[4]) / float(line_elements[3])) * 100.0
-            if iden >= identity and qcov >= coverage and scov >= coverage:
-                rv_hit = True
-                corresponding_rv_hit = line_elements[2].split('|')[-1]
-                all_hits_dict[corresponding_rv_hit] = [iden, scov, qcov]
-            elif 85 <= iden < identity and qcov >= coverage and scov >= coverage:
-                corresponding_rv_hit = line_elements[2].split('|')[-1]
-                notes[corresponding_rv_hit] = [iden, scov, qcov]
-            else:
-                continue
-        if rv_hit:
-            top_hit = get_top_hit(all_hits_dict)
-        elif len(list(all_hits_dict.keys())) != 0:
-            top_hit = 'MTB:' + get_top_hit(all_hits_dict)
-        else:
-            top_hit = None
-        return top_hit, all_hits_dict, notes
-
-
-def get_essential_genes(gene_essentiality_fp=None):
-    """
-    This functions gets a set of Essential genes in H37Rv reported by DeJesus, 2017
-    :param gene_essentiality_fp: Filepath to gene essentiality results (Default:
-    'resources/gene_essentiality_dejesus_2017.tsv')
-    :return: list od essential genes
-    """
-    # TODO : Checking for annotation validity against essential genes reported can be removed
-
-    essential_genes = []
-    if gene_essentiality_fp is None:
-        gene_essentiality_fp = 'resources/gene_essentiality_dejesus_2017.tsv'
-        gene_essentiality_raw = open(gene_essentiality_fp, 'r').readlines()
-        for line in gene_essentiality_raw:
-            line_elements = line.strip().split('\t')
-            if line_elements[1] == 'ES':
-                essential_genes.append(line_elements[0])
-    else:
-        gene_essentiality_raw = open(gene_essentiality_fp, 'r').readlines()
-        essential_genes = [line.strip() for line in gene_essentiality_raw]
-    return essential_genes
-
-
 def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_locus_dict, reference_locus_gene_dict,
                                        ref_temp_fasta_dict, ratt_blast_results, reference_locus_list,
                                        seq_ident, seq_covg,
@@ -936,16 +799,18 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
     if 'gene' not in feature.qualifiers.keys():
         mod_feature = feature
     else:
-        feature_seq = str(feature.qualifiers['translation'][0])
+        feature_seq = Seq(feature.qualifiers['translation'][0])
         if feature.qualifiers['gene'][0] in reference_locus_gene_dict.keys():
             locus_tag = feature.qualifiers['gene'][0]
             prokka_blast_list.append(locus_tag)
-            retain_rv_annotation, blast_stats = blast_feature_sequence_to_ref(feature_seq, locus_tag,
-                                                                              reference_locus_list=reference_locus_list,
-                                                                              ref_temp_fasta_dict=ref_temp_fasta_dict,
-                                                                              seq_ident=seq_ident,
-                                                                              seq_covg=seq_covg)
-            if retain_rv_annotation:
+            blast_stats = BLAST.blastp(
+                query = SeqRecord(feature_seq),
+                subject = ref_temp_fasta_dict[locus_tag],
+                seq_ident = seq_ident,
+                seq_covg = seq_covg,
+            )[0]
+            if blast_stats:
+                blast_stats = BLAST.summarize(blast_stats)[locus_tag]
                 mod_feature = feature
                 if check_ratt:
                     if locus_tag in ratt_features and locus_tag not in ratt_blast_results.keys():
@@ -991,9 +856,9 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                             else:
                                 prom_mutation = True
                         if prom_mutation is True:
-                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
-                                                        int(ratt_blast_results[locus_tag][2]))
-                            prokka_coverage_measure = abs(int(blast_stats[1]) - int(blast_stats[2]))
+                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag]['scov']) -
+                                                        int(ratt_blast_results[locus_tag]['qcov']))
+                            prokka_coverage_measure = abs(int(blast_stats['scov']) - int(blast_stats['qcov']))
                             if ratt_coverage_measure < prokka_coverage_measure:
                                 do_not_add_prokka = True
                                 remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
@@ -1007,10 +872,10 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                 do_not_add_prokka = False
                             elif ratt_coverage_measure == prokka_coverage_measure:
                                 # Checking for identity if coverage is the same
-                                if int(ratt_blast_results[locus_tag][0]) > int(blast_stats[0]):
+                                if int(ratt_blast_results[locus_tag]['iden']) > int(blast_stats['iden']):
                                     do_not_add_prokka = True
                                     remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
-                                elif int(blast_stats[0]) > int(ratt_blast_results[locus_tag][0]):
+                                elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
                                     logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
                                     if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
                                         ratt_rejects.append(
@@ -1038,12 +903,14 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
         elif feature.qualifiers['gene'][0] in reference_gene_locus_dict.keys():
             locus_tag = reference_gene_locus_dict[feature.qualifiers['gene'][0]]
             prokka_blast_list.append(locus_tag)
-            retain_rv_annotation, blast_stats = blast_feature_sequence_to_ref(feature_seq, locus_tag,
-                                                                              reference_locus_list=reference_locus_list,
-                                                                              ref_temp_fasta_dict=ref_temp_fasta_dict,
-                                                                              seq_ident=seq_ident,
-                                                                              seq_covg=seq_covg)
-            if retain_rv_annotation:
+            blast_stats = BLAST.blastp(
+                query = SeqRecord(feature_seq),
+                subject = ref_temp_fasta_dict[locus_tag],
+                seq_ident = seq_ident,
+                seq_covg = seq_covg,
+            )[0]
+            if blast_stats:
+                blast_stats = BLAST.summarize(blast_stats)[locus_tag]
                 mod_feature = feature
                 if check_ratt:
                     if locus_tag in ratt_features and locus_tag not in ratt_blast_results.keys():
@@ -1089,9 +956,9 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                             else:
                                 prom_mutation = True
                         if prom_mutation is True:
-                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag][1]) -
-                                                        int(ratt_blast_results[locus_tag][2]))
-                            prokka_coverage_measure = abs(int(blast_stats[1]) - int(blast_stats[2]))
+                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag]['scov']) -
+                                                        int(ratt_blast_results[locus_tag]['qcov']))
+                            prokka_coverage_measure = abs(int(blast_stats['scov']) - int(blast_stats['qcov']))
                             if ratt_coverage_measure < prokka_coverage_measure:
                                 do_not_add_prokka = True
                                 remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
@@ -1105,10 +972,10 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                 do_not_add_prokka = False
                             elif ratt_coverage_measure == prokka_coverage_measure:
                                 # Checking for identity if coverage is the same
-                                if int(ratt_blast_results[locus_tag][0]) > int(blast_stats[0]):
+                                if int(ratt_blast_results[locus_tag]['iden']) > int(blast_stats['iden']):
                                     do_not_add_prokka = True
                                     remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
-                                elif int(blast_stats[0]) > int(ratt_blast_results[locus_tag][0]):
+                                elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
                                     logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
                                     if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
                                         ratt_rejects.append(
@@ -1136,42 +1003,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
         else:
             mod_feature = feature
     return mod_feature, do_not_add_prokka, remark
-
-
-def blast_ratt_anno_with_prokka_ltag(ratt_overlap_feature, prokka_overlap_feature, seq_ident, seq_covg):
-    """
-
-    :param ratt_overlap_feature:
-    :param prokka_overlap_feature:
-    :return:
-    """
-
-    hybran_tmp_dir = config.hybran_tmp_dir
-    same_gene = False
-    fp = tempfile.NamedTemporaryFile(suffix='_ratt.fasta',
-                                     dir=hybran_tmp_dir,
-                                     delete=False,
-                                     mode='w')
-    header = '>' + str(ratt_overlap_feature.qualifiers['locus_tag'][0]) + '\n'
-    seq = str(ratt_overlap_feature.qualifiers['translation'][0])
-    fp.write(header)
-    fp.write(seq)
-    fp.close()
-    prokka_seq = str(prokka_overlap_feature.qualifiers['translation'][0])
-    try:
-        blast_to_ratt_rv = NcbiblastpCommandline(subject=fp.name, outfmt='"7 qseqid qlen sseqid slen qlen length pident'
-                                                                         ' qcovs"')
-        stdout_rv, stderr_rv = blast_to_ratt_rv(stdin=prokka_seq)
-        is_hit = True
-    except Bio.Application.ApplicationError:
-        is_hit = False
-    if is_hit:
-        hit, all_hits, note = identify_top_hits_mtb(stdout_rv, identity=seq_ident, coverage=seq_covg)
-        if len(all_hits) == 0:
-            same_gene = False
-        else:
-            same_gene = True
-    return same_gene
 
 
 def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict, reference_locus_list,
@@ -1603,7 +1434,7 @@ def run_prodigal(reference_genome, outfile):
 
 
 def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
-        illumina=False, fill_gaps=True, check_mtb=False, mtb_fasta_fp='', essentiality=False):
+        illumina=False, fill_gaps=True):
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
     <output_merged_genes> from the commandline. The log file output stats about the features that are added to the
@@ -1626,10 +1457,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     checked and dnaA might not be the first gene.
     :param fill_gaps: Flag to fill gaps in annotation from prokka no-reference. Default is true. If set to false,
     unannotated regions will not be check against prokka noreference run.
-    :param check_mtb: Flag to check if genes should be blasted against existing set of novel genes. Default is false
-    and if set to True, mtb_fasta_fp should be provided.
-    :param mtb_fasta_fp: File path for amino acid fasta of novel genes.
-    :param essentiality: Check annotation of essential genes in isolate
     :return: EMBL record (SeqRecord) of annotated isolate
     """
 
@@ -2031,11 +1858,14 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                 # If Prokka feature is annotated as an L_tag and not a gene, blast it with
                                 # overlapping Rv and then Blast it with reference to get the closer hit
                                 if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
-                                    check_if_same_gene = blast_ratt_anno_with_prokka_ltag(ratt_overlapping_feature,
-                                                                                          prokka_feature,
-                                                                                          seq_ident=seq_ident,
-                                                                                          seq_covg=seq_covg)
-                                    if check_if_same_gene:
+                                    ratt_prokka_hits = BLAST.blastp(
+                                        query=SeqRecord(Seq(prokka_feature.qualifiers['translation'][0])),
+                                        subject=SeqRecord(Seq(ratt_overlapping_feature.qualifiers['translation'][0]),
+                                                          id=ratt_overlapping_feature.qualifiers['locus_tag'][0]),
+                                        seq_ident=seq_ident,
+                                        seq_covg=seq_covg,
+                                    )[0]
+                                    if ratt_prokka_hits:
                                         prokka_feature.qualifiers['gene'] = \
                                             ratt_overlapping_feature.qualifiers['locus_tag']
 
@@ -2208,66 +2038,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     continue
                 else:
                     prokka_rec.features.append(feature)
-        # Blasting unannotated CDSs from Prokka with H37Rv
-        # TODO: Delete this part. This is for internal use where unannotated genes are blasted to previously assigned
-        # novel genes to transfer annotation.
-        if check_mtb and len(mtb_fasta_fp) == 0:
-            logger.warning('File path for novel genes not specified')
-        elif check_mtb:
-            mtb_fasta = mtb_fasta_fp
-            for feature in prokka_rec.features:
-                if feature.type == 'CDS' and (('gene' not in feature.qualifiers.keys() and
-                                               ('L_' in feature.qualifiers['locus_tag'][0] or
-                                                'L2_' in feature.qualifiers['locus_tag'][0])) or
-                                              ('gene' in feature.qualifiers.keys() and
-                                               '_' in feature.qualifiers['gene'][0] and
-                                               'L2_' in feature.qualifiers['locus_tag'][0])):
-                    query_sequence = feature.qualifiers['translation'][0]
-                    blast_to_mtb = NcbiblastpCommandline(subject=mtb_fasta, outfmt='"7 qseqid qlen sseqid slen qlen '
-                                                                                   'length pident qcovs"')
-                    stdout_2, stderr_2 = blast_to_mtb(stdin=query_sequence)
-                    mtb_hit, all_hits_mtb = identify_top_hits_mtb(stdout_2, identity=seq_ident, coverage=seq_covg, mtb=True)
-                    for gene in all_hits_mtb.keys():
-                        note = 'locus_tag:' + gene + ':' + str(all_hits_mtb[gene])
-                        if 'note' in feature.qualifiers.keys():
-                            feature.qualifiers['note'].append(note)
-                        else:
-                            feature.qualifiers['note'] = [note]
         # Adding translated sequence to RATT annotations
         for feature in prokka_rec.features:
             if feature.type == 'CDS' and 'translation' not in feature.qualifiers.keys():
                 feature_sequence = translate(feature.extract(record_sequence), table=11, to_stop=True)
                 feature.qualifiers['translation'] = [feature_sequence]
-        # Verifying annotations for essential genes
-        if essentiality:
-            essential_genes = get_essential_genes()
-            all_rv_genes_in_isolate = []
-            for feature in prokka_rec.features:
-                if feature.type == 'CDS':
-                    locus_tag = feature.qualifiers['locus_tag'][0]
-                    if locus_tag[:2] == 'Rv':
-                        all_rv_genes_in_isolate.append(locus_tag)
-                        if 'gene' not in feature.qualifiers.keys() and locus_tag in reference_locus_gene_dict.keys():
-                            feature.qualifiers['gene'] = [reference_locus_gene_dict[locus_tag]]
-                    new_locus_tag = feature.qualifiers['locus_tag'][0]
-                    if 'gene' not in feature.qualifiers.keys():
-                        feature.qualifiers['gene'] = [new_locus_tag]
-                    else:
-                        if '_' in feature.qualifiers['gene'][0] and (feature.qualifiers['gene'][0][:2] != 'L_' or
-                                                                 feature.qualifiers['gene'][0][:3] != 'L2_'):
-                            if '_' not in feature.qualifiers['locus_tag'][0]:
-                                feature.qualifiers['locus_tag'] = [new_locus_tag]
-                            else:
-                                new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
-                                feature.qualifiers['locus_tag'] = [new_locus_tag]
-                                feature.qualifiers['gene'] = [new_locus_tag]
-                    if new_locus_tag in essential_genes:
-                        rv_length = ref_protein_lengths[new_locus_tag]
-                        feature_length = len(feature.qualifiers['translation'][0])
-                        feature_coverage = float(feature_length)/float(rv_length)
-                        if feature_coverage <= 0.95:
-                            logger.warning('Essential gene ' + new_locus_tag + ' is truncated in isolate ' +
-                                         isolate_id + '. Coverage: ' + str(feature_coverage*100))
         # Get remaining unannotated region
         if add_noref_annotations:
             ordered_features_final = get_ordered_features(prokka_rec.features)

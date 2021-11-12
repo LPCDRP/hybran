@@ -32,19 +32,41 @@ def test_isolate_valid_ratt_annotations(filter):
         seq_ident = seq_covg = 0
 
     annomerge.record_sequence = SeqIO.read("/grp/valafar/data/genomes/1-0009.fasta",format="fasta").seq
-    expected = {True : (
-        [Rv0001],
-        {"Rv0001": [99.803, 100.0, 100.0]},
-        [(Rv2434c, "compound location"),
-         (Rv0071, "No blastp hit to corresponding reference CDS at specified thresholds."),
-         (Rv3020c, "No blastp hit to corresponding reference CDS at specified thresholds.")]
-    ),
-                False : ([Rv0001, Rv0071, Rv3020c],
-                         {"Rv0001": [99.803, 100.0, 100.0],
-                          "Rv0071": [35.714, 5.957446808510639, 3.977272727272727],
-                          "Rv3020c": [0.0, 0.0, 0.0]},
-                         [(Rv2434c, "compound location")])
-                }
+    expected = {
+        True : (
+            [Rv0001],
+            {
+                "Rv0001": {
+                    'iden': 99.803,
+                    'scov': 100.0,
+                    'qcov': 100.0
+                },
+            },
+            [(Rv2434c, "compound location"),
+             (Rv0071, "No blastp hit to corresponding reference CDS at specified thresholds."),
+             (Rv3020c, "No blastp hit to corresponding reference CDS at specified thresholds.")]
+        ),
+        False : (
+            [Rv0001, Rv0071, Rv3020c],
+            {
+                "Rv0001": {
+                    'iden': 99.803,
+                    'scov': 100.0,
+                    'qcov': 100.0,
+                },
+                "Rv0071": {
+                    'iden': 45.0,
+                    'scov': 7.659574468085106,
+                    'qcov': 5.681818181818182,
+                },
+                "Rv3020c": {
+                    'iden': 0.0,
+                    'scov': 0.0,
+                    'qcov': 0.0,
+                },
+            },
+            [(Rv2434c, "compound location")])
+    }
 
     assert annomerge.isolate_valid_ratt_annotations(feature_list,
                                              ref_temp_fasta_dict,

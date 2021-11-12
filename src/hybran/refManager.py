@@ -59,9 +59,10 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
     # Ref:locus_tag:gene_name
     existing_generigenes_fasta = os.path.join(dedupe_tmp,
                                               'preexisting_generigenes.fasta')
-    parseClustering.find_unannotated_genes(
+    extractor.subset_fasta(
         ref_cdss_all_fp,
         outseq = existing_generigenes_fasta,
+        match = extractor.is_unannotated,
         identify = lambda _: _.split(':')[2]
     )
     increment = parseClustering.find_largest_mtb_increment(existing_generigenes_fasta)
