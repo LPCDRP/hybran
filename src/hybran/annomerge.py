@@ -800,108 +800,12 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
         mod_feature = feature
     else:
         feature_seq = Seq(feature.qualifiers['translation'][0])
-        if feature.qualifiers['gene'][0] in reference_locus_gene_dict.keys():
-            locus_tag = feature.qualifiers['gene'][0]
-            prokka_blast_list.append(locus_tag)
-            blast_stats = BLAST.blastp(
-                query = SeqRecord(feature_seq),
-                subject = ref_temp_fasta_dict[locus_tag],
-                seq_ident = seq_ident,
-                seq_covg = seq_covg,
-            )[0]
-            if blast_stats:
-                blast_stats = BLAST.summarize(blast_stats)[locus_tag]
-                mod_feature = feature
-                if check_ratt:
-                    if locus_tag in ratt_features and locus_tag not in ratt_blast_results.keys():
-                        mod_feature = feature
-                    elif locus_tag not in ratt_features:
-                        mod_feature = feature
-                    elif locus_tag in ratt_features and locus_tag in ratt_blast_results.keys():
-                        ratt_start = int(list(ratt_locations.values())[0][0])
-                        ratt_stop = int(list(ratt_locations.values())[0][1])
-                        prom_mutation = False
-                        if list(ratt_locations.values())[0][2] == 1:
-                            if ratt_start == 0:
-                                ratt_prom_end = len(record_sequence)
-                                ratt_prom_start = len(record_sequence) - 40
-                                ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-                            elif ratt_start < 40:
-                                ratt_prom_end = ratt_start
-                                prev_prom_len = 40 - ratt_prom_end
-                                ratt_prom_start = len(record_sequence) - prev_prom_len
-                                ratt_prom_seq = str(record_sequence[ratt_prom_start:len(record_sequence)]) + \
-                                                str(record_sequence[0:ratt_prom_end])
-                            else:
-                                ratt_prom_end = ratt_start
-                                ratt_prom_start = ratt_start - 40
-                                ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-                        else:
-                            ratt_prom_start = ratt_stop
-                            ratt_prom_end = ratt_stop + 40
-                            ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-                        blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[locus_tag],
-                                                                 outfmt='"7 qseqid sseqid pident length mismatch '
-                                                                        'gapopen qstart qend sstart send evalue '
-                                                                        'bitscore gaps"')
-                        stdout, stderr = blast_to_rv_prom(stdin=str(ratt_prom_seq))
-                        prom_blast_elements = stdout.split('\n')
-                        for line in prom_blast_elements:
-                            if line.startswith('#') or len(line) <= 1:
-                                continue
-                            blast_results = line.strip().split('\t')
-                            if float(blast_results[2]) == 100.0 and int(blast_results[3]) == 40:
-                                do_not_add_prokka = True
-                                remark = "sequence upstream of RATT's " + locus_tag + " is not mutated."
-                            else:
-                                prom_mutation = True
-                        if prom_mutation is True:
-                            ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag]['scov']) -
-                                                        int(ratt_blast_results[locus_tag]['qcov']))
-                            prokka_coverage_measure = abs(int(blast_stats['scov']) - int(blast_stats['qcov']))
-                            if ratt_coverage_measure < prokka_coverage_measure:
-                                do_not_add_prokka = True
-                                remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
-                            elif prokka_coverage_measure < ratt_coverage_measure:
-                                logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                                if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
-                                    ratt_rejects.append(
-                                        (ratt_contig_features_dict.pop(ratt_locations[locus_tag]),
-                                         'Prokka annotation for ' + feature.qualifiers['locus_tag'][0] + ' has better alignment coverage with the reference.')
-                                    )
-                                do_not_add_prokka = False
-                            elif ratt_coverage_measure == prokka_coverage_measure:
-                                # Checking for identity if coverage is the same
-                                if int(ratt_blast_results[locus_tag]['iden']) > int(blast_stats['iden']):
-                                    do_not_add_prokka = True
-                                    remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
-                                elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
-                                    logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                                    if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
-                                        ratt_rejects.append(
-                                            (ratt_contig_features_dict.pop(ratt_locations[locus_tag]),
-                                             'Prokka annotation for ' + feature.qualifiers['locus_tag'][0] + 'has higher identity with the reference and the same alignment coverage.')
-                                        )
-                                    do_not_add_prokka = False
-                                else:
-                                    # If RATT and Prokka annotations are same, choose RATT
-                                    do_not_add_prokka = True
-                                    remark = 'identical to RATT for ' + locus_tag
-                            else:
-                                do_not_add_prokka = False
-            else:
-                if loc_key in prokka_noref.keys():
-                    mod_feature = prokka_noref[loc_key]
-                    if 'gene' in mod_feature.qualifiers.keys():
-                        if 'gene_synonym' in mod_feature.qualifiers.keys():
-                            mod_feature.qualifiers['gene_synonym'].append(mod_feature.qualifiers['gene'])
-                        else:
-                            mod_feature.qualifiers['gene_synonym'] = mod_feature.qualifiers['gene']
-                    mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
-                else:
-                    mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
-        elif feature.qualifiers['gene'][0] in reference_gene_locus_dict.keys():
-            locus_tag = reference_gene_locus_dict[feature.qualifiers['gene'][0]]
+        if feature.qualifiers['gene'][0] in reference_locus_gene_dict.keys() or \
+           feature.qualifiers['gene'][0] in reference_gene_locus_dict.keys():
+            try:
+                locus_tag = reference_gene_locus_dict[feature.qualifiers['gene'][0]]
+            except KeyError:
+                locus_tag = feature.qualifiers['gene'][0]
             prokka_blast_list.append(locus_tag)
             blast_stats = BLAST.blastp(
                 query = SeqRecord(feature_seq),
