@@ -11,6 +11,11 @@
 ### Bugs fixed
 * eggnog-mapper step no longer gets skipped (#23)
 * alignment query coverage threshold is now applied directly in Prokka (#24)
+* Dropped criterion of excluding hypothetical genes from Prokka-no-reference (#30)
+* Fixed calculation of query and reference alignment coverage (#27).
+* Corrected selection of top blastp hits for the one-to-one and one-to-many searches.
+  When there were multiple hits in these cases, only the last one output by BLAST was being retained, which actually corresponds to the worst hit (by e-value).
+  We now retain only the first hit.
 
 
 ## [Version 1.2.0](https://gitlab.com/LPCDRP/hybran/-/tags/1.2.0)
