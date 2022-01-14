@@ -2,6 +2,8 @@
 
 ## Development
 
+## [Version 1.3.0](https://gitlab.com/LPCDRP/hybran/-/tags/1.3.0)
+
 ### Enhancements
 * Added `--dedupe-references` option to assign a single generic gene name to duplicate genes in the provided reference annotations.
 * Sequence identity and alignment coverage thresholds are no longer applied to RATT-transferred annotations by default. (#28)
