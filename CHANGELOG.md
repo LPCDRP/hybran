@@ -2,6 +2,9 @@
 
 ## Development
 
+### Bugs fixed
+* Updated the Prokka reference proteome generation format to enable Prokka to set gene names and product fields rather than leaving it to the final clustering step.
+
 ## [Version 1.3.0](https://gitlab.com/LPCDRP/hybran/-/tags/1.3.0)
 
 ### Enhancements

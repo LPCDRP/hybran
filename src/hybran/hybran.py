@@ -179,6 +179,7 @@ def main():
         genbank = first_reference_gbk,
         out_cds = ref_cds,
         out_genome = ref_genome,
+        describe = extractor.prokka_faa,
     )
 
 

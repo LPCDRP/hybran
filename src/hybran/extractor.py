@@ -22,9 +22,27 @@ def get_gene(feature):
         gene = get_ltag(feature)
     return gene
 
+def prokka_faa(feature):
+    """
+    Create fasta descriptions in Prokka format.
+    See https://github.com/tseemann/prokka#fasta-database-format
+    :param feature: sequence feature
+    :return: string representing fasta record description in prokka format
+    """
+    # Don't include EC for now.
+    # Not sure how to handle multiple EC numbers in Prokka faa format
+    # ec = feature.qualifiers['EC_number'][0]
+    ec = ''
+    try:
+        product = feature.qualifiers['product'][0]
+    except KeyError:
+        product = ''
+    return '~~~'.join([ec,get_gene(feature),product])
+
 def fastaFromGbk(genbank, out_cds, out_genome,
                  identify = lambda f: ':'.join([get_ltag(f),
                                                 get_gene(f)]),
+                 describe = lambda f: '',
                  ):
     """
     Extracts amino acid CDS sequences from a Genbank annotation file
@@ -32,6 +50,8 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     :param genbank:
     :param out_cds: file name or handle in which to write CDS sequences
     :param out_genome: file name or handle in which to write genome sequence
+    :param identify: function to apply to feature record to get fasta record ID
+    :param describe: function to apply to feature record to get fasta record description
     :return:
     """
     logger = logging.getLogger('FastaFromGbk')
@@ -46,12 +66,12 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                         seq_record = SeqRecord(
                             translate(feature.extract(record.seq), table=11, to_stop=True),
                             id=identify(feature),
-                            description='')
+                            description=describe(feature))
                     else:
                         seq_record = SeqRecord(
                             Seq(feature.qualifiers['translation'][0]),
                             id=identify(feature),
-                            description='')
+                            description=describe(feature))
                     seqs.append(seq_record)
     SeqIO.write(seqs, out_cds, 'fasta')
     SeqIO.write(seq, out_genome, 'fasta')
