@@ -2,6 +2,9 @@
 
 ## Development
 
+### Enhancements
+* Hybran version now recorded in the genbank annotation header.
+
 ### Bugs fixed
 * Updated the Prokka reference proteome generation format to enable Prokka to set gene names and product fields rather than leaving it to the final clustering step.
 

@@ -15,10 +15,9 @@ from . import \
     run, \
     annomerge, \
     converter, \
-    config
+    config, \
+    __version__
 
-
-__version__ = '1.3.0'
 
 
 def cmds():

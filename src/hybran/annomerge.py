@@ -1,5 +1,4 @@
 __author__ = "Deepika Gunasekaran"
-__version__ = "2.0.0"
 __maintainer__ = "Deepika Gunasekaran"
 __email__ = "dgunasekaran@sdsu.edu"
 __status__ = "Development"
@@ -32,6 +31,7 @@ import subprocess
 from . import BLAST
 from . import converter
 from . import config
+from . import __version__
 
 
 def log_feature_fate(feature, logfile, remark=""):
@@ -926,8 +926,6 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
     report = []
     logger = logging.getLogger('CorrectCoords')
     modified_prokka_record = prokka_record[:]
-    modified_prokka_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab initio ' \
-                                                    'annotation from Prokka'
     modified_prokka_record.features = []
     modified_features = []
     # Write Rv genes to temp file
@@ -1597,8 +1595,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             add_prokka_contig_record = prokka_contig_record[:]
             add_prokka_contig_record.features = []
             num_feat = 0
-            add_prokka_contig_record.annotations['comment'] = 'Merged reference based annotation from RATT and ab ' \
-                                                              'initio annotation from Prokka'
             ratt_annotation_mapping = {}  # Used for resolving annotations of overlapping features between RATT and
             # Prokka
             for index, feature in enumerate(ratt_contig_record.features):
@@ -1864,6 +1860,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
     annomerge_records_post_processed = []
     for rec_num in range(0, len(annomerge_records)):
+        # TODO - replace version variable with importlib.version call (and probably url too) in python 3.8+
+        annomerge_records[rec_num].annotations['comment'] = "Annotated using hybran " + __version__ + " from https://lpcdrp.gitlab.io/hybran."
         prokka_rec = annomerge_records[rec_num]
         prokka_noref_rec_pre = prokka_record_noref[rec_num]
         prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict, record_sequence,
