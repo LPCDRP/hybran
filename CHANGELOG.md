@@ -2,6 +2,8 @@
 
 ## Development
 
+## [Version 1.3.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.3.1)
+
 ### Enhancements
 * Hybran version now recorded in the genbank annotation header.
 
