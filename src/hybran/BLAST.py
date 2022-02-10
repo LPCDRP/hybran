@@ -60,6 +60,10 @@ def blastp(query, subject, seq_ident, seq_covg):
                                               to BLAST hits meeting the thresholds
         - blast_rejects (:py:class:`list`) - list of tab-delimited strings corresponding
                                               to BLAST hits falling short of the thresholds
+    	- blast_truncation (:py:class:'list') - list of tab-delimited strings corresponding
+   					      to BLAST hits where %identity AND either qcov or scov
+					      meet the threshold, while the remaining coverage factor fails.
+
     """
     if isinstance(subject, SeqRecord):
         subject_id = subject.id
@@ -99,6 +103,7 @@ def blastp(query, subject, seq_ident, seq_covg):
     stdout += dummy_hit
     blast_filtered = []
     blast_rejects = []
+    blast_truncation = []
     for line in stdout.split('\n'):
         if line:
             column = line.split('\t')
@@ -113,11 +118,15 @@ def blastp(query, subject, seq_ident, seq_covg):
             column[0] = query.id
             if (identity >= seq_ident) and (qcov >= seq_covg) and (scov >= seq_covg):
                 blast_filtered.append('\t'.join(column))
+            elif (identity >= seq_ident) and (qcov >= seq_covg) and (scov <= seq_covg):
+                blast_truncation.append('\t'.join(column))
+            elif (identity >= seq_ident) and (qcov <= seq_covg) and (scov >= seq_covg):
+                blast_truncation.append('\t'.join(column))
             else:
                 # Capture the rejected hits
                 blast_rejects.append('\t'.join(column))
 
-    return blast_filtered, blast_rejects
+    return blast_filtered, blast_rejects, blast_truncation
 
 
 def iterate(fa, seq_list, nproc, seq_ident, seq_covg):

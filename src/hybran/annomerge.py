@@ -721,6 +721,12 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                 seq_ident = seq_ident,
                 seq_covg = seq_covg,
             )[0]
+            potential_truncation = BLAST.blastp(
+                query = SeqRecord(feature_seq),
+                subject = ref_temp_fasta_dict[locus_tag],
+                seq_ident = seq_ident,
+                seq_covg = seq_covg,
+            )[2]
             if blast_stats:
                 blast_stats = BLAST.summarize(blast_stats)[locus_tag]
                 mod_feature = feature
@@ -801,6 +807,10 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                     remark = 'identical to RATT for ' + locus_tag
                             else:
                                 do_not_add_prokka = False
+            elif potential_truncation:
+                BLAST.summarize(potential_truncation)[locus_tag]
+                #something something....need to create annomerge test and check the output
+                
             else:
                 if loc_key in prokka_noref.keys():
                     mod_feature = prokka_noref[loc_key]
