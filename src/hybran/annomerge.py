@@ -764,18 +764,12 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
             except KeyError:
                 locus_tag = feature.qualifiers['gene'][0]
             prokka_blast_list.append(locus_tag)
-            blast_stats = BLAST.blastp(
+            (blast_stats, blast_misses, truncation_signatures) = BLAST.blastp(
                 query = SeqRecord(feature_seq),
                 subject = ref_temp_fasta_dict[locus_tag],
                 seq_ident = seq_ident,
                 seq_covg = seq_covg,
-            )[0]
-            potential_truncation = BLAST.blastp(
-                query = SeqRecord(feature_seq),
-                subject = ref_temp_fasta_dict[locus_tag],
-                seq_ident = seq_ident,
-                seq_covg = seq_covg,
-            )[2]
+            )
             if blast_stats:
                 blast_stats = BLAST.summarize(blast_stats)[locus_tag]
                 mod_feature = feature
@@ -856,10 +850,13 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                     remark = 'identical to RATT for ' + locus_tag
                             else:
                                 do_not_add_prokka = False
-            elif potential_truncation:
-                BLAST.summarize(potential_truncation)[locus_tag]
-                #something something....need to create annomerge test and check the output
-                
+            elif truncation_signatures:
+                truncation_signatures = BLAST.summarize(truncation_signatures)[locus_tag]
+                # Low subject coverage but passing query coverage means that the gene
+                # is truncated in this sample. Tag it pseudo.
+                # TODO - consider setting this to 80% instead of seq_covg
+                if truncation_signatures['scov'] < seq_covg:
+                    mod_feature.qualifiers['pseudo'] = ['']
             else:
                 if loc_key in prokka_noref.keys():
                     mod_feature = prokka_noref[loc_key]

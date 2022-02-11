@@ -145,7 +145,7 @@ def test_validate_prokka_feature_annotation(feature):
     prokka_noref = dict()
     ratt_blast_results = dict()
     reference_locus_list = []
-    seq_ident = seq_covg = 95
+    seq_ident = seq_covg = 90
     ref_temp_fasta_dict = dict(
         Rv0205='gene-seqs/Rv0205.fasta',
         Rv0704='gene-seqs/Rv0704.fasta',
