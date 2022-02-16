@@ -9,7 +9,7 @@ emapper.py \
     --tax_scope 2  \
     --data_dir $emapper_loc \
     -i $hybran_tmp_dir/eggnog_seqs.fasta \
-    --output $hybran_tmp_dir/eggnog-mapper-annotations/mtb_diamond \
+    --output $hybran_tmp_dir/eggnog-mapper-annotations/generics_diamond \
     -m diamond \
     --go_evidence experimental \
     --seed_ortholog_evalue 0.000001 \
@@ -21,7 +21,7 @@ emapper.py \
     --tax_scope 2 \
     --data_dir $emapper_loc \
     -i $hybran_tmp_dir/eggnog_seqs.fasta \
-    --output $hybran_tmp_dir/eggnog-mapper-annotations/mtb_hmm \
+    --output $hybran_tmp_dir/eggnog-mapper-annotations/generics_hmm \
     -m hmmer \
     -d 2 \
     --evalue 0.000001 \

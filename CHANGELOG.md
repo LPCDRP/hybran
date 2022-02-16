@@ -3,6 +3,8 @@
 ## Development
 
 ### Enhancements
+* Generalized for non-TB bacteria
+  - now using "ORF" prefix for generic genes rather than "MTB"
 * Removed checking for dnaA as the first gene at the first base position.
 
 ### Bugs fixed

@@ -77,15 +77,6 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     SeqIO.write(seq, out_genome, 'fasta')
     return
 
-#
-# Helper functions for subset_fasta() that can be used for its `match` argument
-#
-def is_unannotated(name):
-    return name.startswith('MTB')
-
-def is_reference(name):
-    return not name.startswith(('MTB','L_','L2_'))
-
 def subset_fasta(inseq, outseq, match, identify = lambda _:_):
     """
     write a new fasta file containing only sequences with

@@ -3,23 +3,24 @@ import os
 from Bio import SeqIO
 from . import converter
 from . import config
+from . import designator
 
 def parse_eggnog():
     hybran_tmp_dir = config.hybran_tmp_dir
     orthologs_annotation = {}
     annotation_dict = {}
     orthologs_dict = {}
-    hmm_mtbs = []
+    hmm_generics = []
 
     for record in SeqIO.parse(hybran_tmp_dir + '/eggnog_seqs.fasta', 'fasta'):
-        hmm_mtbs.append(record.id)
-    with open(hybran_tmp_dir + '/eggnog-mapper-annotations/mtb_diamond.emapper'
+        hmm_generics.append(record.id)
+    with open(hybran_tmp_dir + '/eggnog-mapper-annotations/generics_diamond.emapper'
                               '.annotations', 'r') as diamond_results_annotation:
         for line in diamond_results_annotation:
             if line.startswith('#'):
                 continue
             line_elements = line.strip().split('\t')
-            if line_elements[0] in hmm_mtbs:
+            if line_elements[0] in hmm_generics:
                 continue
             if len(line_elements) < 13:
                 annotation = 'NA'
@@ -31,12 +32,12 @@ def parse_eggnog():
             dict_val = ('Eggnog:diamond-seed', line_elements[1], annotation)
             annotation_dict[line_elements[0]] = dict_val
 
-    annotated_mtbs = list(annotation_dict.keys())
+    annotated_generics = list(annotation_dict.keys())
     with open(hybran_tmp_dir +
-              '/eggnog-mapper-annotations/mtb_diamond.emapper.orthologs', 'r') as diamond_results_orthologs:
+              '/eggnog-mapper-annotations/generics_diamond.emapper.orthologs', 'r') as diamond_results_orthologs:
         for line in diamond_results_orthologs:
             line_elements = line.strip().split('\t')
-            if line_elements[0] in annotated_mtbs:
+            if line_elements[0] in annotated_generics:
                 continue
             if len(line_elements) < 2:
                 orthologs_dict[line_elements[0]] = ''
@@ -52,7 +53,7 @@ def parse_eggnog():
                     annotation_dict[line_elements[0]] = ('Eggnog:diamond-ortholog',
                                                          corresponding_rv,
                                                          orthologs_annotation[line_elements[0]])
-    with open(hybran_tmp_dir + '/eggnog-mapper-annotations/mtb_hmm.emapper.annotations',
+    with open(hybran_tmp_dir + '/eggnog-mapper-annotations/generics_hmm.emapper.annotations',
               'r') as hmm_results_annotation:
         for line in hmm_results_annotation:
             if line.startswith('#'):
@@ -68,11 +69,11 @@ def parse_eggnog():
             dict_val = ('Eggnog:hmm-seed', line_elements[1], annotation)
             annotation_dict[line_elements[0]] = dict_val
 
-    annotated_mtbs = list(annotation_dict.keys())
-    with open(hybran_tmp_dir + '/eggnog-mapper-annotations/mtb_hmm.emapper.orthologs', 'r') as hmm_results_orthologs:
+    annotated_generics = list(annotation_dict.keys())
+    with open(hybran_tmp_dir + '/eggnog-mapper-annotations/generics_hmm.emapper.orthologs', 'r') as hmm_results_orthologs:
         for line in hmm_results_orthologs:
             line_elements = line.strip().split('\t')
-            if line_elements[0] in annotated_mtbs:
+            if line_elements[0] in annotated_generics:
                 continue
             if len(line_elements) < 2:
                 orthologs_dict[line_elements[0]] = ''
@@ -117,8 +118,8 @@ def update_gbks(script_dir):
         output_fp = gbk
         counter = 1
         output_recs = []
-        rv_mtb_dict = {}
-        mtb_genes_in_isolate = {}
+        reference_generics_dict = {}
+        generic_genes_in_isolate = {}
         for record in SeqIO.parse(gbk_fp, 'genbank'):
             if counter > 1:
                 output_recs.append(record)
@@ -128,17 +129,17 @@ def update_gbks(script_dir):
             for feature in rec_features:
                 if feature.type != 'CDS':
                     continue
-                if not feature.qualifiers['gene'][0].startswith('MTB'):
+                if not designator.is_unannotated(feature.qualifiers['gene'][0]):
                     continue
                 if feature.qualifiers['gene'][0] not in annotations_to_add.keys():
                     continue
                 annotation_info = annotations_to_add[feature.qualifiers['gene'][0]]
                 rv_gene_id = annotation_info[1].split('.')[1]
-                mtb_genes_in_isolate[feature.qualifiers['gene'][0]] = rv_gene_id
-                if rv_gene_id in rv_mtb_dict.keys():
-                    rv_mtb_dict[rv_gene_id].append(feature.qualifiers['gene'][0])
+                generic_genes_in_isolate[feature.qualifiers['gene'][0]] = rv_gene_id
+                if rv_gene_id in reference_generics_dict.keys():
+                    reference_generics_dict[rv_gene_id].append(feature.qualifiers['gene'][0])
                 else:
-                    rv_mtb_dict[rv_gene_id] = [feature.qualifiers['gene'][0]]
+                    reference_generics_dict[rv_gene_id] = [feature.qualifiers['gene'][0]]
                 new_note = annotation_info[0] + ':' + annotation_info[1].split('.')[1]
                 if 'note' not in feature.qualifiers.keys():
                     feature.qualifiers['note'] = [new_note]
@@ -154,18 +155,18 @@ def update_gbks(script_dir):
             for feature in rec_features:
                 if feature.type != 'CDS':
                     continue
-                if feature.qualifiers['gene'][0] not in mtb_genes_in_isolate.keys():
+                if feature.qualifiers['gene'][0] not in generic_genes_in_isolate.keys():
                     continue
                 else:
                     annotation_info = annotations_to_add[feature.qualifiers['gene'][0]]
                     eggnog_gene = annotation_info[1].split('.')[1]
                     eggnog_annotation = annotation_info[2]
-                    corresponding_rv = mtb_genes_in_isolate[feature.qualifiers['gene'][0]]
-                    num_of_unique_mtbs = set(rv_mtb_dict[corresponding_rv])
-                    if len(num_of_unique_mtbs) > 1:
+                    corresponding_rv = generic_genes_in_isolate[feature.qualifiers['gene'][0]]
+                    num_of_unique_generics = set(reference_generics_dict[corresponding_rv])
+                    if len(num_of_unique_generics) > 1:
                         feature.qualifiers['note'].append(
-                            'This Rv is possibly split across multiple CDSs: Multiple MTBs '
-                            'in this isolate annotated with same Rv by EggNOG')
+                            'This reference gene is possibly split across multiple CDSs: Multiple generic ORFs '
+                            'in this isolate annotated with same reference gene ID by EggNOG')
                     elif 'PE' not in eggnog_annotation and \
                             'PPE' not in eggnog_annotation and \
                             eggnog_gene not in pe_ppe_rv_list:
