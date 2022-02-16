@@ -61,7 +61,12 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                                 if not locus_tag.startswith('Rv') and not locus_tag.startswith('L'):
                                     gene = locus_tag
                                 isolate_id_ltag[gene_id] = (locus_tag, gene)
-                        gff_dictionary[isolate_id] = isolate_id_ltag
+                        if not isolate_id in gff_dictionary.keys():
+                            gff_dictionary[isolate_id] = isolate_id_ltag
+                        # this is the case if the reference genome itself is being processed as a sample,
+                        # which one would do if wanting the annotation updated with ab initio predictions in the gaps
+                        else:
+                            gff_dictionary[isolate_id].update(isolate_id_ltag)
             except IOError:
                 continue
         return gff_dictionary
@@ -330,7 +335,8 @@ def unique_seqs(annotations):
         if gff.endswith('.gff'):
             raw_out = grep_seqs(gff)
             gff_name = os.path.splitext(os.path.basename(gff))[0]
-            isolate_seqs[gff_name] = {}
+            if not gff_name in isolate_seqs.keys():
+                isolate_seqs[gff_name] = {}
             for line in raw_out:
                 if line.split('\t')[2] == 'CDS':
                     gene = None
