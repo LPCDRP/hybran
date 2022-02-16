@@ -211,39 +211,6 @@ def generate_feature_dictionary(feature_list):
     return sorted_feature_dict
 
 
-def check_for_dnaA(feature_list):
-    """
-    This function takes as input a list of features and checks if the genome was circularized and if dnaA
-    is the first annotated CDS in the annotation file.
-    :param feature_list: List of features in the RATT annotation record (SeqFeature objects)
-    :return: None
-    """
-
-    logger = logging.getLogger('VerifyDnaA')
-    logger.debug('Checking if dnaA is the first CDS')
-    feature_dictionary = generate_feature_dictionary(feature_list)
-    for cds in feature_dictionary.keys():
-        if feature_dictionary[cds].type != 'CDS':
-            continue
-        # Checks for both 'Rv0001' if reference is H37Rv, else looks for dnaA in the gene_name
-        if 'gene' not in feature_dictionary[cds].qualifiers.keys():
-            gene_name = feature_dictionary[cds].qualifiers['locus_tag'][0]
-        else:
-            gene_name = feature_dictionary[cds].qualifiers['gene'][0]
-        if feature_dictionary[cds].qualifiers['locus_tag'][0] != 'Rv0001' and gene_name != 'dnaA':
-            logger.error('DnaA is not the first gene in this genome. Possible circularization error')
-            logger.error('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
-            sys.exit()
-        elif (feature_dictionary[cds].qualifiers['locus_tag'][0] == 'Rv0001' or gene_name == 'dnaA') and \
-                int(feature_dictionary[cds].location.start) == 0:
-            break
-        else:
-            logger.error('DnaA is the first gene in this genome. But the position is off.')
-            logger.error('Exiting Annomerge. If you do not want dnaA check use the -illumina flag.')
-            sys.exit()
-    return
-
-
 def get_ratt_corrected_genes(ratt_report_fp, reference_gene_list):
     """
     This function parses through the RATT results and gets the gene for which the start/stop coordinates
@@ -1336,7 +1303,7 @@ def run_prodigal(reference_genome, outfile):
 
 
 def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
-        illumina=False, fill_gaps=True):
+        fill_gaps=True):
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
     <output_merged_genes> from the commandline. The log file output stats about the features that are added to the
@@ -1355,8 +1322,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     :param reference_genome: File path for nucleotide fasta of assembled genome
     :param script_dir: Directory where hybran scripts are located
     :param ratt_enforce_thresholds: boolean - whether to enforce seq_ident/seq_covg for RATT-transferred annotations
-    :param illumina: Flag to check circularization. Default is False. If set to True, circularization with not be
-    checked and dnaA might not be the first gene.
     :param fill_gaps: Flag to fill gaps in annotation from prokka no-reference. Default is true. If set to false,
     unannotated regions will not be check against prokka noreference run.
     :return: EMBL record (SeqRecord) of annotated isolate
@@ -1494,10 +1459,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                            os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv'))
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
-        if i == 0 and not illumina:
-            check_for_dnaA(ratt_contig_features)
-        if illumina:
-            logger.debug('DnaA might not be the first element. Circularization is not checked')
         global ratt_corrected_genes
         if len(ratt_correction_files) == 1:
             error_correction_fp = ratt_correction_files[0]

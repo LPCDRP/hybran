@@ -2,6 +2,9 @@
 
 ## Development
 
+### Enhancements
+* Removed checking for dnaA as the first gene at the first base position.
+
 ### Bugs fixed
 * Allow input fasta files with alternative standard extensions.
 * Fixed handling of reference annotations that may not have /gene qualifiers for all annotations.
