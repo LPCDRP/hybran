@@ -194,7 +194,7 @@ def main():
     all_genomes = []
     genomes = []
     for genome in args.genomes:
-        if genome.endswith('.fasta') and not genome.startswith('ref'):
+        if any([genome.endswith('.' + ext) for ext in fileManager.exts['fasta']]) and genome != 'ref.fasta':
             filename = os.path.splitext(genome)[0]
             samplename = os.path.basename(filename)
             annomerge_gbk = os.path.join(args.output, samplename, 'annomerge', samplename + '.gbk')

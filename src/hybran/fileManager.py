@@ -6,6 +6,11 @@ from . import converter
 from . import config
 
 
+exts = dict(
+    fasta=['fna', 'fasta', 'fa'],
+    genbank=['gbk','gbf','gb'],
+)
+
 def file_list(glist, file_type="fasta"):
     """
     parse a genome list argument, which may contain individual file names, a directory,
@@ -14,10 +19,6 @@ def file_list(glist, file_type="fasta"):
     :param file_type: str file format to look for. fasta or genbank
     :return genomes: a list of absolute paths
     """
-    exts = dict(
-        fasta=['fna', 'fasta', 'fa'],
-        genbank=['gbk','gbf','gb'],
-    )
     if os.path.isdir(glist[0]):
         genomes = []
         for ext in exts[file_type]:

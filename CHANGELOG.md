@@ -2,6 +2,10 @@
 
 ## Development
 
+### Bugs fixed
+* Allow input fasta files with alternative standard extensions.
+
+
 ## [Version 1.3.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.3.1)
 
 ### Enhancements
