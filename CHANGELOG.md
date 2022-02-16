@@ -4,7 +4,7 @@
 
 ### Bugs fixed
 * Allow input fasta files with alternative standard extensions.
-
+* Fixed handling of reference annotations that may not have /gene qualifiers for all annotations.
 
 ## [Version 1.3.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.3.1)
 
