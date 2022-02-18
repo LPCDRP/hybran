@@ -19,7 +19,8 @@ def assign_orf_id(increment):
 def find_largest_increment(fasta):
     """
     Based on a given unannotated FASTA, identifies the highest
-    numbered increment in a list of numbered features
+    numbered ORF increment in a list of numbered features and returns
+    the next number to use.
 
     :param fasta: FASTA file name
     :return: int
@@ -29,7 +30,7 @@ def find_largest_increment(fasta):
         records.append(record.id)
     if records:
         last_orf = sorted(records)[-1]
-        return int(last_orf.replace(generic_orf_prefix, ''))
+        return int(last_orf.replace(generic_orf_prefix, '')) + 1
     else:
         return 1
 
