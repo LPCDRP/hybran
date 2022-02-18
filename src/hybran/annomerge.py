@@ -260,6 +260,38 @@ def rename_locus(gene, strand, reference_locus_list):
     return new_gene_name
 
 
+def process_split_genes(flist):
+    """
+    Given a list of features ordered by genomic position, return a reduced
+    list excluding second+ fragments of split genes (keeping the first only)
+    :param flist: list of SeqFeature objects
+    :return: list of SeqFeature objects excluding gene fragments
+    """
+    prevGene = None
+    j = 0
+    reduced_list = []
+    reject_list = []
+    for feature in flist:
+        # check for truncation note
+        if truncated:
+            if gene == prevGene:
+                # get rid of the previous ORF that we previously accepted
+                # because it's the *downstream* fragment
+                # <---B--- (seen first) <----A--- (seen last)
+                if strand == '-':
+                    reject_list.append(reduced_list.pop())
+                else:
+                    reject_list.append(feature)
+                    continue
+            else:
+                reduced_list.append(gene)
+        else:
+            reduced_list.append(gene)
+        prevGene = gene
+
+    return reduced_list, reject_list
+
+
 def identify_merged_genes(ratt_features):
     """
     This function takes as input a list features annotated in RATT and identifies instances of merged CDS
@@ -1992,6 +2024,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 ratt_rejects.append((ratt_annotation, remark))
                 output_isolate_recs[0].features.append(prokka_annotation)
         ordered_feats = get_ordered_features(output_isolate_recs[0].features)
+        (ordered_feats, rejected_fragments) = process_split_genes(ordered_feats)
         output_isolate_recs[0].features = ordered_feats[:]
 
     with open(ratt_rejects_logfile, 'w') as ratt_rejects_log:
