@@ -11,6 +11,7 @@
 * Removed checking for dnaA as the first gene at the first base position.
 
 ### Bugs fixed
+* Account for pseudogenes labeled with 'pseudo' qualifier instead of 'pseudogene'
 * Allow input fasta files with alternative standard extensions.
 * Fixed handling of reference annotations that may not have /gene qualifiers for all annotations.
 * Fixed handling of input genome when it's the same as the reference.

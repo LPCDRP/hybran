@@ -145,7 +145,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
         if record.features:
             for feature in record.features:
                 if feature.type == 'CDS':
-                    if 'pseudogene' in feature.qualifiers:
+                    if 'pseudo' or 'pseudogene' in feature.qualifiers:
                         seq_record = SeqRecord(
                             translate(feature.extract(record.seq), table=genetic_code, to_stop=True),
                             id=identify(feature),
