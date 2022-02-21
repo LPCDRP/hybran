@@ -3,7 +3,7 @@ import os
 
 from Bio import SeqIO
 
-from . import CDHIT, extractor, parseClustering
+from . import CDHIT, designator, extractor, parseClustering
 
 
 def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
@@ -54,7 +54,7 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
     )
 
 
-    # look for existing MTB* names in our gene names,
+    # look for existing generic names in our gene names,
     # which are the third token in the colon-delimited string
     # Ref:locus_tag:gene_name
     existing_generigenes_fasta = os.path.join(dedupe_tmp,
@@ -62,10 +62,10 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
     extractor.subset_fasta(
         ref_cdss_all_fp,
         outseq = existing_generigenes_fasta,
-        match = extractor.is_unannotated,
+        match = designator.is_unannotated,
         identify = lambda _: _.split(':')[2]
     )
-    increment = parseClustering.find_largest_mtb_increment(existing_generigenes_fasta)
+    increment = designator.find_next_increment(existing_generigenes_fasta)
 
 
     subs = defaultdict(dict)
@@ -118,7 +118,7 @@ def name_cluster(cluster, increment, subs, subs_report):
                     in the form Ref:locus_tag:gene_name
     :param increment: last used number from the generic genes counter
     :param subs: nested dictionary giving the name to substitute for a locus tag in
-                 a referene. Ex: subs['H37Rv']['Rv1164'] = 'MTB0001'
+                 a reference. Ex: subs['H37Rv']['Rv1164'] = 'ORF0001'
     :param subs_report: str in which to append tab-delimited summary of substitutions
                         in the following format:
                         Reference  locus_tag  original_gene_name  new_generic_name
@@ -136,8 +136,7 @@ def name_cluster(cluster, increment, subs, subs_report):
         if len(set(actual_gene_names)) == 1:
             name = actual_gene_names[0]
         else:
-            name = 'MTB' + "%04g" % (1 + increment)
-            increment += 1
+            (name, increment) = designator.assign_orf_id(increment)
 
         for i in range(len(cluster)):
             if gene_names[i] != name:

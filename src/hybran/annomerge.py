@@ -464,7 +464,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     valid_features = []
     logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds)))
     for cds_feature in unbroken_cds:
-        feature_sequence = translate(cds_feature.extract(record_sequence), table=11, to_stop=True)
+        feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
         if len(feature_sequence) == 0:
             rejects.append((cds_feature, "length of AA sequence is 0"))
@@ -978,8 +978,8 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                 mod_strand = int(feature_prokka.location.strand)
                                 mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end),
                                                                        strand=mod_strand)
-                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=True)
-                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=False)
+                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=True)
+                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=False)
                                 if len(mod_feature_seq) == len(check_feature_seq) - 1:
                                     mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                     modified_features.append(mod_feature)
@@ -1020,9 +1020,9 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                             mod_end = int(feature_prokka.location.end)
                                             mod_strand = int(feature_prokka.location.strand)
                                             mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end), strand=mod_strand)
-                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=11,
+                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
                                                                         to_stop=True)
-                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=11,
+                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
                                                                           to_stop=False)
                                             if len(mod_feature_seq) == len(check_feature_seq) - 1:
                                                 mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
@@ -1042,8 +1042,8 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                 mod_strand = int(feature_prokka.location.strand)
                                 mod_feature.location = FeatureLocation(ExactPosition(mod_start),
                                                                        ExactPosition(mod_end), strand=mod_strand)
-                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=True)
-                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=11, to_stop=False)
+                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=True)
+                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=False)
                                 if len(mod_feature_seq) == len(check_feature_seq) - 1:
                                     mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
                                     modified_features.append(mod_feature)
@@ -1086,9 +1086,9 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                             mod_feature.location = FeatureLocation(ExactPosition(mod_start),
                                                                                    ExactPosition(mod_end),
                                                                                    strand=mod_strand)
-                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=11,
+                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
                                                                         to_stop=True)
-                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=11,
+                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
                                                                           to_stop=False)
                                             if len(mod_feature_seq) == len(check_feature_seq) - 1:
                                                 mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
@@ -1330,6 +1330,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     hybran_tmp_dir = config.hybran_tmp_dir
     global script_dir
     script_dir = script_directory
+    global genetic_code
+    genetic_code = config.genetic_code
     logger = logging.getLogger('Annomerge')
     logger.debug('Running Annomerge on ' + isolate_id)
     start_time = time.time()
@@ -1904,7 +1906,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         # Adding translated sequence to RATT annotations
         for feature in prokka_rec.features:
             if feature.type == 'CDS' and 'translation' not in feature.qualifiers.keys():
-                feature_sequence = translate(feature.extract(record_sequence), table=11, to_stop=True)
+                feature_sequence = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
                 feature.qualifiers['translation'] = [feature_sequence]
         # Get remaining unannotated region
         if add_noref_annotations:

@@ -3,6 +3,11 @@
 ## Development
 
 ### Enhancements
+* Generalized for non-TB bacteria
+  - Genetic code and taxonomy ID detected from reference annotation.
+    RATT configuration is now automatically generated based on the
+    detected genetic code, so a configuration file is no longer bundled.
+  - Now using "ORF" prefix for generic genes rather than "MTB"
 * Removed checking for dnaA as the first gene at the first base position.
 
 ### Bugs fixed

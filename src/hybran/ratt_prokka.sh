@@ -6,6 +6,7 @@ isolate=$3
 ref_cds=$4
 nproc=$5
 qcov=$6
+gcode=$7
 
 set -x
 
@@ -23,18 +24,41 @@ wait
 
 if [ ! -f prokka/"$isolate".gbk ]
 then
-	prokka --genus Mycobacterium --kingdom bacteria --rfam --proteins "$ref_cds" --rnammer --gram pos --usegenus \
-	       --coverage "$qcov" \
-	--cpus "$nproc" --outdir prokka --prefix "$isolate" --force --centre C --locustag L --quiet "$fasta";
+    prokka \
+	--kingdom bacteria \
+	--rfam \
+	--proteins "$ref_cds" \
+	--rnammer  \
+	--coverage "$qcov" \
+	--gcode "$gcode" \
+	--cpus "$nproc" \
+	--outdir prokka \
+	--prefix "$isolate" \
+	--force \
+	--centre C \
+	--locustag L \
+	--quiet \
+	"$fasta";
 fi
 
 wait
 
 if [ ! -f prokka-noreference/"$isolate".gbk ]
 then
-	prokka --genus Mycobacterium --kingdom bacteria --rfam --rnammer --gram pos --usegenus --cpus "$nproc" \
-	       --coverage "$qcov" \
-	--outdir prokka-noreference --prefix "$isolate" --force --centre C --locustag L --quiet "$fasta";
+    prokka \
+	--kingdom bacteria \
+	--rfam \
+	--rnammer \
+	--cpus "$nproc" \
+	--coverage "$qcov" \
+	--gcode "$gcode" \
+	--outdir prokka-noreference \
+	--prefix "$isolate" \
+	--force \
+	--centre C \
+	--locustag L \
+	--quiet \
+	"$fasta";
 fi
 
 wait

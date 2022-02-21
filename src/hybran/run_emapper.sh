@@ -3,13 +3,14 @@
 nproc=$1
 emapper_loc=$2
 hybran_tmp_dir=$3
+ref_taxon="$4"
 
 emapper.py \
     --override \
-    --tax_scope 2  \
+    --target_taxa "$ref_taxon"  \
     --data_dir $emapper_loc \
     -i $hybran_tmp_dir/eggnog_seqs.fasta \
-    --output $hybran_tmp_dir/eggnog-mapper-annotations/mtb_diamond \
+    --output $hybran_tmp_dir/eggnog-mapper-annotations/generics_diamond \
     -m diamond \
     --go_evidence experimental \
     --seed_ortholog_evalue 0.000001 \
@@ -18,10 +19,10 @@ emapper.py \
 
 emapper.py \
     --override \
-    --tax_scope 2 \
+    --target_taxa "$ref_taxon" \
     --data_dir $emapper_loc \
     -i $hybran_tmp_dir/eggnog_seqs.fasta \
-    --output $hybran_tmp_dir/eggnog-mapper-annotations/mtb_hmm \
+    --output $hybran_tmp_dir/eggnog-mapper-annotations/generics_hmm \
     -m hmmer \
     -d 2 \
     --evalue 0.000001 \

@@ -19,7 +19,6 @@ from . import \
     __version__
 
 
-
 def cmds():
     """
     argparse parse input provided by the user
@@ -173,6 +172,9 @@ def main():
         first_reference_embl = os.path.splitext(args.first_gbk)[0] + '.embl'
     ref_cds     = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
     ref_genome  = os.path.join(hybran_tmp_dir, 'ref.fasta')
+    genetic_code = extractor.get_genetic_code(first_reference_gbk)
+    config.set_genetic_code(genetic_code)
+    logger.info('Using genetic code ' + str(genetic_code) + ' as detected in reference annotation.')
     logger.info('Creating a reference proteome FASTA for Prokka from ' + first_reference_gbk)
     extractor.fastaFromGbk(
         genbank = first_reference_gbk,
@@ -186,6 +188,7 @@ def main():
     # but only if the user hasn't defined their own
     if 'RATT_CONFIG' not in os.environ:
         os.environ['RATT_CONFIG'] = os.path.join(script_dir,'RATT.config')
+        config.ratt(os.environ['RATT_CONFIG'], genetic_code)
 
 
     # Calling all steps for Hybran
@@ -205,6 +208,7 @@ def main():
                 run.ratt_prokka(ref_dir=embl_dir,
                                 fasta=genome,
                                 ref_cds=ref_cds,
+                                gcode=genetic_code,
                                 script_dir=script_dir,
                                 cpus=args.nproc,
                                 qcov=args.coverage_threshold)
@@ -233,10 +237,14 @@ def main():
                        nproc=args.nproc,
                        seq_ident=args.identity_threshold,
                        seq_covg=args.coverage_threshold)
-        if 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
+        tax_id = extractor.get_taxonomy_id(first_reference_gbk)
+        if tax_id and 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
+            ref_gene_dict = extractor.gene_dict(first_reference_gbk)
             run.eggnog_mapper(script_dir=script_dir,
                               nproc=args.nproc,
                               emapper_loc=args.database_dir,
+                              ref_tax_id = tax_id,
+                              ref_gene_dict = ref_gene_dict,
                               temp_dir=hybran_tmp_dir)
         else:
             logger.info('No genes to be annotated with eggnog, continuing')

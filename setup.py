@@ -9,8 +9,6 @@ setup(
     entry_points=dict(console_scripts=['hybran = hybran.hybran:main', ]),
     package_data={'hybran': [
         '*.sh',
-        'RATT.config',
-        'resources/*',
     ]},
     install_requires=['biopython', ],
     test_suite='nose.collector',

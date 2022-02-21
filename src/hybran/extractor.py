@@ -1,7 +1,9 @@
 import logging
 import os
 import subprocess
+from urllib.error import HTTPError
 
+from Bio import Entrez
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
@@ -21,6 +23,84 @@ def get_gene(feature):
     except KeyError:
         gene = get_ltag(feature)
     return gene
+
+def get_genetic_code(genbank):
+    """
+    Find genetic code from annotation file
+    """
+
+    # default to standard bacterial genetic code
+    # if we don't find anything different.
+    gcode = 11
+
+    for record in SeqIO.parse(genbank, 'genbank'):
+        if record.features:
+            for feature in record.features:
+                if 'transl_table' in feature.qualifiers:
+                    gcode = int(feature.qualifiers['transl_table'][0])
+                    break
+
+    return gcode
+
+def gene_dict(genbank):
+    """
+    Create a dictionary mapping locus tags to gene names
+
+    :param genbank: genbank annotation file name
+    :return: dict
+    """
+
+    genes = dict()
+
+    for record in SeqIO.parse(genbank, 'genbank'):
+        if record.features:
+            for feature in record.features:
+                if feature.type == 'CDS':
+                    genes[get_ltag(feature)] = get_gene(feature)
+
+    return genes
+
+def get_taxonomy_id(genbank):
+    """
+    Attempt to find the NCBI Taxonomy ID from the genbank accession number
+
+    :param genbank: reference genbank annotation file
+    :return: str tax_id corresponding to the annotation file, or None
+             if the query failed.
+    """
+    logger = logging.getLogger('GetReferenceTaxonomyID')
+    gb = SeqIO.read(genbank, format="genbank")
+    Entrez.email = 'A.N.Other@example.com'
+    tax_id = None
+
+    # if organism isn't specific (strain level), this won't be what we want
+    #organism = gb.description
+    #tax_id = Entrez.read(
+    #    Entrez.esearch(db = "Taxonomy", term = organism)
+    #)
+
+    accession = gb.id
+    try:
+        nuc_record = Entrez.read(
+            Entrez.efetch(
+                db="nucleotide",
+                id=accession,
+                retmode="xml",
+            )
+        )[0]
+        tax = [_['GBQualifier_value'] for _ in nuc_record['GBSeq_feature-table'][0]['GBFeature_quals']
+               if _['GBQualifier_value'].startswith('taxon:')][0]
+        if tax:
+            tax_id = tax.split(':')[1]
+    except HTTPError:
+        pass
+
+    if tax_id:
+        logger.info("Using taxonomy ID " + str(tax_id) + " for " + accession)
+    else:
+        logger.warning("Could not find a taxonomy ID for '" + accession + "'.")
+
+    return tax_id
 
 def prokka_faa(feature):
     """
@@ -56,6 +136,9 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     """
     logger = logging.getLogger('FastaFromGbk')
     seqs = []
+    # this is a bit circular, but I don't want to deal with the first CDS
+    # possibly being a pseudogene.
+    genetic_code = get_genetic_code(genbank)
     for record in SeqIO.parse(genbank, 'genbank'):
         seq = SeqRecord(record.seq, id=os.path.splitext(os.path.basename(genbank))[0],
                         description='')
@@ -64,7 +147,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                 if feature.type == 'CDS':
                     if 'pseudogene' in feature.qualifiers:
                         seq_record = SeqRecord(
-                            translate(feature.extract(record.seq), table=11, to_stop=True),
+                            translate(feature.extract(record.seq), table=genetic_code, to_stop=True),
                             id=identify(feature),
                             description=describe(feature))
                     else:
@@ -76,15 +159,6 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     SeqIO.write(seqs, out_cds, 'fasta')
     SeqIO.write(seq, out_genome, 'fasta')
     return
-
-#
-# Helper functions for subset_fasta() that can be used for its `match` argument
-#
-def is_unannotated(name):
-    return name.startswith('MTB')
-
-def is_reference(name):
-    return not name.startswith(('MTB','L_','L2_'))
 
 def subset_fasta(inseq, outseq, match, identify = lambda _:_):
     """
