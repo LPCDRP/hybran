@@ -5,7 +5,7 @@ import subprocess
 from . import extractor, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
 from . import config
 
-def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus, qcov):
+def ratt_prokka(ref_dir, fasta, ref_cds, gcode, script_dir, cpus, qcov):
     """
     Executes RATT and Prokka that resides in ratt_prokka.sh
     File IO is handled by ratt_prokka.sh
@@ -13,6 +13,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus, qcov):
     :param ref_dir: str directory that houses the EMBL reference(s)
     :param fasta: str FASTA file name that needs to be annotated
     :param ref_cds: str FASTA proteome of the reference for Prokka
+    :param gcode: int NCBI genetic code table ID
     :param script_dir: str absolute path to ratt_prokka.sh
     :param cpus: str number of processors/cpus
     :param qcov: int minimum % query coverage (Prokka doesn't have a way of setting ref coverage)
@@ -42,6 +43,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, script_dir, cpus, qcov):
                ref_cds,
                str(cpus),
                str(qcov),
+               str(gcode),
                ]
         subprocess.call(cmd)
         os.chdir(c)

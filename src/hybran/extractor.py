@@ -24,6 +24,24 @@ def get_gene(feature):
         gene = get_ltag(feature)
     return gene
 
+def get_genetic_code(genbank):
+    """
+    Find genetic code from annotation file
+    """
+
+    # default to standard bacterial genetic code
+    # if we don't find anything different.
+    gcode = 11
+
+    for record in SeqIO.parse(genbank, 'genbank'):
+        if record.features:
+            for feature in record.features:
+                if 'transl_table' in feature.qualifiers:
+                    gcode = int(feature.qualifiers['transl_table'][0])
+                    break
+
+    return gcode
+
 def gene_dict(genbank):
     """
     Create a dictionary mapping locus tags to gene names
@@ -118,6 +136,9 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     """
     logger = logging.getLogger('FastaFromGbk')
     seqs = []
+    # this is a bit circular, but I don't want to deal with the first CDS
+    # possibly being a pseudogene.
+    genetic_code = get_genetic_code(genbank)
     for record in SeqIO.parse(genbank, 'genbank'):
         seq = SeqRecord(record.seq, id=os.path.splitext(os.path.basename(genbank))[0],
                         description='')
@@ -126,7 +147,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                 if feature.type == 'CDS':
                     if 'pseudogene' in feature.qualifiers:
                         seq_record = SeqRecord(
-                            translate(feature.extract(record.seq), table=11, to_stop=True),
+                            translate(feature.extract(record.seq), table=genetic_code, to_stop=True),
                             id=identify(feature),
                             description=describe(feature))
                     else:
