@@ -24,6 +24,24 @@ def get_gene(feature):
         gene = get_ltag(feature)
     return gene
 
+def gene_dict(genbank):
+    """
+    Create a dictionary mapping locus tags to gene names
+
+    :param genbank: genbank annotation file name
+    :return: dict
+    """
+
+    genes = dict()
+
+    for record in SeqIO.parse(genbank, 'genbank'):
+        if record.features:
+            for feature in record.features:
+                if feature.type == 'CDS':
+                    genes[get_ltag(feature)] = get_gene(feature)
+
+    return genes
+
 def get_taxonomy_id(genbank):
     """
     Attempt to find the NCBI Taxonomy ID from the genbank accession number

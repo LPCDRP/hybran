@@ -44,14 +44,14 @@ def parse_eggnog(ref_tax_id):
             else:
                 orthologs = line_elements[1].split(',')
                 orthologs_dict[line_elements[0]] = orthologs
-                corresponding_rv = ''
+                corresponding_ref = ''
                 for ort in orthologs:
                     if ref_tax_id in ort:
-                        corresponding_rv = ort
+                        corresponding_ref = ort
                         break
-                if len(corresponding_rv) > 0:
+                if len(corresponding_ref) > 0:
                     annotation_dict[line_elements[0]] = ('Eggnog:diamond-ortholog',
-                                                         corresponding_rv,
+                                                         corresponding_ref,
                                                          orthologs_annotation[line_elements[0]])
     with open(hybran_tmp_dir + '/eggnog-mapper-annotations/generics_hmm.emapper.annotations',
               'r') as hmm_results_annotation:
@@ -80,44 +80,28 @@ def parse_eggnog(ref_tax_id):
             else:
                 orthologs = line_elements[1].split(',')
                 orthologs_dict[line_elements[0]] = orthologs
-                corresponding_rv = ''
+                corresponding_ref = ''
                 for ort in orthologs:
                     if ref_tax_id in ort:
-                        corresponding_rv = ort
+                        corresponding_ref = ort
                         break
-                if len(corresponding_rv) > 0:
+                if len(corresponding_ref) > 0:
                     annotation_dict[line_elements[0]] = ('Eggnog:hmm-ortholog',
-                                                         corresponding_rv,
+                                                         corresponding_ref,
                                                          orthologs_annotation[line_elements[0]])
     return annotation_dict
 
 
-def update_gbks(script_dir, ref_tax_id):
+def update_gbks(ref_tax_id, ref_gene_dict):
     """
     Update isolate annotation files with additional reference gene names
     mapped via eggnog
 
     :param ref_tax_id: NCBI taxonomy ID of the reference
+    :param ref_gene_dict: dict mapping reference locus tags to gene names
     """
 
-    def h37rv_gene_names():
-        pe_ppe_rv = []
-        pe_ppe_gene = []
-        genes_dict = {}
-        rv_genes = os.sep.join([script_dir,'resources','tuberculist_genes.tsv'])
-        with open(rv_genes, 'r') as gene_file:
-            for line in gene_file:
-                column = line.rstrip('\n').split('\t')
-                if 'locus_tag' in column[0]:
-                    header = column
-                    continue
-                genes_dict[column[0]] = column[1]
-                if 'PE/PPE' in column[header.index('functional_category')]:
-                    pe_ppe_rv.append(column[0])
-                    pe_ppe_gene.append(column[1])
-        return pe_ppe_rv, pe_ppe_gene, genes_dict
     annotations_to_add = parse_eggnog(ref_tax_id=ref_tax_id)
-    pe_ppe_rv_list, pe_ppe_gene_list, h37rv_genes = h37rv_gene_names()
     gbks = [gbk for gbk in os.listdir(os.getcwd()) if gbk.endswith('.gbk')]
     for gbk in gbks:
         gbk_fp = gbk
@@ -140,12 +124,12 @@ def update_gbks(script_dir, ref_tax_id):
                 if feature.qualifiers['gene'][0] not in annotations_to_add.keys():
                     continue
                 annotation_info = annotations_to_add[feature.qualifiers['gene'][0]]
-                rv_gene_id = annotation_info[1].split('.')[1]
-                generic_genes_in_isolate[feature.qualifiers['gene'][0]] = rv_gene_id
-                if rv_gene_id in reference_generics_dict.keys():
-                    reference_generics_dict[rv_gene_id].append(feature.qualifiers['gene'][0])
+                ref_gene_id = annotation_info[1].split('.')[1]
+                generic_genes_in_isolate[feature.qualifiers['gene'][0]] = ref_gene_id
+                if ref_gene_id in reference_generics_dict.keys():
+                    reference_generics_dict[ref_gene_id].append(feature.qualifiers['gene'][0])
                 else:
-                    reference_generics_dict[rv_gene_id] = [feature.qualifiers['gene'][0]]
+                    reference_generics_dict[ref_gene_id] = [feature.qualifiers['gene'][0]]
                 new_note = annotation_info[0] + ':' + annotation_info[1].split('.')[1]
                 if 'note' not in feature.qualifiers.keys():
                     feature.qualifiers['note'] = [new_note]
@@ -167,17 +151,15 @@ def update_gbks(script_dir, ref_tax_id):
                     annotation_info = annotations_to_add[feature.qualifiers['gene'][0]]
                     eggnog_gene = annotation_info[1].split('.')[1]
                     eggnog_annotation = annotation_info[2]
-                    corresponding_rv = generic_genes_in_isolate[feature.qualifiers['gene'][0]]
-                    num_of_unique_generics = set(reference_generics_dict[corresponding_rv])
+                    corresponding_ref = generic_genes_in_isolate[feature.qualifiers['gene'][0]]
+                    num_of_unique_generics = set(reference_generics_dict[corresponding_ref])
                     if len(num_of_unique_generics) > 1:
                         feature.qualifiers['note'].append(
                             'This reference gene is possibly split across multiple CDSs: Multiple generic ORFs '
                             'in this isolate annotated with same reference gene ID by EggNOG')
-                    elif 'PE' not in eggnog_annotation and \
-                            'PPE' not in eggnog_annotation and \
-                            eggnog_gene not in pe_ppe_rv_list:
+                    else:
                         try:
-                            feature.qualifiers['gene'][0] = h37rv_genes[eggnog_gene]
+                            feature.qualifiers['gene'][0] = ref_gene_dict[eggnog_gene]
                         except KeyError:
                             feature.qualifiers['gene'][0] = eggnog_gene
             output_recs.append(record)

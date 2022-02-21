@@ -235,10 +235,12 @@ def main():
                        seq_covg=args.coverage_threshold)
         tax_id = extractor.get_taxonomy_id(first_reference_gbk)
         if tax_id and 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
+            ref_gene_dict = extractor.gene_dict(first_reference_gbk)
             run.eggnog_mapper(script_dir=script_dir,
                               nproc=args.nproc,
                               emapper_loc=args.database_dir,
                               ref_tax_id = tax_id,
+                              ref_gene_dict = ref_gene_dict,
                               temp_dir=hybran_tmp_dir)
         else:
             logger.info('No genes to be annotated with eggnog, continuing')
