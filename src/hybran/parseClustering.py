@@ -780,7 +780,7 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
         outseq = generic_genes_fp,
         match = designator.is_unannotated,
     )
-    orf_increment = designator.find_largest_increment(fasta=generic_genes_fp)
+    orf_increment = designator.find_next_increment(fasta=generic_genes_fp)
     logger.info('Parsing ' + clusters)
     clusters = parse_clustered_proteins(clustered_proteins=clusters,
                                         annotations=target_gffs)

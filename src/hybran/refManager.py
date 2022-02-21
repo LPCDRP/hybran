@@ -65,7 +65,7 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
         match = designator.is_unannotated,
         identify = lambda _: _.split(':')[2]
     )
-    increment = designator.find_largest_increment(existing_generigenes_fasta)
+    increment = designator.find_next_increment(existing_generigenes_fasta)
 
 
     subs = defaultdict(dict)

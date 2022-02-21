@@ -16,7 +16,7 @@ def assign_orf_id(increment):
     increment += 1
     return orf_id, increment
 
-def find_largest_increment(fasta):
+def find_next_increment(fasta):
     """
     Based on a given unannotated FASTA, identifies the highest
     numbered ORF increment in a list of numbered features and returns
