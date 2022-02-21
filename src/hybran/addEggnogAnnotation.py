@@ -5,7 +5,7 @@ from . import converter
 from . import config
 from . import designator
 
-def parse_eggnog():
+def parse_eggnog(ref_tax_id):
     hybran_tmp_dir = config.hybran_tmp_dir
     orthologs_annotation = {}
     annotation_dict = {}
@@ -26,7 +26,7 @@ def parse_eggnog():
                 annotation = 'NA'
             else:
                 annotation = line_elements[-1]
-            if '.Rv' not in line_elements[1]:
+            if ref_tax_id not in line_elements[1]:
                 orthologs_annotation[line_elements[0]] = annotation
                 continue
             dict_val = ('Eggnog:diamond-seed', line_elements[1], annotation)
@@ -46,7 +46,7 @@ def parse_eggnog():
                 orthologs_dict[line_elements[0]] = orthologs
                 corresponding_rv = ''
                 for ort in orthologs:
-                    if '83332.Rv' in ort:
+                    if ref_tax_id in ort:
                         corresponding_rv = ort
                         break
                 if len(corresponding_rv) > 0:
@@ -63,7 +63,7 @@ def parse_eggnog():
                 annotation = 'NA'
             else:
                 annotation = line_elements[-1]
-            if '.Rv' not in line_elements[1]:
+            if ref_tax_id not in line_elements[1]:
                 orthologs_annotation[line_elements[0]] = annotation
                 continue
             dict_val = ('Eggnog:hmm-seed', line_elements[1], annotation)
@@ -82,7 +82,7 @@ def parse_eggnog():
                 orthologs_dict[line_elements[0]] = orthologs
                 corresponding_rv = ''
                 for ort in orthologs:
-                    if '83332.Rv' in ort:
+                    if ref_tax_id in ort:
                         corresponding_rv = ort
                         break
                 if len(corresponding_rv) > 0:
@@ -92,7 +92,13 @@ def parse_eggnog():
     return annotation_dict
 
 
-def update_gbks(script_dir):
+def update_gbks(script_dir, ref_tax_id):
+    """
+    Update isolate annotation files with additional reference gene names
+    mapped via eggnog
+
+    :param ref_tax_id: NCBI taxonomy ID of the reference
+    """
 
     def h37rv_gene_names():
         pe_ppe_rv = []
@@ -110,7 +116,7 @@ def update_gbks(script_dir):
                     pe_ppe_rv.append(column[0])
                     pe_ppe_gene.append(column[1])
         return pe_ppe_rv, pe_ppe_gene, genes_dict
-    annotations_to_add = parse_eggnog()
+    annotations_to_add = parse_eggnog(ref_tax_id=ref_tax_id)
     pe_ppe_rv_list, pe_ppe_gene_list, h37rv_genes = h37rv_gene_names()
     gbks = [gbk for gbk in os.listdir(os.getcwd()) if gbk.endswith('.gbk')]
     for gbk in gbks:

@@ -1,7 +1,9 @@
 import logging
 import os
 import subprocess
+from urllib.error import HTTPError
 
+from Bio import Entrez
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
@@ -21,6 +23,48 @@ def get_gene(feature):
     except KeyError:
         gene = get_ltag(feature)
     return gene
+
+def get_taxonomy_id(genbank):
+    """
+    Attempt to find the NCBI Taxonomy ID from the genbank accession number
+
+    :param genbank: reference genbank annotation file
+    :return: str tax_id corresponding to the annotation file, or None
+             if the query failed.
+    """
+    logger = logging.getLogger('GetReferenceTaxonomyID')
+    gb = SeqIO.read(genbank, format="genbank")
+    Entrez.email = 'A.N.Other@example.com'
+    tax_id = None
+
+    # if organism isn't specific (strain level), this won't be what we want
+    #organism = gb.description
+    #tax_id = Entrez.read(
+    #    Entrez.esearch(db = "Taxonomy", term = organism)
+    #)
+
+    accession = gb.id
+    try:
+        nuc_record = Entrez.read(
+            Entrez.efetch(
+                db="nucleotide",
+                id=accession,
+                retmode="xml",
+            )
+        )[0]
+        tax = [_['GBQualifier_value'] for _ in nuc_record['GBSeq_feature-table'][0]['GBFeature_quals']
+               if _['GBQualifier_value'].startswith('taxon:')][0]
+        if tax:
+            tax_id = tax.split(':')[1]
+    except HTTPError:
+        pass
+
+    if tax_id:
+        logger.info("Using taxonomy ID " + str(tax_id) + " for " + accession)
+    else:
+        logger.warning("Could not find a taxonomy ID for '" + accession + "'.")
+
+    return tax_id
 
 def prokka_faa(feature):
     """

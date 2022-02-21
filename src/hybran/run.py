@@ -97,7 +97,7 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
                                             seq_covg=seq_covg)
 
 
-def eggnog_mapper(script_dir, nproc, emapper_loc, temp_dir):
+def eggnog_mapper(script_dir, nproc, emapper_loc, ref_tax_id, temp_dir):
     """
     Runs the run_emapper.sh which executes emapper.py for
     both diamond and hmmer algorithms. The shell script handles
@@ -106,6 +106,7 @@ def eggnog_mapper(script_dir, nproc, emapper_loc, temp_dir):
     :param script_dir: str absolute path to run_emapper.sh
     :param nproc: str number of processors
     :param emapper_loc: str absolute path to eggnog database
+    :param ref_tax_id: str NCBI taxonomy ID
     :param temp_dir: str path to Hybran temporary directory
     :return: None
     """
@@ -120,6 +121,8 @@ def eggnog_mapper(script_dir, nproc, emapper_loc, temp_dir):
     cmd = [os.sep.join([script_dir, 'run_emapper.sh']),
            str(nproc),
            emapper_loc,
-           temp_dir]
+           temp_dir,
+           ref_tax_id,
+           ]
     subprocess.call(cmd)
-    addEggnogAnnotation.update_gbks(script_dir)
+    addEggnogAnnotation.update_gbks(script_dir, ref_tax_id)
