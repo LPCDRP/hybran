@@ -31,6 +31,7 @@ import subprocess
 from . import BLAST
 from . import converter
 from . import config
+from . import designator
 from . import __version__
 
 
@@ -376,14 +377,11 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             feature_location = (int(feature.location.start), int(feature.location.end))
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
                 merged_features_string = ",".join(merged_gene_locus[feature_location])
-                if 'note' not in feature.qualifiers.keys():
-                    feature.qualifiers['note'] = ['The genes ' + merged_features_string +
-                                                  ' in reference) are merged in this isolate '
-                                                  '(annotation from Prokka)']
-                else:
-                    feature.qualifiers['note'].append('The genes ' + merged_features_string +
-                                                      ' in in reference) are merged in this isolate '
-                                                      '(annotation from Prokka)')
+                designator.append_qualifier(
+                    feature.qualifiers, 'note',
+                    'The genes ' + merged_features_string + ' in reference) are merged in this isolate '
+                    '(annotation from Prokka)'
+                )
                 merged_genes[feature.location.strand].remove(feature_location)
                 merged_features_addition.append(feature)
             else:
@@ -407,14 +405,11 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                                      new_feature.location.strand,
                                      reference_locus_list)
         new_feature.qualifiers['locus_tag'] = [new_gene_name]
-        if 'note' in new_feature.qualifiers.keys():
-            new_feature.qualifiers['note'].append('The genes ' + merged_features_string +
-                                                  ' in reference) are merged in this isolate '
-                                                  '(annotation from RATT)')
-        else:
-            new_feature.qualifiers['note'] = ['The genes ' + merged_features_string +
-                                              ' in reference) are merged in this isolate '
-                                              '(annotation from RATT)']
+        designator.append_qualifier(
+            new_feature.qualifiers, 'note',
+            'The genes ' + merged_features_string +
+            ' in reference) are merged in this isolate (annotation from RATT)'
+        )
         merged_features_addition.append(new_feature)
         merged_genes[new_feature.location.strand].remove(location)
     if len(merged_genes[-1]) > 0 or len(merged_genes[1]) > 0:
@@ -864,10 +859,11 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                 if loc_key in prokka_noref.keys():
                     mod_feature = prokka_noref[loc_key]
                     if 'gene' in mod_feature.qualifiers.keys():
-                        if 'gene_synonym' in mod_feature.qualifiers.keys():
-                            mod_feature.qualifiers['gene_synonym'].append(mod_feature.qualifiers['gene'])
-                        else:
-                            mod_feature.qualifiers['gene_synonym'] = mod_feature.qualifiers['gene']
+                        designator.append_qualifier(
+                            mod_feature.qualifiers,
+                            'gene_synonym',
+                            mod_feature.qualifiers['gene'][0]
+                        )
                     mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
                 else:
                     mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
@@ -1808,10 +1804,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             # TODO: check invalid?
                             ref_feat = mod_ref_feat
                         add_ref_note = 'This annotation is added from Prokka reference run'
-                        if 'note' in ref_feat.qualifiers.keys():
-                            ref_feat.qualifiers['note'].append(add_ref_note)
-                        else:
-                            ref_feat.qualifiers['note'] = [add_ref_note]
+                        designator.append_qualifier(ref_feat.qualifiers, 'note', add_ref_note)
                         add_features_from_prokka_ref.append(ref_feat)
 
             for prokka_ref_feat in add_features_from_prokka_ref:
@@ -1868,10 +1861,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     if loc_key in prokka_noref_dict.keys():
                         feature_noref = prokka_noref_dict[loc_key]
                         if 'gene' in feature_noref.qualifiers.keys():
-                            if 'gene_synonym' in feature_noref.qualifiers.keys():
-                                feature_noref.qualifiers['gene_synonym'].append(feature_noref.qualifiers['gene'])
-                            else:
-                                feature_noref.qualifiers['gene_synonym'] = feature_noref.qualifiers['gene']
+                            designator.append_qualifier(
+                                feature_noref.qualifiers,
+                                'gene_synonym',
+                                feature_noref.qualifiers['gene'][0]
+                            )
                             feature_noref.qualifiers['gene'] = feature_noref.qualifiers['locus_tag']
                     else:
                         feature_noref = feature
@@ -1940,10 +1934,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         elif 'gene' not in noref_feat.qualifiers.keys():
                             noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
                         add_noref_note = 'This annotation is added from Prokka no-reference run'
-                        if 'note' in noref_feat.qualifiers.keys():
-                            noref_feat.qualifiers['note'].append(add_noref_note)
-                        else:
-                            noref_feat.qualifiers['note'] = [add_noref_note]
+                        designator.append_qualifier(noref_feat.qualifiers, 'note', add_noref_note)
                         add_features_from_prokka_noref.append(noref_feat)
                         prokka_rec.features.append(noref_feat)
             logger.debug('To add from noref: ' + str(len(add_features_from_prokka_noref)))

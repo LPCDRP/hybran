@@ -728,10 +728,11 @@ def add_gene_names_to_gbk(generics, gbk_dir):
                             logger.debug('Discordant assignment of gene name')
                             logger.debug('Original gene name: ' + gene_name)
                             logger.debug('New gene name: ' + update_orf_dict[locus_tag])
-                            if 'gene_synonym' in feature.qualifiers.keys():
-                                gene_synonym.append(update_orf_dict[locus_tag])
-                            else:
-                                feature.qualifiers['gene_synonym'] = [update_orf_dict[locus_tag]]
+                            designator.append_qualifier(
+                                feature.qualifiers,
+                                'gene_synonym',
+                                update_orf_dict[locus_tag]
+                            )
                         modified_locus.append(locus_tag)
                     elif locus_tag in locus_to_update and locus_tag in modified_locus:
                         logger.debug('Updated locus tag previously')

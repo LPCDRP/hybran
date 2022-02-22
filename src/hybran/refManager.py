@@ -89,12 +89,11 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
                 if 'locus_tag' in feature.qualifiers.keys() and \
                    feature.qualifiers['locus_tag'][0] in subs[ref].keys():
                     if 'gene' in feature.qualifiers.keys():
-                        if 'gene_synonym' in feature.qualifiers.keys():
-                            feature.qualifiers['gene_synonym'].append(
-                                feature.qualifiers['gene'][0]
-                            )
-                        else:
-                            feature.qualifiers['gene_synonym'] = feature.qualifiers['gene'].copy()
+                        designator.append_qualifier(
+                            feature.qualifiers,
+                            'gene_synonym',
+                            feature_qualifiers['gene'][0]
+                        )
                         feature.qualifiers['gene'][0] = subs[ref][feature.qualifiers['locus_tag'][0]]
                     else:
                         feature.qualifiers['gene'] = [ subs[ref][feature.qualifiers['locus_tag'][0]] ]
