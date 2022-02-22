@@ -15,6 +15,7 @@ emapper.py \
     --go_evidence experimental \
     --seed_ortholog_evalue 0.000001 \
     --report_orthologs \
+    --temp_dir "$hybran_tmp_dir" \
     --cpu $nproc
 
 emapper.py \
@@ -29,4 +30,5 @@ emapper.py \
     --go_evidence experimental \
     --seed_ortholog_evalue 0.000001 \
     --report_orthologs \
+    --temp_dir "$hybran_tmp_dir" \
     --cpu $nproc
