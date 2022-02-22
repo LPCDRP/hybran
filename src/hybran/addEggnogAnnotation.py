@@ -25,7 +25,7 @@ def parse_eggnog(ref_tax_id):
             if len(line_elements) < 13:
                 annotation = 'NA'
             else:
-                annotation = line_elements[-1]
+                annotation = line_elements[10]
             if ref_tax_id not in line_elements[1]:
                 orthologs_annotation[line_elements[0]] = annotation
                 continue
@@ -62,7 +62,7 @@ def parse_eggnog(ref_tax_id):
             if len(line_elements) < 13:
                 annotation = 'NA'
             else:
-                annotation = line_elements[-1]
+                annotation = line_elements[10]
             if ref_tax_id not in line_elements[1]:
                 orthologs_annotation[line_elements[0]] = annotation
                 continue

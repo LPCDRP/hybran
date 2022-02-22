@@ -15,6 +15,7 @@
 * Allow input fasta files with alternative standard extensions.
 * Fixed handling of reference annotations that may not have /gene qualifiers for all annotations.
 * Fixed handling of input genome when it's the same as the reference.
+* Set proper field from which to draw eggnog-mapper annotations
 
 ## [Version 1.3.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.3.1)
 
