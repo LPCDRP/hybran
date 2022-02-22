@@ -92,7 +92,7 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
                         designator.append_qualifier(
                             feature.qualifiers,
                             'gene_synonym',
-                            feature_qualifiers['gene'][0]
+                            feature.qualifiers['gene'][0]
                         )
                         feature.qualifiers['gene'][0] = subs[ref][feature.qualifiers['locus_tag'][0]]
                     else:
