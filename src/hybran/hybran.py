@@ -16,6 +16,7 @@ from . import \
     annomerge, \
     converter, \
     config, \
+    designator, \
     __version__
 
 

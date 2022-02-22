@@ -1,7 +1,8 @@
-from io import StringIO
+import re
 
 from Bio import SeqIO
 
+from . import extractor
 
 generic_orf_prefix = 'ORF'
 
@@ -24,10 +25,21 @@ def assign_locus_tags(gbk, prefix):
 
     output_records = []
 
-    with StringIO() as fasta:
-        # Check for existing instances of this locus tag prefix
-        SeqIO.convert(gbk, "genbank", fasta, "fasta")
-        increment = find_next_increment(fasta, prefix=prefix)
+    # Check for existing instances of this locus tag prefix
+    # TODO - refactoring opportunity with find_next_increment()
+    ltags = []
+    delim = '_'
+    for ltag in extractor.gene_dict(gbk, cds_only=False).keys():
+        if ltag.startswith(prefix):
+            ltags.append(ltag)
+    if ltags:
+        # some annotations don't use the underscore to separate the prefix,
+        if not ltags[0].startswith(prefix + '_'):
+            delim = ''
+        ltag_numbers = [re.sub(rf'^{prefix}{delim}(\d+).*',r'\1', _) for _ in ltags]
+        increment = int(sorted(ltag_numbers)[-1]) + 1
+    else:
+        increment = 1
 
     old_to_new = dict()
     for record in SeqIO.parse(gbk, "genbank"):
@@ -35,7 +47,7 @@ def assign_locus_tags(gbk, prefix):
         for feature in record.features:
             if 'locus_tag' not in feature.qualifiers.keys():
                 continue
-            elif feature.qualifiers['locus_tag'][0].startswith(prefix+'_'):
+            elif feature.qualifiers['locus_tag'][0].startswith(prefix+delim):
                 continue
             else:
                 orig_locus_tag = feature.qualifiers['locus_tag'][0]
@@ -46,7 +58,7 @@ def assign_locus_tags(gbk, prefix):
                     feature.qualifiers['locus_tag'][0] = \
                         old_to_new[orig_locus_tag]
                 else:
-                    new_locus_tag = '_'.join([prefix, "%04g" % (increment)])
+                    new_locus_tag = delim.join([prefix, "%04g" % (increment)])
                     increment += 1
                     old_to_new[orig_locus_tag] = new_locus_tag
                     feature.qualifiers['locus_tag'][0] = new_locus_tag
@@ -73,6 +85,7 @@ def find_next_increment(fasta, prefix=generic_orf_prefix):
     the next number to use.
 
     :param fasta: FASTA file name
+    :param format: input file format
     :return: int
     """
     records = []
