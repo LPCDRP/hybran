@@ -42,11 +42,12 @@ def get_genetic_code(genbank):
 
     return gcode
 
-def gene_dict(genbank):
+def gene_dict(genbank, cds_only=True):
     """
     Create a dictionary mapping locus tags to gene names
 
     :param genbank: genbank annotation file name
+    :param cds_only: bool whether to only consider coding sequences
     :return: dict
     """
 
@@ -55,9 +56,8 @@ def gene_dict(genbank):
     for record in SeqIO.parse(genbank, 'genbank'):
         if record.features:
             for feature in record.features:
-                if feature.type == 'CDS':
+                if not cds_only or (cds_only and feature.type == 'CDS'):
                     genes[get_ltag(feature)] = get_gene(feature)
-
     return genes
 
 def get_taxonomy_id(genbank):

@@ -1,5 +1,8 @@
+import re
+
 from Bio import SeqIO
 
+from . import extractor
 
 generic_orf_prefix = 'ORF'
 
@@ -18,6 +21,52 @@ def append_qualifier(qualifiers, qual_name, qual_value):
     else:
         qualifiers[qual_name] = [qual_value]
 
+def assign_locus_tags(gbk, prefix):
+
+    output_records = []
+
+    # Check for existing instances of this locus tag prefix
+    # TODO - refactoring opportunity with find_next_increment()
+    ltags = []
+    n_digits = 5
+    delim = '_'
+    for ltag in extractor.gene_dict(gbk, cds_only=False).keys():
+        if ltag.startswith(prefix):
+            ltags.append(ltag)
+    if ltags:
+        # some annotations don't use the underscore to separate the prefix,
+        if not ltags[0].startswith(prefix + '_'):
+            delim = ''
+        ltag_numbers = [re.sub(rf'^{prefix}{delim}(\d+).*',r'\1', _) for _ in ltags]
+        n_digits = len(ltag_numbers[0])
+        increment = int(sorted(ltag_numbers)[-1]) + 1
+    else:
+        increment = 1
+
+    old_to_new = dict()
+    for record in SeqIO.parse(gbk, "genbank"):
+        output_records.append(record)
+        for feature in record.features:
+            if 'locus_tag' not in feature.qualifiers.keys():
+                continue
+            elif feature.qualifiers['locus_tag'][0].startswith(prefix+delim):
+                continue
+            else:
+                orig_locus_tag = feature.qualifiers['locus_tag'][0]
+                # For the case of multiple features that must have the
+                # same locus tag (like gene + mRNA + CDS + 5'UTR + ...)
+                # We want to use the same new locus tag for all of these.
+                if orig_locus_tag in old_to_new.keys():
+                    feature.qualifiers['locus_tag'][0] = \
+                        old_to_new[orig_locus_tag]
+                else:
+                    new_locus_tag = delim.join([prefix, f"%0{n_digits}g" % (increment)])
+                    increment += 1
+                    old_to_new[orig_locus_tag] = new_locus_tag
+                    feature.qualifiers['locus_tag'][0] = new_locus_tag
+
+    SeqIO.write(output_records, gbk, "genbank")
+
 def assign_orf_id(increment):
     """
     Format an ID string for a feature at the given count.
@@ -31,13 +80,14 @@ def assign_orf_id(increment):
     increment += 1
     return orf_id, increment
 
-def find_next_increment(fasta):
+def find_next_increment(fasta, prefix=generic_orf_prefix):
     """
     Based on a given unannotated FASTA, identifies the highest
     numbered ORF increment in a list of numbered features and returns
     the next number to use.
 
     :param fasta: FASTA file name
+    :param format: input file format
     :return: int
     """
     records = []
@@ -45,7 +95,7 @@ def find_next_increment(fasta):
         records.append(record.id)
     if records:
         last_orf = sorted(records)[-1]
-        return int(last_orf.replace(generic_orf_prefix, '')) + 1
+        return int(last_orf.replace(prefix, '')) + 1
     else:
         return 1
 

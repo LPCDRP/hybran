@@ -16,6 +16,7 @@ from . import \
     annomerge, \
     converter, \
     config, \
+    designator, \
     __version__
 
 
@@ -249,9 +250,10 @@ def main():
         else:
             logger.info('No genes to be annotated with eggnog, continuing')
 
-        for gbk in os.listdir(args.output):
-            if gbk.endswith('.gbk'):
-                converter.convert_gbk_to_gff(gbk)
+        for gbk in glob.glob(os.path.join(args.output,'*.gbk')):
+            isolate_id = os.path.basename(os.path.splitext(gbk)[0])
+            designator.assign_locus_tags(gbk, prefix=isolate_id)
+            converter.convert_gbk_to_gff(gbk)
 
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
