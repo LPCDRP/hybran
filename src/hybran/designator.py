@@ -28,6 +28,7 @@ def assign_locus_tags(gbk, prefix):
     # Check for existing instances of this locus tag prefix
     # TODO - refactoring opportunity with find_next_increment()
     ltags = []
+    n_digits = 5
     delim = '_'
     for ltag in extractor.gene_dict(gbk, cds_only=False).keys():
         if ltag.startswith(prefix):
@@ -37,6 +38,7 @@ def assign_locus_tags(gbk, prefix):
         if not ltags[0].startswith(prefix + '_'):
             delim = ''
         ltag_numbers = [re.sub(rf'^{prefix}{delim}(\d+).*',r'\1', _) for _ in ltags]
+        n_digits = len(ltag_numbers[0])
         increment = int(sorted(ltag_numbers)[-1]) + 1
     else:
         increment = 1
@@ -58,7 +60,7 @@ def assign_locus_tags(gbk, prefix):
                     feature.qualifiers['locus_tag'][0] = \
                         old_to_new[orig_locus_tag]
                 else:
-                    new_locus_tag = delim.join([prefix, "%04g" % (increment)])
+                    new_locus_tag = delim.join([prefix, f"%0{n_digits}g" % (increment)])
                     increment += 1
                     old_to_new[orig_locus_tag] = new_locus_tag
                     feature.qualifiers['locus_tag'][0] = new_locus_tag
