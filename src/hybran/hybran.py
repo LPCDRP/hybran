@@ -250,6 +250,8 @@ def main():
             logger.info('No genes to be annotated with eggnog, continuing')
 
         for gbk in os.listdir(args.output):
+            isolate_id = os.path.basename(os.path.splitext(gbk)[0])
+            designator.assign_locus_tags(gbk, prefix=isolate_id)
             if gbk.endswith('.gbk'):
                 converter.convert_gbk_to_gff(gbk)
 
