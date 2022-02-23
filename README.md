@@ -14,7 +14,6 @@ FASTAs, or a File Of FileNames (FOFN) of FASTAs.
 hybran                                                                          \
     --genomes /dir/to/FASTAs | in.fasta [in2.fasta in3.fasta ...] | fastas.fofn  \
     --references /dir/to/reference/annotation(s)                                 \
-    --eggnog-databases /dir/to/eggnog-mapper-database/data/                      \
     --output ./                                                                  \
     --nproc 2
 ```
@@ -24,7 +23,6 @@ A sample FASTA is available to demo hybran:
 hybran \
     --genomes sample/ \
     --references annotations/ \
-    --eggnog-databases eggnog-mapper/data/ \
     --output ./ \
     --nproc 4
 ```

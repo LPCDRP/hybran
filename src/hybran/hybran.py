@@ -47,7 +47,7 @@ def cmds():
     required.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
                           dest='database_dir',
-                          required=True)
+                          required=False)
     optional.add_argument('--dedupe-references',
                           action='store_true',
                           help='Identify duplicate genes in the reference annotations and assign one name to all copies.')
@@ -113,7 +113,8 @@ def main():
         exit(10)
 
     # Confirming all installations are valid
-    verifyInstallations.verify_installations(args.database_dir)
+    if args.database_dir:
+        verifyInstallations.verify_installations(args.database_dir)
 
     # Setting up logging
     start_time = time.time()
@@ -239,7 +240,7 @@ def main():
                        seq_ident=args.identity_threshold,
                        seq_covg=args.coverage_threshold)
         tax_id = extractor.get_taxonomy_id(first_reference_gbk)
-        if tax_id and 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
+        if args.database_dir and tax_id and 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
             ref_gene_dict = extractor.gene_dict(first_reference_gbk)
             run.eggnog_mapper(script_dir=script_dir,
                               nproc=args.nproc,
