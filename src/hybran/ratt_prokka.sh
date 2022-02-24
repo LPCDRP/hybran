@@ -31,7 +31,7 @@ then
 	--rnammer  \
 	`# rawproduct: prevents removal of gene name assignments when reference product field isn't specific` \
 	--rawproduct \
-	--coverage "$qcov" \
+	--coverage 0 \
 	--gcode "$gcode" \
 	--cpus "$nproc" \
 	--outdir prokka \
