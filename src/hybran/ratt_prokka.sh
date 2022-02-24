@@ -29,6 +29,8 @@ then
 	--rfam \
 	--proteins "$ref_cds" \
 	--rnammer  \
+	`# rawproduct: prevents removal of gene name assignments when reference product field isn't specific` \
+	--rawproduct \
 	--coverage "$qcov" \
 	--gcode "$gcode" \
 	--cpus "$nproc" \
