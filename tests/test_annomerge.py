@@ -13,11 +13,16 @@ def test_isolate_valid_ratt_annotations(filter):
     Rv0071.qualifiers = dict(locus_tag=["Rv0071"], codon_start=['1'], transl_table='11')
     Rv2434c =  SeqFeature(CompoundLocation([FeatureLocation(ExactPosition(2728810), ExactPosition(2729608), strand=-1), FeatureLocation(ExactPosition(2728376), ExactPosition(2728805), strand=-1)], 'join'), type='CDS', location_operator='join')
     Rv2434c.qualifiers = dict(locus_tag=["Rv2434c"], codon_start=['1'], transl_table='11')
+    # Rv0739 - compound CDS with internal stop codons in this isolate
+    Rv0739 = SeqFeature(CompoundLocation([FeatureLocation(ExactPosition(829165), ExactPosition(829201), strand=1), FeatureLocation(ExactPosition(829204), ExactPosition(829993), strand=1)], 'join'), type='CDS', location_operator='join')
+    Rv0739.qualifiers = dict(locus_tag=["Rv0739"], codon_start=['1'], transl_table='11')
     Rv3020c = SeqFeature(FeatureLocation(ExactPosition(3371022), ExactPosition(3371217), strand=-1), type='CDS')
     Rv3020c.qualifiers = dict(locus_tag=["Rv3020c"], codon_start=['1'], transl_table='11')
-    feature_list = [Rv0001, Rv0071, Rv2434c, Rv3020c]
-                   
-    
+    feature_list = [Rv0001, Rv0071, Rv0739, Rv2434c, Rv3020c]
+
+
+    annomerge.genetic_code = 11
+
     ref_temp_fasta_dict = dict(
         Rv0001  = 'gene-seqs/Rv0001.fasta',
         Rv0071  = 'gene-seqs/Rv0071.fasta',
@@ -34,7 +39,7 @@ def test_isolate_valid_ratt_annotations(filter):
     annomerge.record_sequence = SeqIO.read("/grp/valafar/data/genomes/1-0009.fasta",format="fasta").seq
     expected = {
         True : (
-            [Rv0001],
+            [Rv2434c, Rv0001],
             {
                 "Rv0001": {
                     'iden': 99.803,
@@ -42,12 +47,14 @@ def test_isolate_valid_ratt_annotations(filter):
                     'qcov': 100.0
                 },
             },
-            [(Rv2434c, "compound location"),
-             (Rv0071, "No blastp hit to corresponding reference CDS at specified thresholds."),
-             (Rv3020c, "No blastp hit to corresponding reference CDS at specified thresholds.")]
+            [
+                (Rv0739, "Multiple internal stop codons in compound CDS feature."),
+                (Rv0071, "No blastp hit to corresponding reference CDS at specified thresholds."),
+                (Rv3020c, "No blastp hit to corresponding reference CDS at specified thresholds."),
+            ]
         ),
         False : (
-            [Rv0001, Rv0071, Rv3020c],
+            [Rv2434c, Rv0001, Rv0071, Rv3020c],
             {
                 "Rv0001": {
                     'iden': 99.803,
@@ -65,11 +72,15 @@ def test_isolate_valid_ratt_annotations(filter):
                     'qcov': 0.0,
                 },
             },
-            [(Rv2434c, "compound location")])
+            [
+                (Rv0739, "Multiple internal stop codons in compound CDS feature."),
+            ]
+        )
     }
 
     assert annomerge.isolate_valid_ratt_annotations(feature_list,
                                              ref_temp_fasta_dict,
                                              reference_locus_list,
-                                             seq_ident, seq_covg) == \
-        expected[filter]
+                                             seq_ident, seq_covg) == expected[filter] \
+                                             and \
+                                             'pseudo' in feature_list[2].qualifiers.keys() and feature_list[2].qualifiers['pseudo'] == [''] # Rv0739
