@@ -131,11 +131,9 @@ def test_validate_prokka_feature_annotation(feature):
         )
     )
 
+    expected_feature = deepcopy(inputs[feature])
     if feature in ['Rv0205_1', 'Rv0205_2']:
-        expected_feature = deepcopy(inputs[feature])
         expected_feature.qualifiers['pseudo'] = ['']
-    else:
-        expected_feature = inputs[feature]
 
     expected = dict(
         Rv0205_1 = (expected_feature, False, ''),
@@ -166,7 +164,7 @@ def test_validate_prokka_feature_annotation(feature):
 
     annomerge.prokka_blast_list = []
     assert annomerge.validate_prokka_feature_annotation(
-        inputs[feature],
+        deepcopy(inputs[feature]),
         prokka_noref,
         reference_gene_locus_dict,
         reference_locus_gene_dict,
