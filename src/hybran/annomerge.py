@@ -26,6 +26,7 @@ import tempfile
 import pickle
 import logging
 import time
+import re
 import subprocess
 
 from . import BLAST
@@ -1445,6 +1446,14 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                            os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv'))
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
+        # When prokka matches the same reference gene to multiple orfs, it appends _1, _2, ... to make the names unique.
+        # That causes issues for us when trying to look up whether prokka's call is a reference gene or not, so strip _n
+        # from the end of every prokka-reference gene name assignment.
+        for f in prokka_contig_features:
+            if 'gene' in f.qualifiers.keys():
+                f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
+
+
         global ratt_corrected_genes
         if len(ratt_correction_files) == 1:
             error_correction_fp = ratt_correction_files[0]
