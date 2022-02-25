@@ -163,7 +163,7 @@ def test_validate_prokka_feature_annotation(feature):
     )
 
     annomerge.prokka_blast_list = []
-    assert annomerge.validate_prokka_feature_annotation(
+    results = annomerge.validate_prokka_feature_annotation(
         deepcopy(inputs[feature]),
         prokka_noref,
         reference_gene_locus_dict,
@@ -173,4 +173,8 @@ def test_validate_prokka_feature_annotation(feature):
         reference_locus_list,
         seq_ident,
         seq_covg
-    ) == expected[feature]
+    )
+    # __eq__ is not implemented for the SeqFeature object itself,
+    # so check the qualifiers and then check the rest of the return values
+    assert results[0].qualifiers == expected_feature.qualifiers \
+        and results[1:] == expected[feature][1:]
