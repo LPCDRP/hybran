@@ -117,7 +117,7 @@ def test_validate_prokka_feature_annotation(feature):
         rplB = SeqFeature(
             FeatureLocation(ExactPosition(809202), ExactPosition(810045), strand=1), type='CDS',
             qualifiers = dict(
-                locus_tag=["L_00230"], gene=["Rv0205"], codon_start=['1'], transl_table='11',
+                locus_tag=["L_00759"], gene=["rplB"], codon_start=['1'], transl_table='11',
                 translation=['MAIRKYKPTTPGRRGASVSDFAEITRSTPEKSLVRPLHGRGGRNAHGRITTRHKGGGHKRAYRMIDFRRNDKDGVNAKVAHIEYDPNRTARIALLHYLDGEKRYIIAPNGLSQGDVVESGANADIKPGNNLPLRNIPAGTLIHAVELRPGGGAKLARSAGSSIQLLGKEASYASLRMPSGEIRRVDVRCRATVGEVGNAEQANINWGKAGRMRWKGKRPSVRGVVMNPVDHPHGGGEGKTSGGRHPVSPWGKPEGRTRNANKSSNKFIVRRRRTGKKHSR']
             )
         ),
