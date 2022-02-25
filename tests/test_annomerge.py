@@ -85,7 +85,7 @@ def test_isolate_valid_ratt_annotations(filter):
                                              reference_locus_list,
                                              seq_ident, seq_covg) == expected[filter] \
                                              and \
-                                             'pseudo' in feature_list[2].qualifiers.keys() and feature_list[2].qualifiers['pseudo'] == [''] # Rv0739
+                                             'pseudo' in feature_list[3].qualifiers.keys() and feature_list[3].qualifiers['pseudo'] == [''] # Rv2434c
 
 
 @pytest.mark.parametrize('feature', [

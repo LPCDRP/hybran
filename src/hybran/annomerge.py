@@ -464,19 +464,36 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     logger = logging.getLogger('ValidateRATTCDSs')
     logger.debug('Parsing through RATT annotations')
     unbroken_cds = []
-    num_joins = 0
     non_cds_features = []
     broken_cds = []
     ratt_blast_results = {}
     rejects = []
+    valid_features = []
     for feature in feature_list:
         # Identify features with 'joins'
         if feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
-            locus_tag = feature.qualifiers['locus_tag'][0]
-            if locus_tag not in broken_cds:
+            #Check if feature has an internal stop codon.
+            disrupted = False
+            for i in range(len(feature.location.parts)):
+                start = int(feature.location.parts[i].start)
+                end = int(feature.location.parts[i].end)
+                strand = feature.location.parts[i].strand
+                num_stops = 0
+                t = record_sequence[start:end]
+                if strand == -1:
+                    t = t.reverse_complement()
+                t = t.translate(table=genetic_code)
+                num_stops = t.count('*')
+                locus_tag = feature.qualifiers['locus_tag'][0]
+                if num_stops > 1:
+                    if locus_tag not in broken_cds:
+                        disrupted = True
+            if not disrupted:
+                feature.qualifiers['pseudo']=['']
+                valid_features.append(feature)
+            else:
                 broken_cds.append(locus_tag)
-                rejects.append((feature, "compound location"))
-            num_joins += 1
+                rejects.append((feature, "Multiple internal stop codons in compound CDS feature."))
         elif feature.type == 'CDS' and feature.location is None:
             logger.warning('Invalid CDS: Location of CDS is missing')
             logger.warning(feature)
@@ -489,7 +506,6 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             unbroken_cds.append(feature)
         else:
             non_cds_features.append(feature)
-    valid_features = []
     logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds)))
     for cds_feature in unbroken_cds:
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
