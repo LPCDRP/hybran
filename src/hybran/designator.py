@@ -1,3 +1,4 @@
+from collections import defaultdict
 import re
 
 from Bio import SeqIO
@@ -79,6 +80,32 @@ def assign_orf_id(increment):
     orf_id = generic_orf_prefix + "%04g" % (increment)
     increment += 1
     return orf_id, increment
+
+def create_gene_entries(gbk):
+
+    final_feature_list = []
+    gene_positions = defaultdict(list)
+    genes = dict()
+    for record in SeqIO.parse(gbk, "genbank"):
+        for f in record.features:
+            if 'locus_tag' in f.qualifiers.keys():
+                ltag = f.qualifiers['locus_tag']
+                if ltag not in genes.keys():
+                    genes[ltag] = SeqFeature(
+                        FeatureLocation(
+                            f.location.start,
+                            f.location.end,
+                            f.location.strand,
+                        ),
+                        type = 'gene',
+                        qualifiers = dict(
+                            locus_tag=ltag,
+                            gene=extractor.get_gene(f)
+                        )
+                    )
+                genes[ltag].location.end = f.location.end
+                if 'pseudo' in f.qualifiers.keys():
+                    genes[ltag].qualifiers['pseudo'] = ['']
 
 def find_next_increment(fasta, prefix=generic_orf_prefix):
     """

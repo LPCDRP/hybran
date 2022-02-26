@@ -274,16 +274,10 @@ def process_split_genes(flist):
     reject_list = []
     for feature in flist:
         # check for truncation note
-        if truncated:
+        if 'pseudo' in feature.qualifiers.keys():
+            feature.qualifiers.pop('translation', None)
             if gene == prevGene:
-                # get rid of the previous ORF that we previously accepted
-                # because it's the *downstream* fragment
-                # <---B--- (seen first) <----A--- (seen last)
-                if strand == '-':
-                    reject_list.append(reduced_list.pop())
-                else:
-                    reject_list.append(feature)
-                    continue
+                gene.qualifiers['locus_tag'][0] = prevGene.qualifiers['locus_tag'][0]
             else:
                 reduced_list.append(gene)
         else:
