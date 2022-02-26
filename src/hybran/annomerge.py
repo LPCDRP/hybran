@@ -263,29 +263,24 @@ def rename_locus(gene, strand, reference_locus_list):
 
 def process_split_genes(flist):
     """
-    Given a list of features ordered by genomic position, return a reduced
-    list excluding second+ fragments of split genes (keeping the first only)
+    Given a list of features ordered by genomic position, assign the same
+    locus tag to consecutive fragments of the same gene.
     :param flist: list of SeqFeature objects
-    :return: list of SeqFeature objects excluding gene fragments
+    :return: None (features on input list are modified)
     """
-    prevGene = None
-    j = 0
-    reduced_list = []
-    reject_list = []
+    prev_gene_frag = dict()
     for feature in flist:
-        # check for truncation note
-        if 'pseudo' in feature.qualifiers.keys():
-            feature.qualifiers.pop('translation', None)
-            if gene == prevGene:
-                gene.qualifiers['locus_tag'][0] = prevGene.qualifiers['locus_tag'][0]
+        if 'gene' in feature.qualifiers.keys():
+            if 'pseudo' in feature.qualifiers.keys():
+                # feature.qualifiers.pop('translation', None)
+                if 'gene' in prev_gene_frag.keys() and feature.qualifiers['gene'][0] == prev_gene_frag['gene']:
+                    feature.qualifiers['locus_tag'][0] = prev_gene_frag['locus_tag']
+                prev_gene_frag = dict(
+                    gene = feature.qualifiers['gene'][0],
+                    locus_tag = feature.qualifiers['locus_tag'][0]
+                )
             else:
-                reduced_list.append(gene)
-        else:
-            reduced_list.append(gene)
-        prevGene = gene
-
-    return reduced_list, reject_list
-
+                prev_gene_frag = dict()
 
 def identify_merged_genes(ratt_features):
     """
@@ -2040,7 +2035,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 ratt_rejects.append((ratt_annotation, remark))
                 output_isolate_recs[0].features.append(prokka_annotation)
         ordered_feats = get_ordered_features(output_isolate_recs[0].features)
-        (ordered_feats, rejected_fragments) = process_split_genes(ordered_feats)
+        process_split_genes(ordered_feats)
         output_isolate_recs[0].features = ordered_feats[:]
 
     with open(ratt_rejects_logfile, 'w') as ratt_rejects_log:
