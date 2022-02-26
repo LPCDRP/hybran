@@ -26,9 +26,8 @@ def cmds():
 
     :return: argparse.parse_args() object
     """
-    parser = argparse.ArgumentParser(description='Hybran: a pipeline to annotate Mycobacterium '
-                                                 'tuberculosis de novo assembled genomes. Annotation of other species '
-                                                 'or mixing species within an annotation run is NOT recommended.'
+    parser = argparse.ArgumentParser(description='Hybran: hybrid reference-based and ab initio prokaryotic genomic annotation. '
+                                                 'Mixing different species within a single annotation run is NOT recommended.'
                                                  '\n\nPlease cite: [manuscript submitted]')
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
