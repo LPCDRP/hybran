@@ -109,7 +109,11 @@ def create_gene_entries(gbk):
                     )
                     updated_record_features.append(genes[ltag])
                 else:
-                    genes[ltag].location.end = f.location.end
+                    genes[ltag].location = FeatureLocation(
+                        genes[ltag].location.start,
+                        f.location.end,
+                        genes[ltag].location.strand
+                    )
                 if 'pseudo' in f.qualifiers.keys():
                     genes[ltag].qualifiers['pseudo'] = ['']
             updated_record_features.append(f)
