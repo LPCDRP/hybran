@@ -1,7 +1,9 @@
 # Hybran
 
 Hybran is a hybrid reference-based and ab initio genome annotation pipeline for prokaryotic genomes.
-It was originally developed for and tested on *Mycobacterium tuberculosis* clinical isolates.
+It uses the [Rapid Annotation Transfer Tool (RATT)](https://ratt.sourceforge.net) to transfer as many annotations as possible from your reference genome annotation based on conserved synteny between the nucleotide genome sequences.
+Hybran then supplements unannotated regions with *ab initio* predictions from [Prokka](https://github.com/tseemann/prokka).
+Then, all coding sequence annotations are clustered together and additional reference gene names are assigned based on amino acid sequence identity and alignment coverage.
 
 ## Execution
 
