@@ -155,6 +155,85 @@ def get_gene_name(id_string):
     else:
         return id_string
 
+def check_matches_to_known_genes(
+        query_seq,
+        reference_seqs,
+        generic_seqs,
+        cluster_type,
+        orf_increment,
+        seq_ident,
+        seq_covg,
+):
+    """
+    Use BLAST to search for any query_seq hits to reference_seqs or,
+    failing that, generic_seqs meeting the seq_ident and seq_covg thresholds.
+    query_seq's id and description attributes also get updated and its record
+    appended to the generic_seqs fasta file if no adequate match to known
+    genes is found.
+
+    :param query_seq: SeqRecord query gene AA sequence
+    :param reference_seqs: str fasta file name of reference genes to map against
+    :param generic_seqs: str fasta file name of hitherto assigned generic genes (ORF####)
+    :param cluster_type: str category of CD-HIT clusters that the query_seq came from
+    :param orf_increment: int increment to start new ORFs
+    :returns:
+        - name_to_assign (:py:class:`str`)
+        - query_gene_closest_refs (:py:class:`list`) -
+              list of tab delimited strings detailing closest matches
+              among reference and generic seqs. Empty list if a
+              match was successfully found and a new generic name
+              was not assigned
+        - orf_increment (:py:class:`int`) - updated increment of ORFs
+    """
+    query_gene_closest_refs = []
+    hits, misses = BLAST.blastp(
+        query = query_seq,
+        subject = reference_seqs,
+        seq_ident = seq_ident,
+        seq_covg = seq_covg,
+    )
+    top_hit, best_subcriticals = identify_top_hits(
+        hits,
+        misses,
+    )
+    assign_new_generic = False
+    name_to_assign = top_hit
+    if not top_hit:
+        assign_new_generic = True
+        if os.stat(generic_seqs).st_size:
+            cn_hits, cn_misses = BLAST.blastp(
+                query = query_seq,
+                subject = generic_seqs,
+                seq_ident = seq_ident,
+                seq_covg = seq_covg,
+            )
+            top_hit_generic, best_subcriticals_generic = identify_top_hits(
+                cn_hits,
+                cn_misses,
+            )
+            best_subcriticals += best_subcriticals_generic
+            if top_hit_generic:
+                assign_new_generic = False
+                name_to_assign = top_hit_generic
+    if assign_new_generic:
+        (orf_id, orf_increment) = designator.assign_orf_id(orf_increment)
+        query_seq.id = orf_id
+        query_seq.description = 'False'
+        with open(generic_seqs, 'a') as orf_fasta:
+            SeqIO.write(query_seq, orf_fasta, 'fasta')
+        name_to_assign = orf_id
+        # prepare the novelty report data.
+        #
+        # if we didn't get *any* hits at all, we'll have a basically null row
+        # here.
+        if not best_subcriticals:
+            query_gene_closest_refs = ['\t'.join([cluster_type, orf_id])]
+        else:
+            query_gene_closest_refs = ['\t'.join([cluster_type, orf_id, hit])
+                                       for hit in best_subcriticals]
+
+    return name_to_assign, query_gene_closest_refs, orf_increment
+
 def identify_top_hits(passes, subcriticals):
     """
     Iterates over BLASTP output and determines all the best
@@ -390,7 +469,6 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
 
     logger.debug('Number of singleton clusters with single genes: ' + str(len(singleton_dict)))
 
-    new_unannotated_seqs = []
     out_list = []
     novel_genes_closest_refs = []
     for single_gene in singleton_dict:
@@ -400,51 +478,19 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
         out_list.append(str(single_gene))
         if gene_name.startswith('L') and locus_tag.startswith('L'):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
-            ref_hits, ref_misses = BLAST.blastp(
-                query = SeqRecord(gene_sequence),
-                subject = reference_fasta,
+            name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+                query_seq = SeqRecord(gene_sequence),
+                reference_seqs = reference_fasta,
+                generic_seqs = unannotated_fasta,
+                cluster_type = 'singleton',
+                orf_increment = orf_increment,
                 seq_ident = seq_ident,
                 seq_covg = seq_covg,
             )
-            top_hit, best_subcriticals = identify_top_hits(
-                ref_hits,
-                ref_misses,
-            )
-            assign_generic = False
-            name_to_assign = top_hit
-            if top_hit is None:
-                assign_generic = True
-                if os.stat(unannotated_fasta).st_size:
-                    cn_hits, cn_misses = BLAST.blastp(
-                        query = SeqRecord(gene_sequence),
-                        subject = unannotated_fasta,
-                        seq_ident = seq_ident,
-                        seq_covg = seq_covg,
-                    )
-                    top_hit_generic, best_subcriticals_generic = identify_top_hits(
-                        cn_hits,
-                        cn_misses,
-                    )
-                    best_subcriticals += best_subcriticals_generic
-                    if top_hit_generic is not None:
-                        assign_generic = False
-                        name_to_assign = top_hit_generic
-            if assign_generic:
-                (orf_id, orf_increment) = designator.assign_orf_id(orf_increment)
-                seq_record = SeqRecord(gene_sequence, id=orf_id, description='False')
-                new_unannotated_seqs.append(seq_record)
-                name_to_assign = orf_id
-                best_subcriticals = ['\t'.join(['singleton', orf_id, hit])
-                                     for hit in best_subcriticals]
-                novel_genes_closest_refs += best_subcriticals
-                if not novel_genes_closest_refs:
-                    novel_genes_closest_refs = ['\t'.join(['singleton', orf_id])]
+            novel_genes_closest_refs += query_closest_refs
             update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
         else:
             continue
-    with open(unannotated_fasta, 'a') as orf_fasta:
-        for s in new_unannotated_seqs:
-            SeqIO.write(s, orf_fasta, 'fasta')
     with open('./clustering/singleton_clusters.txt', 'w') as f:
         for line in out_list:
             f.write(str(line) + '\n')
@@ -472,8 +518,6 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
 
     logger.debug('Number of clusters with no gene names: ' + str(len(list(in_dict.keys()))))
 
-    new_unannotated_genes = []
-    rep_records = []
     out_list = []
     novel_genes_closest_refs = []
     for rep_gene in in_dict.keys():
@@ -483,52 +527,19 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
         gene = rep_gene.split(',')[2]
         rep_sequence = isolate_sequences[isolate][locus]
         rep_record = SeqRecord(rep_sequence, id='', description='')
-        ref_hits, ref_misses = BLAST.blastp(
-            query = rep_record,
-            subject = reference_fasta,
+        name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+            query_seq = rep_record,
+            reference_seqs = reference_fasta,
+            generic_seqs = unannotated_fasta,
+            cluster_type = 'no_refs',
+            orf_increment = orf_increment,
             seq_ident = seq_ident,
             seq_covg = seq_covg,
         )
-        top_hit, best_subcriticals = identify_top_hits(
-            ref_hits,
-            ref_misses,
-        )
-
-        assign_generic = False
-        name_to_assign = top_hit
-        if top_hit is None:
-            assign_generic = True
-            if os.stat(unannotated_fasta).st_size:
-                cn_hits, cn_misses = BLAST.blastp(
-                    query = rep_record,
-                    subject = unannotated_fasta,
-                    seq_ident = seq_ident,
-                    seq_covg = seq_covg,
-                )
-                top_hit_generic, best_subcriticals_generic = identify_top_hits(
-                    cn_hits,
-                    cn_misses,
-                )
-                best_subcriticals += best_subcriticals_generic
-                if top_hit_generic is not None:
-                    assign_generic = False
-                    name_to_assign = top_hit_generic
-        if assign_generic:
-            (orf_id, orf_increment) = designator.assign_orf_id(orf_increment)
-            seq_record = SeqRecord(rep_sequence, id=orf_id, description='False')
-            new_unannotated_genes.append(seq_record)
-            name_to_assign = orf_id
-            best_subcriticals = ['\t'.join(['no_refs', orf_id, hit])
-                                 for hit in best_subcriticals]
-            novel_genes_closest_refs += best_subcriticals
-            if not novel_genes_closest_refs:
-                novel_genes_closest_refs = ['\t'.join(['no_refs', orf_id])]
+        novel_genes_closest_refs += query_closest_refs
         update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
         for other_genes_in_cluster in in_dict[rep_gene]:
             update_dictionary_ltag_assignments(other_genes_in_cluster[0], other_genes_in_cluster[1], name_to_assign)
-    with open(unannotated_fasta, 'a') as orf_fasta:
-        for s in new_unannotated_genes:
-            SeqIO.write(s, orf_fasta, 'fasta')
     with open('./clustering/onlyltag_clusters.txt', 'w') as f:
         for line in out_list:
             f.write(str(line) + '\n')
@@ -634,44 +645,17 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                 for unannotated_gene in genes_to_annotate:
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
-                    unannotated_gene_seq = isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus]
-                    hits, misses = BLAST.blastp(
-                        query = SeqRecord(unannotated_gene_seq),
-                        subject = fasta_fp_to_blast,
+                    unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus])
+                    name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+                        query_seq = unannotated_gene_seq,
+                        reference_seqs = fasta_fp_to_blast,
+                        generic_seqs = unannotated_fasta,
+                        cluster_type = 'multiref',
+                        orf_increment = orf_increment,
                         seq_ident = seq_ident,
                         seq_covg = seq_covg,
                     )
-                    top_hit, best_subcriticals = identify_top_hits(hits, misses)
-                    assign_generic = False
-                    name_to_assign = top_hit
-                    if top_hit is None:
-                        assign_generic = True
-                        if os.stat(unannotated_fasta).st_size:
-                            cn_hits, cn_misses = BLAST.blastp(
-                                query = SeqRecord(unannotated_gene_seq),
-                                subject = unannotated_fasta,
-                                seq_ident = seq_ident,
-                                seq_covg = seq_covg,
-                            )
-                            top_hit_generic, best_subcriticals_generic = identify_top_hits(
-                                cn_hits,
-                                cn_misses,
-                            )
-                            best_subcriticals += best_subcriticals_generic
-                            if top_hit_generic is not None:
-                                assign_generic = False
-                                name_to_assign = top_hit_generic
-                    if assign_generic:
-                        (orf_id, orf_increment) = designator.assign_orf_id(orf_increment)
-                        seq_record = SeqRecord(unannotated_gene_seq, id=orf_id, description='False')
-                        with open(unannotated_fasta, 'a') as orf_fasta:
-                            SeqIO.write(seq_record, orf_fasta, 'fasta')
-                        name_to_assign = orf_id
-                        best_subcriticals = ['\t'.join(['multiref', orf_id, hit])
-                                             for hit in best_subcriticals]
-                        novel_genes_closest_refs += best_subcriticals
-                        if not novel_genes_closest_refs:
-                            novel_genes_closest_refs = ['\t'.join(['multiref', orf_id])]
+                    novel_genes_closest_refs += query_closest_refs
                     update_dictionary_ltag_assignments(unannotated_gene_isolate, unannotated_gene_locus, name_to_assign)
         else:
             if len(unassigned_l_tags) > 0:
