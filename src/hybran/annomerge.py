@@ -458,12 +458,31 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     ratt_blast_results = {}
     rejects = []
     valid_features = []
+    # since we have addtional features after splitting the joins,
+    # this holds the offset to get the number of actual features,
+    # just for logging purposes.
+    n_extra_pseudo = 0
     for feature in feature_list:
         # Identify features with 'joins'
         if feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
             #Check if feature has an internal stop codon.
+            #
+            # If it doesn't, we will accept it, but split it into two
+            # pseudo CDS entries with the same locus tag, to be grouped with
+            # a single 'gene' record later.
+            # The gff conversion of a gbk entry with joins is not meaningful,
+            # and causes some problems, as the entire sequence gets labeled
+            # "biological region" and two basically empty CDS records are created.
             disrupted = False
+            feature.qualifiers['pseudo']=['']
+            split_features = []
             for i in range(len(feature.location.parts)):
+                split_features.append(deepcopy(feature))
+                split_features[-1].location = FeatureLocation(
+                    deepcopy(feature.location.parts[i].start),
+                    deepcopy(feature.location.parts[i].end),
+                    feature.location.parts[i].strand
+                )
                 start = int(feature.location.parts[i].start)
                 end = int(feature.location.parts[i].end)
                 strand = feature.location.parts[i].strand
@@ -478,8 +497,8 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                     if locus_tag not in broken_cds:
                         disrupted = True
             if not disrupted:
-                feature.qualifiers['pseudo']=['']
-                valid_features.append(feature)
+                valid_features += split_features
+                n_extra_pseudo += len(split_features) - 1
             else:
                 broken_cds.append(locus_tag)
                 rejects.append((feature, "Multiple internal stop codons in compound CDS feature."))
@@ -495,7 +514,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             unbroken_cds.append(feature)
         else:
             non_cds_features.append(feature)
-    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds)))
+    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features) - n_extra_pseudo))
     for cds_feature in unbroken_cds:
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
@@ -517,7 +536,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             else:
                 rejects.append((cds_feature, "No blastp hit to corresponding reference CDS at specified thresholds."))
                 continue
-    logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features)))
+    logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features) - n_extra_pseudo))
     return valid_features, ratt_blast_results, rejects
 
 
