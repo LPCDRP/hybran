@@ -253,6 +253,7 @@ def main():
         for gbk in glob.glob(os.path.join(args.output,'*.gbk')):
             isolate_id = os.path.basename(os.path.splitext(gbk)[0])
             designator.assign_locus_tags(gbk, prefix=isolate_id)
+            designator.create_gene_entries(gbk)
             converter.convert_gbk_to_gff(gbk)
 
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
