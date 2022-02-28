@@ -624,45 +624,29 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
 
     logger = logging.getLogger('CheckInclusionCriteria')
     included = False
-    remark = 'corner case: unhandled by inclusion criteria'
+    mod_prokka_annotation, invalid_prokka, remark = validate_prokka_feature_annotation(
+        deepcopy(prokka_annotation),
+        prokka_noref_dictionary,
+        ref_temp_fasta_dict=ref_temp_fasta_dict,
+        reference_gene_locus_dict=reference_gene_locus_dict,
+        reference_locus_gene_dict=reference_locus_gene_dict,
+        ratt_blast_results=ratt_blast_results,
+        seq_ident=seq_ident,
+        seq_covg=seq_covg,
+        check_ratt=True,
+        ratt_features=ratt_genes_check,
+        ratt_locations=ratt_gene_location,
+        reference_locus_list=reference_locus_list,
+    )
     # Check if feature types are the same. If not add feature to EMBL record
     if ratt_annotation.type != prokka_annotation.type:
-        if prokka_annotation.type == 'CDS':
-            mod_prokka_annotation, invalid_prokka, remark = \
-                validate_prokka_feature_annotation(prokka_annotation,
-                                                   prokka_noref_dictionary,
-                                                   ref_temp_fasta_dict=ref_temp_fasta_dict,
-                                                   reference_gene_locus_dict=reference_gene_locus_dict,
-                                                   reference_locus_gene_dict=reference_locus_gene_dict,
-                                                   ratt_blast_results=ratt_blast_results,
-                                                   seq_ident=seq_ident,
-                                                   seq_covg=seq_covg,
-                                                   check_ratt=True,
-                                                   ratt_features=ratt_genes_check,
-                                                   ratt_locations=ratt_gene_location,
-                                                   reference_locus_list=reference_locus_list)
-            # TODO - check if invalid_prokka is True and don't go on to set included=True in that case?
-            #        right now, it looks like included gets set to True regardless of invalid_prokka
-        else:
+        if prokka_annotation.type != 'CDS':
             mod_prokka_annotation = prokka_annotation
         embl_file.features.append(mod_prokka_annotation)
         included = True
     # Check if gene names match and if they don't or if gene names are missing, keep both
     elif 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in prokka_annotation.qualifiers.keys():
         if ratt_annotation.qualifiers['gene'] != prokka_annotation.qualifiers['gene']:
-            mod_prokka_annotation, invalid_prokka, remark = \
-                validate_prokka_feature_annotation(prokka_annotation,
-                                                   prokka_noref_dictionary,
-                                                   ref_temp_fasta_dict=ref_temp_fasta_dict,
-                                                   reference_gene_locus_dict=reference_gene_locus_dict,
-                                                   reference_locus_gene_dict=reference_locus_gene_dict,
-                                                   ratt_blast_results=ratt_blast_results,
-                                                   seq_ident=seq_ident,
-                                                   seq_covg=seq_covg,
-                                                   check_ratt=True,
-                                                   ratt_features=ratt_genes_check,
-                                                   ratt_locations=ratt_gene_location,
-                                                   reference_locus_list=reference_locus_list)
             if not invalid_prokka:
                 embl_file.features.append(mod_prokka_annotation)
                 included = True
@@ -670,19 +654,6 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
         # (difference in length of less than/equal to 10 bps), the RATT annotation is preferred
         elif ratt_annotation.qualifiers['gene'] == prokka_annotation.qualifiers['gene'] and \
                         abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
-            mod_prokka_annotation, invalid_prokka, remark = \
-                validate_prokka_feature_annotation(prokka_annotation,
-                                                   prokka_noref_dictionary,
-                                                   ref_temp_fasta_dict=ref_temp_fasta_dict,
-                                                   reference_gene_locus_dict=reference_gene_locus_dict,
-                                                   reference_locus_gene_dict=reference_locus_gene_dict,
-                                                   ratt_blast_results=ratt_blast_results,
-                                                   seq_ident=seq_ident,
-                                                   seq_covg=seq_covg,
-                                                   check_ratt=True,
-                                                   ratt_features=ratt_genes_check,
-                                                   ratt_locations=ratt_gene_location,
-                                                   reference_locus_list=reference_locus_list)
             if not invalid_prokka:
                 embl_file.features.append(mod_prokka_annotation)
                 included = True
@@ -693,42 +664,17 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
             ('product' in ratt_annotation.qualifiers.keys() and 'product' in prokka_annotation.qualifiers.keys()):
         if ratt_annotation.qualifiers['product'][0] == 'hypothetical protein' or \
                         prokka_annotation.qualifiers['product'][0] == 'hypothetical protein':
-            mod_prokka_annotation, invalid_prokka, remark = \
-                validate_prokka_feature_annotation(prokka_annotation,
-                                                   prokka_noref_dictionary,
-                                                   ref_temp_fasta_dict=ref_temp_fasta_dict,
-                                                   reference_gene_locus_dict=reference_gene_locus_dict,
-                                                   reference_locus_gene_dict=reference_locus_gene_dict,
-                                                   ratt_blast_results=ratt_blast_results,
-                                                   seq_ident=seq_ident,
-                                                   seq_covg=seq_covg,
-                                                   check_ratt=True,
-                                                   ratt_features=ratt_genes_check,
-                                                   ratt_locations=ratt_gene_location,
-                                                   reference_locus_list=reference_locus_list)
             if not invalid_prokka:
                 embl_file.features.append(mod_prokka_annotation)
                 included = True
         elif ratt_annotation.qualifiers['product'] == prokka_annotation.qualifiers['product'] and \
                         abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
-            mod_prokka_annotation, invalid_prokka, remark = \
-                validate_prokka_feature_annotation(prokka_annotation,
-                                                   prokka_noref_dictionary,
-                                                   ref_temp_fasta_dict=ref_temp_fasta_dict,
-                                                   reference_gene_locus_dict=reference_gene_locus_dict,
-                                                   reference_locus_gene_dict=reference_locus_gene_dict,
-                                                   ratt_blast_results=ratt_blast_results,
-                                                   seq_ident=seq_ident,
-                                                   seq_covg=seq_covg,
-                                                   check_ratt=True,
-                                                   ratt_features=ratt_genes_check,
-                                                   ratt_locations=ratt_gene_location,
-                                                   reference_locus_list=reference_locus_list)
             if not invalid_prokka:
                 embl_file.features.append(mod_prokka_annotation)
                 included = True
     else:
         logger.warning('CORNER CASE in check_inclusion_criteria')
+        remark = 'corner case: unhandled by inclusion criteria'
     return embl_file, included, remark
 
 
