@@ -18,6 +18,7 @@
 * Fixed handling of input genome when it's the same as the reference.
 * Set proper field from which to draw eggnog-mapper annotations
 * Uniform locus tags are now assigned for every sample.
+* Better identification of reference and unnamed genes in processing of clusters.
 
 ## [Version 1.3.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.3.1)
 

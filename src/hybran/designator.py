@@ -108,3 +108,6 @@ def is_unannotated(name):
 
 def is_reference(name):
     return not name.startswith((generic_orf_prefix,'L_','L2_'))
+
+def is_raw_ltag(name):
+    return name.startswith(('L_','L2_'))
