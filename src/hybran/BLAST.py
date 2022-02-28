@@ -136,7 +136,7 @@ def iterate(fa, seq_list, nproc, seq_ident, seq_covg):
     """
     partial_blast = partial(blastp, subject=fa, seq_ident=seq_ident, seq_covg=seq_covg)
     pool = multiprocessing.Pool(int(nproc))
-    hits, misses = zip(*pool.map(partial_blast,seq_list))
+    hits, misses, truncation_signatures = zip(*pool.map(partial_blast,seq_list))
     pool.close()
     pool.join()
     all_results_list = list(map('\n'.join, list(hits)))
