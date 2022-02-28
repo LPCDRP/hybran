@@ -450,10 +450,10 @@ def prepare_for_eggnog(unannotated_seqs, outfile):
 def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_increment, seq_ident, seq_covg):
     """
     If a cluster has only one gene (with no gene names),
-    then BLAST representative sequence to H37Rv and if there
+    then BLAST representative sequence to the reference and if there
     is a hit with specified amino acid and coverage thresholds,
     all candidate novel genes in the cluster is annotated
-    with the H37Rv gene. If the representative does not hit a H37Rv,
+    with the reference gene. If the representative does not hit a reference,
     assign a generic name to the genes in the  cluster.
 
     :param singleton_dict: dict of clusters
@@ -497,11 +497,11 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
 def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_increment, seq_ident, seq_covg):
     """
     If a cluster has only candidate novel genes (with no gene names),
-    then BLAST representative sequence to H37Rv
+    then BLAST representative sequence to reference
     and if there is a hit with specified amino acid
     and coverage thresholds, all candidate novel genes in the cluster
-    is annotated with the H37Rv gene. If the representative does
-    not hit a H37Rv, assign a ORF locus tag to the genes
+    is annotated with the reference gene. If the representative does
+    not hit a reference gene, assign a ORF locus tag to the genes
     in the cluster.
 
     :param in_dict: dict of clusters
@@ -545,10 +545,10 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
 
 def single_gene_clusters(single_gene_dict):
     """
-    Handling clusters with only one Rv/gene name in cluster
+    Handling clusters with only one reference/gene name in cluster
     If cluster has candidate novel genes (L_***** or L2_*****)
-    clustered together with a H37Rv annotation, update
-    all candidate novel genes in this cluster with the H37Rv gene name.
+    clustered together with a reference annotation, update
+    all candidate novel genes in this cluster with the reference gene name.
 
     :param single_gene_dict: dict of clusters
     :return: None
@@ -603,8 +603,8 @@ def single_gene_clusters(single_gene_dict):
 
 def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta, orf_increment, seq_ident, seq_covg):
     """
-    If a cluster has multiple H37Rv genes and L_tags,
-    BLAST the L_tags to all genes in the cluster that are H37Rv
+    If a cluster has multiple reference genes and L_tags,
+    BLAST the L_tags to all genes in the cluster that are reference
     and annotate L_tag with the top hit.
 
     :param in_dict: dict of clusters

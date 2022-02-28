@@ -251,7 +251,7 @@ def rename_locus(gene, strand, reference_locus_list):
     else:
         new_gene_name = gene_name + chr(char_start)
     while new_gene_name in reference_locus_list:
-        # If the assigned new gene name is in H37Rv, increment the alphabet suffix
+        # If the assigned new gene name is in the reference, increment the alphabet suffix
         char_start += 1
         if strand == '-1' or strand == '-' or strand == -1:
             new_gene_name = gene_name + chr(char_start) + 'c'
@@ -1096,7 +1096,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                 if prom_blast == prom_counter:
                                     modified_features.append(feature_prokka)
                         else:
-                            # The start and stop are the same in both Blast and H37Rv i.e. Prodigal start location is
+                            # The start and stop are the same in both Blast and the reference i.e. Prodigal start location is
                             # correct
                             modified_features.append(feature_prokka)
                 if blast_length == blast_counter:
@@ -1216,7 +1216,7 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
     if blast_results:
         # If the gene is positive strand
         if ratt_feature.location.strand == '+':
-            # The start of the prokka gene minus where the prokka sequence aligns to H37Rv plus one to include the
+            # The start of the prokka gene minus where the prokka sequence aligns to the reference plus one to include the
             # position
             ratt_prom_end = ratt_feature.location.start.position - sstart + 1
             ratt_prom_start = ratt_prom_end - 40
@@ -1225,7 +1225,7 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
         # If the gene is negative strand
         else:
             rv_prom_end = stoppos + 40
-            # Where the prokka sequence aligns to the H37Rv seq plus the end coordinate of the prokka gene
+            # Where the prokka sequence aligns to the reference seq plus the end coordinate of the prokka gene
             ratt_prom_start = send + ratt_feature.location.end.position
             ratt_prom_end = ratt_prom_start + 40
             rv_seq = ref_sequence[stoppos - 1: rv_prom_end]
