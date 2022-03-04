@@ -5,7 +5,7 @@ import subprocess
 from . import extractor, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
 from . import config
 
-def ratt_prokka(ref_dir, fasta, ref_cds, gcode, ratt_ttype, script_dir, cpus, qcov):
+def ratt_prokka(ref_dir, fasta, ref_cds, gcode, ratt_ttype, prokka_extra_args, script_dir, cpus, qcov):
     """
     Executes RATT and Prokka that resides in ratt_prokka.sh
     File IO is handled by ratt_prokka.sh
@@ -15,6 +15,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, gcode, ratt_ttype, script_dir, cpus, qc
     :param ref_cds: str FASTA proteome of the reference for Prokka
     :param gcode: int NCBI genetic code table ID
     :param ratt_ttype: str RATT transfer type
+    :param prokka_extra_args: str additional command line flags and arguments for Prokka
     :param script_dir: str absolute path to ratt_prokka.sh
     :param cpus: str number of processors/cpus
     :param qcov: int minimum % query coverage (Prokka doesn't have a way of setting ref coverage)
@@ -46,6 +47,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, gcode, ratt_ttype, script_dir, cpus, qc
                str(qcov),
                str(gcode),
                ratt_ttype,
+               prokka_extra_args,
                ]
         subprocess.call(cmd)
         os.chdir(c)

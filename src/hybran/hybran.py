@@ -33,6 +33,7 @@ def cmds():
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
     ratt_params = parser.add_argument_group('RATT Options.\n(See http://ratt.sourceforge.net/documentation.html and\n https://github.com/ThomasDOtto/ratt/blob/master/ratt.1.md for more details)')
+    prokka_params = parser.add_argument_group('Prokka Options.\n(See https://github.com/tseemann/prokka for more details)')
     required.add_argument('-g', '--genomes', help='Directory, a space-separated list of FASTAs, or a FOFN '
                                                       'containing all genomes desired to be annotated. '
                                                       'FASTA format required.',
@@ -113,7 +114,52 @@ def cmds():
 #                             action = argparse.BooleanOptionalAction,
                              help='whether RATT should attempt correction of reference pseudogenes in your samples')
 
-    return parser.parse_args()
+
+    prokka_params.add_argument('--kingdom',
+                               choices=[
+                                   'Archaea',
+                                   'Bacteria',
+                                   'Mitochondria',
+                                   'Viruses',
+                               ],
+                               default='Bacteria',
+                               help='Determines which UniProtKB databases Prokka searches against.')
+    prokka_params.add_argument('--genus', help='Genus name')
+    prokka_params.add_argument('--species', help='Species name')
+    prokka_params.add_argument('--strain', help='Strain name')
+    prokka_params.add_argument('--plasmid', help='Plasmid name or identifier')
+    prokka_params.add_argument('--gram',
+                               choices=[
+                                   '+',
+                                   'pos',
+                                   '-',
+                                   'neg',
+                               ],
+                               help='Gram')
+    prokka_params.add_argument('--prodigaltf',
+                               help="Prodigal training file")
+    prokka_params.add_argument('--hmms',
+                               help='Trusted HMM to first annotate from')
+    prokka_params.add_argument('--metagenome',
+                               action='store_true',
+                               help="Improve gene predictions for highly fragmented genomes")
+    prokka_params.add_argument('--evalue',
+                               type=float,
+                               default=1e-6,
+                               help='Similarity e-value cut-off')
+
+    arguments = parser.parse_args()
+    # Turn Prokka arguments back into an option string that we can pass directly to Prokka,
+    # rather than having to repopulate --kingdom args.kingdom --gram args.gram ...
+    #
+    # special thanks: https://stackoverflow.com/a/31520622
+    prokka_passthrough = ' '.join(
+        [' '.join([ g.option_strings[0], str(vars(arguments)[g.dest]) ])
+         # action_groups[-1] is the last defined argument_group, i.e. prokka
+         for g in parser._action_groups[-1]._group_actions if vars(arguments)[g.dest]]
+    ).replace("True","")
+
+    return arguments, prokka_passthrough
 
 
 def main():
@@ -125,7 +171,7 @@ def main():
     :return: None
     """
     global args
-    args = cmds()
+    args, prokka_args = cmds()
     # Obtaining the absolute path to all scripts
     script_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -256,6 +302,7 @@ def main():
                                 ref_cds=ref_cds,
                                 gcode=genetic_code,
                                 ratt_ttype = args.ratt_transfer_type,
+                                prokka_extra_args = prokka_args,
                                 script_dir=script_dir,
                                 cpus=args.nproc,
                                 qcov=args.coverage_threshold)

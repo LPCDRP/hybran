@@ -8,6 +8,7 @@ nproc=$5
 qcov=$6
 gcode=$7
 ratt_transfer_type="$8"
+prokka_flags="$9"
 
 set -x
 
@@ -26,7 +27,7 @@ wait
 if [ ! -f prokka/"$isolate".gbk ]
 then
     prokka \
-	--kingdom bacteria \
+	$prokka_flags \
 	--rfam \
 	--proteins "$ref_cds" \
 	--rnammer  \
@@ -49,7 +50,7 @@ wait
 if [ ! -f prokka-noreference/"$isolate".gbk ]
 then
     prokka \
-	--kingdom bacteria \
+	$prokka_flags \
 	--rfam \
 	--rnammer \
 	--cpus "$nproc" \
