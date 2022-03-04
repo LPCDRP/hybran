@@ -43,7 +43,7 @@ def cmds():
                                                      'step.',
                           required=True,
                           nargs='+')
-    required.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
+    optional.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
                           dest='database_dir',
                           required=False)
