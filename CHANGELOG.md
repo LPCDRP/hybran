@@ -2,6 +2,8 @@
 
 ## Development
 
+## [Version 1.4](https://gitlab.com/LPCDRP/hybran/-/tags/1.4)
+
 ### Enhancements
 * Generalized for any prokaryote.
     - Genetic code and taxonomy ID detected from reference annotation.
