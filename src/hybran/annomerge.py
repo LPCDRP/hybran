@@ -478,9 +478,21 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             split_features = []
             for i in range(len(feature.location.parts)):
                 split_features.append(deepcopy(feature))
+                # the 3' end of the first interval doesn't include the actual stop codon.
+                if i==0:
+                    if feature.location.strand == -1:
+                        # minus strand
+                        start_offset = 3*feature.location.strand
+                        end_offset = 0
+                    else:
+                        start_offset = 0
+                        end_offset = 3*feature.location.strand
+                else:
+                    start_offset = 0
+                    end_offset = 0
                 split_features[-1].location = FeatureLocation(
-                    deepcopy(feature.location.parts[i].start),
-                    deepcopy(feature.location.parts[i].end),
+                    ExactPosition(feature.location.parts[i].start + start_offset),
+                    ExactPosition(feature.location.parts[i].end + end_offset),
                     feature.location.parts[i].strand
                 )
                 t = translate(
