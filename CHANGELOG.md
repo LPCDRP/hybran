@@ -3,7 +3,7 @@
 ## Development
 
 ### Enhancements
-* Generalized for non-TB bacteria
+* Generalized for any prokaryote.
     - Genetic code and taxonomy ID detected from reference annotation.
       RATT configuration is now automatically generated based on the
       detected genetic code, so a configuration file is no longer bundled.
@@ -11,16 +11,15 @@
       Option `--orf-prefix` added for customizability.
 * Removed checking for dnaA as the first gene at the first base position.
 * Made eggNOG-mapper step optional.
-* Identify disrupted versions of reference genes and apply the same name,
-  but with a /pseudo tag.
-* Expose RATT and Prokka options for customizability.
+* Gene fragments are now identified using the corresponding reference gene names, but are distinguished with a /pseudo tag.
+* RATT and (some) Prokka options are now under user control.
 
 ### Bugs fixed
-* Account for pseudogenes labeled with 'pseudo' qualifier instead of 'pseudogene'
+* Account for translationless CDSs that are labeled with the 'pseudo' qualifier instead of 'pseudogene'
 * Allow input fasta files with alternative standard extensions.
 * Fixed handling of reference annotations that may not have /gene qualifiers for all annotations.
 * Fixed handling of input genome when it's the same as the reference.
-* Set proper field from which to draw eggnog-mapper annotations
+* Set proper field from which to draw eggNOG-mapper annotations.
 * Uniform locus tags are now assigned for every sample.
 * Better identification of reference and unnamed genes in processing of clusters.
 
