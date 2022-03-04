@@ -13,6 +13,7 @@
 * Made eggNOG-mapper step optional.
 * Identify disrupted versions of reference genes and apply the same name,
   but with a /pseudo tag.
+* Expose RATT options for customizability.
 
 ### Bugs fixed
 * Account for pseudogenes labeled with 'pseudo' qualifier instead of 'pseudogene'

@@ -7,6 +7,7 @@ ref_cds=$4
 nproc=$5
 qcov=$6
 gcode=$7
+ratt_transfer_type="$8"
 
 set -x
 
@@ -15,7 +16,7 @@ mkdir -p prokka prokka-noreference ratt annomerge
 if [ ! -f ratt/ratt-done ]
 then
 	cd ratt/;
-	ratt -p "$isolate" -t Strain "$references" "$fasta"
+	ratt -p "$isolate" -t "$ratt_transfer_type" "$references" "$fasta"
 	touch ratt-done;
 	cd ..
 fi

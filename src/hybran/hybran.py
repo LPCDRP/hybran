@@ -31,6 +31,7 @@ def cmds():
                                                  '\n\nPlease cite: [manuscript submitted]')
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
+    ratt_params = parser.add_argument_group('RATT Options.\n(See http://ratt.sourceforge.net/documentation.html and\n https://github.com/ThomasDOtto/ratt/blob/master/ratt.1.md for more details)')
     required.add_argument('-g', '--genomes', help='Directory, a space-separated list of FASTAs, or a FOFN '
                                                       'containing all genomes desired to be annotated. '
                                                       'FASTA format required.',
@@ -80,6 +81,37 @@ def cmds():
     optional.add_argument('-v', '--version', help='Print version and exit',
                           action='version',
                           version=__version__)
+
+    ratt_params.add_argument('--ratt-transfer-type',
+                             choices=[
+                                 'Assembly',
+                                 'Assembly.Repetitive',
+                                 'Strain',
+                                 'Strain.Repetitive',
+                                 'Strain.Global',
+                                 'Species',
+                                 'Species.Repetitive',
+                                 'Species.Global',
+                                 'Multiple',
+                                 'Free',
+                             ],
+                             default='Strain',
+                             help='presets for nucmer alignment settings to determine synteny.')
+    ratt_params.add_argument('--ratt-splice-sites',
+                             type=str,
+                             default='XX..XX',
+                             help='splice donor and acceptor sequences. example: GT..AG')
+    ratt_params.add_argument('--ratt-correct-splice',
+                             action = 'store_true',
+# TODO: need python 3.9 for this
+#                             action = argparse.BooleanOptionalAction,
+                             help='whether RATT should attempt splice site corrections')
+    ratt_params.add_argument('--ratt-correct-pseudogenes',
+                             action = 'store_true',
+# TODO: need python 3.9 for this
+#                             action = argparse.BooleanOptionalAction,
+                             help='whether RATT should attempt correction of reference pseudogenes in your samples')
+
     return parser.parse_args()
 
 
@@ -195,7 +227,13 @@ def main():
     # but only if the user hasn't defined their own
     if 'RATT_CONFIG' not in os.environ:
         os.environ['RATT_CONFIG'] = os.path.join(hybran_tmp_dir,'RATT.config')
-        config.ratt(os.environ['RATT_CONFIG'], genetic_code)
+        config.ratt(
+            os.environ['RATT_CONFIG'],
+            genetic_code,
+            splice = args.ratt_splice_sites,
+            correct_splice = args.ratt_correct_splice,
+            correct_pseudo = args.ratt_correct_pseudogenes,
+        )
 
 
     # Calling all steps for Hybran
@@ -216,6 +254,7 @@ def main():
                                 fasta=genome,
                                 ref_cds=ref_cds,
                                 gcode=genetic_code,
+                                ratt_ttype = args.ratt_transfer_type,
                                 script_dir=script_dir,
                                 cpus=args.nproc,
                                 qcov=args.coverage_threshold)
