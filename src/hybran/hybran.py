@@ -70,6 +70,10 @@ def cmds():
                                'annotated using hybran.')
     optional.add_argument('--filter-ratt', action='store_true',
                           help='Enforce identity/coverage thresholds on RATT-transferred annotations.')
+    optional.add_argument('-p', '--orf-prefix',
+                          type=str,
+                          help='prefix for generic gene names (*not* locus tags)',
+                          default='ORF')
     logging_level = optional.add_mutually_exclusive_group()
     logging_level.add_argument('--verbose', action='store_true', help='Verbose output')
     logging_level.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
@@ -95,6 +99,8 @@ def main():
     # Setting up the Hybran temporary directory
     config.init()
     hybran_tmp_dir = config.hybran_tmp_dir
+
+    designator.generic_orf_prefix=args.orf_prefix
 
     # Cleanup the temporary files directory and its contents at exit unless
     # --debug is set

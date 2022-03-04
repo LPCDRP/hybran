@@ -6,6 +6,9 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation
 
 from . import extractor
 
+
+# This gets reset to whatever was passed as
+# --orf-prefix in hybran.py
 generic_orf_prefix = 'ORF'
 
 
