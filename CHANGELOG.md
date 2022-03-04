@@ -10,6 +10,8 @@
   - Now using "ORF" prefix for generic genes rather than "MTB"
 * Removed checking for dnaA as the first gene at the first base position.
 * Made eggNOG-mapper step optional.
+* Identify disrupted versions of reference genes and apply the same name,
+  but with a /pseudo tag.
 
 ### Bugs fixed
 * Account for pseudogenes labeled with 'pseudo' qualifier instead of 'pseudogene'
