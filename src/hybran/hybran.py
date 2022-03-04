@@ -28,7 +28,8 @@ def cmds():
     """
     parser = argparse.ArgumentParser(description='Hybran: hybrid reference-based and ab initio prokaryotic genomic annotation. '
                                                  'Mixing different species within a single annotation run is NOT recommended.'
-                                                 '\n\nPlease cite: [manuscript submitted]')
+                                                 '\n\nPlease cite: [manuscript submitted]',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
     ratt_params = parser.add_argument_group('RATT Options.\n(See http://ratt.sourceforge.net/documentation.html and\n https://github.com/ThomasDOtto/ratt/blob/master/ratt.1.md for more details)')
@@ -55,14 +56,14 @@ def cmds():
                           help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
                                ' Default is the first reference annotation (Genbank) in -r/--references.')
     optional.add_argument('-i', '--identity-threshold', required=False, type=int,
-                          help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP. Default is 95',
+                          help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP',
                           default=95)
     optional.add_argument('-c', '--coverage-threshold', required=False, type=int,
-                          help='Percent sequence coverage threshold to use during CD-HIT clustering and BLASTP. Default is 95',
+                          help='Percent sequence coverage threshold to use during CD-HIT clustering and BLASTP',
                           default=95)
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
                                                  '-r/--references directory. Full path only')
-    optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use. Default is 1',
+    optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use',
                           default='1')
     optional.add_argument('-d', '--debug', action='store_true',
                           help="Don't delete temporary files created by Hybran.")
