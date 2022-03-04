@@ -9,7 +9,10 @@ from . import extractor
 
 # This gets reset to whatever was passed as
 # --orf-prefix in hybran.py
-generic_orf_prefix = 'ORF'
+# ...but we have to hide it in a list
+# because of a long story that involves
+# a "from" import. See https://stackoverflow.com/a/43855120
+generic_orf_prefix = ['ORF']
 
 
 def append_qualifier(qualifiers, qual_name, qual_value):
@@ -81,7 +84,7 @@ def assign_orf_id(increment):
        - str ID string
        - incremented counter
     """
-    orf_id = generic_orf_prefix + "%04g" % (increment)
+    orf_id = generic_orf_prefix[0] + "%04g" % (increment)
     increment += 1
     return orf_id, increment
 
@@ -140,7 +143,7 @@ def find_next_increment(fasta, prefix=generic_orf_prefix):
         records.append(record.id)
     if records:
         last_orf = sorted(records)[-1]
-        return int(last_orf.replace(prefix, '')) + 1
+        return int(last_orf.replace(prefix[0], '')) + 1
     else:
         return 1
 
@@ -149,10 +152,10 @@ def find_next_increment(fasta, prefix=generic_orf_prefix):
 #
 
 def is_unannotated(name):
-    return name.startswith(generic_orf_prefix)
+    return name.startswith(generic_orf_prefix[0])
 
 def is_reference(name):
-    return not name.startswith((generic_orf_prefix,'L_','L2_'))
+    return not name.startswith((generic_orf_prefix[0],'L_','L2_'))
 
 def is_raw_ltag(name):
     return name.startswith(('L_','L2_'))

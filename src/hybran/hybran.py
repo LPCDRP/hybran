@@ -179,7 +179,7 @@ def main():
     config.init()
     hybran_tmp_dir = config.hybran_tmp_dir
 
-    designator.generic_orf_prefix=args.orf_prefix
+    designator.generic_orf_prefix[0]=args.orf_prefix
 
     # Cleanup the temporary files directory and its contents at exit unless
     # --debug is set
