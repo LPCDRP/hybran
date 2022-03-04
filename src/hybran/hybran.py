@@ -194,7 +194,7 @@ def main():
     # Configure RATT start/stop codons and other settings,
     # but only if the user hasn't defined their own
     if 'RATT_CONFIG' not in os.environ:
-        os.environ['RATT_CONFIG'] = os.path.join(script_dir,'RATT.config')
+        os.environ['RATT_CONFIG'] = os.path.join(hybran_tmp_dir,'RATT.config')
         config.ratt(os.environ['RATT_CONFIG'], genetic_code)
 
 
