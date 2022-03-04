@@ -26,6 +26,7 @@ import tempfile
 import pickle
 import logging
 import time
+import re
 import subprocess
 
 from . import BLAST
@@ -260,6 +261,27 @@ def rename_locus(gene, strand, reference_locus_list):
     return new_gene_name
 
 
+def process_split_genes(flist):
+    """
+    Given a list of features ordered by genomic position, assign the same
+    locus tag to consecutive fragments of the same gene.
+    :param flist: list of SeqFeature objects
+    :return: None (features on input list are modified)
+    """
+    prev_gene_frag = dict()
+    for feature in flist:
+        if 'gene' in feature.qualifiers.keys():
+            if 'pseudo' in feature.qualifiers.keys():
+                # feature.qualifiers.pop('translation', None)
+                if 'gene' in prev_gene_frag.keys() and feature.qualifiers['gene'][0] == prev_gene_frag['gene']:
+                    feature.qualifiers['locus_tag'][0] = prev_gene_frag['locus_tag']
+                prev_gene_frag = dict(
+                    gene = feature.qualifiers['gene'][0],
+                    locus_tag = feature.qualifiers['locus_tag'][0]
+                )
+            else:
+                prev_gene_frag = dict()
+
 def identify_merged_genes(ratt_features):
     """
     This function takes as input a list features annotated in RATT and identifies instances of merged CDS
@@ -431,19 +453,64 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     logger = logging.getLogger('ValidateRATTCDSs')
     logger.debug('Parsing through RATT annotations')
     unbroken_cds = []
-    num_joins = 0
     non_cds_features = []
     broken_cds = []
     ratt_blast_results = {}
     rejects = []
+    valid_features = []
+    # since we have addtional features after splitting the joins,
+    # this holds the offset to get the number of actual features,
+    # just for logging purposes.
+    n_extra_pseudo = 0
     for feature in feature_list:
         # Identify features with 'joins'
         if feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
-            locus_tag = feature.qualifiers['locus_tag'][0]
-            if locus_tag not in broken_cds:
+            #Check if feature has an internal stop codon.
+            #
+            # If it doesn't, we will accept it, but split it into two
+            # pseudo CDS entries with the same locus tag, to be grouped with
+            # a single 'gene' record later.
+            # The gff conversion of a gbk entry with joins is not meaningful,
+            # and causes some problems, as the entire sequence gets labeled
+            # "biological region" and two basically empty CDS records are created.
+            disrupted = False
+            feature.qualifiers['pseudo']=['']
+            split_features = []
+            for i in range(len(feature.location.parts)):
+                split_features.append(deepcopy(feature))
+                # the 3' end of the first interval doesn't include the actual stop codon.
+                if i==0:
+                    if feature.location.strand == -1:
+                        # minus strand
+                        start_offset = 3*feature.location.strand
+                        end_offset = 0
+                    else:
+                        start_offset = 0
+                        end_offset = 3*feature.location.strand
+                else:
+                    start_offset = 0
+                    end_offset = 0
+                split_features[-1].location = FeatureLocation(
+                    ExactPosition(feature.location.parts[i].start + start_offset),
+                    ExactPosition(feature.location.parts[i].end + end_offset),
+                    feature.location.parts[i].strand
+                )
+                t = translate(
+                    split_features[-1].extract(record_sequence),
+                    table=genetic_code,
+                )
+                split_features[-1].qualifiers['translation'] = [str(t)[:-1]]
+                num_stops = t.count('*')
+                locus_tag = feature.qualifiers['locus_tag'][0]
+                if num_stops > 1:
+                    if locus_tag not in broken_cds:
+                        disrupted = True
+            if not disrupted:
+                valid_features += split_features
+                n_extra_pseudo += len(split_features) - 1
+            else:
                 broken_cds.append(locus_tag)
-                rejects.append((feature, "compound location"))
-            num_joins += 1
+                rejects.append((feature, "Multiple internal stop codons in compound CDS feature."))
         elif feature.type == 'CDS' and feature.location is None:
             logger.warning('Invalid CDS: Location of CDS is missing')
             logger.warning(feature)
@@ -456,8 +523,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             unbroken_cds.append(feature)
         else:
             non_cds_features.append(feature)
-    valid_features = []
-    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds)))
+    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features) - n_extra_pseudo))
     for cds_feature in unbroken_cds:
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
@@ -479,7 +545,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             else:
                 rejects.append((cds_feature, "No blastp hit to corresponding reference CDS at specified thresholds."))
                 continue
-    logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features)))
+    logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features) - n_extra_pseudo))
     return valid_features, ratt_blast_results, rejects
 
 
@@ -715,12 +781,12 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
             except KeyError:
                 locus_tag = feature.qualifiers['gene'][0]
             prokka_blast_list.append(locus_tag)
-            blast_stats = BLAST.blastp(
+            (blast_stats, blast_misses, truncation_signatures) = BLAST.blastp(
                 query = SeqRecord(feature_seq),
                 subject = ref_temp_fasta_dict[locus_tag],
                 seq_ident = seq_ident,
                 seq_covg = seq_covg,
-            )[0]
+            )
             if blast_stats:
                 blast_stats = BLAST.summarize(blast_stats)[locus_tag]
                 mod_feature = feature
@@ -801,6 +867,13 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                                     remark = 'identical to RATT for ' + locus_tag
                             else:
                                 do_not_add_prokka = False
+            elif truncation_signatures:
+                truncation_signatures = BLAST.summarize(truncation_signatures)[locus_tag]
+                # Low subject coverage but passing query coverage means that the gene
+                # is truncated in this sample. Tag it pseudo.
+                # TODO - consider setting this to 80% instead of seq_covg
+                if truncation_signatures['scov'] < seq_covg:
+                    mod_feature.qualifiers['pseudo'] = ['']
             else:
                 if loc_key in prokka_noref.keys():
                     mod_feature = prokka_noref[loc_key]
@@ -1403,6 +1476,14 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                            os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv'))
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
+        # When prokka matches the same reference gene to multiple orfs, it appends _1, _2, ... to make the names unique.
+        # That causes issues for us when trying to look up whether prokka's call is a reference gene or not, so strip _n
+        # from the end of every prokka-reference gene name assignment.
+        for f in prokka_contig_features:
+            if 'gene' in f.qualifiers.keys():
+                f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
+
+
         global ratt_corrected_genes
         if len(ratt_correction_files) == 1:
             error_correction_fp = ratt_correction_files[0]
@@ -1982,6 +2063,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 ratt_rejects.append((ratt_annotation, remark))
                 output_isolate_recs[0].features.append(prokka_annotation)
         ordered_feats = get_ordered_features(output_isolate_recs[0].features)
+        process_split_genes(ordered_feats)
         output_isolate_recs[0].features = ordered_feats[:]
 
     with open(ratt_rejects_logfile, 'w') as ratt_rejects_log:

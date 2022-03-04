@@ -183,30 +183,34 @@ def check_matches_to_known_genes(
         - orf_increment (:py:class:`int`) - updated increment of ORFs
     """
     query_gene_closest_refs = []
-    hits, misses = BLAST.blastp(
+    hits, misses, truncation_signatures = BLAST.blastp(
         query = query_seq,
         subject = reference_seqs,
         seq_ident = seq_ident,
         seq_covg = seq_covg,
     )
-    top_hit, best_subcriticals = identify_top_hits(
+    top_hit, best_subcriticals, pseudo = identify_top_hits(
         hits,
         misses,
+        truncation_signatures,
+        seq_covg,
     )
     assign_new_generic = False
     name_to_assign = top_hit
     if not top_hit:
         assign_new_generic = True
         if os.stat(generic_seqs).st_size:
-            cn_hits, cn_misses = BLAST.blastp(
+            cn_hits, cn_misses, cn_truncation_signatures = BLAST.blastp(
                 query = query_seq,
                 subject = generic_seqs,
                 seq_ident = seq_ident,
                 seq_covg = seq_covg,
             )
-            top_hit_generic, best_subcriticals_generic = identify_top_hits(
+            top_hit_generic, best_subcriticals_generic, pseudo = identify_top_hits(
                 cn_hits,
                 cn_misses,
+                cn_truncation_signatures,
+                seq_covg,
             )
             best_subcriticals += best_subcriticals_generic
             if top_hit_generic:
@@ -229,26 +233,38 @@ def check_matches_to_known_genes(
             query_gene_closest_refs = ['\t'.join([cluster_type, orf_id, hit])
                                        for hit in best_subcriticals]
 
-    return name_to_assign, query_gene_closest_refs, orf_increment
+    return name_to_assign, pseudo, query_gene_closest_refs, orf_increment
 
-def identify_top_hits(passes, subcriticals):
+def identify_top_hits(passes, subcriticals, truncation_signatures, seq_covg):
     """
     Iterates over BLASTP output and determines all the best
     hits based on identity and alignment coverage
 
     :param passes: list of strings from BLAST.blastp() for hits passing thresholds
     :param subcriticals: list of strings from BLAST.blastp() for remaining hits
+    :param truncation_signatures: list of strings from BLAST.blastp() for hits suggestive
+                                  of a truncation (high %-identity and only one of the coverage
+                                  metrics below threshold.
     :returns:
        - str ID of best hit (by sequence identity) of all hits meeting/exceeding
          all three thresholds. Otherwise None if none exist
        - empty list (if there's a passing best hit) or list of three report strings
          for the best subcritical matches by each category.
+       - pseudo (:py:class:`bool`) True if the query gene is shorter than the top hit (< seq_covg)
+                                   but matches it completely
     """
 
+    pseudo = False
     if passes:
         all_hits_dict = BLAST.summarize(passes, identify=get_gene_name)
         top_hit = BLAST.top_hit(all_hits_dict)
         best_subcriticals = []
+    elif truncation_signatures:
+        truncation_hits = BLAST.summarize(truncation_signatures, identify=get_gene_name)
+        top_hit = BLAST.top_hit(truncation_hits)
+        best_subcriticals = []
+        if truncation_hits[top_hit]['scov'] < seq_covg:
+            pseudo = True
     else:
         top_hit = None
         if subcriticals:
@@ -266,28 +282,35 @@ def identify_top_hits(passes, subcriticals):
                              ['identity','scov','qcov'])]
         else:
             best_subcriticals = []
-    return top_hit, best_subcriticals
+    return top_hit, best_subcriticals, pseudo
 
 
-def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
+def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name, pseudo=False):
     """
     Updates a global dictionary with new gene name assignments
 
     :param isolate_id: str isolate ID
     :param isolate_ltag: str locus tag to update
     :param new_gene_name: str gene name to assign
+    :param pseudo: bool whether the gene is a fragment
     :return: None
     """
     logger = logging.getLogger('NameGene')
     if isolate_id not in isolate_update_dictionary.keys():
         isolate_update_dictionary[isolate_id] = {}
-        isolate_update_dictionary[isolate_id][isolate_ltag] = new_gene_name
+        isolate_update_dictionary[isolate_id][isolate_ltag] = dict(
+            name = new_gene_name,
+            pseudo = pseudo,
+        )
         logger.debug(isolate_ltag + ' in ' + isolate_id + ' becomes ' + new_gene_name)
     else:
         isolate_dict_added = isolate_update_dictionary[isolate_id]
         if isolate_ltag not in isolate_dict_added.keys():
             logger.debug(isolate_ltag + ' in ' + isolate_id + ' becomes ' + new_gene_name)
-            isolate_update_dictionary[isolate_id][isolate_ltag] = new_gene_name
+            isolate_update_dictionary[isolate_id][isolate_ltag] = dict(
+                name = new_gene_name,
+                pseudo = pseudo,
+            )
     return
 
 
@@ -475,7 +498,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
         out_list.append(str(single_gene))
         if designator.is_raw_ltag(gene_name) and designator.is_raw_ltag(locus_tag):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
-            name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+            name_to_assign, pseudo, query_closest_refs, orf_increment = check_matches_to_known_genes(
                 query_seq = SeqRecord(gene_sequence),
                 reference_seqs = reference_fasta,
                 generic_seqs = unannotated_fasta,
@@ -485,7 +508,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
                 seq_covg = seq_covg,
             )
             novel_genes_closest_refs += query_closest_refs
-            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
+            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign, pseudo)
         else:
             continue
     with open('./clustering/singleton_clusters.txt', 'w') as f:
@@ -524,7 +547,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
         gene = rep_gene.split(',')[2]
         rep_sequence = isolate_sequences[isolate][locus]
         rep_record = SeqRecord(rep_sequence, id='', description='')
-        name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+        name_to_assign, pseudo, query_closest_refs, orf_increment = check_matches_to_known_genes(
             query_seq = rep_record,
             reference_seqs = reference_fasta,
             generic_seqs = unannotated_fasta,
@@ -536,7 +559,12 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
         novel_genes_closest_refs += query_closest_refs
         update_dictionary_ltag_assignments(isolate, locus, name_to_assign)
         for other_genes_in_cluster in in_dict[rep_gene]:
-            update_dictionary_ltag_assignments(other_genes_in_cluster[0], other_genes_in_cluster[1], name_to_assign)
+            update_dictionary_ltag_assignments(
+                other_genes_in_cluster[0],
+                other_genes_in_cluster[1],
+                name_to_assign,
+                pseudo,
+            )
     with open('./clustering/onlyltag_clusters.txt', 'w') as f:
         for line in out_list:
             f.write(str(line) + '\n')
@@ -643,7 +671,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
                     unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus])
-                    name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+                    name_to_assign, pseudo, query_closest_refs, orf_increment = check_matches_to_known_genes(
                         query_seq = unannotated_gene_seq,
                         reference_seqs = fasta_fp_to_blast,
                         generic_seqs = unannotated_fasta,
@@ -653,7 +681,12 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                         seq_covg = seq_covg,
                     )
                     novel_genes_closest_refs += query_closest_refs
-                    update_dictionary_ltag_assignments(unannotated_gene_isolate, unannotated_gene_locus, name_to_assign)
+                    update_dictionary_ltag_assignments(
+                        unannotated_gene_isolate,
+                        unannotated_gene_locus,
+                        name_to_assign,
+                        pseudo,
+                    )
         else:
             if len(unassigned_l_tags) > 0:
                 single_gene_cluster_complete[gene] = in_dict[gene]
@@ -701,18 +734,20 @@ def add_gene_names_to_gbk(generics, gbk_dir):
                     if locus_tag in locus_to_update and \
                             locus_tag not in modified_locus:
                         if designator.is_raw_ltag(gene_name):
-                            feature.qualifiers['gene'] = update_orf_dict[locus_tag]
-                        elif gene_name == update_orf_dict[locus_tag]:
+                            feature.qualifiers['gene'][0] = update_orf_dict[locus_tag]['name']
+                            if update_orf_dict[locus_tag]['pseudo']:
+                                feature.qualifiers['pseudo'] = ['']
+                        elif gene_name == update_orf_dict[locus_tag]['name']:
                             modified_locus.append(locus_tag)
                             continue
                         else:
                             logger.debug('Discordant assignment of gene name')
                             logger.debug('Original gene name: ' + gene_name)
-                            logger.debug('New gene name: ' + update_orf_dict[locus_tag])
+                            logger.debug('New gene name: ' + update_orf_dict[locus_tag]['name'])
                             designator.append_qualifier(
                                 feature.qualifiers,
                                 'gene_synonym',
-                                update_orf_dict[locus_tag]
+                                update_orf_dict[locus_tag]['name']
                             )
                         modified_locus.append(locus_tag)
                     elif locus_tag in locus_to_update and locus_tag in modified_locus:
