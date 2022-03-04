@@ -483,14 +483,10 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                     deepcopy(feature.location.parts[i].end),
                     feature.location.parts[i].strand
                 )
-                start = int(feature.location.parts[i].start)
-                end = int(feature.location.parts[i].end)
-                strand = feature.location.parts[i].strand
-                num_stops = 0
-                t = record_sequence[start:end]
-                if strand == -1:
-                    t = t.reverse_complement()
-                t = t.translate(table=genetic_code)
+                t = translate(
+                    split_features[-1].extract(record_sequence),
+                    table=genetic_code,
+                )
                 split_features[-1].qualifiers['translation'] = [str(t)[:-1]]
                 num_stops = t.count('*')
                 locus_tag = feature.qualifiers['locus_tag'][0]
