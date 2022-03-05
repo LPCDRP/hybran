@@ -260,27 +260,64 @@ def rename_locus(gene, strand, reference_locus_list):
             new_gene_name = gene_name + chr(char_start)
     return new_gene_name
 
+def merge_qualifiers(f1quals, f2quals):
+    """
+    Combine two qualifier dictionaries, combining lists for qualifiers that may
+    have multiple values.
+    :param f1quals: dict first SeqFeature's qualifiers
+    :param f2quals: dict second SeqFeature's qualifiers
+    :return: dict combined qualifier dictionary
+    """
+    multifields = [
+            'note',
+            'gene_synonym',
+            'experiment',
+            'inference',
+    ]
+    final_qualifiers = deepcopy(f1quals)
+    final_qualifiers.update(f2quals)
+    for qual in multifields:
+        if qual in f1quals.keys() and qual in f2quals.keys():
+            final_qualifiers[qual] = list(
+                set(f1quals[qual]).union(set(f2quals[qual]))
+            )
+    return final_qualifiers
 
 def process_split_genes(flist):
     """
     Given a list of features ordered by genomic position, assign the same
     locus tag to consecutive fragments of the same gene.
     :param flist: list of SeqFeature objects
-    :return: None (features on input list are modified)
+    :return: list of SeqFeature objects to keep (some modified from the original)
     """
+    outlist = []
+    i = 0
     prev_gene_frag = dict()
     for feature in flist:
-        if 'gene' in feature.qualifiers.keys():
-            if 'pseudo' in feature.qualifiers.keys():
-                # feature.qualifiers.pop('translation', None)
-                if 'gene' in prev_gene_frag.keys() and feature.qualifiers['gene'][0] == prev_gene_frag['gene']:
-                    feature.qualifiers['locus_tag'][0] = prev_gene_frag['locus_tag']
-                prev_gene_frag = dict(
-                    gene = feature.qualifiers['gene'][0],
-                    locus_tag = feature.qualifiers['locus_tag'][0]
+        if 'gene' in feature.qualifiers.keys() and 'pseudo' in feature.qualifiers.keys():
+            if 'gene' in prev_gene_frag.keys() and feature.qualifiers['gene'][0] == prev_gene_frag['gene']:
+                # merge this feature's data into the previous one's and throw it away.
+                outlist[prev_gene_frag['ind']].location = FeatureLocation(
+                    outlist[prev_gene_frag['ind']].location.start,
+                    feature.location.end,
+                    outlist[prev_gene_frag['ind']].location.strand
                 )
-            else:
-                prev_gene_frag = dict()
+                outlist[prev_gene_frag['ind']].qualifiers = merge_qualifiers(
+                    outlist[prev_gene_frag['ind']].qualifiers,
+                    feature.qualifiers,
+                )
+                continue
+            prev_gene_frag = dict(
+                gene = feature.qualifiers['gene'][0],
+                locus_tag = feature.qualifiers['locus_tag'][0],
+                ind = i,
+            )
+            outlist.append(deepcopy(feature))
+            i += 1
+        else:
+            outlist.append(deepcopy(feature))
+            i += 1
+    return outlist
 
 def identify_merged_genes(ratt_features):
     """
@@ -2063,7 +2100,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 ratt_rejects.append((ratt_annotation, remark))
                 output_isolate_recs[0].features.append(prokka_annotation)
         ordered_feats = get_ordered_features(output_isolate_recs[0].features)
-        process_split_genes(ordered_feats)
+        ordered_feats = process_split_genes(ordered_feats)
         output_isolate_recs[0].features = ordered_feats[:]
 
     with open(ratt_rejects_logfile, 'w') as ratt_rejects_log:
