@@ -737,6 +737,7 @@ def add_gene_names_to_gbk(generics, gbk_dir):
                             feature.qualifiers['gene'][0] = update_orf_dict[locus_tag]['name']
                             if update_orf_dict[locus_tag]['pseudo']:
                                 feature.qualifiers['pseudo'] = ['']
+                                feature.qualifiers.pop('translation', None)
                         elif gene_name == update_orf_dict[locus_tag]['name']:
                             modified_locus.append(locus_tag)
                             continue

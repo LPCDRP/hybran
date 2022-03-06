@@ -295,6 +295,7 @@ def process_split_genes(flist):
     prev_gene_frag = dict()
     for feature in flist:
         if 'gene' in feature.qualifiers.keys() and 'pseudo' in feature.qualifiers.keys():
+            feature.qualifiers.pop('translation', None)
             if 'gene' in prev_gene_frag.keys() and feature.qualifiers['gene'][0] == prev_gene_frag['gene']:
                 # merge this feature's data into the previous one's and throw it away.
                 outlist[prev_gene_frag['ind']].location = FeatureLocation(
