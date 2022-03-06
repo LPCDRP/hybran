@@ -2,6 +2,11 @@
 
 ## Development
 
+### Bugs fixed
+* Genes split into multiple adjacent fragments used to have a single /gene record but multiple CDS records with the same locus tag.
+  For INSDC compliance, they now only have a single CDS record as well.
+* Removed /translation fields for /pseudo CDSs.
+
 ## [Version 1.4](https://gitlab.com/LPCDRP/hybran/-/tags/1.4)
 
 ### Enhancements
