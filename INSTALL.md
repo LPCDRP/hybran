@@ -16,12 +16,17 @@ All dependencies are available within the `environment.yml` within an anaconda e
 
 ## How to install
 
+* Download and extract the [latest release](https://gitlab.com/LPCDRP/hybran/-/releases/permalink/latest).
+
+* Install the dependencies using [miniconda](https://docs.conda.io/en/latest/miniconda.html#installing) (or manually)
 ```
-# Set up the anaconda environment with the dependencies
+# From the hybran directory you downloaded, set up the conda environment with the dependencies
 conda env create -n hybran -f environment.yml
 conda activate hybran
+```
 
-# install hybran
+* Install hybran
+```
 python setup.py install
 ```
 
