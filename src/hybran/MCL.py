@@ -1,5 +1,6 @@
 import subprocess
 import logging
+import sys
 import time
 from . import config
 
@@ -11,7 +12,13 @@ def execute_mcxdeblast(blast):
                       '--line-mode=abc',
                       '--out=' + hybran_tmp_dir + '/mcxdeblast_results',
                       blast]
-    mcxdeblast_out = subprocess.run(mcxdeblast_cmd, stdout=subprocess.PIPE)
+    mcxdeblast_out = subprocess.run(
+        mcxdeblast_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    return mcxdeblast_out
 
 
 def execute_mcl():
@@ -23,7 +30,12 @@ def execute_mcl():
                '-o', hybran_tmp_dir + '/mcl',
                '-q', 'x',
                '-V', 'all']
-    mcl_out = subprocess.run(mcl_cmd, stdout=subprocess.PIPE)
+    mcl_out = subprocess.run(
+        mcl_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
     return mcl_out
 
 
@@ -56,9 +68,19 @@ def run_mcl(in_blast, cdhit_clusters, out_name, gene_names):
     hybran_tmp_dir = config.hybran_tmp_dir    
     logger = logging.getLogger('MCL')
     logger.info('Running MCL')
-    execute_mcxdeblast(blast=in_blast)
+    mcx_ps = execute_mcxdeblast(blast=in_blast)
+    try:
+         mcx_ps.check_returncode()
+    except subprocess.CalledProcessError:
+        logger.error('mcxdeblast failed.')
+        print(mcx_ps.stdout, file=sys.stderr)
     time.sleep(5)
-    mcl_stdout = execute_mcl()
+    mcl_ps = execute_mcl()
+    try:
+        mcl_ps.check_returncode()
+    except subprocess.CalledProcessError:
+        logger.error('mcl failed')
+        print(mcl_ps.stdout, file=sys.stderr)
     time.sleep(5)
     logger.info('Re-inflating CDHIT clusters in MCL clusters')
     output = inflate_mcl_clusters(mcl_output=hybran_tmp_dir + '/mcl',

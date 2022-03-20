@@ -18,6 +18,10 @@ if [ ! -f ratt/ratt-done ]
 then
 	cd ratt/;
 	ratt -p "$isolate" -t "$ratt_transfer_type" "$references" "$fasta"
+	if [ $? -ne 0 ]
+	then
+	    exit 1
+	fi
 	touch ratt-done;
 	cd ..
 fi
@@ -43,6 +47,11 @@ then
 	--locustag L \
 	--quiet \
 	"$fasta";
+    if [ $? -ne 0 ]
+    then
+	exit 2
+    fi
+
 fi
 
 wait
@@ -63,6 +72,10 @@ then
 	--locustag L \
 	--quiet \
 	"$fasta";
+    if [ $? -ne 0 ]
+    then
+	exit 2
+    fi
 fi
 
 wait

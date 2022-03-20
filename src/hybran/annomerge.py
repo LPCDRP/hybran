@@ -1351,7 +1351,14 @@ def run_prodigal(reference_genome, outfile):
     cmd = [os.sep.join([script_dir, 'prodigal.sh']),
            reference_genome,
            outfile]
-    subprocess.call(cmd)
+    try:
+        subprocess.run(
+            cmd,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        logger.error('Prodigal failed.')
+        exit(1)
     os.chdir(c)
 
 

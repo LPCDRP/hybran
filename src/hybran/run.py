@@ -49,7 +49,14 @@ def ratt_prokka(ref_dir, fasta, ref_cds, gcode, ratt_ttype, prokka_extra_args, s
                ratt_ttype,
                prokka_extra_args,
                ]
-        subprocess.call(cmd)
+        try:
+            subprocess.run(
+                cmd,
+                check=True,
+            )
+        except subprocess.CalledProcessError:
+            logger.error("Could not annotate " + isolate + ".")
+            exit(1)
         os.chdir(c)
 
 

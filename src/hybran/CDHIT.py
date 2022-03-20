@@ -1,6 +1,8 @@
 import logging
 from Bio import SeqIO
 import subprocess
+import sys
+
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
@@ -41,7 +43,12 @@ def run_cdhit(nproc, input, output, seq_ident, seq_covg):
            '-g', '1',
            '-s', '1',
            '-d', '256']
-    out = subprocess.run(cmd, stdout=subprocess.PIPE)
+    out = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
     return out
 
 
@@ -112,7 +119,13 @@ def run(nproc, fasta, seq_ident,seq_covg, out):
     """
     logger = logging.getLogger('CDHIT')
     logger.info('Running CDHIT')
-    run_cdhit(nproc, fasta, out, seq_ident, seq_covg)
+    cdhit_ps = run_cdhit(nproc, fasta, out, seq_ident, seq_covg)
+    try:
+        cdhit_ps.check_returncode()
+    except subprocess.CalledProcessError:
+        logger.error('CDHIT failed.')
+        print(cdhit_ps.stdout, file=sys.stderr)
+        exit(1)
     OGdict, description_dict = create_allseq_dict(fasta)
     logger.info('Parsing CDHIT output (' + out + '.clstr)')
     REPdict, rep_list = create_reps_dict(out + '.clstr')
