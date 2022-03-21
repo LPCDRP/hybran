@@ -343,6 +343,7 @@ def main():
         else:
             logger.info('No genes to be annotated with eggnog, continuing')
 
+        logger.info('Assigning locus tags')
         for gbk in glob.glob(os.path.join(args.output,'*.gbk')):
             isolate_id = os.path.basename(os.path.splitext(gbk)[0])
             designator.assign_locus_tags(gbk, prefix=isolate_id)
