@@ -1858,7 +1858,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     elif ref_feat_start < fill_pos[0] and ref_feat_end < fill_pos[0]:
                         continue
                     elif ref_feat_start > fill_pos[0] and ref_feat_end < fill_pos[1]:
-                        if 'gene' in ref_feat.qualifiers.keys() and '_' in ref_feat.qualifiers['gene'][0]:
+                        if 'gene' in ref_feat.qualifiers.keys() and designator.is_raw_ltag(ref_feat.qualifiers['gene'][0]):
                             ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
                         elif 'gene' not in ref_feat.qualifiers.keys():
                             ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
@@ -1924,9 +1924,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                     added_cds[loc_key] = feature
                     prokka_rec.features.append(feature)
-            if feature.type == 'CDS' and feature.qualifiers['locus_tag'][0][0] == 'L' and \
-                    'gene' in feature.qualifiers.keys():
-                if '_' in feature.qualifiers['gene'][0]:
+            if ( feature.type == 'CDS'
+                 and designator.is_raw_ltag(feature.qualifiers['locus_tag'][0])
+                 and 'gene' in feature.qualifiers.keys()
+                ):
+                if designator.is_raw_ltag(feature.qualifiers['gene'][0]):
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                     if loc_key in added_cds.keys():
                         continue
@@ -1941,7 +1943,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             feature_noref.qualifiers['gene'] = feature_noref.qualifiers['locus_tag']
                     else:
                         feature_noref = feature
-                    if 'gene' in feature_noref.qualifiers.keys() and '_' in feature_noref.qualifiers['gene'][0]:
+                    if 'gene' in feature_noref.qualifiers.keys() and designator.is_raw_ltag(feature_noref.qualifiers['gene'][0]):
                         new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
                         feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
                         new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
