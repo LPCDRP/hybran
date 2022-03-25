@@ -16,6 +16,49 @@ from . import config
 # you have no network connection.
 os.environ["BLAST_USAGE_REPORT"] = "false"
 
+def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, metric='iden'):
+    """
+    Wrapper to blastp(), summarize(), and top_hit() that tells you the bottom line.
+    See those functions for descriptions of the input parameters.
+    This function checks for complete hits and, failing that, partial hits.
+    :returns:
+        - result (:py:class:`str`)  -
+             name of the top hit (`None` if no suitable match was found)
+        - pseudo (:py:class:`bool`) -
+             whether the query is truncated with respect to the result
+        - stats (:py:class:`dict`)  -
+             summary dict of blast results from either hits, truncation_signatures, or misses
+    """
+    hits, misses, truncation_signatures = blastp(
+        query,
+        subject,
+        seq_ident,
+        seq_covg,
+    )
+    result = None
+    pseudo = False
+    hit_dict = None
+    # this will be replaced by actual hits later if there are any
+    if misses:
+        hit_dict = summarize(misses, identify=identify)
+
+    for hit_list in [hits, truncation_signatures]:
+        if not hit_list:
+            continue
+        hit_dict = summarize(hit_list, identify=identify)
+        result = top_hit(
+            hit_dict,
+            metric=metric,
+        )
+        stats = hit_dict[result]
+        # Low subject coverage but passing query coverage means that the gene
+        # is truncated in this sample. Tag it pseudo.
+        # TODO - consider setting this to 80% instead of seq_covg
+        if stats['scov'] < seq_covg:
+            pseudo = True
+
+    return result, pseudo, hit_dict
+
 def top_hit(blast_summary, metric='iden'):
     """
     Get the best hit according to the given metric.
