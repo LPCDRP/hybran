@@ -12,7 +12,7 @@ prokka_flags="$9"
 
 set -x
 
-mkdir -p prokka prokka-noreference ratt annomerge
+mkdir -p prokka ratt annomerge
 
 if [ ! -f ratt/ratt-done ]
 then
@@ -33,39 +33,11 @@ then
     prokka \
 	$prokka_flags \
 	--rfam \
-	--proteins "$ref_cds" \
-	--rnammer  \
-	`# rawproduct: prevents removal of gene name assignments when reference product field isn't specific` \
-	--rawproduct \
-	--coverage 0 \
-	--gcode "$gcode" \
-	--cpus "$nproc" \
-	--outdir prokka \
-	--prefix "$isolate" \
-	--force \
-	--centre C \
-	--locustag L \
-	--quiet \
-	"$fasta";
-    if [ $? -ne 0 ]
-    then
-	exit 2
-    fi
-
-fi
-
-wait
-
-if [ ! -f prokka-noreference/"$isolate".gbk ]
-then
-    prokka \
-	$prokka_flags \
-	--rfam \
 	--rnammer \
 	--cpus "$nproc" \
 	--coverage "$qcov" \
 	--gcode "$gcode" \
-	--outdir prokka-noreference \
+	--outdir prokka \
 	--prefix "$isolate" \
 	--force \
 	--centre C \

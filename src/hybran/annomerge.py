@@ -730,7 +730,6 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     included = False
     mod_prokka_annotation, invalid_prokka, remark = validate_prokka_feature_annotation(
         deepcopy(prokka_annotation),
-        prokka_noref_dictionary,
         ref_temp_fasta_dict=ref_temp_fasta_dict,
         reference_gene_locus_dict=reference_gene_locus_dict,
         reference_locus_gene_dict=reference_locus_gene_dict,
@@ -782,7 +781,7 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     return embl_file, included, remark
 
 
-def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_locus_dict, reference_locus_gene_dict,
+def validate_prokka_feature_annotation(feature, reference_gene_locus_dict, reference_locus_gene_dict,
                                        ref_temp_fasta_dict, ratt_blast_results, reference_locus_list,
                                        seq_ident, seq_covg,
                                        check_ratt=False, ratt_features=[],
@@ -790,7 +789,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
     """
 
     :param feature:
-    :param prokka_noref:
     :param check_ratt:
     :param ratt_features:
     :param ratt_locations:
@@ -912,18 +910,6 @@ def validate_prokka_feature_annotation(feature, prokka_noref, reference_gene_loc
                 # TODO - consider setting this to 80% instead of seq_covg
                 if truncation_signatures['scov'] < seq_covg:
                     mod_feature.qualifiers['pseudo'] = ['']
-            else:
-                if loc_key in prokka_noref.keys():
-                    mod_feature = prokka_noref[loc_key]
-                    if 'gene' in mod_feature.qualifiers.keys():
-                        designator.append_qualifier(
-                            mod_feature.qualifiers,
-                            'gene_synonym',
-                            mod_feature.qualifiers['gene'][0]
-                        )
-                    mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
-                else:
-                    mod_feature.qualifiers['gene'] = mod_feature.qualifiers['locus_tag']
         else:
             mod_feature = feature
     return mod_feature, do_not_add_prokka, remark
@@ -1363,7 +1349,7 @@ def run_prodigal(reference_genome, outfile):
 
 
 def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
-        fill_gaps=True):
+):
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
     <output_merged_genes> from the commandline. The log file output stats about the features that are added to the
@@ -1382,8 +1368,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     :param reference_genome: File path for nucleotide fasta of assembled genome
     :param script_dir: Directory where hybran scripts are located
     :param ratt_enforce_thresholds: boolean - whether to enforce seq_ident/seq_covg for RATT-transferred annotations
-    :param fill_gaps: Flag to fill gaps in annotation from prokka no-reference. Default is true. If set to false,
-    unannotated regions will not be check against prokka noreference run.
     :return: EMBL record (SeqRecord) of annotated isolate
     """
 
@@ -1424,11 +1408,8 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         logger.error('Expecting Prokka annotation file but found none')
     output_merged_genes = os.path.join(isolate_id, 'annomerge', 'merged_genes.gbk')
     output_genbank = os.path.join(isolate_id, 'annomerge', isolate_id + '.gbk')
-    add_noref_annotations = fill_gaps
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
     isolate_sequence = prokka_records[0].seq
-    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbk'
-    prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
     global ratt_rejects  # some RATT annotations are rejected as a side effect of validate_prokka_feature_annotation ...
     ratt_rejects = []
     ratt_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'ratt_unused.tsv')
@@ -1507,13 +1488,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         ratt_contig_record = SeqIO.read(ratt_gbk_files[i], 'genbank')
         global record_sequence
         record_sequence = ratt_contig_record.seq
-        prokka_noref_rec_pre = prokka_record_noref[i]
-        prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict, record_sequence,
-                                                       ref_sequence, ref_feature_dict, reference_locus_list,
-                                                       reference_gene_locus_dict,
-                                                       os.path.join(isolate_id, 'prokka-noreference','hybran_coord_corrections.tsv'))
-        global prokka_noref_dictionary
-        prokka_noref_dictionary = generate_feature_dictionary(prokka_noref_rec.features)
         prokka_contig_record_pre = prokka_records[i]
         prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, prodigal_correction_dict,
                                                            record_sequence, ref_sequence, ref_feature_dict,
@@ -1521,12 +1495,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                            os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv'))
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
-        # When prokka matches the same reference gene to multiple orfs, it appends _1, _2, ... to make the names unique.
-        # That causes issues for us when trying to look up whether prokka's call is a reference gene or not, so strip _n
-        # from the end of every prokka-reference gene name assignment.
-        for f in prokka_contig_features:
-            if 'gene' in f.qualifiers.keys():
-                f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
 
 
         global ratt_corrected_genes
@@ -1701,7 +1669,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                 feature_additions[prokka_feature.type] += 1
                                 feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
                             mod_prokka_feature, invalid_prokka, remark = \
-                                validate_prokka_feature_annotation(prokka_feature, prokka_noref_dictionary,
+                                validate_prokka_feature_annotation(prokka_feature,
                                                                    reference_gene_locus_dict, reference_locus_gene_dict,
                                                                    ref_temp_fasta_dict, ratt_blast_results,
                                                                    reference_locus_list=reference_locus_list,
@@ -1730,7 +1698,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             overlapping_ratt_location_2 = {locus_tag2: ratt_overlapping_feature_2_loc}
                             overlapping_ratt_locus_tags = [locus_tag1, locus_tag2]
                             mod_prokka_feature, invalid_prokka, remark = \
-                                validate_prokka_feature_annotation(prokka_feature, prokka_noref_dictionary,
+                                validate_prokka_feature_annotation(prokka_feature,
                                                                    reference_gene_locus_dict, reference_locus_gene_dict,
                                                                    ref_temp_fasta_dict, ratt_blast_results,
                                                                    seq_ident=seq_ident,
@@ -1741,7 +1709,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                                    reference_locus_list=reference_locus_list)
                             if not invalid_prokka:
                                 mod_prokka_feature, invalid_prokka_2, remark_2 = \
-                                    validate_prokka_feature_annotation(prokka_feature, prokka_noref_dictionary,
+                                    validate_prokka_feature_annotation(prokka_feature,
                                                                        reference_gene_locus_dict,
                                                                        reference_locus_gene_dict,
                                                                        ref_temp_fasta_dict,
@@ -1865,7 +1833,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         else:
                             mod_ref_feat, invalid_ref_feat, remark = \
                                 validate_prokka_feature_annotation(ref_feat,
-                                                                   prokka_noref_dictionary,
                                                                    reference_gene_locus_dict,
                                                                    reference_locus_gene_dict,
                                                                    ref_temp_fasta_dict,
@@ -1875,8 +1842,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                                    seq_covg=seq_covg)
                             # TODO: check invalid?
                             ref_feat = mod_ref_feat
-                        add_ref_note = 'This annotation is added from Prokka reference run'
-                        designator.append_qualifier(ref_feat.qualifiers, 'note', add_ref_note)
                         add_features_from_prokka_ref.append(ref_feat)
 
             for prokka_ref_feat in add_features_from_prokka_ref:
@@ -1884,19 +1849,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             annomerge_records.append(add_prokka_contig_record)
     # Post-processing of genbank file to remove duplicates and rename locus_tag for
     # Prokka annotations
-    prokka_record_fp = file_path + 'prokka-noreference/' + isolate_id + '.gbk'
-    prokka_record_noref = list(SeqIO.parse(prokka_record_fp, 'genbank'))
     annomerge_records_post_processed = []
     for rec_num in range(0, len(annomerge_records)):
         # TODO - replace version variable with importlib.version call (and probably url too) in python 3.8+
         annomerge_records[rec_num].annotations['comment'] = "Annotated using hybran " + __version__ + " from https://lpcdrp.gitlab.io/hybran."
         prokka_rec = annomerge_records[rec_num]
-        prokka_noref_rec_pre = prokka_record_noref[rec_num]
-        prokka_noref_rec = correct_start_coords_prokka(prokka_noref_rec_pre, prodigal_correction_dict, record_sequence,
-                                                       ref_sequence, ref_feature_dict, reference_locus_list,
-                                                       reference_gene_locus_dict,
-                                                       os.path.join(isolate_id,'annomerge','hybran_coord_corrections.tsv'))
-        prokka_noref_dict = generate_feature_dictionary(prokka_noref_rec.features)
         raw_features_unflattened = prokka_rec.features[:]
         raw_features = []
         for f_type in raw_features_unflattened:
@@ -1924,45 +1881,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                     added_cds[loc_key] = feature
                     prokka_rec.features.append(feature)
-            if ( feature.type == 'CDS'
-                 and designator.is_raw_ltag(feature.qualifiers['locus_tag'][0])
-                 and 'gene' in feature.qualifiers.keys()
-                ):
-                if designator.is_raw_ltag(feature.qualifiers['gene'][0]):
-                    loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-                    if loc_key in added_cds.keys():
-                        continue
-                    if loc_key in prokka_noref_dict.keys():
-                        feature_noref = prokka_noref_dict[loc_key]
-                        if 'gene' in feature_noref.qualifiers.keys():
-                            designator.append_qualifier(
-                                feature_noref.qualifiers,
-                                'gene_synonym',
-                                feature_noref.qualifiers['gene'][0]
-                            )
-                            feature_noref.qualifiers['gene'] = feature_noref.qualifiers['locus_tag']
-                    else:
-                        feature_noref = feature
-                    if 'gene' in feature_noref.qualifiers.keys() and designator.is_raw_ltag(feature_noref.qualifiers['gene'][0]):
-                        new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
-                        feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
-                        new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
-                        feature_noref.qualifiers['protein_id'] = [new_protein_id]
-                        feature_noref.qualifiers['gene'] = feature_noref.qualifiers['locus_tag']
-                    else:
-                        new_locus_tag = 'L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
-                        feature_noref.qualifiers['locus_tag'] = [new_locus_tag]
-                        new_protein_id = 'C:L2_' + feature.qualifiers['locus_tag'][0].split('_')[1]
-                        feature_noref.qualifiers['protein_id'] = [new_protein_id]
-                    added_cds[loc_key] = feature_noref
-                    prokka_rec.features.append(feature_noref)
-                else:
-                    loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-                    if loc_key in added_cds.keys():
-                        continue
-                    added_cds[loc_key] = feature
-                    prokka_rec.features.append(feature)
-            elif feature.type == 'CDS':
+            if feature.type == 'CDS':
                 loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                 if loc_key not in added_cds.keys():
                     added_cds[loc_key] = feature
@@ -1976,42 +1895,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             if feature.type == 'CDS' and 'translation' not in feature.qualifiers.keys():
                 feature_sequence = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
                 feature.qualifiers['translation'] = [feature_sequence]
-        # Get remaining unannotated region
-        if add_noref_annotations:
-            ordered_features_final = get_ordered_features(prokka_rec.features)
-            prokka_rec.features = ordered_features_final
-            records, positions, pre, post = get_interregions(prokka_rec, intergene_length=1)
-            positions_lengths = [len(p) for p in records]
-            add_features_from_prokka_noref = []
-            sorted_positions = sorted(positions)
-            prokka_noref_features_sorted = get_ordered_features(prokka_noref_rec.features)
-            for fill_pos in sorted_positions:
-                if fill_pos[2] == '+':
-                    fill_pos_strand = 1
-                else:
-                    fill_pos_strand = -1
-                for noref_feat in prokka_noref_features_sorted:
-                    noref_feat_start = int(noref_feat.location.start)
-                    noref_feat_end = int(noref_feat.location.end)
-                    noref_feat_strand = int(noref_feat.location.strand)
-                    if noref_feat_strand != fill_pos_strand:
-                        continue
-                    elif noref_feat.type != 'CDS':
-                        continue
-                    elif noref_feat_start > fill_pos[1] and noref_feat_end > fill_pos[1]:
-                        break
-                    elif noref_feat_start < fill_pos[0] and noref_feat_end < fill_pos[0]:
-                        continue
-                    elif noref_feat_start > fill_pos[0] and noref_feat_end < fill_pos[1]:
-                        if 'gene' in noref_feat.qualifiers.keys() and '_' in noref_feat.qualifiers['gene'][0]:
-                            noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
-                        elif 'gene' not in noref_feat.qualifiers.keys():
-                            noref_feat.qualifiers['gene'] = noref_feat.qualifiers['locus_tag']
-                        add_noref_note = 'This annotation is added from Prokka no-reference run'
-                        designator.append_qualifier(noref_feat.qualifiers, 'note', add_noref_note)
-                        add_features_from_prokka_noref.append(noref_feat)
-                        prokka_rec.features.append(noref_feat)
-            logger.debug('To add from noref: ' + str(len(add_features_from_prokka_noref)))
 
         # Removing gene names assigned based on domains
         logger.debug('Final feature annotation verification')
