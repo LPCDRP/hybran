@@ -182,40 +182,30 @@ def check_matches_to_known_genes(
               was not assigned
         - orf_increment (:py:class:`int`) - updated increment of ORFs
     """
+    best_subcriticals = []
     query_gene_closest_refs = []
-    hits, misses, truncation_signatures = BLAST.blastp(
-        query = query_seq,
-        subject = reference_seqs,
-        seq_ident = seq_ident,
-        seq_covg = seq_covg,
-    )
-    top_hit, best_subcriticals, pseudo = identify_top_hits(
-        hits,
-        misses,
-        truncation_signatures,
-        seq_covg,
-    )
-    assign_new_generic = False
-    name_to_assign = top_hit
-    if not top_hit:
-        assign_new_generic = True
-        if os.stat(generic_seqs).st_size:
-            cn_hits, cn_misses, cn_truncation_signatures = BLAST.blastp(
-                query = query_seq,
-                subject = generic_seqs,
-                seq_ident = seq_ident,
-                seq_covg = seq_covg,
-            )
-            top_hit_generic, best_subcriticals_generic, pseudo = identify_top_hits(
-                cn_hits,
-                cn_misses,
-                cn_truncation_signatures,
-                seq_covg,
-            )
-            best_subcriticals += best_subcriticals_generic
-            if top_hit_generic:
-                assign_new_generic = False
-                name_to_assign = top_hit_generic
+    assign_new_generic = True
+    pseudo = False
+
+    if os.stat(generic_seqs).st_size:
+        refs = [reference_seqs, generic_seqs]
+    else:
+        refs = [reference_seqs]
+
+    for ref in refs:
+        top_hit, pseudo, blast_stats = BLAST.reference_match(
+            query = query_seq,
+            subject = ref,
+            seq_ident = seq_ident,
+            seq_covg = seq_covg,
+            identify=get_gene_name,
+        )
+        if top_hit:
+            name_to_assign = top_hit
+            assign_new_generic = False
+        else:
+            best_subcriticals += check_subcriticals(blast_stats)
+
     if assign_new_generic:
         (orf_id, orf_increment) = designator.assign_orf_id(orf_increment)
         query_seq.id = orf_id
@@ -235,54 +225,30 @@ def check_matches_to_known_genes(
 
     return name_to_assign, pseudo, query_gene_closest_refs, orf_increment
 
-def identify_top_hits(passes, subcriticals, truncation_signatures, seq_covg):
+def check_subcriticals(subcriticals):
     """
-    Iterates over BLASTP output and determines all the best
-    hits based on identity and alignment coverage
+    Check hits that didn't pass thresholds and find the best among them
 
-    :param passes: list of strings from BLAST.blastp() for hits passing thresholds
-    :param subcriticals: list of strings from BLAST.blastp() for remaining hits
-    :param truncation_signatures: list of strings from BLAST.blastp() for hits suggestive
-                                  of a truncation (high %-identity and only one of the coverage
-                                  metrics below threshold.
+    :param subcriticals: dict from BLAST.summarize() for remaining hits
     :returns:
-       - str ID of best hit (by sequence identity) of all hits meeting/exceeding
-         all three thresholds. Otherwise None if none exist
-       - empty list (if there's a passing best hit) or list of three report strings
+       - empty list (if there are no hits at all) or list of three report strings
          for the best subcritical matches by each category.
-       - pseudo (:py:class:`bool`) True if the query gene is shorter than the top hit (< seq_covg)
-                                   but matches it completely
     """
-
-    pseudo = False
-    if passes:
-        all_hits_dict = BLAST.summarize(passes, identify=get_gene_name)
-        top_hit = BLAST.top_hit(all_hits_dict)
-        best_subcriticals = []
-    elif truncation_signatures:
-        truncation_hits = BLAST.summarize(truncation_signatures, identify=get_gene_name)
-        top_hit = BLAST.top_hit(truncation_hits)
-        best_subcriticals = []
-        if truncation_hits[top_hit]['scov'] < seq_covg:
-            pseudo = True
-    else:
-        top_hit = None
-        if subcriticals:
-            subcriticals = BLAST.summarize(subcriticals, identify=get_gene_name)
-            best_subc_iden = BLAST.top_hit(subcriticals, metric='iden')
-            best_subc_scov = BLAST.top_hit(subcriticals, metric='scov')
-            best_subc_qcov = BLAST.top_hit(subcriticals, metric='qcov')
-            best_subcriticals = [
-                '\t'.join([_[0],
-                           _[1],
-                           str(subcriticals[_[0]]['iden']),
-                           str(subcriticals[_[0]]['scov']),
-                           str(subcriticals[_[0]]['qcov'])])
-                for _ in zip([best_subc_iden, best_subc_scov, best_subc_qcov],
-                             ['identity','scov','qcov'])]
-        else:
-            best_subcriticals = []
-    return top_hit, best_subcriticals, pseudo
+    if not subcriticals:
+        return []
+    best_subc_iden = BLAST.top_hit(subcriticals, metric='iden')
+    best_subc_scov = BLAST.top_hit(subcriticals, metric='scov')
+    best_subc_qcov = BLAST.top_hit(subcriticals, metric='qcov')
+    best_subcriticals = [
+        '\t'.join([_[0],
+                   _[1],
+                   str(subcriticals[_[0]]['iden']),
+                   str(subcriticals[_[0]]['scov']),
+                   str(subcriticals[_[0]]['qcov'])])
+        for _ in zip([best_subc_iden, best_subc_scov, best_subc_qcov],
+                     ['identity','scov','qcov'])
+    ]
+    return best_subcriticals
 
 
 def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name, pseudo=False):
