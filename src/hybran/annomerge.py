@@ -479,6 +479,55 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     return merged_features_addition, corner_cases, merged_genes, final_ratt_features, final_prokka_features
 
 
+def liftover_annotation(feature, ref_feature, pseudo):
+    """
+    Add ref_feature's functional annotation to feature.
+
+    :param feature: SeqFeature ab initio annotation.
+                    This argument is modified by this function.
+    :param ref_feature: SeqFeature reference annotation
+    :param pseudo: bool whether feature should have the `pseudo` qualifier
+    """
+
+    for rubbish in ['gene', 'protein_id']:
+        feature.qualifiers.pop(rubbish, None)
+    # Remove inferences for the assignments that we're going to discard.
+    # Only keep the ab initio inference from the ORF finder.
+    feature.qualifiers['inference'][:] = [
+        _ for _ in feature.qualifiers['inference']
+        if 'ab initio prediction' in _
+    ]
+    # Add our own qualifier
+    feature.qualifiers['inference'].append(
+        'alignment:blastp'
+    )
+
+    # make a copy of the reference qualifiers dict so
+    # we can modify it before merging (we don't want to carry
+    # over certain attributes)
+    ref_feature_qualifiers_copy = deepcopy(ref_feature.qualifiers)
+    ref_specific = [
+        'locus_tag',
+        'old_locus_tag',
+        'translation',
+    ]
+    for qual in ref_specific:
+        ref_feature_qualifiers_copy.pop(qual, None)
+
+    feature.qualifiers = merge_qualifiers(
+        ref_feature_qualifiers_copy,
+        feature.qualifiers,
+    )
+
+    # avoid inheriting a pseudo tag from the reference if
+    # it's not warranted
+    if pseudo:
+        feature.qualifiers['pseudo'] = ['']
+    else:
+        feature.qualifiers.pop('pseudo', None)
+        feature.qualifiers.pop('pseudogene', None)
+
+
 def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg):
     """
     This function takes as input a list of features and checks if the length of the CDSs are divisible by
@@ -1407,6 +1456,16 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     prokka_rejects = []
     prokka_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'prokka_unused.tsv')
     annomerge_records = []
+
+    # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
+    ref_annotation = {}
+    for ref_record in SeqIO.parse(ref_embl_fp, 'embl'):
+        for feature in ref_record.features:
+            if feature.type != "CDS":
+                continue
+            # if reference paralogs have been collapsed, the last occurrence in the genome
+            # will prevail.
+            ref_annotation[feature.qualifiers['gene'][0]] = feature
 
     # RUNNING PRODIGAL
     embl_dict = {}
