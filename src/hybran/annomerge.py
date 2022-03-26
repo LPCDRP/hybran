@@ -1486,7 +1486,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                            os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv'))
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
-
+        # When prokka assigns the same gene name to multiple orfs, it appends _1, _2, ... to make the names unique.
+        # That causes issues for us because we expect all copies of a gene to have the same name.
+        for f in prokka_contig_features:
+            if 'gene' in f.qualifiers.keys():
+                f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
 
         global ratt_corrected_genes
         if len(ratt_correction_files) == 1:
