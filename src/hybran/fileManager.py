@@ -2,6 +2,9 @@ import glob
 import os
 import shutil
 import logging
+
+from Bio import SeqIO
+
 from . import converter
 from . import config
 
@@ -56,7 +59,16 @@ def prepare_references(references):
         # we will be using the references exclusively from our temporary directory
         # genbank
         gbk = os.path.join(refdir, os.path.basename(i))
-        os.symlink(i, gbk)
+        revised_records = []
+        for record in SeqIO.parse(i, "genbank"):
+            for f in record.features:
+                if ( 'locus_tag' in f.qualifiers.keys()
+                     and 'gene' not in f.qualifiers.keys()
+                ):
+                    f.qualifiers['gene'] = [ f.qualifiers['locus_tag'][0] ]
+            revised_records.append(record)
+        SeqIO.write(revised_records, gbk, "genbank")
+
         # embl - RATT needs them in their own directory, but they're sometimes looked for in
         #        the top-level folder.
         embl = converter.convert_gbk_to_embl(gbk)
