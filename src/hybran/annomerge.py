@@ -1679,6 +1679,10 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             logger.debug('Number of prokka features not in RATT ' + str(len(list(prokka_features_not_in_ratt.keys()))))
 
             # Checking ab initio CDS annotations for matches to reference
+            #
+            # can contain results for hits to multiple reference genes
+            abinit_blast_results_complete = {}
+            # only contains results for the accepted reference gene hit
             abinit_blast_results = {}
             for feature in prokka_features_not_in_ratt.values():
                 if feature.type == 'CDS':
@@ -1689,6 +1693,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         seq_covg=seq_covg,
                         identify=lambda _:_.split(':')[1],
                     )
+                    abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
                     if ref_gene:
                         abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
                         liftover_annotation(feature, ref_annotation[ref_gene], pseudo)
@@ -1818,19 +1823,21 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                                 int(ratt_overlapping_feature.location.strand))
                                 overlapping_ratt_locations = {ratt_overlapping_feature.qualifiers['locus_tag'][0]:
                                                               ratt_overlapping_feature_loc}
-                                # If Prokka feature is annotated as an L_tag and not a gene, blast it with
-                                # overlapping Rv and then Blast it with reference to get the closer hit
+                                # If Prokka feature is annotated as an L_tag and not a gene, check for
+                                # a blastp hit (=> in-frame) with the overlapping RATT annotation and
+                                # assign the corresponding reference name.
                                 if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
-                                    ratt_prokka_hits = BLAST.blastp(
+                                    ref_gene, pseudo = BLAST.reference_match(
                                         query=SeqRecord(Seq(prokka_feature.qualifiers['translation'][0])),
                                         subject=SeqRecord(Seq(ratt_overlapping_feature.qualifiers['translation'][0]),
-                                                          id=ratt_overlapping_feature.qualifiers['locus_tag'][0]),
+                                                          id=ratt_overlapping_feature.qualifiers['gene'][0]),
                                         seq_ident=seq_ident,
                                         seq_covg=seq_covg,
-                                    )[0]
-                                    if ratt_prokka_hits:
-                                        prokka_feature.qualifiers['gene'] = \
-                                            ratt_overlapping_feature.qualifiers['locus_tag']
+                                    )[0:2]
+                                    if ref_gene:
+                                        liftover_annotation(prokka_feature, ref_annotation[ref_gene], pseudo)
+                                        abinit_blast_results[prokka_feature.qualifiers['locus_tag'][0]] = \
+                                             abinit_blast_results_complete[prokka_feature.qualifiers['locus_tag'][0]][ref_gene]
 
                                 add_prokka_contig_record, included, remark = \
                                     check_inclusion_criteria(ratt_annotation_mapping,
