@@ -1672,11 +1672,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     added_from_ratt.append(feat.qualifiers['locus_tag'][0])
                 else:
                     non_cds_ratt.append(feat)
-            prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
-            prokka_features_not_in_ratt, ratt_overlapping_genes, prokka_duplicates = \
-                remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
-            prokka_rejects += prokka_duplicates
-            logger.debug('Number of prokka features not in RATT ' + str(len(list(prokka_features_not_in_ratt.keys()))))
 
             # Checking ab initio CDS annotations for matches to reference
             #
@@ -1684,7 +1679,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             abinit_blast_results_complete = {}
             # only contains results for the accepted reference gene hit
             abinit_blast_results = {}
-            for feature in prokka_features_not_in_ratt.values():
+            for feature in prokka_contig_features:
                 if feature.type == 'CDS':
                     ref_gene, pseudo, blast_hits = BLAST.reference_match(
                         query=SeqRecord(Seq(feature.qualifiers['translation'][0])),
@@ -1697,6 +1692,12 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                     if ref_gene:
                         abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
                         liftover_annotation(feature, ref_annotation[ref_gene], pseudo)
+
+            prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
+            prokka_features_not_in_ratt, ratt_overlapping_genes, prokka_duplicates = \
+                remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
+            prokka_rejects += prokka_duplicates
+            logger.debug('Number of prokka features not in RATT ' + str(len(list(prokka_features_not_in_ratt.keys()))))
 
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
