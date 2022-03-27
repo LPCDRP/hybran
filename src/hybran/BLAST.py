@@ -1,3 +1,4 @@
+from collections import defaultdict
 import logging
 import os
 import tempfile
@@ -82,14 +83,22 @@ def summarize(blast_results, identify = lambda _:_):
     :param identify: function to apply to the subject_id column of
                      the blast results whose value will be used as
                      the outer dictionary key.
-    :returns: dictionary of subject IDs to metrics to values
+    :returns: dictionary of subject IDs to metrics to values that
+              defaults to a null hit for missing keys.
     """
-
-    return {identify(_[1]): dict(iden=float(_[2]),
-                       qcov=float(_[14]),
-                       scov=float(_[15])
-            ) for _ in
-            [line.split('\t') for line in reversed(blast_results)]}
+    summary = defaultdict(lambda : {
+        'iden':0.,
+        'qcov':0.,
+        'scov':0.,
+    })
+    for line in reversed(blast_results):
+        fields = line.split('\t')
+        summary[identify(fields[1])] = {
+            'iden':float(fields[2]),
+            'qcov':float(fields[14]),
+            'scov':float(fields[15]),
+        }
+    return summary
 
 def blastp(query, subject, seq_ident, seq_covg):
     """
