@@ -56,6 +56,8 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
         # TODO - consider setting this to 80% instead of seq_covg
         if stats['scov'] < seq_covg:
             pseudo = True
+        # if we found a proper hit, don't look for anything else
+        break
 
     return result, pseudo, hit_dict
 
