@@ -617,6 +617,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
         else:
             non_cds_features.append(feature)
     logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features) - n_extra_pseudo))
+    logger.debug(f"Checking similarity to reference CDSs using {nproc} process(es)")
 
     def refcheck(cds_feature, record_sequence=record_sequence):
         valid = False
@@ -1605,13 +1606,10 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
 
         ratt_rejects += invalid_ratt_features
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
-        cds_from_ratt = 0
         cds_from_ratt_list = []
         for feature in ratt_contig_features:
             if feature.type == 'CDS':
-                cds_from_ratt += 1
                 cds_from_ratt_list.append(feature)
-        logger.debug('Number of CDSs from RATT: ' + str(cds_from_ratt))
 
         ratt_contig_features = get_ordered_features(ratt_contig_features)
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
@@ -1698,7 +1696,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 else:
                     non_cds_ratt.append(feat)
 
-            # Checking ab initio CDS annotations for matches to reference
+            logger.debug(f'Checking ab initio CDS annotations for matches to reference using {nproc} process(es)')
             #
             # can contain results for hits to multiple reference genes
             abinit_blast_results_complete = {}
@@ -1724,6 +1722,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 if ref_gene:
                     abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
                     liftover_annotation(feature, ref_annotation[ref_gene], pseudo)
+            logger.debug(f'{len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
 
             prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
             prokka_features_not_in_ratt, ratt_overlapping_genes, prokka_duplicates = \
