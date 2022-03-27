@@ -316,7 +316,9 @@ def main():
                                   script_directory=script_dir,
                                   seq_ident=args.identity_threshold,
                                   seq_covg=args.coverage_threshold,
-                                  ratt_enforce_thresholds=args.filter_ratt)
+                                  ratt_enforce_thresholds=args.filter_ratt,
+                                  nproc=args.nproc,
+                    )
                     converter.convert_gbk_to_gff(annomerge_gbk)
                 genomes_annotate.append(os.path.join(args.output, samplename + '.gff'))
             else:

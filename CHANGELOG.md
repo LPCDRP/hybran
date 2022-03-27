@@ -2,6 +2,9 @@
 
 ## Development
 
+### Enhancements
+* Parallelized BLASTing to reference genes in annomerge.
+
 ### Housekeeping
 * Added exit status checks so pipeline fails as early as possible when things go wrong.
 

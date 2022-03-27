@@ -12,6 +12,10 @@ __status__ = "Development"
 
 from copy import deepcopy
 import sys
+import functools
+# standard multiprocessing can't pickle lambda
+import multiprocess as multiprocessing
+
 import Bio
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -528,7 +532,9 @@ def liftover_annotation(feature, ref_feature, pseudo):
         feature.qualifiers.pop('pseudogene', None)
 
 
-def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg):
+def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg,
+    nproc=1,
+):
     """
     This function takes as input a list of features and checks if the length of the CDSs are divisible by
     3 and if the CDS is split across multiple locations. If so, it outputs the features to stdout and removes them
@@ -611,30 +617,45 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
         else:
             non_cds_features.append(feature)
     logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features) - n_extra_pseudo))
-    for cds_feature in unbroken_cds:
+
+    def refcheck(cds_feature, record_sequence=record_sequence):
+        valid = False
+        remark = ''
+        blast_stats = {}
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
         if len(feature_sequence) == 0:
-            rejects.append((cds_feature, "length of AA sequence is 0"))
-            continue
+            remark = 'length of AA sequence is 0'
         else:
-            blast_stats = BLAST.reference_match(
+            ref_match, pseudo, blast_stats = BLAST.reference_match(
                 query=SeqRecord(feature_sequence),
                 subject=ref_temp_fasta_dict[cds_locus_tag],
                 seq_ident=seq_ident,
                 seq_covg=seq_covg
-            )[2]
+            )
 
             if blast_stats:
-                ratt_blast_results.update(blast_stats)
-                cds_feature.qualifiers['translation'] = [str(feature_sequence)]
-                valid_features.append(cds_feature)
+                valid = True
             else:
-                rejects.append((cds_feature, "No blastp hit to corresponding reference CDS at specified thresholds."))
-                continue
+                remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
+        return valid, feature_sequence, blast_stats, remark
+
+    with multiprocessing.Pool(processes=nproc) as pool:
+         results = pool.map(
+            refcheck,
+            unbroken_cds,
+        )
+    for i in range(len(unbroken_cds)):
+        valid, feature_sequence, blast_stats, rejection_note = results[i]
+        cds_feature = unbroken_cds[i]
+        if valid:
+            ratt_blast_results.update(blast_stats)
+            cds_feature.qualifiers['translation'] = [str(feature_sequence)]
+            valid_features.append(cds_feature)
+        else:
+            rejects.append((cds_feature, rejection_note))
     logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features) - n_extra_pseudo))
     return valid_features, ratt_blast_results, rejects
-
 
 def remove_duplicate_annotations(ratt_features, prokka_features_dictionary):
     """
@@ -1389,6 +1410,7 @@ def run_prodigal(reference_genome, outfile):
 
 
 def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
+    nproc=1,
 ):
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
@@ -1408,6 +1430,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     :param reference_genome: File path for nucleotide fasta of assembled genome
     :param script_dir: Directory where hybran scripts are located
     :param ratt_enforce_thresholds: boolean - whether to enforce seq_ident/seq_covg for RATT-transferred annotations
+    :param nproc: int number of processers available for use
     :return: EMBL record (SeqRecord) of annotated isolate
     """
 
@@ -1576,7 +1599,9 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                            ref_temp_fasta_dict=ref_temp_fasta_dict,
                                            reference_locus_list=reference_locus_list,
                                            seq_ident=ratt_seq_ident,
-                                           seq_covg=ratt_seq_covg)
+                                           seq_covg=ratt_seq_covg,
+                                           nproc=nproc,
+            )
 
         ratt_rejects += invalid_ratt_features
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
@@ -1679,19 +1704,26 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             abinit_blast_results_complete = {}
             # only contains results for the accepted reference gene hit
             abinit_blast_results = {}
-            for feature in prokka_contig_features:
-                if feature.type == 'CDS':
-                    ref_gene, pseudo, blast_hits = BLAST.reference_match(
-                        query=SeqRecord(Seq(feature.qualifiers['translation'][0])),
-                        subject=ref_proteins_fasta,
-                        seq_ident=seq_ident,
-                        seq_covg=seq_covg,
-                        identify=lambda _:_.split(':')[1],
-                    )
-                    abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
-                    if ref_gene:
-                        abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
-                        liftover_annotation(feature, ref_annotation[ref_gene], pseudo)
+            refmatch = functools.partial(
+                BLAST.reference_match,
+                subject=ref_proteins_fasta,
+                seq_ident=seq_ident,
+                seq_covg=seq_covg,
+                identify=lambda _:_.split(':')[1],
+            )
+            prokka_contig_cdss = [f for f in prokka_contig_features if f.type == 'CDS']
+            with multiprocessing.Pool(processes=nproc) as pool:
+                blast_package = pool.map(
+                    refmatch,
+                    [SeqRecord(Seq(f.qualifiers['translation'][0])) for f in prokka_contig_cdss],
+                )
+            for i in range(len(prokka_contig_cdss)):
+                ref_gene, pseudo, blast_hits = blast_package[i]
+                feature = prokka_contig_cdss[i]
+                abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
+                if ref_gene:
+                    abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
+                    liftover_annotation(feature, ref_annotation[ref_gene], pseudo)
 
             prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
             prokka_features_not_in_ratt, ratt_overlapping_genes, prokka_duplicates = \
