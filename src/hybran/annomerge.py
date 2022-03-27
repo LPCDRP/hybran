@@ -634,7 +634,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 seq_covg=seq_covg
             )
 
-            if blast_stats:
+            if ref_match:
                 valid = True
             else:
                 remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
