@@ -17,7 +17,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, gcode, ratt_ttype, prokka_extra_args, s
     :param ratt_ttype: str RATT transfer type
     :param prokka_extra_args: str additional command line flags and arguments for Prokka
     :param script_dir: str absolute path to ratt_prokka.sh
-    :param cpus: str number of processors/cpus
+    :param cpus: int number of processors/cpus
     :param qcov: int minimum % query coverage (Prokka doesn't have a way of setting ref coverage)
     :return: None
     """
@@ -67,7 +67,7 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
     each function
 
     :param annotations: str directory of all annotations created by annomerge
-    :param nproc: str number of processors
+    :param nproc: int number of processors
     :return: None
     """
     hybran_tmp_dir = config.hybran_tmp_dir
@@ -117,7 +117,7 @@ def eggnog_mapper(script_dir, nproc, emapper_loc, ref_tax_id, ref_gene_dict, tem
     all file IO
 
     :param script_dir: str absolute path to run_emapper.sh
-    :param nproc: str number of processors
+    :param nproc: int number of processors
     :param emapper_loc: str absolute path to eggnog database
     :param ref_tax_id: str NCBI taxonomy ID
     :param ref_gene_dict: dict mapping locus tags to gene names
