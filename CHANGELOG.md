@@ -2,6 +2,9 @@
 
 ## Development
 
+### Bugs fixed
+* Corrected distinguishing of ab initio vs reference-transferred annotation in final conflict resolution step (#38)
+
 ### Enhancements
 * Parallelized BLASTing to reference genes in annomerge.
 

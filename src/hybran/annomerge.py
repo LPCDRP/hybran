@@ -2080,7 +2080,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 if position not in positions_to_be_resolved:
                     output_isolate_recs[0].features.append(feature)
         for feat_pair in resolve_pairs:
-            if 'protein_id' in feat_pair[0].qualifiers.keys():
+            if designator.is_raw_ltag(feat_pair[0].qualifiers['locus_tag'][0]):
                 prokka_annotation = feat_pair[0]
                 ratt_annotation = feat_pair[1]
             else:
