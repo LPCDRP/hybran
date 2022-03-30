@@ -1722,6 +1722,15 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 if ref_gene:
                     abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
                     liftover_annotation(feature, ref_annotation[ref_gene], pseudo)
+                # Don't keep gene name assignments from Prokka. They can sometimes be based on
+                # poor sequence similarity and partial matches (despite its --coverage option).
+                # Keeping them is risky for propagation of the name during clustering.
+                elif 'gene' in feature.qualifiers.keys():
+                    designator.append_qualifier(
+                        feature.qualifiers, 'gene_synonym',
+                        feature.qualifiers['gene'][0],
+                    )
+                    feature.qualifiers.pop('gene', None)
             logger.debug(f'{len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
 
             prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
