@@ -145,7 +145,7 @@ def cmds():
                                help="Improve gene predictions for highly fragmented genomes")
     prokka_params.add_argument('--evalue',
                                type=float,
-                               default=1e-6,
+                               default=1e-9,
                                help='Similarity e-value cut-off')
 
     arguments = parser.parse_args()

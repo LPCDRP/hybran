@@ -4,6 +4,7 @@
 
 ### Housekeeping
 * Added exit status checks so pipeline fails as early as possible when things go wrong.
+* Switched default evalue to Prokka's current setting of 1e-9 (was 1e-6)
 
 ## [Version 1.4.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.4.1)
 
