@@ -2011,18 +2011,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         break
                 if is_domain:
                     feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
-            # Check if same locus tag is annotated with 2 different sequences
-            final_feature_name = feature_final.qualifiers['locus_tag'][0]
-            if final_feature_name in added_ltags and (final_feature_name.startswith('L_') or
-                                                      final_feature_name.startswith('L2_')):
-                prev_ltag = final_feature_name.split('_')[1]
-                ltag = final_feature_name.split('_')[0][-1]
-                if ltag == 'L':
-                    renamed_ltag = 'L2_' + str(prev_ltag)
-                else:
-                    add_digit = int(ltag) + 1
-                    renamed_ltag = 'L' + str(add_digit) + '_' + str(prev_ltag)
-                feature_final.qualifiers['locus_tag'] = [renamed_ltag]
             if 'gene' not in feature_final.qualifiers.keys():
                 feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
             added_ltags.append(feature_final.qualifiers['locus_tag'][0])
