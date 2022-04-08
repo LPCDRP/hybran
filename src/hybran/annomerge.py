@@ -527,6 +527,7 @@ def liftover_annotation(feature, ref_feature, pseudo):
     # it's not warranted
     if pseudo:
         feature.qualifiers['pseudo'] = ['']
+        feature.qualifiers.pop('translation', None)
     else:
         feature.qualifiers.pop('pseudo', None)
         feature.qualifiers.pop('pseudogene', None)
