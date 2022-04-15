@@ -483,7 +483,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     return merged_features_addition, corner_cases, merged_genes, final_ratt_features, final_prokka_features
 
 
-def liftover_annotation(feature, ref_feature, pseudo):
+def liftover_annotation(feature, ref_feature, pseudo, inference):
     """
     Add ref_feature's functional annotation to feature.
 
@@ -491,6 +491,7 @@ def liftover_annotation(feature, ref_feature, pseudo):
                     This argument is modified by this function.
     :param ref_feature: SeqFeature reference annotation
     :param pseudo: bool whether feature should have the `pseudo` qualifier
+    :param inference: str /inference annotation justifying the liftover
     """
 
     for rubbish in ['gene', 'protein_id']:
@@ -503,7 +504,7 @@ def liftover_annotation(feature, ref_feature, pseudo):
     ]
     # Add our own qualifier
     feature.qualifiers['inference'].append(
-        'alignment:blastp'
+        inference
     )
 
     # make a copy of the reference qualifiers dict so
@@ -1722,7 +1723,18 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
                 if ref_gene:
                     abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
-                    liftover_annotation(feature, ref_annotation[ref_gene], pseudo)
+                    liftover_annotation(
+                        feature,
+                        ref_annotation[ref_gene],
+                        pseudo,
+                        inference=':'.join([
+                            "similar to AA sequence",
+                            os.path.basename(os.path.splitext(ref_embl_fp)[0]),
+                            ref_annotation[ref_gene].qualifiers['locus_tag'][0],
+                            ref_gene,
+                            "blastp",
+                        ])
+                    )
                 # Don't keep gene name assignments from Prokka. They can sometimes be based on
                 # poor sequence similarity and partial matches (despite its --coverage option).
                 # Keeping them is risky for propagation of the name during clustering.
@@ -1877,7 +1889,18 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                         seq_covg=seq_covg,
                                     )[0:2]
                                     if ref_gene:
-                                        liftover_annotation(prokka_feature, ref_annotation[ref_gene], pseudo)
+                                        liftover_annotation(
+                                            prokka_feature,
+                                            ref_annotation[ref_gene],
+                                            pseudo,
+                                            inference=':'.join([
+                                                "similar to AA sequence",
+                                                os.path.basename(os.path.splitext(ref_embl_fp)[0]),
+                                                ref_annotation[ref_gene].qualifiers['locus_tag'][0],
+                                                ref_gene,
+                                                "RATT+blastp",
+                                            ])
+                                        )
                                         abinit_blast_results[prokka_feature.qualifiers['locus_tag'][0]] = \
                                              abinit_blast_results_complete[prokka_feature.qualifiers['locus_tag'][0]][ref_gene]
 
