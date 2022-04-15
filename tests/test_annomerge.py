@@ -103,6 +103,63 @@ def test_process_split_genes():
         and received['qualifiers'] == expected['qualifiers']
     )
 
+
+def test_liftover_annotation():
+    abinit = SeqFeature(
+        FeatureLocation(ExactPosition(0), ExactPosition(10), strand=1), type='CDS',
+        qualifiers={
+            'locus_tag' : ['L_00017'],
+            'gene' : ['L_00017'],
+            'inference' : [
+                'ab initio prediction:Prodigal:002006',
+                'similar to AA sequence:UniProtKB:Q9WYC4'
+            ],
+            'codon_start' : ['1'],
+            'transl_table': ['4'],
+            'product': ['putative ABC transporter ATP-binding protein'],
+            'protein_id': ['C:L_00017'],
+            'db_xref': ['COG:COG1132'],
+            'translation': ['MQL']
+        }
+    )
+    ref = SeqFeature(
+        FeatureLocation(ExactPosition(0), ExactPosition(10), strand=1), type='CDS',
+        qualifiers={
+            'locus_tag': ['MG_RS00085'],
+            'gene': ['MG_RS00085'],
+            'old_locus_tag': ['MG_015'],
+            'note': [
+                '*inference: COORDINATES: similar to AA sequence:RefSeq:WP_014894097.1',
+                'Derived by automated computational analysis using gene prediction method: Protein Homology.',
+            ],
+            'codon_start': ['1'],
+            'transl_table': ['4'],
+            'product': ['ABC transporter ATP-binding protein/permease'],
+            'protein_id': ['WP_010869291.1'],
+            'translation': ['MEG'],
+        }
+    )
+    expected = {
+        'locus_tag' : ['L_00017'],
+        'gene' : ['MG_RS00085'],
+        'inference' : [
+            'ab initio prediction:Prodigal:002006',
+            'alignment:blastp'
+        ],
+        'note': [
+            '*inference: COORDINATES: similar to AA sequence:RefSeq:WP_014894097.1',
+            'Derived by automated computational analysis using gene prediction method: Protein Homology.',
+        ],
+        'codon_start' : ['1'],
+        'transl_table': ['4'],
+        'product': ['ABC transporter ATP-binding protein/permease'],
+        'protein_id': ['WP_010869291.1'],
+        'db_xref': ['COG:COG1132'],
+        'translation': ['MQL']
+    }
+    annomerge.liftover_annotation(abinit, ref, False, inference='alignment:blastp')
+    assert abinit.qualifiers == expected
+
 @pytest.mark.parametrize("filter",[True, False])
 def test_isolate_valid_ratt_annotations(filter):
     Rv0001 = SeqFeature(FeatureLocation(ExactPosition(0), ExactPosition(1524), strand=1), type='CDS')

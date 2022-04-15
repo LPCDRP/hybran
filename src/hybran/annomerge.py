@@ -520,8 +520,8 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
         ref_feature_qualifiers_copy.pop(qual, None)
 
     feature.qualifiers = merge_qualifiers(
-        ref_feature_qualifiers_copy,
         feature.qualifiers,
+        ref_feature_qualifiers_copy,
     )
 
     # avoid inheriting a pseudo tag from the reference if
