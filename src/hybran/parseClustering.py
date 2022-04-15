@@ -8,6 +8,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from collections import OrderedDict
 
+from . import annomerge
 from . import BLAST
 from . import CDHIT
 from . import config
@@ -700,10 +701,17 @@ def add_gene_names_to_gbk(generics, gbk_dir):
                     if locus_tag in locus_to_update and \
                             locus_tag not in modified_locus:
                         if designator.is_raw_ltag(gene_name):
-                            feature.qualifiers['gene'][0] = update_orf_dict[locus_tag]['name']
-                            if update_orf_dict[locus_tag]['pseudo']:
-                                feature.qualifiers['pseudo'] = ['']
-                                feature.qualifiers.pop('translation', None)
+                            annomerge.liftover_annotation(
+                                feature,
+                                # TODO: can't really use this one because it only has annotations from one reference gene
+                                # we need all references (and all newly assigned names)
+                                #
+                                # we can also can't use this when we're lifting over previously assigned ORF-names
+                                # unless we track a reference version of each one when it's first assigned.
+                                annomerge.ref_annotation[update_orf_dict[locus_tag]['name']],
+                                update_orf_dict[locus_tag]['pseudo'],
+                                inference='alignment:CD-HIT',
+                            )
                         elif gene_name == update_orf_dict[locus_tag]['name']:
                             modified_locus.append(locus_tag)
                             continue

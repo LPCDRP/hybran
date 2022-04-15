@@ -1484,6 +1484,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     annomerge_records = []
 
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
+    global ref_annotation
     ref_annotation = {}
     for ref_record in SeqIO.parse(ref_embl_fp, 'embl'):
         for feature in ref_record.features:
