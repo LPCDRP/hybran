@@ -296,13 +296,11 @@ def test_validate_prokka_feature_annotation(feature):
         )
     )
 
-    expected_feature = deepcopy(inputs[feature])
-
     expected = dict(
-        Rv0205_1 = (expected_feature, False, ''),
-        Rv0205_2 = (expected_feature, False, ''),
-        rplB = (expected_feature, False, ''),
-        mamB = (expected_feature, False, ''),
+        Rv0205_1 = (False, ''),
+        Rv0205_2 = (False, ''),
+        rplB = (False, ''),
+        mamB = (False, ''),
     )
 
     ratt_blast_results = dict()
@@ -332,7 +330,4 @@ def test_validate_prokka_feature_annotation(feature):
         ratt_blast_results,
         reference_locus_list,
     )
-    # __eq__ is not implemented for the SeqFeature object itself,
-    # so check the qualifiers and then check the rest of the return values
-    assert results[0].qualifiers == expected_feature.qualifiers \
-        and results[1:] == expected[feature][1:]
+    assert results == expected[feature]

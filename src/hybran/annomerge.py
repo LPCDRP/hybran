@@ -801,8 +801,8 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
 
     logger = logging.getLogger('CheckInclusionCriteria')
     included = False
-    mod_prokka_annotation, invalid_prokka, remark = validate_prokka_feature_annotation(
-        deepcopy(prokka_annotation),
+    invalid_prokka, remark = validate_prokka_feature_annotation(
+        prokka_annotation,
         reference_gene_locus_dict=reference_gene_locus_dict,
         reference_locus_gene_dict=reference_locus_gene_dict,
         abinit_blast_results=abinit_blast_results,
@@ -814,22 +814,20 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     )
     # Check if feature types are the same. If not add feature to EMBL record
     if ratt_annotation.type != prokka_annotation.type:
-        if prokka_annotation.type != 'CDS':
-            mod_prokka_annotation = prokka_annotation
-        embl_file.features.append(mod_prokka_annotation)
+        embl_file.features.append(prokka_annotation)
         included = True
     # Check if gene names match and if they don't or if gene names are missing, keep both
     elif 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in prokka_annotation.qualifiers.keys():
         if ratt_annotation.qualifiers['gene'] != prokka_annotation.qualifiers['gene']:
             if not invalid_prokka:
-                embl_file.features.append(mod_prokka_annotation)
+                embl_file.features.append(prokka_annotation)
                 included = True
         # If gene names are the same and the lengths of the genes are comparable between RATT and Prokka annotation
         # (difference in length of less than/equal to 10 bps), the RATT annotation is preferred
         elif ratt_annotation.qualifiers['gene'] == prokka_annotation.qualifiers['gene'] and \
                         abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
             if not invalid_prokka:
-                embl_file.features.append(mod_prokka_annotation)
+                embl_file.features.append(prokka_annotation)
                 included = True
     # If gene tag is missing and the product is not a hypothetical protein, check to see if the products are the
     # same between RATT and Prokka and if they are and if the lengths of the protein coding genes are comparable
@@ -839,12 +837,12 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
         if ratt_annotation.qualifiers['product'][0] == 'hypothetical protein' or \
                         prokka_annotation.qualifiers['product'][0] == 'hypothetical protein':
             if not invalid_prokka:
-                embl_file.features.append(mod_prokka_annotation)
+                embl_file.features.append(prokka_annotation)
                 included = True
         elif ratt_annotation.qualifiers['product'] == prokka_annotation.qualifiers['product'] and \
                         abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
             if not invalid_prokka:
-                embl_file.features.append(mod_prokka_annotation)
+                embl_file.features.append(prokka_annotation)
                 included = True
     else:
         logger.warning('CORNER CASE in check_inclusion_criteria')
@@ -866,7 +864,6 @@ def validate_prokka_feature_annotation(feature, reference_gene_locus_dict, refer
     :param ratt_locations:
     :param ratt_annotations:
     :returns:
-        - mod_feature
         - do_not_add_prokka (:py:class:`bool`) - whether to not accept the Prokka annotation
         - remark (:py:class:`str`) - explanation for why the Prokka annotation was not accepted.
                                      (not relevant when `do_not_add_prokka==False`)
@@ -874,15 +871,11 @@ def validate_prokka_feature_annotation(feature, reference_gene_locus_dict, refer
     logger = logging.getLogger('ValidateProkkaFeatures')
     do_not_add_prokka = False
     remark = ''
-    # TODO - there is perhaps no longer a need to return a "mod_feature"
-    # since there's no longer any modification of the feature happening
-    # within here as far as I can tell.
-    mod_feature = feature
     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-    if feature.type != 'CDS':
-        return mod_feature, do_not_add_prokka, remark
-    if 'gene' not in feature.qualifiers.keys():
-        mod_feature = feature
+    if(feature.type != 'CDS'
+       or 'gene' not in feature.qualifiers.keys()
+    ):
+        return do_not_add_prokka, remark
     elif(feature.qualifiers['gene'][0] in reference_locus_gene_dict.keys()
          or feature.qualifiers['gene'][0] in reference_gene_locus_dict.keys()
     ):
@@ -891,13 +884,8 @@ def validate_prokka_feature_annotation(feature, reference_gene_locus_dict, refer
         except KeyError:
             locus_tag = feature.qualifiers['gene'][0]
         blast_stats = abinit_blast_results[feature.qualifiers['locus_tag'][0]]
-        mod_feature = feature
         if check_ratt:
-            if locus_tag in ratt_features and locus_tag not in ratt_blast_results.keys():
-                mod_feature = feature
-            elif locus_tag not in ratt_features:
-                mod_feature = feature
-            elif locus_tag in ratt_features and locus_tag in ratt_blast_results.keys():
+            if locus_tag in ratt_features and locus_tag in ratt_blast_results.keys():
                 ratt_start = int(list(ratt_locations.values())[0][0])
                 ratt_stop = int(list(ratt_locations.values())[0][1])
                 prom_mutation = False
@@ -969,7 +957,7 @@ def validate_prokka_feature_annotation(feature, reference_gene_locus_dict, refer
                             remark = 'identical to RATT for ' + locus_tag
                     else:
                         do_not_add_prokka = False
-    return mod_feature, do_not_add_prokka, remark
+    return do_not_add_prokka, remark
 
 
 def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict, reference_locus_list,
@@ -1787,14 +1775,14 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             else:
                                 feature_additions[prokka_feature.type] += 1
                                 feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
-                            mod_prokka_feature, invalid_prokka, remark = \
+                            invalid_prokka, remark = \
                                 validate_prokka_feature_annotation(prokka_feature,
                                                                    reference_gene_locus_dict, reference_locus_gene_dict,
                                                                    abinit_blast_results,
                                                                    ratt_blast_results,
                                                                    reference_locus_list=reference_locus_list,
                                 )
-                            add_features_from_prokka.append(mod_prokka_feature)
+                            add_features_from_prokka.append(prokka_feature)
                         # If the Prokka feature overlaps with two RATT features
                         elif prokka_feature_start < ratt_unannotated_region_start and \
                                 prokka_feature_end > ratt_unannotated_region_end:
@@ -1816,7 +1804,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             overlapping_ratt_location_1 = {locus_tag1: ratt_overlapping_feature_1_loc}
                             overlapping_ratt_location_2 = {locus_tag2: ratt_overlapping_feature_2_loc}
                             overlapping_ratt_locus_tags = [locus_tag1, locus_tag2]
-                            mod_prokka_feature, invalid_prokka, remark = \
+                            invalid_prokka, remark = \
                                 validate_prokka_feature_annotation(prokka_feature,
                                                                    reference_gene_locus_dict, reference_locus_gene_dict,
                                                                    abinit_blast_results,
@@ -1826,7 +1814,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                                    ratt_locations=overlapping_ratt_location_1,
                                                                    reference_locus_list=reference_locus_list)
                             if not invalid_prokka:
-                                mod_prokka_feature, invalid_prokka_2, remark_2 = \
+                                invalid_prokka_2, remark_2 = \
                                     validate_prokka_feature_annotation(prokka_feature,
                                                                        reference_gene_locus_dict,
                                                                        reference_locus_gene_dict,
@@ -1837,7 +1825,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                                                                        ratt_locations=overlapping_ratt_location_2,
                                                                        reference_locus_list=reference_locus_list)
                                 if not invalid_prokka_2:
-                                    add_features_from_prokka.append(mod_prokka_feature)
+                                    add_features_from_prokka.append(prokka_feature)
                                 else:
                                     prokka_rejects.append((prokka_feature,remark_2))
                             else:
@@ -1958,17 +1946,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
                         elif 'gene' not in ref_feat.qualifiers.keys():
                             ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
-                        else:
-                            mod_ref_feat, invalid_ref_feat, remark = \
-                                validate_prokka_feature_annotation(ref_feat,
-                                                                   reference_gene_locus_dict,
-                                                                   reference_locus_gene_dict,
-                                                                   abinit_blast_results,
-                                                                   ratt_blast_results,
-                                                                   reference_locus_list,
-                                )
-                            # TODO: check invalid?
-                            ref_feat = mod_ref_feat
                         add_features_from_prokka_ref.append(ref_feat)
 
             for prokka_ref_feat in add_features_from_prokka_ref:
