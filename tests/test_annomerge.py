@@ -1,5 +1,4 @@
 from collections import OrderedDict
-from copy import deepcopy
 
 from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundLocation
@@ -248,6 +247,17 @@ def test_isolate_valid_ratt_annotations(filter):
     'mamB',
 ])
 def test_validate_prokka_feature_annotation(feature):
+    abinit_blast_results = {
+        # Rv0205_1
+        'L_00229': {'iden': 99.593, 'qcov': 100.0, 'scov': 45.0},
+        # Rv0205_2
+        'L_00230': {'iden': 100.0, 'qcov': 100.0, 'scov': 47.0},
+        # rplB
+        'L_00759': {'iden': 99.666, 'qcov': 100.0, 'scov': 100.0},
+        # mamB
+        'L_02174': {'iden': 99.228, 'qcov': 95.92592592592592, 'scov': 45.20069808027923},
+    }
+
     inputs = dict(
         # Rv0205 in this isolate is disrupted.
         # These two gene fragments should be tagged with /pseudo qualifiers by this function and
@@ -256,6 +266,7 @@ def test_validate_prokka_feature_annotation(feature):
             FeatureLocation(ExactPosition(245198), ExactPosition(245834), strand=1), type='CDS',
             qualifiers = dict(
                 locus_tag=["L_00229"], gene=["Rv0205"], codon_start=['1'], transl_table='11',
+                pseudo=[''],
                 translation=['MSASLDDASVAPLVRKTAAWAWRFLVILAAMVALLWVLNKFEVIVVPVLLALMLSALLVPPVDWLDSRGLPHAVAVTLVLLSGFAVLGGILTFVVSQFIAGLPHLVTEVERSIDSARRWLIEGPAHLRGEQIDNAGNAAIEALRNNQAKLTSGALSTAATITELVTAAVLILFTLIFFLYGAGASGSTSRRPSRPASVTECVRRGAPVMRR']
             )
         ),
@@ -263,6 +274,7 @@ def test_validate_prokka_feature_annotation(feature):
             FeatureLocation(ExactPosition(245797), ExactPosition(246301), strand=1), type='CDS',
             qualifiers = dict(
                 locus_tag=["L_00230"], gene=["Rv0205"], codon_start=['1'], transl_table='11',
+                pseudo=[''],
                 translation=['MRAAGRAGYASLIGYARATFLVALTDAAGVGAGLAVMGVPLALPLASLVFFGAFIPLIGAVVAGFLAVVVALLAKGIGYALITVGLLIAVNQLEAHLLQPLVMGRAVSIHPLAVVLAIAAGGVLAGVVGALLAVPTVAFFNNAVQVLLGGNPFADVADVSSDHLTEV']
             )
         ),
@@ -285,8 +297,6 @@ def test_validate_prokka_feature_annotation(feature):
     )
 
     expected_feature = deepcopy(inputs[feature])
-    if feature in ['Rv0205_1', 'Rv0205_2']:
-        expected_feature.qualifiers['pseudo'] = ['']
 
     expected = dict(
         Rv0205_1 = (expected_feature, False, ''),
@@ -295,10 +305,8 @@ def test_validate_prokka_feature_annotation(feature):
         mamB = (expected_feature, False, ''),
     )
 
-    prokka_noref = dict()
     ratt_blast_results = dict()
     reference_locus_list = []
-    seq_ident = seq_covg = 90
     ref_temp_fasta_dict = dict(
         Rv0205='gene-seqs/Rv0205.fasta',
         Rv0704='gene-seqs/Rv0704.fasta',
@@ -317,15 +325,12 @@ def test_validate_prokka_feature_annotation(feature):
 
     annomerge.prokka_blast_list = []
     results = annomerge.validate_prokka_feature_annotation(
-        deepcopy(inputs[feature]),
-        prokka_noref,
+        inputs[feature],
         reference_gene_locus_dict,
         reference_locus_gene_dict,
-        ref_temp_fasta_dict,
+        abinit_blast_results,
         ratt_blast_results,
         reference_locus_list,
-        seq_ident,
-        seq_covg
     )
     # __eq__ is not implemented for the SeqFeature object itself,
     # so check the qualifiers and then check the rest of the return values
