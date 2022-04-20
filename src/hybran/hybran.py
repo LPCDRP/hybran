@@ -65,7 +65,8 @@ def cmds():
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
                                                  '-r/--references directory. Full path only')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use',
-                          default='1')
+                          type=int,
+                          default=1)
     optional.add_argument('-d', '--debug', action='store_true',
                           help="Don't delete temporary files created by Hybran.")
     optional.add_argument('-f', '--force', action='store_true',
@@ -316,7 +317,9 @@ def main():
                                   script_directory=script_dir,
                                   seq_ident=args.identity_threshold,
                                   seq_covg=args.coverage_threshold,
-                                  ratt_enforce_thresholds=args.filter_ratt)
+                                  ratt_enforce_thresholds=args.filter_ratt,
+                                  nproc=args.nproc,
+                    )
                     converter.convert_gbk_to_gff(annomerge_gbk)
                 genomes_annotate.append(os.path.join(args.output, samplename + '.gff'))
             else:

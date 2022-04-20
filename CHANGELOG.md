@@ -2,6 +2,13 @@
 
 ## Development
 
+### Bugs fixed
+* Corrected distinguishing of ab initio vs reference-transferred annotation in final conflict resolution step (#38)
+
+### Enhancements
+* Streamlined Prokka workflow (#33)
+* Parallelized BLASTing to reference genes in annomerge.
+
 ### Housekeeping
 * Added exit status checks so pipeline fails as early as possible when things go wrong.
 * Switched default evalue to Prokka's current setting of 1e-9 (was 1e-6)

@@ -8,10 +8,12 @@ dependencies:
   - blast
   - cd-hit
   - diamond
+  - dill
   - eggnog-mapper
   - emboss
   - entrez-direct
   - mcl
+  - multiprocess
   - mummer
   - paml
   - prodigal
