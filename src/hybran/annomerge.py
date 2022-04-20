@@ -1773,7 +1773,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         elif (prokka_feature_start > ratt_unannotated_region_end) and \
                                 (prokka_feature_end > ratt_unannotated_region_end):
                             break
-                        # If the PROKKA feature is contained in the RATT feature
+                        # If the ab initio feature is contained in the unannotated range
                         elif prokka_feature_start in ratt_unannotated_region_range and \
                                 prokka_feature_end in ratt_unannotated_region_range:
                             # The if-else condition below is to keep track of the features added from Prokka for the
@@ -1784,13 +1784,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             else:
                                 feature_additions[prokka_feature.type] += 1
                                 feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
-                            invalid_prokka, remark = \
-                                validate_prokka_feature_annotation(prokka_feature,
-                                                                   reference_gene_locus_dict, reference_locus_gene_dict,
-                                                                   abinit_blast_results,
-                                                                   ratt_blast_results,
-                                                                   reference_locus_list=reference_locus_list,
-                                )
                             add_features_from_prokka.append(prokka_feature)
                         # If the Prokka feature overlaps with two RATT features
                         elif prokka_feature_start < ratt_unannotated_region_start and \
