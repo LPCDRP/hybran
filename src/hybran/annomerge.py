@@ -829,6 +829,10 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
             if not invalid_prokka:
                 embl_file.features.append(prokka_annotation)
                 included = True
+        else:
+            remark = ("RATT annotation for "
+                      + '|'.join([ratt_annotation.qualifiers['locus_tag'][0],ratt_annotation.qualifiers['gene'][0]])
+                      + " preferred based on gene length similarity.")
     # If gene tag is missing and the product is not a hypothetical protein, check to see if the products are the
     # same between RATT and Prokka and if they are and if the lengths of the protein coding genes are comparable
     # preferred
@@ -844,6 +848,11 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
             if not invalid_prokka:
                 embl_file.features.append(prokka_annotation)
                 included = True
+        else:
+            remark = ("RATT annotation for product "
+                      + '"' + ratt_annotation.qualifiers['product'][0] + '" '
+                      + "(" + '|'.join([ratt_annotation.qualifiers['locus_tag'][0],ratt_annotation.qualifiers['gene'][0]]) + ") "
+                      + "preferred based on gene length similarity or mismatching product name.")
     else:
         logger.warning('CORNER CASE in check_inclusion_criteria')
         remark = 'corner case: unhandled by inclusion criteria'
