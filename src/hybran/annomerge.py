@@ -780,6 +780,201 @@ def get_interregions(embl_record, intergene_length=1):
     return intergenic_records, intergenic_positions, pre_intergene, post_intergene
 
 
+def populate_gaps(
+        abinit_features,
+        intergenic_positions,
+        ratt_pre_intergene,
+        ratt_post_intergene,
+        reference_gene_locus_dict,
+        reference_locus_gene_dict,
+        reference_locus_list,
+        ref_annotation,
+        ref_embl_fp,
+        abinit_blast_results,
+        abinit_blast_results_complete,
+        ratt_annotation_mapping,
+        ratt_blast_results,
+        add_prokka_contig_record,
+        seq_ident,
+        seq_covg,
+):
+    """
+    :param abinit_features: dict as from generate_feature_dictionary of ab initio features to try to incorporate
+    :param intergenic_positions: (sorted) output of get_interregions
+    """
+
+    feature_additions = {}
+    feature_lengths = {}
+    abinit_keepers = []
+    abinit_unused = []
+    for j in intergenic_positions:
+        # Variable definitions
+        ratt_unannotated_region_start = j[0]
+        ratt_unannotated_region_end = j[1]
+        ratt_strand = j[2]
+        for feature_position in list(abinit_features.keys()):
+            prokka_feature = abinit_features[feature_position]
+            prokka_strand = feature_position[2]
+            prokka_feature_start = feature_position[0]
+            prokka_feature_end = feature_position[1]
+            ratt_unannotated_region_range = range(ratt_unannotated_region_start,
+                                                  ratt_unannotated_region_end + 1)
+            if (prokka_strand == -1 and ratt_strand == '-') or (prokka_strand == 1 and ratt_strand == '+'):
+                # If Prokka feature is location before the start of the intergenic region, pop the key from the
+                # dictionary and continue loop
+                if (prokka_feature_start < ratt_unannotated_region_start) and \
+                        (prokka_feature_end < ratt_unannotated_region_start):
+                    abinit_features.pop((prokka_feature_start, prokka_feature_end, prokka_strand),
+                                        None)
+                    continue
+                # Else if the prokka feature location is after the end of the intergenic region, break out of
+                # the inner loop
+                elif (prokka_feature_start > ratt_unannotated_region_end) and \
+                        (prokka_feature_end > ratt_unannotated_region_end):
+                    break
+                # If the ab initio feature is contained in the unannotated range
+                elif prokka_feature_start in ratt_unannotated_region_range and \
+                        prokka_feature_end in ratt_unannotated_region_range:
+                    # The if-else condition below is to keep track of the features added from Prokka for the
+                    # log file
+                    if prokka_feature.type not in feature_additions.keys():
+                        feature_additions[prokka_feature.type] = 1
+                        feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
+                    else:
+                        feature_additions[prokka_feature.type] += 1
+                        feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
+                    abinit_keepers.append(prokka_feature)
+                # If the Prokka feature overlaps with two RATT features
+                elif prokka_feature_start < ratt_unannotated_region_start and \
+                        prokka_feature_end > ratt_unannotated_region_end:
+                    if prokka_feature.type == 'source':  # This is to exclude the source feature as it is
+                        # accounted for by RATT
+                        break
+                    ratt_overlapping_feature_1 = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
+                                                                     prokka_strand)]
+                    ratt_overlapping_feature_2 = ratt_post_intergene[(ratt_unannotated_region_end,
+                                                                      prokka_strand)]
+                    ratt_overlapping_feature_1_loc = (int(ratt_overlapping_feature_1.location.start),
+                                                      int(ratt_overlapping_feature_1.location.end),
+                                                      int(ratt_overlapping_feature_1.location.strand))
+                    ratt_overlapping_feature_2_loc = (int(ratt_overlapping_feature_2.location.start),
+                                                      int(ratt_overlapping_feature_2.location.end),
+                                                      int(ratt_overlapping_feature_2.location.strand))
+                    locus_tag1 = ratt_overlapping_feature_1.qualifiers['locus_tag'][0]
+                    locus_tag2 = ratt_overlapping_feature_2.qualifiers['locus_tag'][0]
+                    overlapping_ratt_location_1 = {locus_tag1: ratt_overlapping_feature_1_loc}
+                    overlapping_ratt_location_2 = {locus_tag2: ratt_overlapping_feature_2_loc}
+                    overlapping_ratt_locus_tags = [locus_tag1, locus_tag2]
+                    invalid_prokka, remark = validate_prokka_feature_annotation(
+                        prokka_feature,
+                        reference_gene_locus_dict,
+                        reference_locus_gene_dict,
+                        abinit_blast_results,
+                        ratt_blast_results,
+                        check_ratt=True,
+                        ratt_features=overlapping_ratt_locus_tags[0],
+                        ratt_locations=overlapping_ratt_location_1,
+                        reference_locus_list=reference_locus_list,
+                    )
+                    if not invalid_prokka:
+                        invalid_prokka_2, remark_2 = \
+                            validate_prokka_feature_annotation(prokka_feature,
+                                                               reference_gene_locus_dict,
+                                                               reference_locus_gene_dict,
+                                                               abinit_blast_results,
+                                                               ratt_blast_results,
+                                                               check_ratt=True,
+                                                               ratt_features=overlapping_ratt_locus_tags[1],
+                                                               ratt_locations=overlapping_ratt_location_2,
+                                                               reference_locus_list=reference_locus_list)
+                        if not invalid_prokka_2:
+                            abinit_keepers.append(prokka_feature)
+                        else:
+                            abinit_unused.append((prokka_feature,remark_2))
+                    else:
+                        abinit_unused.append((prokka_feature,remark))
+                    # The if-else condition below is to keep track of the features added from Prokka for the
+                    # log file
+                    if prokka_feature.type not in feature_additions.keys():
+                        feature_additions[prokka_feature.type] = 1
+                        feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
+                    else:
+                        feature_additions[prokka_feature.type] += 1
+                        feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
+                # If the Prokka feature overlaps with one RATT feature
+                else:
+                    does_not_overlap = False
+                    if (prokka_feature_start < ratt_unannotated_region_start) and \
+                            (prokka_feature_end in ratt_unannotated_region_range):
+                        ratt_overlapping_feature = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
+                                                                       prokka_strand)]
+                    elif (prokka_feature_start in ratt_unannotated_region_range) and \
+                            prokka_feature_end > ratt_unannotated_region_end:
+                        ratt_overlapping_feature = ratt_post_intergene[(ratt_unannotated_region_end,
+                                                                        prokka_strand)]
+                    else:
+                        does_not_overlap = True
+                    if not does_not_overlap:
+                        overlapping_ratt_locus_tags = [ratt_overlapping_feature.qualifiers['locus_tag'][0]]
+                        ratt_overlapping_feature_loc = (int(ratt_overlapping_feature.location.start),
+                                                        int(ratt_overlapping_feature.location.end),
+                                                        int(ratt_overlapping_feature.location.strand))
+                        overlapping_ratt_locations = {ratt_overlapping_feature.qualifiers['locus_tag'][0]:
+                                                      ratt_overlapping_feature_loc}
+                        # If Prokka feature is annotated as an L_tag and not a gene, check for
+                        # a blastp hit (=> in-frame) with the overlapping RATT annotation and
+                        # assign the corresponding reference name.
+                        if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
+                            ref_gene, pseudo = BLAST.reference_match(
+                                query=SeqRecord(Seq(prokka_feature.qualifiers['translation'][0])),
+                                subject=SeqRecord(Seq(ratt_overlapping_feature.qualifiers['translation'][0]),
+                                                  id=ratt_overlapping_feature.qualifiers['gene'][0]),
+                                seq_ident=seq_ident,
+                                seq_covg=seq_covg,
+                            )[0:2]
+                            if ref_gene:
+                                liftover_annotation(
+                                    prokka_feature,
+                                    ref_annotation[ref_gene],
+                                    pseudo,
+                                    inference=':'.join([
+                                        "similar to AA sequence",
+                                        os.path.basename(os.path.splitext(ref_embl_fp)[0]),
+                                        ref_annotation[ref_gene].qualifiers['locus_tag'][0],
+                                        ref_gene,
+                                        "RATT+blastp",
+                                    ])
+                                )
+                                abinit_blast_results[prokka_feature.qualifiers['locus_tag'][0]] = \
+                                     abinit_blast_results_complete[prokka_feature.qualifiers['locus_tag'][0]][ref_gene]
+
+                        add_prokka_contig_record, included, remark = \
+                            check_inclusion_criteria(ratt_annotation_mapping,
+                                                     add_prokka_contig_record,
+                                                     ratt_overlapping_feature,
+                                                     prokka_feature,
+                                                     overlapping_ratt_locus_tags,
+                                                     overlapping_ratt_locations,
+                                                     reference_gene_locus_dict=reference_gene_locus_dict,
+                                                     reference_locus_gene_dict=reference_locus_gene_dict,
+                                                     abinit_blast_results=abinit_blast_results,
+                                                     ratt_blast_results=ratt_blast_results,
+                                                     reference_locus_list=reference_locus_list,
+                            )
+                        if included:  # To check if Prokka feature passed the inclusion criteria and was
+                            # integrated into the EMBL file.
+                            # The if-else condition below is to keep track of the features added from Prokka
+                            # for the log file
+                            if prokka_feature.type not in feature_additions.keys():
+                                feature_additions[prokka_feature.type] = 1
+                                feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
+                            else:
+                                feature_additions[prokka_feature.type] += 1
+                                feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
+                        else:
+                            abinit_unused.append((prokka_feature, remark))
+    return abinit_keepers, abinit_unused
+
 def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation, prokka_annotation, ratt_genes_check,
                              ratt_gene_location, reference_gene_locus_dict,
                              reference_locus_gene_dict, abinit_blast_results, ratt_blast_results, reference_locus_list):
@@ -1745,173 +1940,26 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
-            feature_additions = {}
-            feature_lengths = {}
-            add_features_from_prokka = []
-            for j in sorted_intergenic_positions:
-                # Variable definitions
-                ratt_unannotated_region_start = j[0]
-                ratt_unannotated_region_end = j[1]
-                ratt_strand = j[2]
-                for feature_position in list(prokka_features_not_in_ratt.keys()):
-                    prokka_feature = prokka_features_not_in_ratt[feature_position]
-                    prokka_strand = feature_position[2]
-                    prokka_feature_start = feature_position[0]
-                    prokka_feature_end = feature_position[1]
-                    ratt_unannotated_region_range = range(ratt_unannotated_region_start,
-                                                          ratt_unannotated_region_end + 1)
-                    if (prokka_strand == -1 and ratt_strand == '-') or (prokka_strand == 1 and ratt_strand == '+'):
-                        # If Prokka feature is location before the start of the intergenic region, pop the key from the
-                        # dictionary and continue loop
-                        if (prokka_feature_start < ratt_unannotated_region_start) and \
-                                (prokka_feature_end < ratt_unannotated_region_start):
-                            prokka_features_not_in_ratt.pop((prokka_feature_start, prokka_feature_end, prokka_strand),
-                                                            None)
-                            continue
-                        # Else if the prokka feature location is after the end of the intergenic region, break out of
-                        # the inner loop
-                        elif (prokka_feature_start > ratt_unannotated_region_end) and \
-                                (prokka_feature_end > ratt_unannotated_region_end):
-                            break
-                        # If the ab initio feature is contained in the unannotated range
-                        elif prokka_feature_start in ratt_unannotated_region_range and \
-                                prokka_feature_end in ratt_unannotated_region_range:
-                            # The if-else condition below is to keep track of the features added from Prokka for the
-                            # log file
-                            if prokka_feature.type not in feature_additions.keys():
-                                feature_additions[prokka_feature.type] = 1
-                                feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
-                            else:
-                                feature_additions[prokka_feature.type] += 1
-                                feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
-                            add_features_from_prokka.append(prokka_feature)
-                        # If the Prokka feature overlaps with two RATT features
-                        elif prokka_feature_start < ratt_unannotated_region_start and \
-                                prokka_feature_end > ratt_unannotated_region_end:
-                            if prokka_feature.type == 'source':  # This is to exclude the source feature as it is
-                                # accounted for by RATT
-                                break
-                            ratt_overlapping_feature_1 = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
-                                                                             prokka_strand)]
-                            ratt_overlapping_feature_2 = ratt_post_intergene[(ratt_unannotated_region_end,
-                                                                              prokka_strand)]
-                            ratt_overlapping_feature_1_loc = (int(ratt_overlapping_feature_1.location.start),
-                                                              int(ratt_overlapping_feature_1.location.end),
-                                                              int(ratt_overlapping_feature_1.location.strand))
-                            ratt_overlapping_feature_2_loc = (int(ratt_overlapping_feature_2.location.start),
-                                                              int(ratt_overlapping_feature_2.location.end),
-                                                              int(ratt_overlapping_feature_2.location.strand))
-                            locus_tag1 = ratt_overlapping_feature_1.qualifiers['locus_tag'][0]
-                            locus_tag2 = ratt_overlapping_feature_2.qualifiers['locus_tag'][0]
-                            overlapping_ratt_location_1 = {locus_tag1: ratt_overlapping_feature_1_loc}
-                            overlapping_ratt_location_2 = {locus_tag2: ratt_overlapping_feature_2_loc}
-                            overlapping_ratt_locus_tags = [locus_tag1, locus_tag2]
-                            invalid_prokka, remark = \
-                                validate_prokka_feature_annotation(prokka_feature,
-                                                                   reference_gene_locus_dict, reference_locus_gene_dict,
-                                                                   abinit_blast_results,
-                                                                   ratt_blast_results,
-                                                                   check_ratt=True,
-                                                                   ratt_features=overlapping_ratt_locus_tags[0],
-                                                                   ratt_locations=overlapping_ratt_location_1,
-                                                                   reference_locus_list=reference_locus_list)
-                            if not invalid_prokka:
-                                invalid_prokka_2, remark_2 = \
-                                    validate_prokka_feature_annotation(prokka_feature,
-                                                                       reference_gene_locus_dict,
-                                                                       reference_locus_gene_dict,
-                                                                       abinit_blast_results,
-                                                                       ratt_blast_results,
-                                                                       check_ratt=True,
-                                                                       ratt_features=overlapping_ratt_locus_tags[1],
-                                                                       ratt_locations=overlapping_ratt_location_2,
-                                                                       reference_locus_list=reference_locus_list)
-                                if not invalid_prokka_2:
-                                    add_features_from_prokka.append(prokka_feature)
-                                else:
-                                    prokka_rejects.append((prokka_feature,remark_2))
-                            else:
-                                prokka_rejects.append((prokka_feature,remark))
-                            # The if-else condition below is to keep track of the features added from Prokka for the
-                            # log file
-                            if prokka_feature.type not in feature_additions.keys():
-                                feature_additions[prokka_feature.type] = 1
-                                feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
-                            else:
-                                feature_additions[prokka_feature.type] += 1
-                                feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
-                        # If the Prokka feature overlaps with one RATT feature
-                        else:
-                            does_not_overlap = False
-                            if (prokka_feature_start < ratt_unannotated_region_start) and \
-                                    (prokka_feature_end in ratt_unannotated_region_range):
-                                ratt_overlapping_feature = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
-                                                                               prokka_strand)]
-                            elif (prokka_feature_start in ratt_unannotated_region_range) and \
-                                    prokka_feature_end > ratt_unannotated_region_end:
-                                ratt_overlapping_feature = ratt_post_intergene[(ratt_unannotated_region_end,
-                                                                                prokka_strand)]
-                            else:
-                                does_not_overlap = True
-                            if not does_not_overlap:
-                                overlapping_ratt_locus_tags = [ratt_overlapping_feature.qualifiers['locus_tag'][0]]
-                                ratt_overlapping_feature_loc = (int(ratt_overlapping_feature.location.start),
-                                                                int(ratt_overlapping_feature.location.end),
-                                                                int(ratt_overlapping_feature.location.strand))
-                                overlapping_ratt_locations = {ratt_overlapping_feature.qualifiers['locus_tag'][0]:
-                                                              ratt_overlapping_feature_loc}
-                                # If Prokka feature is annotated as an L_tag and not a gene, check for
-                                # a blastp hit (=> in-frame) with the overlapping RATT annotation and
-                                # assign the corresponding reference name.
-                                if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
-                                    ref_gene, pseudo = BLAST.reference_match(
-                                        query=SeqRecord(Seq(prokka_feature.qualifiers['translation'][0])),
-                                        subject=SeqRecord(Seq(ratt_overlapping_feature.qualifiers['translation'][0]),
-                                                          id=ratt_overlapping_feature.qualifiers['gene'][0]),
-                                        seq_ident=seq_ident,
-                                        seq_covg=seq_covg,
-                                    )[0:2]
-                                    if ref_gene:
-                                        liftover_annotation(
-                                            prokka_feature,
-                                            ref_annotation[ref_gene],
-                                            pseudo,
-                                            inference=':'.join([
-                                                "similar to AA sequence",
-                                                os.path.basename(os.path.splitext(ref_embl_fp)[0]),
-                                                ref_annotation[ref_gene].qualifiers['locus_tag'][0],
-                                                ref_gene,
-                                                "RATT+blastp",
-                                            ])
-                                        )
-                                        abinit_blast_results[prokka_feature.qualifiers['locus_tag'][0]] = \
-                                             abinit_blast_results_complete[prokka_feature.qualifiers['locus_tag'][0]][ref_gene]
+            add_features_from_prokka, abinit_unused = populate_gaps(
+                abinit_features=prokka_features_not_in_ratt,
+                intergenic_positions=sorted_intergenic_positions,
+                ratt_pre_intergene=ratt_pre_intergene,
+                ratt_post_intergene=ratt_post_intergene,
+                reference_gene_locus_dict=reference_gene_locus_dict,
+                reference_locus_gene_dict=reference_locus_gene_dict,
+                reference_locus_list=reference_locus_list,
+                ref_embl_fp=ref_embl_fp,
+                ref_annotation=ref_annotation,
+                abinit_blast_results=abinit_blast_results,
+                abinit_blast_results_complete=abinit_blast_results_complete,
+                ratt_annotation_mapping=ratt_annotation_mapping,
+                ratt_blast_results=ratt_blast_results,
+                add_prokka_contig_record=add_prokka_contig_record,
+                seq_ident=seq_ident,
+                seq_covg=seq_covg,
+            )
+            prokka_rejects += abinit_unused
 
-                                add_prokka_contig_record, included, remark = \
-                                    check_inclusion_criteria(ratt_annotation_mapping,
-                                                             add_prokka_contig_record,
-                                                             ratt_overlapping_feature,
-                                                             prokka_feature,
-                                                             overlapping_ratt_locus_tags,
-                                                             overlapping_ratt_locations,
-                                                             reference_gene_locus_dict=reference_gene_locus_dict,
-                                                             reference_locus_gene_dict=reference_locus_gene_dict,
-                                                             abinit_blast_results=abinit_blast_results,
-                                                             ratt_blast_results=ratt_blast_results,
-                                                             reference_locus_list=reference_locus_list,
-                                    )
-                                if included:  # To check if Prokka feature passed the inclusion criteria and was
-                                    # integrated into the EMBL file.
-                                    # The if-else condition below is to keep track of the features added from Prokka
-                                    # for the log file
-                                    if prokka_feature.type not in feature_additions.keys():
-                                        feature_additions[prokka_feature.type] = 1
-                                        feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
-                                    else:
-                                        feature_additions[prokka_feature.type] += 1
-                                        feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
-                                else:
-                                    prokka_rejects.append((prokka_feature, remark))
             if len(merged_features) > 0:
                 for feature_1 in merged_features:
                     add_prokka_contig_record.features.append(feature_1)
