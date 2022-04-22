@@ -791,7 +791,6 @@ def populate_gaps(
         abinit_blast_results,
         ratt_annotation_mapping,
         ratt_blast_results,
-        add_prokka_contig_record,
 ):
     """
     :param abinit_features: dict as from generate_feature_dictionary of ab initio features to try to incorporate
@@ -891,9 +890,8 @@ def populate_gaps(
                                                       ratt_overlapping_feature_loc}
                         abinit_conflicts[feature_position][overlapping_ratt_locus_tags[0]] = ratt_overlapping_feature_loc
 
-                        add_prokka_contig_record, included, remark = \
+                        accept_abinit, remark = \
                             check_inclusion_criteria(ratt_annotation_mapping,
-                                                     add_prokka_contig_record,
                                                      ratt_overlapping_feature,
                                                      prokka_feature,
                                                      overlapping_ratt_locus_tags,
@@ -904,8 +902,8 @@ def populate_gaps(
                                                      ratt_blast_results=ratt_blast_results,
                                                      reference_locus_list=reference_locus_list,
                             )
-                        if included:  # To check if Prokka feature passed the inclusion criteria and was
-                            # integrated into the EMBL file.
+                        if accept_abinit:
+                            abinit_keepers.append(prokka_feature)
                             # The if-else condition below is to keep track of the features added from Prokka
                             # for the log file
                             if prokka_feature.type not in feature_additions.keys():
@@ -918,7 +916,7 @@ def populate_gaps(
                             abinit_unused.append((prokka_feature, remark))
     return abinit_keepers, abinit_conflicts, abinit_unused
 
-def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation, prokka_annotation, ratt_genes_check,
+def check_inclusion_criteria(annotation_mapping_dict, ratt_annotation, prokka_annotation, ratt_genes_check,
                              ratt_gene_location, reference_gene_locus_dict,
                              reference_locus_gene_dict, abinit_blast_results, ratt_blast_results, reference_locus_list):
     """
@@ -931,14 +929,13 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     :param ratt_genes_check:
     :param ratt_gene_location:
     :returns:
-        - embl_file
-        - included (:py:class:`bool`) - whether the Prokka annotation was included in the final
+        - include (:py:class:`bool`) - whether the Prokka annotation should be kept
         - remark (:py:class:`str`) - explanation for why the Prokka annotation was not included
                                      (not relevant when `included==True`)
     """
 
     logger = logging.getLogger('CheckInclusionCriteria')
-    included = False
+    include = False
     invalid_prokka, remark = validate_prokka_feature_annotation(
         prokka_annotation,
         reference_gene_locus_dict=reference_gene_locus_dict,
@@ -952,21 +949,18 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     )
     # Check if feature types are the same. If not add feature to EMBL record
     if ratt_annotation.type != prokka_annotation.type:
-        embl_file.features.append(prokka_annotation)
-        included = True
+        include = True
     # Check if gene names match and if they don't or if gene names are missing, keep both
     elif 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in prokka_annotation.qualifiers.keys():
         if ratt_annotation.qualifiers['gene'] != prokka_annotation.qualifiers['gene']:
             if not invalid_prokka:
-                embl_file.features.append(prokka_annotation)
-                included = True
+                include = True
         # If gene names are the same and the lengths of the genes are comparable between RATT and Prokka annotation
         # (difference in length of less than/equal to 10 bps), the RATT annotation is preferred
         elif ratt_annotation.qualifiers['gene'] == prokka_annotation.qualifiers['gene'] and \
                         abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
             if not invalid_prokka:
-                embl_file.features.append(prokka_annotation)
-                included = True
+                include = True
         else:
             remark = ("RATT annotation for "
                       + '|'.join([ratt_annotation.qualifiers['locus_tag'][0],ratt_annotation.qualifiers['gene'][0]])
@@ -979,13 +973,11 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
         if ratt_annotation.qualifiers['product'][0] == 'hypothetical protein' or \
                         prokka_annotation.qualifiers['product'][0] == 'hypothetical protein':
             if not invalid_prokka:
-                embl_file.features.append(prokka_annotation)
-                included = True
+                include = True
         elif ratt_annotation.qualifiers['product'] == prokka_annotation.qualifiers['product'] and \
                         abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
             if not invalid_prokka:
-                embl_file.features.append(prokka_annotation)
-                included = True
+                include = True
         else:
             remark = ("RATT annotation for product "
                       + '"' + ratt_annotation.qualifiers['product'][0] + '" '
@@ -994,7 +986,7 @@ def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation
     else:
         logger.warning('CORNER CASE in check_inclusion_criteria')
         remark = 'corner case: unhandled by inclusion criteria'
-    return embl_file, included, remark
+    return include, remark
 
 
 def validate_prokka_feature_annotation(feature, reference_gene_locus_dict, reference_locus_gene_dict,
@@ -1894,7 +1886,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 abinit_blast_results=abinit_blast_results,
                 ratt_annotation_mapping=ratt_annotation_mapping,
                 ratt_blast_results=ratt_blast_results,
-                add_prokka_contig_record=add_prokka_contig_record,
             )
             prokka_rejects += abinit_unused
             logger.debug(f"{len(add_features_from_prokka)} ab initio ORFs fall squarely into RATT's CDS-free regions.")
