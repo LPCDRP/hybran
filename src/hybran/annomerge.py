@@ -785,12 +785,6 @@ def populate_gaps(
         intergenic_positions,
         ratt_pre_intergene,
         ratt_post_intergene,
-        reference_gene_locus_dict,
-        reference_locus_gene_dict,
-        reference_locus_list,
-        abinit_blast_results,
-        ratt_annotation_mapping,
-        ratt_blast_results,
 ):
     """
     :param abinit_features: dict as from generate_feature_dictionary of ab initio features to try to incorporate
@@ -801,7 +795,6 @@ def populate_gaps(
     feature_lengths = {}
     abinit_features = deepcopy(abinit_features)
     abinit_keepers = []
-    abinit_unused = []
     abinit_conflicts = collections.defaultdict(collections.OrderedDict)
     for j in intergenic_positions:
         # Variable definitions
@@ -890,43 +883,24 @@ def populate_gaps(
                                                       ratt_overlapping_feature_loc}
                         abinit_conflicts[feature_position][overlapping_ratt_locus_tags[0]] = ratt_overlapping_feature_loc
 
-                        accept_abinit, remark = \
-                            check_inclusion_criteria(ratt_annotation_mapping,
-                                                     ratt_overlapping_feature,
-                                                     prokka_feature,
-                                                     overlapping_ratt_locus_tags,
-                                                     overlapping_ratt_locations,
-                                                     reference_gene_locus_dict=reference_gene_locus_dict,
-                                                     reference_locus_gene_dict=reference_locus_gene_dict,
-                                                     abinit_blast_results=abinit_blast_results,
-                                                     ratt_blast_results=ratt_blast_results,
-                                                     reference_locus_list=reference_locus_list,
-                            )
-                        if accept_abinit:
-                            abinit_keepers.append(prokka_feature)
-                            # The if-else condition below is to keep track of the features added from Prokka
-                            # for the log file
-                            if prokka_feature.type not in feature_additions.keys():
-                                feature_additions[prokka_feature.type] = 1
-                                feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
-                            else:
-                                feature_additions[prokka_feature.type] += 1
-                                feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
-                        else:
-                            abinit_unused.append((prokka_feature, remark))
-    return abinit_keepers, abinit_conflicts, abinit_unused
+    return abinit_keepers, abinit_conflicts
 
-def check_inclusion_criteria(annotation_mapping_dict, ratt_annotation, prokka_annotation, ratt_genes_check,
-                             ratt_gene_location, reference_gene_locus_dict,
-                             reference_locus_gene_dict, abinit_blast_results, ratt_blast_results, reference_locus_list):
+def check_inclusion_criteria(
+        ratt_annotation,
+        abinit_annotation,
+        ratt_gene_location,
+        reference_gene_locus_dict,
+        reference_locus_gene_dict,
+        reference_locus_list,
+        abinit_blast_results,
+        ratt_blast_results,
+):
     """
     This function compares RATT and Prokka annotations and resolves conflicting annotations
 
-    :param annotation_mapping_dict:
     :param embl_file:
     :param ratt_annotation:
-    :param prokka_annotation:
-    :param ratt_genes_check:
+    :param abinit_annotation:
     :param ratt_gene_location:
     :returns:
         - include (:py:class:`bool`) - whether the Prokka annotation should be kept
@@ -935,31 +909,110 @@ def check_inclusion_criteria(annotation_mapping_dict, ratt_annotation, prokka_an
     """
 
     logger = logging.getLogger('CheckInclusionCriteria')
+    reject_abinit = False
+    remark = ''
+    loc_key = (int(abinit_annotation.location.start), int(abinit_annotation.location.end), int(abinit_annotation.location.strand))
+    if(abinit_annotation.type != 'CDS'
+       or 'gene' not in abinit_annotation.qualifiers.keys()
+    ):
+        pass
+    elif(abinit_annotation.qualifiers['gene'][0] in reference_locus_gene_dict.keys()
+         or abinit_annotation.qualifiers['gene'][0] in reference_gene_locus_dict.keys()
+    ):
+        try:
+            locus_tag = reference_gene_locus_dict[abinit_annotation.qualifiers['gene'][0]]
+        except KeyError:
+            locus_tag = abinit_annotation.qualifiers['gene'][0]
+        blast_stats = abinit_blast_results[abinit_annotation.qualifiers['locus_tag'][0]]
+        if(locus_tag == ratt_annotation.qualifiers['locus_tag'][0]
+           and locus_tag in ratt_blast_results.keys()
+        ):
+            ratt_start = int(list(ratt_gene_location.values())[0][0])
+            ratt_stop = int(list(ratt_gene_location.values())[0][1])
+            prom_mutation = False
+            if list(ratt_gene_location.values())[0][2] == 1:
+                if ratt_start == 0:
+                    ratt_prom_end = len(record_sequence)
+                    ratt_prom_start = len(record_sequence) - 40
+                    ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+                elif ratt_start < 40:
+                    ratt_prom_end = ratt_start
+                    prev_prom_len = 40 - ratt_prom_end
+                    ratt_prom_start = len(record_sequence) - prev_prom_len
+                    ratt_prom_seq = str(record_sequence[ratt_prom_start:len(record_sequence)]) + \
+                                    str(record_sequence[0:ratt_prom_end])
+                else:
+                    ratt_prom_end = ratt_start
+                    ratt_prom_start = ratt_start - 40
+                    ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+            else:
+                ratt_prom_start = ratt_stop
+                ratt_prom_end = ratt_stop + 40
+                ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+            blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[locus_tag],
+                                                     outfmt='"7 qseqid sseqid pident length mismatch '
+                                                            'gapopen qstart qend sstart send evalue '
+                                                            'bitscore gaps"')
+            stdout, stderr = blast_to_rv_prom(stdin=str(ratt_prom_seq))
+            prom_blast_elements = stdout.split('\n')
+            for line in prom_blast_elements:
+                if line.startswith('#') or len(line) <= 1:
+                    continue
+                blast_results = line.strip().split('\t')
+                if float(blast_results[2]) == 100.0 and int(blast_results[3]) == 40:
+                    reject_abinit = True
+                    remark = "sequence upstream of RATT's " + locus_tag + " is not mutated."
+                else:
+                    prom_mutation = True
+            if prom_mutation is True:
+                ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag]['scov']) -
+                                            int(ratt_blast_results[locus_tag]['qcov']))
+                prokka_coverage_measure = abs(int(blast_stats['scov']) - int(blast_stats['qcov']))
+                if ratt_coverage_measure < prokka_coverage_measure:
+                    reject_abinit = True
+                    remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
+                elif prokka_coverage_measure < ratt_coverage_measure:
+                    logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
+                    if ratt_gene_location[locus_tag] in ratt_contig_features_dict.keys():
+                        ratt_rejects.append(
+                            (ratt_contig_features_dict.pop(ratt_gene_location[locus_tag]),
+                             'Prokka annotation for ' + abinit_annotation.qualifiers['locus_tag'][0] + ' has better alignment coverage with the reference.')
+                        )
+                    reject_abinit = False
+                elif ratt_coverage_measure == prokka_coverage_measure:
+                    # Checking for identity if coverage is the same
+                    if int(ratt_blast_results[locus_tag]['iden']) > int(blast_stats['iden']):
+                        reject_abinit = True
+                        remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
+                    elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
+                        logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
+                        if ratt_gene_location[locus_tag] in ratt_contig_features_dict.keys():
+                            ratt_rejects.append(
+                                (ratt_contig_features_dict.pop(ratt_gene_location[locus_tag]),
+                                 'Prokka annotation for ' + abinit_annotation.qualifiers['locus_tag'][0] + 'has higher identity with the reference and the same alignment coverage.')
+                            )
+                        reject_abinit = False
+                    else:
+                        # If RATT and Prokka annotations are same, choose RATT
+                        reject_abinit = True
+                        remark = 'identical to RATT for ' + locus_tag
+                else:
+                    reject_abinit = False
+
     include = False
-    invalid_prokka, remark = validate_prokka_feature_annotation(
-        prokka_annotation,
-        reference_gene_locus_dict=reference_gene_locus_dict,
-        reference_locus_gene_dict=reference_locus_gene_dict,
-        abinit_blast_results=abinit_blast_results,
-        ratt_blast_results=ratt_blast_results,
-        check_ratt=True,
-        ratt_features=ratt_genes_check,
-        ratt_locations=ratt_gene_location,
-        reference_locus_list=reference_locus_list,
-    )
     # Check if feature types are the same. If not add feature to EMBL record
-    if ratt_annotation.type != prokka_annotation.type:
+    if ratt_annotation.type != abinit_annotation.type:
         include = True
     # Check if gene names match and if they don't or if gene names are missing, keep both
-    elif 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in prokka_annotation.qualifiers.keys():
-        if ratt_annotation.qualifiers['gene'] != prokka_annotation.qualifiers['gene']:
-            if not invalid_prokka:
+    elif 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in abinit_annotation.qualifiers.keys():
+        if ratt_annotation.qualifiers['gene'] != abinit_annotation.qualifiers['gene']:
+            if not reject_abinit:
                 include = True
         # If gene names are the same and the lengths of the genes are comparable between RATT and Prokka annotation
         # (difference in length of less than/equal to 10 bps), the RATT annotation is preferred
-        elif ratt_annotation.qualifiers['gene'] == prokka_annotation.qualifiers['gene'] and \
-                        abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
-            if not invalid_prokka:
+        elif ratt_annotation.qualifiers['gene'] == abinit_annotation.qualifiers['gene'] and \
+                        abs(len(abinit_annotation.location)-len(ratt_annotation.location)) > 0:
+            if not reject_abinit:
                 include = True
         else:
             remark = ("RATT annotation for "
@@ -968,15 +1021,15 @@ def check_inclusion_criteria(annotation_mapping_dict, ratt_annotation, prokka_an
     # If gene tag is missing and the product is not a hypothetical protein, check to see if the products are the
     # same between RATT and Prokka and if they are and if the lengths of the protein coding genes are comparable
     # preferred
-    elif ('gene' not in ratt_annotation.qualifiers.keys() or 'gene' not in prokka_annotation.qualifiers.keys()) and \
-            ('product' in ratt_annotation.qualifiers.keys() and 'product' in prokka_annotation.qualifiers.keys()):
+    elif ('gene' not in ratt_annotation.qualifiers.keys() or 'gene' not in abinit_annotation.qualifiers.keys()) and \
+            ('product' in ratt_annotation.qualifiers.keys() and 'product' in abinit_annotation.qualifiers.keys()):
         if ratt_annotation.qualifiers['product'][0] == 'hypothetical protein' or \
-                        prokka_annotation.qualifiers['product'][0] == 'hypothetical protein':
-            if not invalid_prokka:
+                        abinit_annotation.qualifiers['product'][0] == 'hypothetical protein':
+            if not reject_abinit:
                 include = True
-        elif ratt_annotation.qualifiers['product'] == prokka_annotation.qualifiers['product'] and \
-                        abs(len(prokka_annotation.location)-len(ratt_annotation.location)) > 0:
-            if not invalid_prokka:
+        elif ratt_annotation.qualifiers['product'] == abinit_annotation.qualifiers['product'] and \
+                        abs(len(abinit_annotation.location)-len(ratt_annotation.location)) > 0:
+            if not reject_abinit:
                 include = True
         else:
             remark = ("RATT annotation for product "
@@ -987,116 +1040,6 @@ def check_inclusion_criteria(annotation_mapping_dict, ratt_annotation, prokka_an
         logger.warning('CORNER CASE in check_inclusion_criteria')
         remark = 'corner case: unhandled by inclusion criteria'
     return include, remark
-
-
-def validate_prokka_feature_annotation(feature, reference_gene_locus_dict, reference_locus_gene_dict,
-                                       abinit_blast_results,
-                                       ratt_blast_results,
-                                       reference_locus_list,
-                                       check_ratt=False, ratt_features=[],
-                                       ratt_locations={}):
-    """
-
-    :param feature:
-    :param check_ratt:
-    :param ratt_features:
-    :param ratt_locations:
-    :param ratt_annotations:
-    :returns:
-        - do_not_add_prokka (:py:class:`bool`) - whether to not accept the Prokka annotation
-        - remark (:py:class:`str`) - explanation for why the Prokka annotation was not accepted.
-                                     (not relevant when `do_not_add_prokka==False`)
-    """
-    logger = logging.getLogger('ValidateProkkaFeatures')
-    do_not_add_prokka = False
-    remark = ''
-    loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-    if(feature.type != 'CDS'
-       or 'gene' not in feature.qualifiers.keys()
-    ):
-        return do_not_add_prokka, remark
-    elif(feature.qualifiers['gene'][0] in reference_locus_gene_dict.keys()
-         or feature.qualifiers['gene'][0] in reference_gene_locus_dict.keys()
-    ):
-        try:
-            locus_tag = reference_gene_locus_dict[feature.qualifiers['gene'][0]]
-        except KeyError:
-            locus_tag = feature.qualifiers['gene'][0]
-        blast_stats = abinit_blast_results[feature.qualifiers['locus_tag'][0]]
-        if check_ratt:
-            if locus_tag in ratt_features and locus_tag in ratt_blast_results.keys():
-                ratt_start = int(list(ratt_locations.values())[0][0])
-                ratt_stop = int(list(ratt_locations.values())[0][1])
-                prom_mutation = False
-                if list(ratt_locations.values())[0][2] == 1:
-                    if ratt_start == 0:
-                        ratt_prom_end = len(record_sequence)
-                        ratt_prom_start = len(record_sequence) - 40
-                        ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-                    elif ratt_start < 40:
-                        ratt_prom_end = ratt_start
-                        prev_prom_len = 40 - ratt_prom_end
-                        ratt_prom_start = len(record_sequence) - prev_prom_len
-                        ratt_prom_seq = str(record_sequence[ratt_prom_start:len(record_sequence)]) + \
-                                        str(record_sequence[0:ratt_prom_end])
-                    else:
-                        ratt_prom_end = ratt_start
-                        ratt_prom_start = ratt_start - 40
-                        ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-                else:
-                    ratt_prom_start = ratt_stop
-                    ratt_prom_end = ratt_stop + 40
-                    ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-                blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[locus_tag],
-                                                         outfmt='"7 qseqid sseqid pident length mismatch '
-                                                                'gapopen qstart qend sstart send evalue '
-                                                                'bitscore gaps"')
-                stdout, stderr = blast_to_rv_prom(stdin=str(ratt_prom_seq))
-                prom_blast_elements = stdout.split('\n')
-                for line in prom_blast_elements:
-                    if line.startswith('#') or len(line) <= 1:
-                        continue
-                    blast_results = line.strip().split('\t')
-                    if float(blast_results[2]) == 100.0 and int(blast_results[3]) == 40:
-                        do_not_add_prokka = True
-                        remark = "sequence upstream of RATT's " + locus_tag + " is not mutated."
-                    else:
-                        prom_mutation = True
-                if prom_mutation is True:
-                    ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag]['scov']) -
-                                                int(ratt_blast_results[locus_tag]['qcov']))
-                    prokka_coverage_measure = abs(int(blast_stats['scov']) - int(blast_stats['qcov']))
-                    if ratt_coverage_measure < prokka_coverage_measure:
-                        do_not_add_prokka = True
-                        remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
-                    elif prokka_coverage_measure < ratt_coverage_measure:
-                        logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                        if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
-                            ratt_rejects.append(
-                                (ratt_contig_features_dict.pop(ratt_locations[locus_tag]),
-                                 'Prokka annotation for ' + feature.qualifiers['locus_tag'][0] + ' has better alignment coverage with the reference.')
-                            )
-                        do_not_add_prokka = False
-                    elif ratt_coverage_measure == prokka_coverage_measure:
-                        # Checking for identity if coverage is the same
-                        if int(ratt_blast_results[locus_tag]['iden']) > int(blast_stats['iden']):
-                            do_not_add_prokka = True
-                            remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
-                        elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
-                            logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                            if ratt_locations[locus_tag] in ratt_contig_features_dict.keys():
-                                ratt_rejects.append(
-                                    (ratt_contig_features_dict.pop(ratt_locations[locus_tag]),
-                                     'Prokka annotation for ' + feature.qualifiers['locus_tag'][0] + 'has higher identity with the reference and the same alignment coverage.')
-                                )
-                            do_not_add_prokka = False
-                        else:
-                            # If RATT and Prokka annotations are same, choose RATT
-                            do_not_add_prokka = True
-                            remark = 'identical to RATT for ' + locus_tag
-                    else:
-                        do_not_add_prokka = False
-    return do_not_add_prokka, remark
 
 
 def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict, reference_locus_list,
@@ -1596,7 +1539,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     output_genbank = os.path.join(isolate_id, 'annomerge', isolate_id + '.gbk')
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
     isolate_sequence = prokka_records[0].seq
-    global ratt_rejects  # some RATT annotations are rejected as a side effect of validate_prokka_feature_annotation ...
+    global ratt_rejects  # some RATT annotations are rejected as a side effect of check_inclusion_criteria
     ratt_rejects = []
     ratt_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'ratt_unused.tsv')
     prokka_rejects = []
@@ -1875,19 +1818,12 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
-            add_features_from_prokka, abinit_conflicts, abinit_unused = populate_gaps(
+            add_features_from_prokka, abinit_conflicts = populate_gaps(
                 abinit_features=prokka_features_not_in_ratt,
                 intergenic_positions=sorted_intergenic_positions,
                 ratt_pre_intergene=ratt_pre_intergene,
                 ratt_post_intergene=ratt_post_intergene,
-                reference_gene_locus_dict=reference_gene_locus_dict,
-                reference_locus_gene_dict=reference_locus_gene_dict,
-                reference_locus_list=reference_locus_list,
-                abinit_blast_results=abinit_blast_results,
-                ratt_annotation_mapping=ratt_annotation_mapping,
-                ratt_blast_results=ratt_blast_results,
             )
-            prokka_rejects += abinit_unused
             logger.debug(f"{len(add_features_from_prokka)} ab initio ORFs fall squarely into RATT's CDS-free regions.")
 
             for feature_position in abinit_conflicts.keys():
@@ -1926,22 +1862,21 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                             abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
                 # Conflict Resolution
                 for ratt_conflict in abinit_conflicts[feature_position].keys():
-                    reject_abinit, remark = validate_prokka_feature_annotation(
-                        abinit_feature,
-                        reference_gene_locus_dict,
-                        reference_locus_gene_dict,
-                        abinit_blast_results,
-                        ratt_blast_results,
-                        check_ratt=True,
-                        ratt_features=ratt_conflict,
-                        ratt_locations=abinit_conflicts[feature_position],
+                    include_abinit, remark = check_inclusion_criteria(
+                        ratt_annotation=ratt_contig_features_dict[abinit_conflicts[feature_position][ratt_conflict]],
+                        abinit_annotation=abinit_feature,
+                        reference_gene_locus_dict=reference_gene_locus_dict,
+                        reference_locus_gene_dict=reference_locus_gene_dict,
+                        abinit_blast_results=abinit_blast_results,
+                        ratt_blast_results=ratt_blast_results,
+                        ratt_gene_location=abinit_conflicts[feature_position],
                         reference_locus_list=reference_locus_list,
                     )
-                    if reject_abinit:
+                    if not include_abinit:
                         prokka_rejects.append((abinit_feature,remark))
                         break
                 # Add the abinit feature if it survived all the conflicts
-                if not reject_abinit:
+                if include_abinit:
                     add_prokka_contig_record.features.append(abinit_feature)
 
             if len(merged_features) > 0:
