@@ -788,15 +788,10 @@ def populate_gaps(
         reference_gene_locus_dict,
         reference_locus_gene_dict,
         reference_locus_list,
-        ref_annotation,
-        ref_embl_fp,
         abinit_blast_results,
-        abinit_blast_results_complete,
         ratt_annotation_mapping,
         ratt_blast_results,
         add_prokka_contig_record,
-        seq_ident,
-        seq_covg,
 ):
     """
     :param abinit_features: dict as from generate_feature_dictionary of ab initio features to try to incorporate
@@ -805,8 +800,10 @@ def populate_gaps(
 
     feature_additions = {}
     feature_lengths = {}
+    abinit_features = deepcopy(abinit_features)
     abinit_keepers = []
     abinit_unused = []
+    abinit_conflicts = collections.defaultdict(collections.OrderedDict)
     for j in intergenic_positions:
         # Variable definitions
         ratt_unannotated_region_start = j[0]
@@ -862,37 +859,8 @@ def populate_gaps(
                                                       int(ratt_overlapping_feature_2.location.strand))
                     locus_tag1 = ratt_overlapping_feature_1.qualifiers['locus_tag'][0]
                     locus_tag2 = ratt_overlapping_feature_2.qualifiers['locus_tag'][0]
-                    overlapping_ratt_location_1 = {locus_tag1: ratt_overlapping_feature_1_loc}
-                    overlapping_ratt_location_2 = {locus_tag2: ratt_overlapping_feature_2_loc}
-                    overlapping_ratt_locus_tags = [locus_tag1, locus_tag2]
-                    invalid_prokka, remark = validate_prokka_feature_annotation(
-                        prokka_feature,
-                        reference_gene_locus_dict,
-                        reference_locus_gene_dict,
-                        abinit_blast_results,
-                        ratt_blast_results,
-                        check_ratt=True,
-                        ratt_features=overlapping_ratt_locus_tags[0],
-                        ratt_locations=overlapping_ratt_location_1,
-                        reference_locus_list=reference_locus_list,
-                    )
-                    if not invalid_prokka:
-                        invalid_prokka_2, remark_2 = \
-                            validate_prokka_feature_annotation(prokka_feature,
-                                                               reference_gene_locus_dict,
-                                                               reference_locus_gene_dict,
-                                                               abinit_blast_results,
-                                                               ratt_blast_results,
-                                                               check_ratt=True,
-                                                               ratt_features=overlapping_ratt_locus_tags[1],
-                                                               ratt_locations=overlapping_ratt_location_2,
-                                                               reference_locus_list=reference_locus_list)
-                        if not invalid_prokka_2:
-                            abinit_keepers.append(prokka_feature)
-                        else:
-                            abinit_unused.append((prokka_feature,remark_2))
-                    else:
-                        abinit_unused.append((prokka_feature,remark))
+                    abinit_conflicts[feature_position][locus_tag1] = ratt_overlapping_feature_1_loc
+                    abinit_conflicts[feature_position][locus_tag2] = ratt_overlapping_feature_2_loc
                     # The if-else condition below is to keep track of the features added from Prokka for the
                     # log file
                     if prokka_feature.type not in feature_additions.keys():
@@ -921,32 +889,7 @@ def populate_gaps(
                                                         int(ratt_overlapping_feature.location.strand))
                         overlapping_ratt_locations = {ratt_overlapping_feature.qualifiers['locus_tag'][0]:
                                                       ratt_overlapping_feature_loc}
-                        # If Prokka feature is annotated as an L_tag and not a gene, check for
-                        # a blastp hit (=> in-frame) with the overlapping RATT annotation and
-                        # assign the corresponding reference name.
-                        if prokka_feature.type == 'CDS' and 'gene' not in prokka_feature.qualifiers.keys():
-                            ref_gene, pseudo = BLAST.reference_match(
-                                query=SeqRecord(Seq(prokka_feature.qualifiers['translation'][0])),
-                                subject=SeqRecord(Seq(ratt_overlapping_feature.qualifiers['translation'][0]),
-                                                  id=ratt_overlapping_feature.qualifiers['gene'][0]),
-                                seq_ident=seq_ident,
-                                seq_covg=seq_covg,
-                            )[0:2]
-                            if ref_gene:
-                                liftover_annotation(
-                                    prokka_feature,
-                                    ref_annotation[ref_gene],
-                                    pseudo,
-                                    inference=':'.join([
-                                        "similar to AA sequence",
-                                        os.path.basename(os.path.splitext(ref_embl_fp)[0]),
-                                        ref_annotation[ref_gene].qualifiers['locus_tag'][0],
-                                        ref_gene,
-                                        "RATT+blastp",
-                                    ])
-                                )
-                                abinit_blast_results[prokka_feature.qualifiers['locus_tag'][0]] = \
-                                     abinit_blast_results_complete[prokka_feature.qualifiers['locus_tag'][0]][ref_gene]
+                        abinit_conflicts[feature_position][overlapping_ratt_locus_tags[0]] = ratt_overlapping_feature_loc
 
                         add_prokka_contig_record, included, remark = \
                             check_inclusion_criteria(ratt_annotation_mapping,
@@ -973,7 +916,7 @@ def populate_gaps(
                                 feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
                         else:
                             abinit_unused.append((prokka_feature, remark))
-    return abinit_keepers, abinit_unused
+    return abinit_keepers, abinit_conflicts, abinit_unused
 
 def check_inclusion_criteria(annotation_mapping_dict, embl_file, ratt_annotation, prokka_annotation, ratt_genes_check,
                              ratt_gene_location, reference_gene_locus_dict,
@@ -1940,7 +1883,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
-            add_features_from_prokka, abinit_unused = populate_gaps(
+            add_features_from_prokka, abinit_conflicts, abinit_unused = populate_gaps(
                 abinit_features=prokka_features_not_in_ratt,
                 intergenic_positions=sorted_intergenic_positions,
                 ratt_pre_intergene=ratt_pre_intergene,
@@ -1948,17 +1891,67 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 reference_gene_locus_dict=reference_gene_locus_dict,
                 reference_locus_gene_dict=reference_locus_gene_dict,
                 reference_locus_list=reference_locus_list,
-                ref_embl_fp=ref_embl_fp,
-                ref_annotation=ref_annotation,
                 abinit_blast_results=abinit_blast_results,
-                abinit_blast_results_complete=abinit_blast_results_complete,
                 ratt_annotation_mapping=ratt_annotation_mapping,
                 ratt_blast_results=ratt_blast_results,
                 add_prokka_contig_record=add_prokka_contig_record,
-                seq_ident=seq_ident,
-                seq_covg=seq_covg,
             )
             prokka_rejects += abinit_unused
+            logger.debug(f"{len(add_features_from_prokka)} ab initio ORFs fall squarely into RATT's CDS-free regions.")
+
+            for feature_position in abinit_conflicts.keys():
+                abinit_feature = prokka_features_not_in_ratt[feature_position]
+                # When the ab initio feature only overlaps with one reference-transferred gene
+                # but didn't itself get a reference gene name assigned via direct comparison,
+                # we check whether it has a match to the reference-transferred gene itself
+                # and assign the name if it does. If the name is established, the conflict resolution
+                # is better informed.
+                if(abinit_feature.type == 'CDS'
+                   and 'gene' not in abinit_feature.qualifiers.keys()
+                   and len(abinit_conflicts[feature_position]) == 1
+                ):
+                    ratt_conflict_loc = list(abinit_conflicts[feature_position].values())[0]
+                    ref_gene, pseudo = BLAST.reference_match(
+                        query=SeqRecord(Seq(abinit_feature.qualifiers['translation'][0])),
+                        subject=SeqRecord(Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
+                                          id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0]),
+                        seq_ident=seq_ident,
+                        seq_covg=seq_covg,
+                    )[0:2]
+                    if ref_gene:
+                        liftover_annotation(
+                            abinit_feature,
+                            ref_annotation[ref_gene],
+                            pseudo,
+                            inference=':'.join([
+                                "similar to AA sequence",
+                                os.path.basename(os.path.splitext(ref_embl_fp)[0]),
+                                ref_annotation[ref_gene].qualifiers['locus_tag'][0],
+                                ref_gene,
+                                "RATT+blastp",
+                            ])
+                        )
+                        abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
+                            abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
+                # Conflict Resolution
+                for ratt_conflict in abinit_conflicts[feature_position].keys():
+                    reject_abinit, remark = validate_prokka_feature_annotation(
+                        abinit_feature,
+                        reference_gene_locus_dict,
+                        reference_locus_gene_dict,
+                        abinit_blast_results,
+                        ratt_blast_results,
+                        check_ratt=True,
+                        ratt_features=ratt_conflict,
+                        ratt_locations=abinit_conflicts[feature_position],
+                        reference_locus_list=reference_locus_list,
+                    )
+                    if reject_abinit:
+                        prokka_rejects.append((abinit_feature,remark))
+                        break
+                # Add the abinit feature if it survived all the conflicts
+                if not reject_abinit:
+                    add_prokka_contig_record.features.append(abinit_feature)
 
             if len(merged_features) > 0:
                 for feature_1 in merged_features:
