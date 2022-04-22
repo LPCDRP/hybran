@@ -795,7 +795,7 @@ def populate_gaps(
     feature_lengths = {}
     abinit_features = deepcopy(abinit_features)
     abinit_keepers = []
-    abinit_conflicts = collections.defaultdict(collections.OrderedDict)
+    abinit_conflicts = collections.defaultdict(list)
     for j in intergenic_positions:
         # Variable definitions
         ratt_unannotated_region_start = j[0]
@@ -849,10 +849,7 @@ def populate_gaps(
                     ratt_overlapping_feature_2_loc = (int(ratt_overlapping_feature_2.location.start),
                                                       int(ratt_overlapping_feature_2.location.end),
                                                       int(ratt_overlapping_feature_2.location.strand))
-                    locus_tag1 = ratt_overlapping_feature_1.qualifiers['locus_tag'][0]
-                    locus_tag2 = ratt_overlapping_feature_2.qualifiers['locus_tag'][0]
-                    abinit_conflicts[feature_position][locus_tag1] = ratt_overlapping_feature_1_loc
-                    abinit_conflicts[feature_position][locus_tag2] = ratt_overlapping_feature_2_loc
+                    abinit_conflicts[feature_position] += [ratt_overlapping_feature_1_loc, ratt_overlapping_feature_2_loc]
                     # The if-else condition below is to keep track of the features added from Prokka for the
                     # log file
                     if prokka_feature.type not in feature_additions.keys():
@@ -875,13 +872,10 @@ def populate_gaps(
                     else:
                         does_not_overlap = True
                     if not does_not_overlap:
-                        overlapping_ratt_locus_tags = [ratt_overlapping_feature.qualifiers['locus_tag'][0]]
                         ratt_overlapping_feature_loc = (int(ratt_overlapping_feature.location.start),
                                                         int(ratt_overlapping_feature.location.end),
                                                         int(ratt_overlapping_feature.location.strand))
-                        overlapping_ratt_locations = {ratt_overlapping_feature.qualifiers['locus_tag'][0]:
-                                                      ratt_overlapping_feature_loc}
-                        abinit_conflicts[feature_position][overlapping_ratt_locus_tags[0]] = ratt_overlapping_feature_loc
+                        abinit_conflicts[feature_position].append(ratt_overlapping_feature_loc)
 
     return abinit_keepers, abinit_conflicts
 
@@ -927,10 +921,9 @@ def check_inclusion_criteria(
         if(locus_tag == ratt_annotation.qualifiers['locus_tag'][0]
            and locus_tag in ratt_blast_results.keys()
         ):
-            ratt_start = int(list(ratt_gene_location.values())[0][0])
-            ratt_stop = int(list(ratt_gene_location.values())[0][1])
+            (ratt_start, ratt_stop, ratt_strand) = ratt_gene_location
             prom_mutation = False
-            if list(ratt_gene_location.values())[0][2] == 1:
+            if ratt_strand == 1:
                 if ratt_start == 0:
                     ratt_prom_end = len(record_sequence)
                     ratt_prom_start = len(record_sequence) - 40
@@ -973,9 +966,9 @@ def check_inclusion_criteria(
                     remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
                 elif prokka_coverage_measure < ratt_coverage_measure:
                     logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                    if ratt_gene_location[locus_tag] in ratt_contig_features_dict.keys():
+                    if ratt_gene_location in ratt_contig_features_dict.keys():
                         ratt_rejects.append(
-                            (ratt_contig_features_dict.pop(ratt_gene_location[locus_tag]),
+                            (ratt_contig_features_dict.pop(ratt_gene_location),
                              'Prokka annotation for ' + abinit_annotation.qualifiers['locus_tag'][0] + ' has better alignment coverage with the reference.')
                         )
                     reject_abinit = False
@@ -986,9 +979,9 @@ def check_inclusion_criteria(
                         remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
                     elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
                         logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                        if ratt_gene_location[locus_tag] in ratt_contig_features_dict.keys():
+                        if ratt_gene_location in ratt_contig_features_dict.keys():
                             ratt_rejects.append(
-                                (ratt_contig_features_dict.pop(ratt_gene_location[locus_tag]),
+                                (ratt_contig_features_dict.pop(ratt_gene_location),
                                  'Prokka annotation for ' + abinit_annotation.qualifiers['locus_tag'][0] + 'has higher identity with the reference and the same alignment coverage.')
                             )
                         reject_abinit = False
@@ -1837,7 +1830,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                    and 'gene' not in abinit_feature.qualifiers.keys()
                    and len(abinit_conflicts[feature_position]) == 1
                 ):
-                    ratt_conflict_loc = list(abinit_conflicts[feature_position].values())[0]
+                    ratt_conflict_loc = abinit_conflicts[feature_position][0]
                     ref_gene, pseudo = BLAST.reference_match(
                         query=SeqRecord(Seq(abinit_feature.qualifiers['translation'][0])),
                         subject=SeqRecord(Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
@@ -1861,15 +1854,16 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                         abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
                             abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
                 # Conflict Resolution
-                for ratt_conflict in abinit_conflicts[feature_position].keys():
+                for ratt_conflict_loc in abinit_conflicts[feature_position]:
+                    ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
                     include_abinit, remark = check_inclusion_criteria(
-                        ratt_annotation=ratt_contig_features_dict[abinit_conflicts[feature_position][ratt_conflict]],
+                        ratt_annotation=ratt_feature,
                         abinit_annotation=abinit_feature,
                         reference_gene_locus_dict=reference_gene_locus_dict,
                         reference_locus_gene_dict=reference_locus_gene_dict,
                         abinit_blast_results=abinit_blast_results,
                         ratt_blast_results=ratt_blast_results,
-                        ratt_gene_location=abinit_conflicts[feature_position],
+                        ratt_gene_location=ratt_conflict_loc,
                         reference_locus_list=reference_locus_list,
                     )
                     if not include_abinit:
