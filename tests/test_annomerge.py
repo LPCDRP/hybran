@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 
 from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundLocation
@@ -158,6 +158,99 @@ def test_liftover_annotation():
     }
     annomerge.liftover_annotation(abinit, ref, False, inference='alignment:blastp')
     assert abinit.qualifiers == expected
+
+def test_populate_gaps():
+    intergenic_positions = [
+        (1525, 3409, '+'),
+        #(4619, 4637, '+'),
+        (6356, 6597, '+'),
+        # (8626, 8659, '+'),
+        # (11177, 11271, '+'),
+        (12187, 13843, '+'),
+        # (13670, 14490, '-'),
+        (160607, 160608, '+'),
+        (400113, 400779, '+'),
+        # (4416974, 4417044, '-'),
+    ]
+
+    ratt_pre_intergene = {
+        (1524, 1): SeqFeature(
+            FeatureLocation(0, 1524, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0001'],'gene':['dnaA']}
+        ),
+        (6355, 1): SeqFeature(
+            FeatureLocation(5791, 6355, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0004'],'gene':['Rv0004']}
+        ),
+        (12186, 1): SeqFeature(
+            FeatureLocation(11271, 12186, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0007'],'gene':['Rv0007']}
+        ),
+        (160606, 1): SeqFeature(
+            FeatureLocation(160213, 160606, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0134'],'gene':['ephF'],'pseudo':['']}
+        ),
+        (400112, 1): SeqFeature(
+            FeatureLocation(399245, 400112, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0334'],'gene':['rmlA']}
+        )
+    }
+    ratt_post_intergene = {
+        (3409, 1): SeqFeature(FeatureLocation(3409, 4618, strand=1), type='CDS'),
+        (6597, 1): SeqFeature(
+            FeatureLocation(6597, 8625, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0005'],'gene':['gyrB']}
+        ),
+        (160608, 1): SeqFeature(
+            FeatureLocation(160608, 161115, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0134'],'gene':['ephF'],'pseudo':['']}
+        ),
+    }
+    abinit_features = {
+        (0, 4419608, 1): SeqFeature(FeatureLocation(0, 4419608, strand=1), type='source'),
+        # overlaps before unannotated region
+        (33, 1524, 1): SeqFeature(FeatureLocation(33, 1524, strand=1), type='CDS'),
+        # squarely within unannotated region
+        (1645, 1972, 1): SeqFeature(FeatureLocation(1645, 1972, strand=1), type='CDS'),
+        # begins in unannotated region and ends past it
+        (6480, 8625, 1): SeqFeature(FeatureLocation(6480, 8625, strand=1), type='CDS'),
+        # overlaps before unannotated region, but not immediately before it (overlapping gene with different reading frame)
+        (11320, 11518, 1): SeqFeature(FeatureLocation(11320, 11518, strand=1), type='CDS'),
+        # bridges an unannotated region
+        (160602, 161115, 1): SeqFeature(FeatureLocation(160602, 161115, strand=1), type='CDS'),
+        # overlaps before unannotated region and into it
+        (400074, 400686, 1): SeqFeature(FeatureLocation(400074, 400686, strand=1), type='CDS'),
+    }
+
+    expected_keepers = [
+        abinit_features[(1645, 1972, 1)],
+    ]
+    expected_conflicts = defaultdict(list)
+    # The [] + [] is to separate out the result that's expected only because I didn't specify every intermediate interval.
+    # The second list would not be expected in the output if we were using a complete input dataset, but is correct
+    # for what's provided here.
+    expected_conflicts[(33, 1524, 1)] = [(0, 1524, 1)]
+    expected_conflicts[(6480, 8625, 1)] = [(6597, 8625, 1)] + [(11271, 12186, 1)]
+    expected_conflicts[(11320, 11518, 1)] = [(11271, 12186, 1)]
+    expected_conflicts[(160602, 161115, 1)] = [(160213, 160606, 1), (160608, 161115, 1)] + [(399245, 400112, 1)]
+    expected_conflicts[(400074, 400686, 1)] = [(399245, 400112, 1)]
+
+    (keepers, conflicts) = annomerge.populate_gaps(
+        abinit_features,
+        intergenic_positions,
+        ratt_pre_intergene,
+        ratt_post_intergene,
+    )
+    # SeqFeatures can't be compared directly yet, so just compare the locations
+    assert (([_.location for _ in keepers], conflicts)
+            == ([_.location for _ in expected_keepers], expected_conflicts))
 
 @pytest.mark.parametrize("filter",[True, False])
 def test_isolate_valid_ratt_annotations(filter):
