@@ -6,6 +6,7 @@
 * Corrected distinguishing of ab initio vs reference-transferred annotation in final conflict resolution step (#38)
 * Added logging of some missed cases of annotation rejections (for {ratt,prokka}_unused.tsv)
 * Fixed the reference gene <=> locus_tag mapping dictionaries used in annomerge (#41)
+* Made sure to track and process all ab initio annotations that overlap RATT-transferred CDSs (#40).
 
 ### Enhancements
 * Streamlined Prokka workflow (#33)

@@ -168,6 +168,9 @@ def test_populate_gaps():
         # (11177, 11271, '+'),
         (12187, 13843, '+'),
         # (13670, 14490, '-'),
+        (14375, 15446, '+'),
+        (15354, 16947, '-'),
+        (16236, 16271, '+'),
         (160607, 160608, '+'),
         (400113, 400779, '+'),
         # (4416974, 4417044, '-'),
@@ -189,6 +192,11 @@ def test_populate_gaps():
             type='CDS',
             qualifiers={'locus_tag':['Rv0007'],'gene':['Rv0007']}
         ),
+        (16235, 1): SeqFeature(
+            FeatureLocation(15447, 16235, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0012'],'gene':['Rv0012']}
+        ),
         (160606, 1): SeqFeature(
             FeatureLocation(160213, 160606, strand=1),
             type='CDS',
@@ -207,6 +215,11 @@ def test_populate_gaps():
             type='CDS',
             qualifiers={'locus_tag':['Rv0005'],'gene':['gyrB']}
         ),
+        (16272, 1): SeqFeature(
+            FeatureLocation(16272, 16970, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0013'],'gene':['trpG']}
+        ),
         (160608, 1): SeqFeature(
             FeatureLocation(160608, 161115, strand=1),
             type='CDS',
@@ -223,6 +236,9 @@ def test_populate_gaps():
         (6480, 8625, 1): SeqFeature(FeatureLocation(6480, 8625, strand=1), type='CDS'),
         # overlaps before unannotated region, but not immediately before it (overlapping gene with different reading frame)
         (11320, 11518, 1): SeqFeature(FeatureLocation(11320, 11518, strand=1), type='CDS'),
+        # ends at same position as a RATT gene, but starts in an intergenic region.
+        # this test case is actually special because its intergenic region follows a minus strand region,
+        (15491, 16235, 1): SeqFeature(FeatureLocation(15491, 16235, strand=1), type='CDS'),
         # bridges an unannotated region
         (160602, 161115, 1): SeqFeature(FeatureLocation(160602, 161115, strand=1), type='CDS'),
         # overlaps before unannotated region and into it
@@ -239,6 +255,7 @@ def test_populate_gaps():
     expected_conflicts[(33, 1524, 1)] = [(0, 1524, 1)]
     expected_conflicts[(6480, 8625, 1)] = [(6597, 8625, 1)] + [(11271, 12186, 1)]
     expected_conflicts[(11320, 11518, 1)] = [(11271, 12186, 1)]
+    expected_conflicts[(15491, 16235, 1)] = [(15447, 16235, 1)]
     expected_conflicts[(160602, 161115, 1)] = [(160213, 160606, 1), (160608, 161115, 1)] + [(399245, 400112, 1)]
     expected_conflicts[(400074, 400686, 1)] = [(399245, 400112, 1)]
 

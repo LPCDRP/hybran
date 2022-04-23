@@ -796,6 +796,7 @@ def populate_gaps(
     abinit_features = deepcopy(abinit_features)
     abinit_keepers = []
     abinit_conflicts = collections.defaultdict(list)
+    prev_unannotated_region_end = {'+':1, '-':1}
     for j in intergenic_positions:
         # Variable definitions
         ratt_unannotated_region_start = j[0]
@@ -809,10 +810,12 @@ def populate_gaps(
             ratt_unannotated_region_range = range(ratt_unannotated_region_start,
                                                   ratt_unannotated_region_end + 1)
             if (prokka_strand == -1 and ratt_strand == '-') or (prokka_strand == 1 and ratt_strand == '+'):
-                # If Prokka feature is location before the start of the intergenic region, pop the key from the
+                # If Prokka feature is location before the end of the previous intergenic region, pop the key from the
                 # dictionary and continue loop
-                if (prokka_feature_start < ratt_unannotated_region_start) and \
-                        (prokka_feature_end < ratt_unannotated_region_start):
+                if((prokka_feature_start < prev_unannotated_region_end[ratt_strand]
+                    and prokka_feature_end <= prev_unannotated_region_end[ratt_strand])
+                   or prokka_feature.type == 'source' # The source feature is accounted for by RATT
+                ):
                     abinit_features.pop((prokka_feature_start, prokka_feature_end, prokka_strand),
                                         None)
                     continue
@@ -836,9 +839,6 @@ def populate_gaps(
                 # If the Prokka feature overlaps with two RATT features
                 elif prokka_feature_start < ratt_unannotated_region_start and \
                         prokka_feature_end > ratt_unannotated_region_end:
-                    if prokka_feature.type == 'source':  # This is to exclude the source feature as it is
-                        # accounted for by RATT
-                        break
                     ratt_overlapping_feature_1 = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
                                                                      prokka_strand)]
                     ratt_overlapping_feature_2 = ratt_post_intergene[(ratt_unannotated_region_end,
@@ -861,8 +861,10 @@ def populate_gaps(
                 # If the Prokka feature overlaps with one RATT feature
                 else:
                     does_not_overlap = False
+                    # the abinit feature might overlap a ratt feature without crossing into the unannotated region.
+                    # such cases are more likely to be conflicts, so we should identify them and get them resolved.
                     if (prokka_feature_start < ratt_unannotated_region_start) and \
-                            (prokka_feature_end in ratt_unannotated_region_range):
+                            (prokka_feature_end < ratt_unannotated_region_end):
                         ratt_overlapping_feature = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
                                                                        prokka_strand)]
                     elif (prokka_feature_start in ratt_unannotated_region_range) and \
@@ -876,6 +878,7 @@ def populate_gaps(
                                                         int(ratt_overlapping_feature.location.end),
                                                         int(ratt_overlapping_feature.location.strand))
                         abinit_conflicts[feature_position].append(ratt_overlapping_feature_loc)
+        prev_unannotated_region_end[ratt_strand] = ratt_unannotated_region_end
 
     return abinit_keepers, abinit_conflicts
 
