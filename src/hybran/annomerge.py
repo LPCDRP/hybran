@@ -75,7 +75,7 @@ def load_reference_info(proteome_fasta):
 
     ref_fasta_records = SeqIO.parse(proteome_fasta, 'fasta')
     for record in ref_fasta_records:
-        gene_locus_name = record.description
+        gene_locus_name = record.id
         gene_locus = gene_locus_name.split(':')
         if len(gene_locus[0]) == 0:  # If locus tag is not specified
             gene = gene_locus[1]
