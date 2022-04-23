@@ -791,54 +791,43 @@ def populate_gaps(
     :param intergenic_positions: (sorted) output of get_interregions
     """
 
-    feature_additions = {}
-    feature_lengths = {}
+    logger = logging.getLogger('PopulateGaps')
+    logger.debug('Merging RATT and ab initio annotations')
     abinit_features = deepcopy(abinit_features)
     abinit_keepers = []
     abinit_conflicts = collections.defaultdict(list)
     prev_unannotated_region_end = {'+':1, '-':1}
     for j in intergenic_positions:
         # Variable definitions
-        ratt_unannotated_region_start = j[0]
-        ratt_unannotated_region_end = j[1]
-        ratt_strand = j[2]
-        for feature_position in list(abinit_features.keys()):
+        (ratt_unannotated_region_start, ratt_unannotated_region_end, ratt_strand) = j
+        next_abinit_features = deepcopy(abinit_features)
+        for feature_position in abinit_features.keys():
             prokka_feature = abinit_features[feature_position]
-            prokka_strand = feature_position[2]
-            prokka_feature_start = feature_position[0]
-            prokka_feature_end = feature_position[1]
+            (prokka_feature_start, prokka_feature_end, prokka_strand) = feature_position
             ratt_unannotated_region_range = range(ratt_unannotated_region_start,
                                                   ratt_unannotated_region_end + 1)
-            if (prokka_strand == -1 and ratt_strand == '-') or (prokka_strand == 1 and ratt_strand == '+'):
+            if((prokka_strand == -1 and ratt_strand == '-')
+               or (prokka_strand == 1 and ratt_strand == '+')):
                 # If Prokka feature is location before the end of the previous intergenic region, pop the key from the
                 # dictionary and continue loop
                 if((prokka_feature_start < prev_unannotated_region_end[ratt_strand]
                     and prokka_feature_end <= prev_unannotated_region_end[ratt_strand])
                    or prokka_feature.type == 'source' # The source feature is accounted for by RATT
                 ):
-                    abinit_features.pop((prokka_feature_start, prokka_feature_end, prokka_strand),
-                                        None)
+                    next_abinit_features.pop(feature_position, None)
                     continue
                 # Else if the prokka feature location is after the end of the intergenic region, break out of
                 # the inner loop
-                elif (prokka_feature_start > ratt_unannotated_region_end) and \
-                        (prokka_feature_end > ratt_unannotated_region_end):
+                elif(prokka_feature_start > ratt_unannotated_region_end
+                     and prokka_feature_end > ratt_unannotated_region_end):
                     break
                 # If the ab initio feature is contained in the unannotated range
-                elif prokka_feature_start in ratt_unannotated_region_range and \
-                        prokka_feature_end in ratt_unannotated_region_range:
-                    # The if-else condition below is to keep track of the features added from Prokka for the
-                    # log file
-                    if prokka_feature.type not in feature_additions.keys():
-                        feature_additions[prokka_feature.type] = 1
-                        feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
-                    else:
-                        feature_additions[prokka_feature.type] += 1
-                        feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
+                elif(prokka_feature_start in ratt_unannotated_region_range
+                     and prokka_feature_end in ratt_unannotated_region_range):
                     abinit_keepers.append(prokka_feature)
                 # If the Prokka feature overlaps with two RATT features
-                elif prokka_feature_start < ratt_unannotated_region_start and \
-                        prokka_feature_end > ratt_unannotated_region_end:
+                elif(prokka_feature_start < ratt_unannotated_region_start
+                     and prokka_feature_end > ratt_unannotated_region_end):
                     ratt_overlapping_feature_1 = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
                                                                      prokka_strand)]
                     ratt_overlapping_feature_2 = ratt_post_intergene[(ratt_unannotated_region_end,
@@ -850,14 +839,6 @@ def populate_gaps(
                                                       int(ratt_overlapping_feature_2.location.end),
                                                       int(ratt_overlapping_feature_2.location.strand))
                     abinit_conflicts[feature_position] += [ratt_overlapping_feature_1_loc, ratt_overlapping_feature_2_loc]
-                    # The if-else condition below is to keep track of the features added from Prokka for the
-                    # log file
-                    if prokka_feature.type not in feature_additions.keys():
-                        feature_additions[prokka_feature.type] = 1
-                        feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
-                    else:
-                        feature_additions[prokka_feature.type] += 1
-                        feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
                 # If the Prokka feature overlaps with one RATT feature
                 else:
                     does_not_overlap = False
@@ -879,6 +860,7 @@ def populate_gaps(
                                                         int(ratt_overlapping_feature.location.strand))
                         abinit_conflicts[feature_position].append(ratt_overlapping_feature_loc)
         prev_unannotated_region_end[ratt_strand] = ratt_unannotated_region_end
+        abinit_features = next_abinit_features
 
     return abinit_keepers, abinit_conflicts
 
@@ -1820,7 +1802,9 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 ratt_pre_intergene=ratt_pre_intergene,
                 ratt_post_intergene=ratt_post_intergene,
             )
+            add_prokka_contig_record.features += add_features_from_prokka
             logger.debug(f"{len(add_features_from_prokka)} ab initio ORFs fall squarely into RATT's CDS-free regions.")
+            logger.debug(f"{len(abinit_conflicts.keys())} ab initio ORFs overlap RATT CDSs. Resolving...")
 
             for feature_position in abinit_conflicts.keys():
                 abinit_feature = prokka_features_not_in_ratt[feature_position]
@@ -1879,8 +1863,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             if len(merged_features) > 0:
                 for feature_1 in merged_features:
                     add_prokka_contig_record.features.append(feature_1)
-            for prokka_feature_append in add_features_from_prokka:
-                add_prokka_contig_record.features.append(prokka_feature_append)
             for ratt_feature_append in ratt_contig_features_dict.values():
                 add_prokka_contig_record.features.append(ratt_feature_append)
             for non_cds in ratt_contig_non_cds:
