@@ -11,11 +11,7 @@ from Bio.SeqRecord import SeqRecord
 
 
 def get_ltag(feature):
-    try:
-        ltag = feature.qualifiers['locus_tag'][0]
-    except KeyError:
-        exit("No locus tag for " + str(feature))
-    return ltag
+    return feature.qualifiers['locus_tag'][0]
 
 def get_gene(feature):
     try:
@@ -56,7 +52,9 @@ def gene_dict(genbank, cds_only=True):
     for record in SeqIO.parse(genbank, 'genbank'):
         if record.features:
             for feature in record.features:
-                if not cds_only or (cds_only and feature.type == 'CDS'):
+                if((not cds_only and 'locus_tag' in feature.qualifiers.keys())
+                   or (cds_only and feature.type == 'CDS')
+                ):
                     genes[get_ltag(feature)] = get_gene(feature)
     return genes
 
