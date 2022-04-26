@@ -106,15 +106,10 @@ def update_gbks(ref_tax_id, ref_gene_dict):
     for gbk in gbks:
         gbk_fp = gbk
         output_fp = gbk
-        counter = 1
         output_recs = []
         reference_generics_dict = {}
         generic_genes_in_isolate = {}
         for record in SeqIO.parse(gbk_fp, 'genbank'):
-            if counter > 1:
-                output_recs.append(record)
-                counter += 1
-                continue
             rec_features = record.features
             for feature in rec_features:
                 if feature.type != 'CDS':
@@ -163,5 +158,4 @@ def update_gbks(ref_tax_id, ref_gene_dict):
                         except KeyError:
                             feature.qualifiers['gene'][0] = eggnog_gene
             output_recs.append(record)
-            counter += 1
         SeqIO.write(list(output_recs), output_fp, 'genbank')

@@ -683,11 +683,7 @@ def add_gene_names_to_gbk(generics, gbk_dir):
             update_orf_dict = generics[isolate]
             locus_to_update = list(update_orf_dict.keys())
             modified_locus = []
-            rec_num = 1
             for rec in isolate_records:
-                if rec_num > 1:
-                    break
-                rec_num += 1
                 for feature in rec.features:
                     if feature.type != 'CDS':
                         continue
@@ -721,9 +717,9 @@ def add_gene_names_to_gbk(generics, gbk_dir):
                         logger.debug('Updated locus tag previously')
                     else:
                         continue
-                if len(set(locus_to_update).intersection(set(modified_locus))) < len(locus_to_update):
-                    logger.warning('The following locus_tags are missing in the genbank file')
-                    logger.warning(set(locus_to_update).difference(set(modified_locus)))
+            if len(set(locus_to_update).intersection(set(modified_locus))) < len(locus_to_update):
+                logger.warning('The following locus_tags are missing in the genbank file')
+                logger.warning(set(locus_to_update).difference(set(modified_locus)))
             SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 
