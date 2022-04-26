@@ -1496,11 +1496,15 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     ratt_file_path = file_path + 'ratt'
     ratt_correction_files = []
     ratt_gbk_files = []
+    contigs = []
     try:
         ratt_embl_files = [embl_file for embl_file in os.listdir(ratt_file_path) if embl_file.endswith('.final.embl')]
         for embl_file in ratt_embl_files:
             gbk = converter.convert_embl_to_gbk(ratt_file_path + '/' + embl_file)
             ratt_gbk_files.append(gbk)
+            # <sample>.<contig>.final.embl
+            #             ^
+            contigs.append(os.path.basename(embl_file).split('.')[-3])
         correction_files = [cf for cf in os.listdir(ratt_file_path) if cf.endswith('.Report.txt')]
         for corr_file in correction_files:
             corr_file_path = ratt_file_path + '/' + corr_file
@@ -1600,7 +1604,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     else:
         ratt_seq_ident = ratt_seq_covg = 0
 
-    for i in range(0, len(ratt_gbk_files)):
+    for i, contig in enumerate(contigs):
         ratt_contig_record = SeqIO.read(ratt_gbk_files[i], 'genbank')
         global record_sequence
         record_sequence = ratt_contig_record.seq
@@ -1901,7 +1905,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     # Post-processing of genbank file to remove duplicates and rename locus_tag for
     # Prokka annotations
     output_isolate_recs = []
-    for rec_num in range(0, len(annomerge_records)):
+    for rec_num, contig in enumerate(contigs):
         # TODO - replace version variable with importlib.version call (and probably url too) in python 3.8+
         annomerge_records[rec_num].annotations['comment'] = "Annotated using hybran " + __version__ + " from https://lpcdrp.gitlab.io/hybran."
         prokka_rec = annomerge_records[rec_num]
