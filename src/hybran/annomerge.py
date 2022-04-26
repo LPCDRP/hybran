@@ -1453,7 +1453,7 @@ def run_prodigal(reference_genome, outfile):
     os.chdir(c)
 
 
-def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
+def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
     nproc=1,
 ):
     """
@@ -1464,6 +1464,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
 
     :param isolate_id: ID of the isolate (Example: H37Rv, 1-0006, etc.). This is the isolate_id that is used for naming
      Genbank files in Prokka
+    :param contigs: list of strings for the contig names
     :param annotation_fp: Filepath where RATT, Prokka, reference and prokka no-reference annotations are located.
     Annomerge assumes that RATT annotations are located in <annotation_fp>/ratt, Prokka reference annotations are
     located in <annotation_fp>/prokka and prokka annotations without reference is located in
@@ -1495,16 +1496,15 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         file_path = annotation_fp + '/' + isolate_id + '/'
     ratt_file_path = file_path + 'ratt'
     ratt_correction_files = []
-    ratt_gbk_files = []
-    contigs = []
+    ratt_gbk_files = {}
     try:
         ratt_embl_files = [embl_file for embl_file in os.listdir(ratt_file_path) if embl_file.endswith('.final.embl')]
         for embl_file in ratt_embl_files:
             gbk = converter.convert_embl_to_gbk(ratt_file_path + '/' + embl_file)
-            ratt_gbk_files.append(gbk)
             # <sample>.<contig>.final.embl
             #             ^
-            contigs.append(os.path.basename(embl_file).split('.')[-3])
+            contig = os.path.basename(embl_file).split('.')[-3]
+            ratt_gbk_files[contig] = gbk
         correction_files = [cf for cf in os.listdir(ratt_file_path) if cf.endswith('.Report.txt')]
         for corr_file in correction_files:
             corr_file_path = ratt_file_path + '/' + corr_file
@@ -1605,7 +1605,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         ratt_seq_ident = ratt_seq_covg = 0
 
     for i, contig in enumerate(contigs):
-        ratt_contig_record = SeqIO.read(ratt_gbk_files[i], 'genbank')
+        ratt_contig_record = SeqIO.read(ratt_gbk_files[contig], 'genbank')
         global record_sequence
         record_sequence = ratt_contig_record.seq
         prokka_contig_record_pre = prokka_records[i]
