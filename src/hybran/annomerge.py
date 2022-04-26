@@ -1516,7 +1516,6 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
     output_merged_genes = os.path.join(isolate_id, 'annomerge', 'merged_genes.gbk')
     output_genbank = os.path.join(isolate_id, 'annomerge', isolate_id + '.gbk')
     prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
-    isolate_sequence = prokka_records[0].seq
     global ratt_rejects  # some RATT annotations are rejected as a side effect of check_inclusion_criteria
     ratt_rejects = []
     ratt_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'ratt_unused.tsv')
@@ -1901,7 +1900,7 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             annomerge_records.append(add_prokka_contig_record)
     # Post-processing of genbank file to remove duplicates and rename locus_tag for
     # Prokka annotations
-    annomerge_records_post_processed = []
+    output_isolate_recs = []
     for rec_num in range(0, len(annomerge_records)):
         # TODO - replace version variable with importlib.version call (and probably url too) in python 3.8+
         annomerge_records[rec_num].annotations['comment'] = "Annotated using hybran " + __version__ + " from https://lpcdrp.gitlab.io/hybran."
@@ -1967,10 +1966,9 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             added_ltags.append(feature_final.qualifiers['locus_tag'][0])
         sorted_final = get_ordered_features(prokka_rec.features)
         prokka_rec.features = sorted_final
-        annomerge_records_post_processed.append(prokka_rec)
-        output_isolate_recs = [r for r in annomerge_records_post_processed]
-        isolate_features = annomerge_records_post_processed[0].features[:]
-        output_isolate_recs[0].features = []
+        output_isolate_recs.append(prokka_rec)
+        isolate_features = prokka_rec.features
+        output_isolate_recs[rec_num].features = []
         prev_feature_list = []
         num_overlaps = 0
         positions_to_be_resolved = []
@@ -2013,11 +2011,11 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
                 prev_feature = feature
         for feature in isolate_features:
             if feature.type != 'CDS':
-                output_isolate_recs[0].features.append(feature)
+                output_isolate_recs[rec_num].features.append(feature)
             else:
                 position = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
                 if position not in positions_to_be_resolved:
-                    output_isolate_recs[0].features.append(feature)
+                    output_isolate_recs[rec_num].features.append(feature)
         for feat_pair in resolve_pairs:
             if designator.is_raw_ltag(feat_pair[0].qualifiers['locus_tag'][0]):
                 prokka_annotation = feat_pair[0]
@@ -2025,16 +2023,18 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
             else:
                 prokka_annotation = feat_pair[1]
                 ratt_annotation = feat_pair[0]
-            take_ratt, remark = pick_best_hit(ratt_annotation, prokka_annotation, isolate_sequence)
+            take_ratt, remark = pick_best_hit(ratt_annotation, prokka_annotation, record_sequence)
             if take_ratt:
-                output_isolate_recs[0].features.append(ratt_annotation)
+                output_isolate_recs[rec_num].features.append(ratt_annotation)
                 prokka_rejects.append((prokka_annotation, remark))
             else:
                 ratt_rejects.append((ratt_annotation, remark))
-                output_isolate_recs[0].features.append(prokka_annotation)
-        ordered_feats = get_ordered_features(output_isolate_recs[0].features)
+                output_isolate_recs[rec_num].features.append(prokka_annotation)
+        ordered_feats = get_ordered_features(output_isolate_recs[rec_num].features)
         ordered_feats = process_split_genes(ordered_feats)
-        output_isolate_recs[0].features = ordered_feats[:]
+        output_isolate_recs[rec_num].features = ordered_feats[:]
+        final_cdss = [f for f in ordered_feats if f.type == 'CDS']
+        logger.debug(f'Number of CDSs annomerge: {len(final_cdss)}')
 
     with open(ratt_rejects_logfile, 'w') as ratt_rejects_log:
         [log_feature_fate(_[0], ratt_rejects_log, _[1]) for _ in ratt_rejects]
@@ -2055,7 +2055,5 @@ def run(isolate_id, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_ge
         log_feature_fate(last_gene, prokka_rejects_log, last_remark)
 
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
-    final_cdss = [f for f in output_isolate_recs[0].features if f.type == 'CDS']
-    logger.debug('Number of CDSs annomerge: ' + str(len(final_cdss)))
 
     logger.debug('annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')
