@@ -1845,6 +1845,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                             abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
                 # Conflict Resolution
                 for ratt_conflict_loc in abinit_conflicts[feature_position]:
+                    # if the RATT annotation got rejected at some point, its remaining conflicts are moot
+                    if ratt_conflict_loc not in ratt_contig_features_dict.keys():
+                        include_abinit = True
+                        continue
                     ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
                     include_abinit, remark = check_inclusion_criteria(
                         ratt_annotation=ratt_feature,
