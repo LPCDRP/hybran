@@ -20,6 +20,9 @@ def get_gene(feature):
         gene = get_ltag(feature)
     return gene
 
+def get_contig_names(fasta_file):
+    return [record.id for record in SeqIO.parse(fasta_file,"fasta")]
+
 def get_genetic_code(genbank):
     """
     Find genetic code from annotation file
