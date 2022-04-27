@@ -12,6 +12,7 @@
 ### Enhancements
 * Streamlined Prokka workflow (#33)
 * Parallelized BLASTing to reference genes in annomerge.
+* Set sequence names in the output annotation files.
 
 ### Housekeeping
 * Added exit status checks so pipeline fails as early as possible when things go wrong.

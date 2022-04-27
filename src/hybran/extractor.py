@@ -204,7 +204,7 @@ def fastaFromGffList(gffs, out_cds):
         raw_out = grep_seqs(gff)
         gff_name = os.path.splitext(os.path.basename(gff))[0]
         for line in raw_out:
-            gff_id = gff_name + '-' + [j.split('=')[1] for i in line.split('\t')
+            gff_id = gff_name + '|' + [j.split('=')[1] for i in line.split('\t')
                                        if i.startswith('ID=') for j in i.split(';')][0]
             gene = None
             for i in line.split(';'):

@@ -1,5 +1,6 @@
 
 import os
+import re
 import tempfile
 import subprocess
 import logging
@@ -94,10 +95,8 @@ def parse_clustered_proteins(clustered_proteins, annotations):
     unique_genes_list = []
     with open(clustered_proteins, 'r') as clustered_proteins_file:
         for line in clustered_proteins_file:
-            isolates_ids = line.rstrip('\n').split('\t')
-            representative_seq_id = isolates_ids[0].split(': ')[1]
-            rep_seq_id = representative_seq_id.split('-')[-1]
-            rep_isolate = representative_seq_id.replace('-' + rep_seq_id, '')
+            cluster_members = [_.groups() for _ in re.finditer(r'(?P<sample_id>\S+)\|(?P<seq_id>\S+)', line)]
+            (rep_isolate, rep_seq_id) = cluster_members[0]
             representative_ltag_gene_tup = gffs[rep_isolate][rep_seq_id]
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
 
@@ -108,9 +107,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             cluster_list_w_isolate = []
             cluster_list.append(representative_ltag_gene_tup)
             cluster_list_w_isolate.append([rep_isolate] + list(representative_ltag_gene_tup))
-            for isolate_gene_id in isolates_ids[1:]:
-                gene_id = isolate_gene_id.split('-')[-1]
-                isolate = isolate_gene_id.replace('-' + gene_id, '')
+            for isolate, gene_id in cluster_members[1:]:
                 cluster_list.append(gffs[isolate][gene_id])
                 cluster_list_w_isolate.append([isolate] + list(gffs[isolate][gene_id]))
                 gene_cluster[representative].append(','.join([isolate, ','.join(gffs[isolate][gene_id])]))
@@ -127,7 +124,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             if (len(unique_genes) == 1 or len(unique_locus) == 1) and \
                     any([designator.is_raw_ltag(gene[1]) for gene in cluster_list]):
                 same_genes_cluster_w_ltags[representative] = cluster_list_w_isolate
-            elif (len(isolates_ids) == 1 and
+            elif (len(cluster_members) == 1 and
                     (designator.is_raw_ltag(representative_ltag_gene_tup[1]))):
                 unique_genes_list.append([rep_isolate] + list(representative_ltag_gene_tup))
             # All different with L tags

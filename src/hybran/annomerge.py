@@ -1911,6 +1911,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
     output_isolate_recs = []
     for rec_num, contig in enumerate(contigs):
         seqname = '.'.join([isolate_id, contig])
+        annomerge_records[rec_num].name = seqname
         # TODO - replace version variable with importlib.version call (and probably url too) in python 3.8+
         annomerge_records[rec_num].annotations['comment'] = "Annotated using hybran " + __version__ + " from https://lpcdrp.gitlab.io/hybran."
         prokka_rec = annomerge_records[rec_num]
