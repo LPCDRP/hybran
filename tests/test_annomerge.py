@@ -6,6 +6,9 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundL
 import pytest
 
 from hybran import annomerge
+from hybran import config
+
+from .data_features import *
 
 
 def test_process_split_genes():
@@ -349,3 +352,77 @@ def test_isolate_valid_ratt_annotations(filter):
                                              and \
                                              'pseudo' in feature_list[3].qualifiers.keys() and feature_list[3].qualifiers['pseudo'] == [''] # Rv2434c
 
+
+@pytest.mark.parametrize('pair', [
+    'ratt_better',
+    'different',
+])
+def test_check_inclusion_criteria(pair, tmp_path):
+    # define the features here.
+    # refer to them in `pairs`
+    pairs = {
+        'similar': {},
+        'abinit_better':{},
+        'ratt_better':{
+            'ratt': features['1-0006']['dnaA']['ratt'],
+            'abinit': features['1-0006']['dnaA']['abinit'],
+        },
+        'different':{
+            'ratt': features['1-0006']['dnaA']['ratt'],
+            'abinit': features['1-0006']['gyrB']['abinit'],
+        },
+
+    }
+    # make these up
+    abinit_blast_results = {
+        # Rv0205_1
+        'L_00229': {'iden': 99.593, 'qcov': 100.0, 'scov': 45.0},
+        # Rv0205_2
+        'L_00230': {'iden': 100.0, 'qcov': 100.0, 'scov': 47.0},
+        # rplB
+        'L_00759': {'iden': 99.666, 'qcov': 100.0, 'scov': 100.0},
+        # mamB
+        'L_02174': {'iden': 99.228, 'qcov': 95.92592592592592, 'scov': 45.20069808027923},
+        'L_00001':{'iden': 99.8, 'qcov': 100.0, 'scov': 97.8},
+    }
+    ratt_blast_results = {
+        'Rv0001':{'iden': 99.8, 'qcov': 100.0, 'scov': 100.0},
+    }
+
+    reference_gene_locus_dict = dict(
+        dnaA='Rv0001',
+        Rv0205='Rv0205',
+        rplB='Rv0704',
+        mamB='Rv2024c',
+    )
+    reference_locus_gene_dict = dict(
+        Rv0001='dnaA',
+        Rv0205='Rv0205',
+        Rv0704='rplB',
+        Rv2024c='mamB',
+    )
+
+    config.hybran_tmp_dir = tmp_path
+    annomerge.record_sequence = SeqIO.read('data/1-0006.fasta', 'fasta').seq
+    annomerge.ref_prom_fp_dict = annomerge.get_prom_for_gene(
+        [pairs[pair]['ratt']],
+        annomerge.record_sequence,
+    )
+
+    expected = {
+        'ratt_better': (
+            False, True,
+            "sequence upstream of RATT's Rv0001 is not mutated.",
+        ),
+        'different': (True, True, ''),
+    }
+
+
+    assert annomerge.check_inclusion_criteria(
+        ratt_annotation=pairs[pair]['ratt'],
+        abinit_annotation=pairs[pair]['abinit'],
+        reference_gene_locus_dict=reference_gene_locus_dict,
+        reference_locus_gene_dict=reference_locus_gene_dict,
+        abinit_blast_results=abinit_blast_results,
+        ratt_blast_results=ratt_blast_results,
+    ) == expected[pair]
