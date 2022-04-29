@@ -867,27 +867,27 @@ def populate_gaps(
 def check_inclusion_criteria(
         ratt_annotation,
         abinit_annotation,
-        ratt_gene_location,
         reference_gene_locus_dict,
         reference_locus_gene_dict,
-        reference_locus_list,
         abinit_blast_results,
         ratt_blast_results,
 ):
     """
     This function compares RATT and Prokka annotations and resolves conflicting annotations
+    Either one feature or both will be accepted.
 
     :param embl_file:
     :param ratt_annotation:
     :param abinit_annotation:
     :param ratt_gene_location:
     :returns:
-        - include (:py:class:`bool`) - whether the Prokka annotation should be kept
-        - remark (:py:class:`str`) - explanation for why the Prokka annotation was not included
-                                     (not relevant when `included==True`)
+        - include_abinit (:py:class:`bool`) - whether the ab initio annotation should be kept
+        - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
+        - remark (:py:class:`str`) - explanation for why the rejected annotation, if any, was not included
     """
 
     logger = logging.getLogger('CheckInclusionCriteria')
+    include_ratt = True
     reject_abinit = False
     remark = ''
     loc_key = (int(abinit_annotation.location.start), int(abinit_annotation.location.end), int(abinit_annotation.location.strand))
@@ -906,7 +906,9 @@ def check_inclusion_criteria(
         if(locus_tag == ratt_annotation.qualifiers['locus_tag'][0]
            and locus_tag in ratt_blast_results.keys()
         ):
-            (ratt_start, ratt_stop, ratt_strand) = ratt_gene_location
+            ratt_start = int(ratt_annotation.location.start)
+            ratt_stop = int(ratt_annotation.location.end)
+            ratt_strand = int(ratt_annotation.location.strand)
             prom_mutation = False
             if ratt_strand == 1:
                 if ratt_start == 0:
@@ -951,12 +953,13 @@ def check_inclusion_criteria(
                     remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
                 elif prokka_coverage_measure < ratt_coverage_measure:
                     logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                    if ratt_gene_location in ratt_contig_features_dict.keys():
-                        ratt_rejects.append(
-                            (ratt_contig_features_dict.pop(ratt_gene_location),
-                             'Prokka annotation for ' + abinit_annotation.qualifiers['locus_tag'][0] + ' has better alignment coverage with the reference.')
-                        )
+                    remark = (
+                        'Ab initio feature ',
+                        abinit_annotation.qualifiers['locus_tag'][0],
+                        ' has better alignment coverage with the reference.',
+                    )
                     reject_abinit = False
+                    include_ratt = False
                 elif ratt_coverage_measure == prokka_coverage_measure:
                     # Checking for identity if coverage is the same
                     if int(ratt_blast_results[locus_tag]['iden']) > int(blast_stats['iden']):
@@ -964,12 +967,13 @@ def check_inclusion_criteria(
                         remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
                     elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
                         logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                        if ratt_gene_location in ratt_contig_features_dict.keys():
-                            ratt_rejects.append(
-                                (ratt_contig_features_dict.pop(ratt_gene_location),
-                                 'Prokka annotation for ' + abinit_annotation.qualifiers['locus_tag'][0] + 'has higher identity with the reference and the same alignment coverage.')
-                            )
+                        remark = (
+                            'Ab initio feature ',
+                            abinit_annotation.qualifiers['locus_tag'][0],
+                            ' has higher identity with the reference and the same alignment coverage.',
+                        )
                         reject_abinit = False
+                        include_ratt = False
                     else:
                         # If RATT and Prokka annotations are same, choose RATT
                         reject_abinit = True
@@ -977,21 +981,21 @@ def check_inclusion_criteria(
                 else:
                     reject_abinit = False
 
-    include = False
+    include_abinit = False
     # Check if feature types are the same. If not add feature to EMBL record
     if ratt_annotation.type != abinit_annotation.type:
-        include = True
+        include_abinit = True
     # Check if gene names match and if they don't or if gene names are missing, keep both
     elif 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in abinit_annotation.qualifiers.keys():
         if ratt_annotation.qualifiers['gene'] != abinit_annotation.qualifiers['gene']:
             if not reject_abinit:
-                include = True
+                include_abinit = True
         # If gene names are the same and the lengths of the genes are comparable between RATT and Prokka annotation
         # (difference in length of less than/equal to 10 bps), the RATT annotation is preferred
         elif ratt_annotation.qualifiers['gene'] == abinit_annotation.qualifiers['gene'] and \
                         abs(len(abinit_annotation.location)-len(ratt_annotation.location)) > 0:
             if not reject_abinit:
-                include = True
+                include_abinit = True
         else:
             remark = ("RATT annotation for "
                       + '|'.join([ratt_annotation.qualifiers['locus_tag'][0],ratt_annotation.qualifiers['gene'][0]])
@@ -1004,11 +1008,11 @@ def check_inclusion_criteria(
         if ratt_annotation.qualifiers['product'][0] == 'hypothetical protein' or \
                         abinit_annotation.qualifiers['product'][0] == 'hypothetical protein':
             if not reject_abinit:
-                include = True
+                include_abinit = True
         elif ratt_annotation.qualifiers['product'] == abinit_annotation.qualifiers['product'] and \
                         abs(len(abinit_annotation.location)-len(ratt_annotation.location)) > 0:
             if not reject_abinit:
-                include = True
+                include_abinit = True
         else:
             remark = ("RATT annotation for product "
                       + '"' + ratt_annotation.qualifiers['product'][0] + '" '
@@ -1017,7 +1021,7 @@ def check_inclusion_criteria(
     else:
         logger.warning('CORNER CASE in check_inclusion_criteria')
         remark = 'corner case: unhandled by inclusion criteria'
-    return include, remark
+    return include_abinit, include_ratt, remark
 
 
 def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict, reference_locus_list,
@@ -1850,19 +1854,19 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                         include_abinit = True
                         continue
                     ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
-                    include_abinit, remark = check_inclusion_criteria(
+                    include_abinit, include_ratt, remark = check_inclusion_criteria(
                         ratt_annotation=ratt_feature,
                         abinit_annotation=abinit_feature,
                         reference_gene_locus_dict=reference_gene_locus_dict,
                         reference_locus_gene_dict=reference_locus_gene_dict,
                         abinit_blast_results=abinit_blast_results,
                         ratt_blast_results=ratt_blast_results,
-                        ratt_gene_location=ratt_conflict_loc,
-                        reference_locus_list=reference_locus_list,
                     )
                     if not include_abinit:
                         prokka_rejects.append((abinit_feature,remark))
                         break
+                    elif not include_ratt:
+                        ratt_rejects.append((ratt_contig_features_dict.pop(ratt_gene_location), remark))
                 # Add the abinit feature if it survived all the conflicts
                 if include_abinit:
                     add_prokka_contig_record.features.append(abinit_feature)
