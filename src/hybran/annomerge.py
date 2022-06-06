@@ -954,9 +954,9 @@ def check_inclusion_criteria(
                 elif prokka_coverage_measure < ratt_coverage_measure:
                     logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
                     remark = (
-                        'Ab initio feature ',
-                        abinit_annotation.qualifiers['locus_tag'][0],
-                        ' has better alignment coverage with the reference.',
+                        'Ab initio feature '
+                        + abinit_annotation.qualifiers['locus_tag'][0]
+                        + ' has better alignment coverage with the reference.'
                     )
                     reject_abinit = False
                     include_ratt = False
@@ -968,9 +968,9 @@ def check_inclusion_criteria(
                     elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
                         logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
                         remark = (
-                            'Ab initio feature ',
-                            abinit_annotation.qualifiers['locus_tag'][0],
-                            ' has higher identity with the reference and the same alignment coverage.',
+                            'Ab initio feature '
+                            + abinit_annotation.qualifiers['locus_tag'][0]
+                            + ' has higher identity with the reference and the same alignment coverage.'
                         )
                         reject_abinit = False
                         include_ratt = False
