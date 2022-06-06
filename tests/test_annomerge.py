@@ -356,6 +356,7 @@ def test_isolate_valid_ratt_annotations(filter):
 @pytest.mark.parametrize('pair', [
     'ratt_better',
     'different',
+    'abinit_better',
 ])
 def test_check_inclusion_criteria(pair, tmp_path):
     source_genome = {
@@ -378,12 +379,14 @@ def test_check_inclusion_criteria(pair, tmp_path):
         dnaA='Rv0001',
         Rv0205='Rv0205',
         rplB='Rv0704',
+        Rv1718='Rv1718',
         mamB='Rv2024c',
     )
     reference_locus_gene_dict = dict(
         Rv0001='dnaA',
         Rv0205='Rv0205',
         Rv0704='rplB',
+        Rv1718='Rv1718',
         Rv2024c='mamB',
     )
 
@@ -400,6 +403,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
             "sequence upstream of RATT's Rv0001 is not mutated.",
         ),
         'different': (True, True, ''),
+        'abinit_better': (True, False, 'Ab initio feature L_02383 has better alignment coverage with the reference.'),
     }
 
 
