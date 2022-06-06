@@ -1,6 +1,26 @@
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundLocation
 
 
+ref_features = {
+    'H37Rv': {
+        'dnaA': SeqFeature(
+            FeatureLocation(0, 1524, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0001'],'gene':['dnaA']}
+        ),
+        'rrf': SeqFeature(
+            FeatureLocation(1476898, 1477013, strand=1),
+            type='rRNA',
+            qualifiers={'locus_tag':['MTB000021'],'gene':['rrf']}
+        ),
+        'Rv1718': SeqFeature(
+            FeatureLocation(1944808, 1945627, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv1718'],'gene':['Rv1718']}
+        ),
+    },
+}
+
 features = {
     '1-0006': {
         'dnaA': {
