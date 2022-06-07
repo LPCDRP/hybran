@@ -40,6 +40,26 @@ from . import designator
 from . import __version__
 
 
+def overlap_inframe(loc1, loc2):
+    """
+    Say whether two FeatureLocations are overlapping and have the same stop position.
+    This is for the purpose of CDSs to determine whether they should be corresponding to the
+    same genomic feature or whether one gene has lost its stop codon and merged into its neighbor.
+
+    :param loc1: FeatureLocation
+    :param loc2: FeatureLocation
+    :return: True if both features have the same stop position
+    """
+    if loc1.strand == loc2.strand:
+        if ((loc1.strand == 1
+             and loc1.end == loc2.end)
+            or
+            (loc1.strand == -1
+             and loc1.start == loc2.start)
+        ):
+            return True
+    return False
+
 def log_feature_fate(feature, logfile, remark=""):
     """
     General-purpose logging function to print out a gene's information and a comment
