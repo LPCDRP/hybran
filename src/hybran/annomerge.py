@@ -1914,6 +1914,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
     # Prokka annotations
     output_isolate_recs = []
     for rec_num, contig in enumerate(contigs):
+        record_sequence = SeqIO.read(ratt_gbk_files[contig], 'genbank').seq
         seqname = '.'.join([isolate_id, contig])
         annomerge_records[rec_num].name = seqname
         # TODO - replace version variable with importlib.version call (and probably url too) in python 3.8+
