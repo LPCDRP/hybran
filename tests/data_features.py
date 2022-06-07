@@ -42,6 +42,34 @@ features = {
                 qualifiers={'locus_tag':['L_00007'],'gene':['gyrB1']}
             ),
         },
+        'PPE5': {
+            'ratt': SeqFeature(
+                FeatureLocation(366754, 373353, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv0304c'],'gene':['PPE5']}
+            ),
+        },
+        'PPE6': {
+            'ratt': SeqFeature(
+                FeatureLocation(366754, 376299, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv0305c'],'gene':['PPE6']}
+            ),
+        },
+        'Rv2879c': {
+            'ratt': SeqFeature(
+                FeatureLocation(3182302, 3183397, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv2879c'],'gene':['Rv2879c']}
+            )
+        },
+        'Rv2880c': {
+            'ratt': SeqFeature(
+                FeatureLocation(3182302, 3183397, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv2880c'],'gene':['Rv2880c']}
+            )
+        },
     },
     '4-0041': {
         'rrf': {

@@ -105,6 +105,23 @@ def test_process_split_genes():
         and received['qualifiers'] == expected['qualifiers']
     )
 
+def test_identify_merged_genes():
+    ratt_features = [
+        features['1-0006']['PPE5']['ratt'],
+        features['1-0006']['PPE6']['ratt'],
+        features['1-0006']['Rv2879c']['ratt'],
+        features['1-0006']['Rv2880c']['ratt'],
+    ]
+
+    expected = {
+        -1:[
+            (int(ratt_features[2].location.start) , int(ratt_features[2].location.end)),
+        ],
+        1:[
+        ]
+    }
+
+    assert annomerge.identify_merged_genes(ratt_features) == (expected, True)
 
 def test_liftover_annotation():
     abinit = SeqFeature(
