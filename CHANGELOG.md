@@ -3,6 +3,7 @@
 ## Development
 
 ### Bugs fixed
+* Fixed issue with RATT handoff if sample/contig names contain `.` or `|`.
 * Fixed issue with logging merged genes.
 
 ## [Version 1.5.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.5.1)

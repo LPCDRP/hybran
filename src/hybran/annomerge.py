@@ -1560,12 +1560,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
     ratt_correction_files = []
     ratt_gbk_files = {}
     try:
-        ratt_embl_files = [embl_file for embl_file in os.listdir(ratt_file_path) if embl_file.endswith('.final.embl')]
-        for embl_file in ratt_embl_files:
+        for contig in contigs:
+            embl_file = f"{isolate_id.replace('|','_')}.{contig.replace('|','_')}.final.embl"
             gbk = converter.convert_embl_to_gbk(ratt_file_path + '/' + embl_file)
-            # <sample>.<contig>.final.embl
-            #             ^
-            contig = os.path.basename(embl_file).split('.')[-3]
             ratt_gbk_files[contig] = gbk
         correction_files = [cf for cf in os.listdir(ratt_file_path) if cf.endswith('.Report.txt')]
         for corr_file in correction_files:
