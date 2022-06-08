@@ -2,6 +2,8 @@
 
 ## Development
 
+## [Version 1.5](https://gitlab.com/LPCDRP/hybran/-/tags/1.5)
+
 ### Bugs fixed
 * Prevented overlapping RATT-transferred annotations from automatically being handled as conflicts, leading one of the two to be discarded (#39)
 * Corrected distinguishing of ab initio vs reference-transferred annotation in final conflict resolution step (#38)
