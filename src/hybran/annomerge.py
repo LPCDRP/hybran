@@ -1726,8 +1726,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                                                                              reference_locus_list=reference_locus_list)
             ratt_contig_features = ratt_contig_features_mod
             prokka_contig_features = prokka_contig_features_mod
-            merged_features_record = prokka_contig_record[:]
-            merged_features_record.features = merged_features
             if corner_cases:
                 logger.debug('MERGED GENES: Corner cases')
                 for strand in corner_cases_explicit.keys():
@@ -1735,9 +1733,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                         logger.debug(seqname + ' '.join(corner_cases_explicit[strand]))
         else:
             merged_features = []
-        conjoined_genes = identify_conjoined_genes(ratt_contig_features)
-        merged_features_record.features += conjoined_genes
-        if len(merged_features+conjoined_genes) > 0 and i == 0:
+        merged_features += identify_conjoined_genes(ratt_contig_features)
+        if merged_features and i == 0:
+            merged_features_record = prokka_contig_record[:]
+            merged_features_record.features = merged_features
             SeqIO.write(merged_features_record, output_merged_genes, 'genbank')
         global ratt_contig_features_dict
         ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)

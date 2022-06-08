@@ -2,6 +2,9 @@
 
 ## Development
 
+### Bugs fixed
+* Fixed issue with logging merged genes.
+
 ## [Version 1.5.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.5.1)
 
 ### Bugs fixed
