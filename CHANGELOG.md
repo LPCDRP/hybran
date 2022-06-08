@@ -2,6 +2,9 @@
 
 ## Development
 
+### Bugs fixed
+* Fixed newly introduced issue with rejecting RATT annotations.
+
 ### Housekeeping
 * Removed some unused code.
 

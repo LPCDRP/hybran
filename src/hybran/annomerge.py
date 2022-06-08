@@ -1918,7 +1918,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                         prokka_rejects.append((abinit_feature,remark))
                         break
                     elif not include_ratt:
-                        ratt_rejects.append((ratt_contig_features_dict.pop(ratt_gene_location), remark))
+                        ratt_rejects.append((ratt_contig_features_dict.pop(ratt_conflict_loc), remark))
                 # Add the abinit feature if it survived all the conflicts
                 if include_abinit:
                     add_prokka_contig_record.features.append(abinit_feature)
