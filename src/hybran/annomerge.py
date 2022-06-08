@@ -503,6 +503,44 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     return merged_features_addition, corner_cases, merged_genes, final_ratt_features, final_prokka_features
 
 
+def identify_conjoined_genes(ratt_features):
+    """
+    This function identifies RATT annotations for genes that had a nonstop mutation and combined with the following gene, adds a note and tags the feature 'pseudo'.
+    It differs from identify_merged_genes() in that the latter looks for RATT artifacts where the result is two annotations with the same coordinates, while this function does not mark any annotations for removal.
+
+    :param ratt_features: list of sorted SeqFeature objects. This object will be modified.
+    :return: list of the SeqFeature objects that were identified and tagged.
+    """
+    prev_feature = None
+    conjoined_features = []
+    for feature in ratt_features:
+        if not prev_feature:
+            prev_feature = feature
+            continue
+
+        if (prev_feature.location != feature.location # dealing with these is the job of identify_merged_genes()
+            and overlap_inframe(prev_feature.location, feature.location)
+        ):
+            if feature.strand == -1:
+                upstream = feature
+                downstream = prev_feature
+            else:
+                upstream = prev_feature
+                downstream = feature
+
+            designator.append_qualifier(
+                upstream.qualifiers,
+                'note',
+                f"Nonstop mutation in this gene conjoins it with {downstream.qualifiers['gene'][0]}"
+            )
+            upstream.qualifiers['pseudo'] = ['']
+            conjoined_features.append(upstream)
+
+        prev_feature = feature
+
+    return conjoined_features
+
+
 def liftover_annotation(feature, ref_feature, pseudo, inference):
     """
     Add ref_feature's functional annotation to feature.
@@ -1701,7 +1739,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                         logger.debug(seqname + ' '.join(corner_cases_explicit[strand]))
         else:
             merged_features = []
-        if len(merged_features) > 0 and i == 0:
+        conjoined_genes = identify_conjoined_genes(ratt_contig_features)
+        merged_features_record.features += conjoined_genes
+        if len(merged_features+conjoined_genes) > 0 and i == 0:
             SeqIO.write(merged_features_record, output_merged_genes, 'genbank')
         ratt_cds_count = 0
         for feature in ratt_contig_features:
