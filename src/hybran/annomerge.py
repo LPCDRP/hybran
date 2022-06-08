@@ -2011,27 +2011,28 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
         for feature in isolate_features:
             if feature.type != 'CDS':
                 continue
+            if designator.is_raw_ltag(feature.qualifiers['locus_tag'][0]):
+                feature.hybran_supplier = 'abinit'
+            else:
+                feature.hybran_supplier = 'ratt'
             if len(prev_feature_list) == 0:
                 prev_feature_list = [int(feature.location.start), int(feature.location.end),
                                      int(feature.location.strand), str(feature.qualifiers['gene'][0])]
                 prev_feature = feature
                 continue
-            if int(feature.location.start) <= prev_feature_list[1] and \
-                    int(feature.location.start) >= prev_feature_list[0] and \
-                    (int(feature.location.start) == prev_feature_list[0] or
-                     int(feature.location.end) == prev_feature_list[1]):
-                num_overlaps += 1
-                positions_to_be_resolved.append((prev_feature_list[0], prev_feature_list[1], prev_feature_list[2]))
-                prev_feature_list = [int(feature.location.start), int(feature.location.end),
-                                     int(feature.location.strand), str(feature.qualifiers['gene'][0])]
-                positions_to_be_resolved.append(
-                    (int(feature.location.start), int(feature.location.end), int(feature.location.strand)))
-                resolve_pairs.append([prev_feature, feature])
-                prev_feature = feature
-            elif int(feature.location.end) <= prev_feature_list[1] and \
-                    int(feature.location.end) >= prev_feature_list[0] and \
-                    (int(feature.location.start) == prev_feature_list[0] or
-                     int(feature.location.end) == prev_feature_list[1]):
+            if (feature.hybran_supplier != prev_feature.hybran_supplier
+                and ((int(feature.location.start) <= prev_feature_list[1]
+                      and int(feature.location.start) >= prev_feature_list[0]
+                      and (int(feature.location.start) == prev_feature_list[0] or
+                           int(feature.location.end) == prev_feature_list[1])
+                      )
+                     or
+                    (int(feature.location.end) <= prev_feature_list[1]
+                     and int(feature.location.end) >= prev_feature_list[0]
+                     and (int(feature.location.start) == prev_feature_list[0] or
+                          int(feature.location.end) == prev_feature_list[1])
+                    ))
+                ):
                 num_overlaps += 1
                 positions_to_be_resolved.append((prev_feature_list[0], prev_feature_list[1], prev_feature_list[2]))
                 prev_feature_list = [int(feature.location.start), int(feature.location.end),
