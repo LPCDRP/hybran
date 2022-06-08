@@ -40,6 +40,26 @@ from . import designator
 from . import __version__
 
 
+def overlap_inframe(loc1, loc2):
+    """
+    Say whether two FeatureLocations are overlapping and have the same stop position.
+    This is for the purpose of CDSs to determine whether they should be corresponding to the
+    same genomic feature or whether one gene has lost its stop codon and merged into its neighbor.
+
+    :param loc1: FeatureLocation
+    :param loc2: FeatureLocation
+    :return: True if both features have the same stop position
+    """
+    if loc1.strand == loc2.strand:
+        if ((loc1.strand == 1
+             and loc1.end == loc2.end)
+            or
+            (loc1.strand == -1
+             and loc1.start == loc2.start)
+        ):
+            return True
+    return False
+
 def log_feature_fate(feature, logfile, remark=""):
     """
     General-purpose logging function to print out a gene's information and a comment
@@ -481,6 +501,44 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     else:
         corner_cases = False
     return merged_features_addition, corner_cases, merged_genes, final_ratt_features, final_prokka_features
+
+
+def identify_conjoined_genes(ratt_features):
+    """
+    This function identifies RATT annotations for genes that had a nonstop mutation and combined with the following gene, adds a note and tags the feature 'pseudo'.
+    It differs from identify_merged_genes() in that the latter looks for RATT artifacts where the result is two annotations with the same coordinates, while this function does not mark any annotations for removal.
+
+    :param ratt_features: list of sorted SeqFeature objects. This object will be modified.
+    :return: list of the SeqFeature objects that were identified and tagged.
+    """
+    prev_feature = None
+    conjoined_features = []
+    for feature in ratt_features:
+        if not prev_feature:
+            prev_feature = feature
+            continue
+
+        if (prev_feature.location != feature.location # dealing with these is the job of identify_merged_genes()
+            and overlap_inframe(prev_feature.location, feature.location)
+        ):
+            if feature.strand == -1:
+                upstream = feature
+                downstream = prev_feature
+            else:
+                upstream = prev_feature
+                downstream = feature
+
+            designator.append_qualifier(
+                upstream.qualifiers,
+                'note',
+                f"Nonstop mutation in this gene conjoins it with {downstream.qualifiers['gene'][0]}"
+            )
+            upstream.qualifiers['pseudo'] = ['']
+            conjoined_features.append(upstream)
+
+        prev_feature = feature
+
+    return conjoined_features
 
 
 def liftover_annotation(feature, ref_feature, pseudo, inference):
@@ -1681,7 +1739,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                         logger.debug(seqname + ' '.join(corner_cases_explicit[strand]))
         else:
             merged_features = []
-        if len(merged_features) > 0 and i == 0:
+        conjoined_genes = identify_conjoined_genes(ratt_contig_features)
+        merged_features_record.features += conjoined_genes
+        if len(merged_features+conjoined_genes) > 0 and i == 0:
             SeqIO.write(merged_features_record, output_merged_genes, 'genbank')
         ratt_cds_count = 0
         for feature in ratt_contig_features:
@@ -1991,27 +2051,28 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
         for feature in isolate_features:
             if feature.type != 'CDS':
                 continue
+            if designator.is_raw_ltag(feature.qualifiers['locus_tag'][0]):
+                feature.hybran_supplier = 'abinit'
+            else:
+                feature.hybran_supplier = 'ratt'
             if len(prev_feature_list) == 0:
                 prev_feature_list = [int(feature.location.start), int(feature.location.end),
                                      int(feature.location.strand), str(feature.qualifiers['gene'][0])]
                 prev_feature = feature
                 continue
-            if int(feature.location.start) <= prev_feature_list[1] and \
-                    int(feature.location.start) >= prev_feature_list[0] and \
-                    (int(feature.location.start) == prev_feature_list[0] or
-                     int(feature.location.end) == prev_feature_list[1]):
-                num_overlaps += 1
-                positions_to_be_resolved.append((prev_feature_list[0], prev_feature_list[1], prev_feature_list[2]))
-                prev_feature_list = [int(feature.location.start), int(feature.location.end),
-                                     int(feature.location.strand), str(feature.qualifiers['gene'][0])]
-                positions_to_be_resolved.append(
-                    (int(feature.location.start), int(feature.location.end), int(feature.location.strand)))
-                resolve_pairs.append([prev_feature, feature])
-                prev_feature = feature
-            elif int(feature.location.end) <= prev_feature_list[1] and \
-                    int(feature.location.end) >= prev_feature_list[0] and \
-                    (int(feature.location.start) == prev_feature_list[0] or
-                     int(feature.location.end) == prev_feature_list[1]):
+            if (feature.hybran_supplier != prev_feature.hybran_supplier
+                and ((int(feature.location.start) <= prev_feature_list[1]
+                      and int(feature.location.start) >= prev_feature_list[0]
+                      and (int(feature.location.start) == prev_feature_list[0] or
+                           int(feature.location.end) == prev_feature_list[1])
+                      )
+                     or
+                    (int(feature.location.end) <= prev_feature_list[1]
+                     and int(feature.location.end) >= prev_feature_list[0]
+                     and (int(feature.location.start) == prev_feature_list[0] or
+                          int(feature.location.end) == prev_feature_list[1])
+                    ))
+                ):
                 num_overlaps += 1
                 positions_to_be_resolved.append((prev_feature_list[0], prev_feature_list[1], prev_feature_list[2]))
                 prev_feature_list = [int(feature.location.start), int(feature.location.end),

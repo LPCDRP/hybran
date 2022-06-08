@@ -10,6 +10,21 @@ from hybran import config
 
 from .data_features import *
 
+@pytest.mark.parametrize('pair', [
+    'same_stop',
+])
+def test_overlap_inframe(pair):
+    pairs = {
+        'same_stop': (
+            features['1-0006']['Rv2879c']['ratt'].location,
+            features['1-0006']['Rv2880c']['ratt'].location,
+        ),
+    }
+    expected = {
+        'same_stop': True,
+    }
+
+    assert annomerge.overlap_inframe(pairs[pair][0], pairs[pair][1]) == expected[pair]
 
 def test_process_split_genes():
     interrupted_by_another_gene = [
