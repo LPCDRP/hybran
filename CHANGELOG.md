@@ -2,6 +2,9 @@
 
 ## Development
 
+### Housekeeping
+* Removed some unused code.
+
 ## [Version 1.5](https://gitlab.com/LPCDRP/hybran/-/tags/1.5)
 
 ### Bugs fixed

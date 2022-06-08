@@ -931,7 +931,7 @@ def check_inclusion_criteria(
         ratt_blast_results,
 ):
     """
-    This function compares RATT and Prokka annotations and resolves conflicting annotations
+    This function compares RATT and Prokka annotations and resolves conflicting annotations.
     Either one feature or both will be accepted.
 
     :param embl_file:
@@ -1715,10 +1715,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
 
         ratt_rejects += invalid_ratt_features
         ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
-        cds_from_ratt_list = []
-        for feature in ratt_contig_features:
-            if feature.type == 'CDS':
-                cds_from_ratt_list.append(feature)
 
         ratt_contig_features = get_ordered_features(ratt_contig_features)
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
@@ -1743,10 +1739,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
         merged_features_record.features += conjoined_genes
         if len(merged_features+conjoined_genes) > 0 and i == 0:
             SeqIO.write(merged_features_record, output_merged_genes, 'genbank')
-        ratt_cds_count = 0
-        for feature in ratt_contig_features:
-            if feature.type == 'CDS':
-                ratt_cds_count += 1
         global ratt_contig_features_dict
         ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
         if len(ratt_contig_features) == 0:
