@@ -3,6 +3,7 @@
 ## Development
 
 ### Bugs fixed
+* Prevented overlapping RATT-transferred annotations from automatically being handled as conflicts, leading one of the two to be discarded (#39)
 * Corrected distinguishing of ab initio vs reference-transferred annotation in final conflict resolution step (#38)
 * Added logging of some missed cases of annotation rejections (for {ratt,prokka}_unused.tsv)
 * Fixed the reference gene <=> locus_tag mapping dictionaries used in annomerge (#41)
