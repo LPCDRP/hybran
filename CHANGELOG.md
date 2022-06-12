@@ -3,6 +3,7 @@
 ## Development
 
 ### Bugs fixed
+* Made a consistent non-CDS policy for RATT: Take everything except rRNA and tRNA (#22)
 * Clarified some rejection reasons for RATT/ab initio features.
 * Fixed representation of blast results for CDSs when there aren't any hits
 * Fixed issue with RATT handoff if sample/contig names contain `.` or `|`.

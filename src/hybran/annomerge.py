@@ -1695,7 +1695,12 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                 feature.qualifiers['inference'] = ["alignment:RATT"]
             else:
                 feature.qualifiers['inference'].append("alignment:RATT")
-            if feature.type == 'mRNA' or feature.type == 'rRNA':
+            if feature.type not in [
+                    'CDS',
+                    'gene',
+                    'rRNA', # these aren't reliably transferred by RATT
+                    'tRNA',
+            ]:
                 ratt_contig_non_cds.append(feature)
         logger.debug(f'{seqname}: {len(ratt_contig_non_cds)} non-CDS elements')
 
