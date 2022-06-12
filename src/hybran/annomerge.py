@@ -999,7 +999,7 @@ def check_inclusion_criteria(
                 blast_results = line.strip().split('\t')
                 if float(blast_results[2]) == 100.0 and int(blast_results[3]) == 40:
                     reject_abinit = True
-                    remark = "sequence upstream of RATT's " + locus_tag + " is not mutated."
+                    remark = "start position of RATT's " + locus_tag + " corresponds to the reference annotation's"
                 else:
                     prom_mutation = True
             if prom_mutation is True:
@@ -1448,23 +1448,21 @@ def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
         SeqIO.write(SeqRecord(rv_seq, id=gene, description=''), prom_fasta, 'fasta')
 
         # this decision/remark will get redefined if prom_blast turns out not to be empty
-        take_ratt = True
-        remark = ('No blastn hit of the RATT promoter region of ' + gene +
-                  ' in the corresponding region of the reference.')
+        take_ratt = False
+        remark = ("RATT's start position does not correspond to the reference annotation's. "
+                  f"Ab initio annotation {prokka_feature.qualifiers['locus_tag'][0]} preferred.")
         prom_blast = blast(prom_fasta,
                            isolate_sequence[ratt_prom_start:ratt_prom_end])
         for i in prom_blast:
             if i.startswith('Query'):
                 if float(i.split('\t')[2]) < 100.0:
                     take_ratt = False
-                    remark = ('Mutation detected in promoter region with respect to reference.'
-                              'Prokka annotation for '
-                              + prokka_feature.qualifiers['locus_tag'][0]
-                              + ' preferred.')
+                    remark = ('potential discrepancy in start position between RATT and reference. '
+                              f"Ab initio annotation {prokka_feature.qualifiers['locus_tag'][0]} preferred.")
                 else:
                     take_ratt = True
-                    remark = ("No mutation with respect to the reference in the promoter"
-                              " region of the RATT annotation's start position for " + gene + ".")
+                    remark = f"start position of RATT's {gene} corresponds to the reference annotation's"
+                    break
     else:
         take_ratt = False
         remark = ('No blastn hit of the RATT gene to the reference gene '

@@ -434,7 +434,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
     expected = {
         'ratt_better': (
             False, True,
-            "sequence upstream of RATT's Rv0001 is not mutated.",
+            "start position of RATT's Rv0001 corresponds to the reference annotation's",
         ),
         'different': (True, True, ''),
         'abinit_better': (True, False, 'Ab initio feature L_02383 has better alignment coverage with the reference.'),
