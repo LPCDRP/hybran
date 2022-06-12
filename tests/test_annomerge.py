@@ -120,6 +120,26 @@ def test_process_split_genes():
         and received['qualifiers'] == expected['qualifiers']
     )
 
+
+def test_identify_conjoined_genes():
+    ratt_features = [
+        features['1-0006']['PPE5']['ratt'],
+        features['1-0006']['PPE6']['ratt'],
+        features['1-0006']['Rv2879c']['ratt'],
+        features['1-0006']['Rv2880c']['ratt'],
+    ]
+
+    # compare locations because SeqFeature objects can't be directly compared properly.
+    # https://github.com/biopython/biopython/issues/3874
+    expected_locs = [
+        features['1-0006']['PPE6']['ratt'].location
+    ]
+
+    observed = annomerge.identify_conjoined_genes(ratt_features)
+
+    assert [_.location for _ in observed] == expected_locs
+
+
 def test_identify_merged_genes():
     ratt_features = [
         features['1-0006']['PPE5']['ratt'],
