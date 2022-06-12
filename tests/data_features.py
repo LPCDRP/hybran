@@ -71,6 +71,18 @@ features = {
             )
         },
     },
+    '1-0047': {
+        'PE_PGRS54': {
+            'abinit': SeqFeature(
+                FeatureLocation(3959135, 3959759, strand=1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['L_03743'],
+                    'translation':['MASEGGAGGQGGDGGDGGEGGGAGFGSGVAGAAGAGGNGGKGGDGGTGGTGGTNFAGGQGGAGGRGGAGGNGANGVGDNAAGGDGGNGGAGGLGGGGGTGGTNGNGGLGGGGGNGGAGGAGGTPTGSGTEGTGGDGGDAGAGGNGGSATGVGNGGNGGDGGNGGDGGNGAPGGFGGGAGAGGLGGSGAGGGTDGDDGNGGSPGTDGS'],
+                }
+            ),
+        },
+    },
     '4-0041': {
         'rrf': {
             'ratt': SeqFeature(

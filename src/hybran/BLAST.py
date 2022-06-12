@@ -40,8 +40,7 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
     pseudo = False
     hit_dict = None
     # this will be replaced by actual hits later if there are any
-    if misses:
-        hit_dict = summarize(misses, identify=identify)
+    hit_dict = summarize(misses, identify=identify)
 
     for hit_list in [hits, truncation_signatures]:
         if not hit_list:

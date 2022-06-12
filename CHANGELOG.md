@@ -3,6 +3,7 @@
 ## Development
 
 ### Bugs fixed
+* Fixed representation of blast results for CDSs when there aren't any hits
 * Fixed issue with RATT handoff if sample/contig names contain `.` or `|`.
 * Fixed issue with logging merged genes.
 
