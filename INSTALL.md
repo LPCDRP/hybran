@@ -28,3 +28,4 @@ conda activate hybran
 python setup.py install
 ```
 
+If you run into any trouble, please let us know over at our [issues page](https://gitlab.com/LPCDRP/hybran/-/issues).
