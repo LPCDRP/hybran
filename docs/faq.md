@@ -5,10 +5,15 @@
 
 You will find out that *ab initio* predictions are made in your sample that would have also been found in your reference genome.
 To get a clearer view of the genes present only in your sample, you may want to consider reannotating your reference with Hybran.
-In this case, you'll find it helpful to use a different ORF prefix with which to name unknown genes, as well as RATT transfer type "Assembly":
+In this case, you'll find it helpful to use a different ORF prefix with which to name unknown genes, as well as RATT transfer type "Assembly".
+
+:warning: If you want to maintain the original locus tag prefix, Your reference genome fasta file **must** be named using it.
+Additional genes will be assigned locus tags counting from the highest number observed in the annotation.
+The advantage is that the original locus tags will be maintained, but the disadvantage is that you'll introduce unapproved new labels for the additional genes you find.
 
 ```
-hybran --genomes H37Rv.fasta --references H37Rv.gbk --dedupe-references --orf-prefix RvMTB --ratt-transfer-type Assembly ...
+ln -s H37Rv.fasta Rv.fasta # This strain's locus tag prefix is Rv
+hybran --genomes Rv.fasta --references H37Rv.gbk --dedupe-references --orf-prefix RvMTB --ratt-transfer-type Assembly ...
 ```
 
 ## Annotating multiple genomes
