@@ -20,15 +20,6 @@ hybran                                                                          
     --nproc 2
 ```
 
-A sample FASTA is available to demo hybran:
-```
-hybran \
-    --genomes sample/ \
-    --references annotations/ \
-    --output ./ \
-    --nproc 4
-```
-
 ## Output
 
 Final annotations are created in Genbank and GFF formats in the output directory.
