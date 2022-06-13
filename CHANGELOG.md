@@ -2,6 +2,8 @@
 
 ## Development
 
+## [Version 1.5.2](https://gitlab.com/LPCDRP/hybran/-/tags/1.5.2)
+
 ### Bugs fixed
 * Made a consistent non-CDS policy for RATT: Take everything except rRNA and tRNA (#22)
 * Clarified some rejection reasons for RATT/ab initio features.
