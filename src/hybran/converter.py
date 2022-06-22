@@ -12,8 +12,10 @@ def convert_gbk_to_gff(gbk_filename):
     """
     seqret_cmd = ['seqret',
                   gbk_filename,
+                  '/dev/null',
+                  '-oufo',
                   os.path.splitext(gbk_filename)[0] + '.gff',
-                  '-feature', '-osf', 'gff']
+                  '-feature', '-off', 'gff']
     with open(os.devnull, 'w') as devnull:
         subprocess.call(seqret_cmd, stderr=devnull)
 

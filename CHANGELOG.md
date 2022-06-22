@@ -2,6 +2,9 @@
 
 ## Development
 
+### Enhancements
+* Output GFF files no longer include the genome sequence.
+
 ## [Version 1.5.2](https://gitlab.com/LPCDRP/hybran/-/tags/1.5.2)
 
 ### Bugs fixed
