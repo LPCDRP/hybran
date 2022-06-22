@@ -1909,20 +1909,11 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                 feature_sequence = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
                 feature.qualifiers['translation'] = [feature_sequence]
 
-        # Removing gene names assigned based on domains
         logger.debug(f'{seqname}: final feature annotation verification')
         added_ltags = []
         for feature_final in prokka_rec.features:
             if feature_final.type != 'CDS':
                 continue
-            if 'inference' in feature_final.qualifiers.keys():
-                is_domain = False
-                for infer in feature_final.qualifiers['inference']:
-                    if infer.startswith('protein motif'):
-                        is_domain = True
-                        break
-                if is_domain:
-                    feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
             if 'gene' not in feature_final.qualifiers.keys():
                 feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
             added_ltags.append(feature_final.qualifiers['locus_tag'][0])
