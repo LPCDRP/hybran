@@ -1368,110 +1368,6 @@ def get_feature_by_locustag(rec):
     return cds_dict
 
 
-def blast(seq1, seq2):
-    """
-
-    AUTHOR: Sarah Ramirez-Busby
-    :param seq1:
-    :param seq2:
-    :return:
-    """
-    blast_to_rv = NcbiblastnCommandline(subject=seq1,
-                                        outfmt='"7 qseqid sseqid pident length mismatch '
-                                               'gapopen qstart qend sstart send evalue bitscore"')
-    stdout, stderr = blast_to_rv(str(seq2))
-    stdout_elements = stdout.split('\n')
-    return stdout_elements
-
-
-def pick_best_hit(ratt_feature, prokka_feature, isolate_sequence):
-    """
-
-    AUTHOR: Sarah Ramirez-Busby
-    MODIFIED BY: Deepika Gunasekaran
-    :param ratt_feature:
-    :param prokka_feature:
-    :returns:
-        - take_ratt (:py:class:`bool`) - whether to accept the RATT annotation over the Prokka annotation
-        - remark (:py:class:`str`)     - explanation of why the losing annotation didn't win
-    """
-
-    hybran_tmp_dir = config.hybran_tmp_dir
-    logger = logging.getLogger('BestFeatureHit')
-    gene = ratt_feature.qualifiers['locus_tag'][0]
-    if gene not in ref_genes_positions.keys():
-        take_ratt = True
-        remark = 'No reference annotation for ' + gene + ' found.'
-        return take_ratt, remark
-    startpos = ref_genes_positions[gene][0]
-    stoppos = ref_genes_positions[gene][1]
-    prokka_seq = isolate_sequence[prokka_feature.location.start:prokka_feature.location.end]
-    ratt_seq = isolate_sequence[ratt_feature.location.start:ratt_feature.location.end]
-    ref_gene_seq = ref_sequence[startpos - 1: stoppos]
-
-    f = tempfile.NamedTemporaryFile(prefix=gene,
-                                     suffix='.fasta',
-                                     dir=hybran_tmp_dir,
-                                     delete=False, mode='w')
-    gene_fasta = f.name
-    SeqIO.write(SeqRecord(ref_gene_seq, id=gene, description=''), gene_fasta, 'fasta')
-
-    blast_out = blast(gene_fasta, ratt_seq)
-    blast_results = False
-    for i in blast_out:
-        if i.startswith('Query'):
-            sstart = int(i.split('\t')[8])
-            send = int(i.split('\t')[9])
-            blast_results = True
-    if blast_results:
-        # If the gene is positive strand
-        if ratt_feature.location.strand == '+':
-            # The start of the prokka gene minus where the prokka sequence aligns to the reference plus one to include the
-            # position
-            ratt_prom_end = ratt_feature.location.start.position - sstart + 1
-            ratt_prom_start = ratt_prom_end - 40
-            rv_prom_end = startpos - 40
-            rv_seq = ref_sequence[startpos - 1: rv_prom_end]
-        # If the gene is negative strand
-        else:
-            rv_prom_end = stoppos + 40
-            # Where the prokka sequence aligns to the reference seq plus the end coordinate of the prokka gene
-            ratt_prom_start = send + ratt_feature.location.end.position
-            ratt_prom_end = ratt_prom_start + 40
-            rv_seq = ref_sequence[stoppos - 1: rv_prom_end]
-
-        prom_f = tempfile.NamedTemporaryFile(prefix=gene,
-                                         suffix='-prom.fasta',
-                                         dir=hybran_tmp_dir,
-                                         delete=False, mode='w')
-        prom_fasta = prom_f.name
-        SeqIO.write(SeqRecord(rv_seq, id=gene, description=''), prom_fasta, 'fasta')
-
-        # this decision/remark will get redefined if prom_blast turns out not to be empty
-        take_ratt = False
-        remark = ("RATT's start position does not correspond to the reference annotation's. "
-                  f"Ab initio annotation {prokka_feature.qualifiers['locus_tag'][0]} preferred.")
-        prom_blast = blast(prom_fasta,
-                           isolate_sequence[ratt_prom_start:ratt_prom_end])
-        for i in prom_blast:
-            if i.startswith('Query'):
-                if float(i.split('\t')[2]) < 100.0:
-                    take_ratt = False
-                    remark = ('potential discrepancy in start position between RATT and reference. '
-                              f"Ab initio annotation {prokka_feature.qualifiers['locus_tag'][0]} preferred.")
-                else:
-                    take_ratt = True
-                    remark = f"start position of RATT's {gene} corresponds to the reference annotation's"
-                    break
-    else:
-        take_ratt = False
-        remark = ('No blastn hit of the RATT gene to the reference gene '
-                  + gene + '. Prokka annotation for '
-                  + prokka_feature.qualifiers['locus_tag'][0]
-                  + ' preferred.')
-    return take_ratt, remark
-
-
 def fix_embl_id_line(embl_file):
     """
 
@@ -2090,13 +1986,22 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
             else:
                 prokka_annotation = feat_pair[1]
                 ratt_annotation = feat_pair[0]
-            take_ratt, remark = pick_best_hit(ratt_annotation, prokka_annotation, record_sequence)
+            take_abinit, take_ratt, remark = check_inclusion_criteria(
+                ratt_annotation=ratt_annotation,
+                abinit_annotation=prokka_annotation,
+                reference_gene_locus_dict=reference_gene_locus_dict,
+                reference_locus_gene_dict=reference_locus_gene_dict,
+                abinit_blast_results=abinit_blast_results,
+                ratt_blast_results=ratt_blast_results,
+            )
             if take_ratt:
                 output_isolate_recs[rec_num].features.append(ratt_annotation)
-                prokka_rejects.append((prokka_annotation, remark))
             else:
                 ratt_rejects.append((ratt_annotation, remark))
+            if take_abinit:
                 output_isolate_recs[rec_num].features.append(prokka_annotation)
+            else:
+                prokka_rejects.append((prokka_annotation, remark))
         ordered_feats = get_ordered_features(output_isolate_recs[rec_num].features)
         ordered_feats = process_split_genes(ordered_feats)
         output_isolate_recs[rec_num].features = ordered_feats[:]
