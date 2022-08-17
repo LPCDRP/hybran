@@ -2,6 +2,9 @@
 
 ## Development
 
+### Bugs fixed
+* Partially fixed handling of compound intervals in reference annotations (#46)
+
 ### Enhancements
 * Output GFF files no longer include the genome sequence.
 
