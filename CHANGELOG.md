@@ -9,6 +9,8 @@
 * Output GFF files no longer include the genome sequence.
 
 ### Housekeeping
+* Logging of merged genes:
+  - removed redundant note text indicating the annotation source
 * Removed largely duplicated (and slightly buggy) code for comparing RATT
   and ab initio annotations
 

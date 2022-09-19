@@ -455,7 +455,6 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                 designator.append_qualifier(
                     feature.qualifiers, 'note',
                     'The genes ' + merged_features_string + ' in reference) are merged in this isolate '
-                    '(annotation from Prokka)'
                 )
                 merged_genes[feature.location.strand].remove(feature_location)
                 merged_features_addition.append(feature)
@@ -479,7 +478,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
         designator.append_qualifier(
             new_feature.qualifiers, 'note',
             'The genes ' + merged_features_string +
-            ' in reference) are merged in this isolate (annotation from RATT)'
+            ' in reference) are merged in this isolate'
         )
         merged_features_addition.append(new_feature)
         merged_genes[new_feature.location.strand].remove(location)
