@@ -37,6 +37,7 @@ from . import BLAST
 from . import converter
 from . import config
 from . import designator
+from . import extractor
 from . import __version__
 
 
@@ -422,7 +423,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
         if ratt_feature_location not in check_positions_for_annotation[feature.strand]:
             final_ratt_features.append(feature)
         elif ratt_feature_location in check_positions_for_annotation[feature.strand]:
-            merged_gene_locus[ratt_feature_location].append(feature.qualifiers['locus_tag'][0])
+            merged_gene_locus[ratt_feature_location].append('|'.join([extractor.get_ltag(feature), extractor.get_gene(feature)]))
             locus_to_remove_gene_tags.append(feature.qualifiers['locus_tag'][0])
     for other_features in ratt_features:
         # Identifies 'gene' tags which corresponds to merged CDSs and does not include them in the final annotation
@@ -467,7 +468,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             feature_location = (int(feature.location.start), int(feature.location.end))
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
                 features_from_ratt[feature_location].append(feature)
-                genes_from_ratt[feature_location].append(feature.qualifiers['locus_tag'][0])
+                genes_from_ratt[feature_location].append('|'.join([extractor.get_ltag(feature), extractor.get_gene(feature)]))
     for location in features_from_ratt.keys():
         new_feature = features_from_ratt[location][0]
         merged_features_string = ",".join(genes_from_ratt[location])
@@ -517,7 +518,7 @@ def identify_conjoined_genes(ratt_features):
             designator.append_qualifier(
                 upstream.qualifiers,
                 'note',
-                f"Nonstop mutation in this gene conjoins it with {downstream.qualifiers['gene'][0]}"
+                f"Nonstop mutation in this gene conjoins it with {'|'.join([extractor.get_ltag(downstream),extractor.get_gene(downstream)])}"
             )
             upstream.qualifiers['pseudo'] = ['']
             conjoined_features.append(upstream)
