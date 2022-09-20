@@ -518,7 +518,7 @@ def identify_conjoined_genes(ratt_features):
             designator.append_qualifier(
                 upstream.qualifiers,
                 'note',
-                f"Nonstop mutation in this gene conjoins it with {'|'.join([extractor.get_ltag(downstream),extractor.get_gene(downstream)])}"
+                f"Nonstop mutation in this gene causes an in-frame merge with {'|'.join([extractor.get_ltag(downstream),extractor.get_gene(downstream)])}"
             )
             upstream.qualifiers['pseudo'] = ['']
             conjoined_features.append(upstream)
