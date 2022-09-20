@@ -37,6 +37,7 @@ from . import BLAST
 from . import converter
 from . import config
 from . import designator
+from . import extractor
 from . import __version__
 
 
@@ -407,10 +408,10 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
     """
     logger = logging.getLogger('AnnotateMergedGenes')
     check_positions_for_annotation = dict(merged_genes)
-    merged_gene_locus = {}
+    merged_gene_locus = collections.defaultdict(list)
     merged_features_addition = []
-    features_from_ratt = {}
-    genes_from_ratt = {}
+    features_from_ratt = collections.defaultdict(list)
+    genes_from_ratt = collections.defaultdict(list)
     final_ratt_features = []
     final_prokka_features = []
     locus_to_remove_gene_tags = []
@@ -421,13 +422,8 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
         ratt_feature_location = (int(feature.location.start), int(feature.location.end))
         if ratt_feature_location not in check_positions_for_annotation[feature.strand]:
             final_ratt_features.append(feature)
-        elif ratt_feature_location in check_positions_for_annotation[feature.strand] and \
-                ratt_feature_location not in merged_gene_locus.keys():
-            merged_gene_locus[ratt_feature_location] = [feature.qualifiers['locus_tag'][0]]
-            locus_to_remove_gene_tags.append(feature.qualifiers['locus_tag'][0])
-        elif ratt_feature_location in check_positions_for_annotation[feature.strand] and \
-                ratt_feature_location in merged_gene_locus.keys():
-            merged_gene_locus[ratt_feature_location].append(feature.qualifiers['locus_tag'][0])
+        elif ratt_feature_location in check_positions_for_annotation[feature.strand]:
+            merged_gene_locus[ratt_feature_location].append('|'.join([extractor.get_ltag(feature), extractor.get_gene(feature)]))
             locus_to_remove_gene_tags.append(feature.qualifiers['locus_tag'][0])
     for other_features in ratt_features:
         # Identifies 'gene' tags which corresponds to merged CDSs and does not include them in the final annotation
@@ -446,12 +442,8 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             merged_genes_in_strand = merged_genes[feature.location.strand]
             feature_location = (int(feature.location.start), int(feature.location.end))
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
-                if feature_location not in features_from_ratt.keys():
-                    features_from_ratt[feature_location] = [feature]
-                    genes_from_ratt[feature_location] = [feature.qualifiers['locus_tag'][0]]
-                elif feature.type == 'CDS':
-                    features_from_ratt[feature_location].append(feature)
-                    genes_from_ratt[feature_location].append(feature.qualifiers['locus_tag'][0])
+                features_from_ratt[feature_location].append(feature)
+                genes_from_ratt[feature_location].append(feature.qualifiers['locus_tag'][0])
     else:
         for feature in prokka_features:
             if len(merged_genes[feature.location.strand]) == 0:
@@ -464,7 +456,6 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                 designator.append_qualifier(
                     feature.qualifiers, 'note',
                     'The genes ' + merged_features_string + ' in reference) are merged in this isolate '
-                    '(annotation from Prokka)'
                 )
                 merged_genes[feature.location.strand].remove(feature_location)
                 merged_features_addition.append(feature)
@@ -476,12 +467,8 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             merged_genes_in_strand = merged_genes[feature.location.strand]
             feature_location = (int(feature.location.start), int(feature.location.end))
             if feature_location in merged_genes_in_strand and feature.type == 'CDS':
-                if feature_location not in features_from_ratt.keys():
-                    features_from_ratt[feature_location] = [feature]
-                    genes_from_ratt[feature_location] = [feature.qualifiers['locus_tag'][0]]
-                elif feature.type == 'CDS':
-                    features_from_ratt[feature_location].append(feature)
-                    genes_from_ratt[feature_location].append(feature.qualifiers['locus_tag'][0])
+                features_from_ratt[feature_location].append(feature)
+                genes_from_ratt[feature_location].append('|'.join([extractor.get_ltag(feature), extractor.get_gene(feature)]))
     for location in features_from_ratt.keys():
         new_feature = features_from_ratt[location][0]
         merged_features_string = ",".join(genes_from_ratt[location])
@@ -492,7 +479,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
         designator.append_qualifier(
             new_feature.qualifiers, 'note',
             'The genes ' + merged_features_string +
-            ' in reference) are merged in this isolate (annotation from RATT)'
+            ' in reference) are merged in this isolate'
         )
         merged_features_addition.append(new_feature)
         merged_genes[new_feature.location.strand].remove(location)
@@ -531,7 +518,7 @@ def identify_conjoined_genes(ratt_features):
             designator.append_qualifier(
                 upstream.qualifiers,
                 'note',
-                f"Nonstop mutation in this gene conjoins it with {downstream.qualifiers['gene'][0]}"
+                f"Nonstop mutation in this gene causes an in-frame merge with {'|'.join([extractor.get_ltag(downstream),extractor.get_gene(downstream)])}"
             )
             upstream.qualifiers['pseudo'] = ['']
             conjoined_features.append(upstream)
