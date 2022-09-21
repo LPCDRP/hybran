@@ -1392,7 +1392,7 @@ def run_prodigal(reference_genome, outfile):
     os.chdir(c)
 
 
-def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
+def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
     nproc=1,
 ):
     """
@@ -1410,7 +1410,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
     <annotation_fp>/prokka-noreference. Additionally annomerge also assumes that withing prokka and prokka-noreference
     directories, the genbank files are located in <isolate_id>.gbk
     :param ref_proteins_fasta: File path for proteome fasta of reference strain
-    :param ref_embl_fp: File path for annotated EMBL file for reference strain
+    :param ref_gbk_fp: File path for annotated GenBank file for reference strain
     :param reference_genome: File path for nucleotide fasta of assembled genome
     :param script_dir: Directory where hybran scripts are located
     :param ratt_enforce_thresholds: boolean - whether to enforce seq_ident/seq_covg for RATT-transferred annotations
@@ -1469,7 +1469,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
     ref_annotation = {}
     # nested dictionary of contig to genomic coordinates to locus tags (needed for prodigal correction)
     ref_loci = collections.OrderedDict()
-    for ref_record in SeqIO.parse(ref_embl_fp, 'embl'):
+    for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
         ref_loci[ref_record.id] = collections.OrderedDict()
         ref_contigs.append(ref_record.seq)
         ref_features.append(ref_record.features)
@@ -1712,7 +1712,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                         pseudo,
                         inference=':'.join([
                             "similar to AA sequence",
-                            os.path.basename(os.path.splitext(ref_embl_fp)[0]),
+                            os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
                             ref_annotation[ref_gene].qualifiers['locus_tag'][0],
                             ref_gene,
                             "blastp",
@@ -1774,7 +1774,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_embl_fp, ref
                             pseudo,
                             inference=':'.join([
                                 "similar to AA sequence",
-                                os.path.basename(os.path.splitext(ref_embl_fp)[0]),
+                                os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
                                 ref_annotation[ref_gene].qualifiers['locus_tag'][0],
                                 ref_gene,
                                 "RATT+blastp",

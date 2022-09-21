@@ -313,7 +313,7 @@ def main():
                                   contigs=extractor.get_contig_names(genome),
                                   annotation_fp=os.getcwd() + '/',
                                   ref_proteins_fasta=ref_cds,
-                                  ref_embl_fp=first_reference_embl,
+                                  ref_gbk_fp=first_reference_gbk,
                                   reference_genome=ref_genome,
                                   script_directory=script_dir,
                                   seq_ident=args.identity_threshold,
