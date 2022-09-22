@@ -1065,7 +1065,7 @@ def check_inclusion_criteria(
     return include_abinit, include_ratt, remark
 
 
-def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_seq, rv_cds_dict, reference_locus_list,
+def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_cds_dict, reference_locus_list,
                                 reference_gene_locus_dict, log):
     """
     This function parses through prokka records and corrects start coordinates for cases where Prodigal
@@ -1073,7 +1073,6 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
     :param prokka_record:
     :param correction_dict:
     :param fasta_seq:
-    :param rv_seq:
     :param rv_cds_dict:
     :param log: filename in which to log corrections
     :return:
@@ -1084,33 +1083,6 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
     modified_prokka_record = prokka_record[:]
     modified_prokka_record.features = []
     modified_features = []
-    # Write Rv genes to temp file
-    rv_temp_nuc_fasta_dict = {}
-    rv_temp_prom_fasta_dict = {}
-    for rv in correction_dict.keys():
-        rv_feature = rv_cds_dict[rv]
-        rv_feat_seq = str(rv_seq)[int(rv_feature.location.start):int(rv_feature.location.end)]
-        rv_prom_seq = str(rv_seq)[int(rv_feature.location.start)-40:int(rv_feature.location.start)]
-        fp = tempfile.NamedTemporaryFile(suffix='_nuc.fasta',
-                                         dir=hybran_tmp_dir,
-                                         delete=False,
-                                         mode='w')
-        fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
-                                              dir=hybran_tmp_dir,
-                                              delete=False,
-                                              mode='w')
-        rv_temp_nuc_fasta_dict[rv] = fp.name
-        rv_temp_prom_fasta_dict[rv] = fp_prom.name
-        header = '>' + rv + '\n'
-        seq = rv_feat_seq + '\n'
-        fp.write(header)
-        fp.write(seq)
-        header_prom = '>' + rv + '_prom\n'
-        seq_prom = rv_prom_seq + '\n'
-        fp_prom.write(header_prom)
-        fp_prom.write(seq_prom)
-        fp.close()
-        fp_prom.close()
     for feature_prokka in prokka_record.features:
         if feature_prokka.type != 'CDS':
             modified_features.append(feature_prokka)
@@ -1144,7 +1116,7 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                 query_temp.write(q_header)
                 query_temp.write(prokka_nuc_seq)
                 query_temp.write('\n')
-                blast_to_rv = NcbiblastnCommandline(subject=rv_temp_nuc_fasta_dict[rv_id],
+                blast_to_rv = NcbiblastnCommandline(subject=os.path.join(refseqs_prodigal_fails_dir, rv_id+'.fasta'),
                                                     outfmt='"7 qseqid sseqid pident length mismatch gapopen qstart qend'
                                                            ' sstart send evalue bitscore"')
                 stdout, stderr = blast_to_rv(prokka_nuc_seq)
@@ -1176,20 +1148,13 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                     modified_features.append(feature_prokka)
                             else:
                                 change_start = int(line_elements[8]) - int(line_elements[6])
-                                rv_feature = rv_cds_dict[rv_id]
-                                rv_prom_end = int(rv_feature.location.start)
-                                rv_prom_start = int(rv_feature.location.start) - 40
-                                rv_prom_location = FeatureLocation(ExactPosition(rv_prom_start),
-                                                                   ExactPosition(rv_prom_end),
-                                                                   strand=int(rv_feature.location.strand))
-                                rv_prom_seq = rv_prom_location.extract(rv_seq)
                                 mod_prokka_start = int(feature_prokka.location.start) - change_start
                                 prokka_prom_start = mod_prokka_start - 40
                                 prokka_prom_location = FeatureLocation(ExactPosition(prokka_prom_start),
                                                                        ExactPosition(mod_prokka_start),
                                                                        strand=int(feature_prokka.location.strand))
                                 feature_prokka_prom_seq = prokka_prom_location.extract(fasta_seq)
-                                blast_to_rv_prom = NcbiblastnCommandline(subject=rv_temp_prom_fasta_dict[rv_id],
+                                blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[rv_id],
                                                                          outfmt='"7 qseqid sseqid pident length '
                                                                                 'mismatch gapopen qstart qend sstart '
                                                                                 'send evalue bitscore gaps"')
@@ -1240,20 +1205,13 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_se
                                     modified_features.append(feature_prokka)
                             else:
                                 change_start = int(line_elements[6]) - int(line_elements[8])
-                                rv_feature = rv_cds_dict[rv_id]
-                                rv_prom_end = int(rv_feature.location.start)
-                                rv_prom_start = int(rv_feature.location.start) - 40
-                                rv_prom_location = FeatureLocation(ExactPosition(rv_prom_start),
-                                                                   ExactPosition(rv_prom_end),
-                                                                   strand=int(rv_feature.location.strand))
-                                rv_prom_seq = rv_prom_location.extract(rv_seq)
                                 mod_prokka_start = int(feature_prokka.location.start) + change_start
                                 prokka_prom_start = mod_prokka_start - 40
                                 prokka_prom_location = FeatureLocation(ExactPosition(prokka_prom_start),
                                                                        ExactPosition(mod_prokka_start),
                                                                        strand=int(feature_prokka.location.strand))
                                 feature_prokka_prom_seq = prokka_prom_location.extract(fasta_seq)
-                                blast_to_rv_prom = NcbiblastnCommandline(subject=rv_temp_prom_fasta_dict[rv_id],
+                                blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[rv_id],
                                                                          outfmt='"7 qseqid sseqid pident length '
                                                                                 'mismatch gapopen qstart qend sstart '
                                                                                 'send evalue bitscore gaps"')
@@ -1484,6 +1442,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     # RUNNING PRODIGAL
     prodigal_list = {ref_contig:[] for ref_contig in ref_loci.keys()}
     incorrect_coords_dict = {}
+    ref_feature_list = []
     prodigal_results_fp = os.path.join('prodigal-test', 'reference_prodigal')
     if not os.path.exists(prodigal_results_fp):
         run_prodigal(reference_genome, prodigal_results_fp)
@@ -1506,9 +1465,20 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             else:
                 coords_elements = coords.split('..')
                 prodigal_list[ref_contig].append((int(coords_elements[0].replace('<', '')), int(coords_elements[1])))
-    for ref_contig in prodigal_list.keys():
+
+    global refseqs_prodigal_fails_dir
+    global ref_prom_fp_dict
+    ref_prom_fp_dict = {}
+    refseqs_prodigal_fails_dir = os.path.join(hybran_tmp_dir, 'prodigal-fails-refseqs')
+    os.mkdir(refseqs_prodigal_fails_dir)
+    for i, ref_contig in enumerate(prodigal_list.keys()):
+        ref_feature_list.append(get_feature_by_locustag(ref_features[i]))
+        # write *all* reference context sequences to temporary files
+        # (they're also used for prokka inclusion criteria)
+        ref_prom_fp_dict.update(get_prom_for_gene(ref_features[i], ref_contigs[i]))
         for gene_coord in prodigal_list[ref_contig]:
             for gene in ref_loci[ref_contig].keys():
+                locus_tag = ref_loci[ref_contig][gene]
                 if gene[0] > gene_coord[1]:
                     break
                 elif gene[1] == gene_coord[1] and gene[0] != gene_coord[0]:
@@ -1516,6 +1486,16 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     start_change = gene[0] - gene_coord[0] - 1
                     incorrect_coords_dict[ref_loci[ref_contig][gene]] = {'length': prodigal_length,
                                                                          'start_change': start_change}
+                    # write affected reference genes to temporary files
+                    ref_gene_seq = SeqRecord(
+                        ref_feature_list[i][locus_tag].extract(ref_contigs[i]),
+                        id=locus_tag
+                    )
+                    SeqIO.write(
+                        ref_gene_seq,
+                        os.path.join(refseqs_prodigal_fails_dir, locus_tag + '.fasta'),
+                        format="fasta"
+                    )
                     break
     logger.debug('Number of genes with incorrect start predictions by Prodigal: ' +
                  str(len(list(incorrect_coords_dict.keys()))))
@@ -1543,16 +1523,13 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
         seqname = '.'.join([isolate_id, contig])
         global ref_sequence
         ref_sequence = ref_contigs[i]
-        ref_feature_dict = get_feature_by_locustag(ref_features[i])
         ratt_contig_record = SeqIO.read(ratt_gbk_files[contig], 'genbank')
         global record_sequence
         record_sequence = ratt_contig_record.seq
         prokka_contig_record_pre = prokka_records[i]
-        global ref_prom_fp_dict
-        ref_prom_fp_dict = get_prom_for_gene(ref_features[i], ref_sequence)
 
         prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, incorrect_coords_dict,
-                                                           record_sequence, ref_sequence, ref_feature_dict,
+                                                           record_sequence, ref_feature_list[i],
                                                            reference_locus_list, reference_gene_locus_dict,
                                                            os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv'))
         ratt_contig_features = ratt_contig_record.features
