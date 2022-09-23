@@ -1737,28 +1737,34 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                    and len(abinit_conflicts[feature_position]) == 1
                 ):
                     ratt_conflict_loc = abinit_conflicts[feature_position][0]
-                    ref_gene, pseudo = BLAST.reference_match(
-                        query=SeqRecord(Seq(abinit_feature.qualifiers['translation'][0])),
-                        subject=SeqRecord(Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
-                                          id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0]),
-                        seq_ident=seq_ident,
-                        seq_covg=seq_covg,
-                    )[0:2]
-                    if ref_gene:
-                        liftover_annotation(
-                            abinit_feature,
-                            ref_annotation[ref_gene],
-                            pseudo,
-                            inference=':'.join([
-                                "similar to AA sequence",
-                                os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
-                                ref_annotation[ref_gene].qualifiers['locus_tag'][0],
-                                ref_gene,
-                                "RATT+blastp",
-                            ])
-                        )
-                        abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
-                            abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
+                    # the conflicting RATT annotation may have already been rejected during resolution of a conflict
+                    # with the previous ab initio feature.
+                    if ratt_conflict_loc not in ratt_contig_features_dict.keys():
+                        abinit_conflicts[feature_position].remove(ratt_conflict_loc)
+                        include_abinit = True
+                    else:
+                        ref_gene, pseudo = BLAST.reference_match(
+                            query=SeqRecord(Seq(abinit_feature.qualifiers['translation'][0])),
+                            subject=SeqRecord(Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
+                                              id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0]),
+                            seq_ident=seq_ident,
+                            seq_covg=seq_covg,
+                        )[0:2]
+                        if ref_gene:
+                            liftover_annotation(
+                                abinit_feature,
+                                ref_annotation[ref_gene],
+                                pseudo,
+                                inference=':'.join([
+                                    "similar to AA sequence",
+                                    os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
+                                    ref_annotation[ref_gene].qualifiers['locus_tag'][0],
+                                    ref_gene,
+                                    "RATT+blastp",
+                                ])
+                            )
+                            abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
+                                abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
                 # Conflict Resolution
                 for ratt_conflict_loc in abinit_conflicts[feature_position]:
                     # if the RATT annotation got rejected at some point, its remaining conflicts are moot
