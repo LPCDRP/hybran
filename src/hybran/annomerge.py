@@ -150,8 +150,12 @@ def upstream_context(feature_location, source_seq, n=40, circular=True):
             prom_seq = str(source_seq[prom_start:prom_end])
     else:
         prom_start = feature_stop
-        prom_end = feature_stop + n
-        prom_seq = str(source_seq[prom_start:prom_end])
+        if len(source_seq) - feature_stop < n:
+            prev_prom_len = len(source_seq) - prom_start
+            prom_seq = str(source_seq[prom_start:]) + str(source_seq[0:n-prev_prom_len])
+        else:
+            prom_end = feature_stop + n
+            prom_seq = str(source_seq[prom_start:prom_end])
 
     return prom_seq
 
