@@ -70,7 +70,7 @@ def get_taxonomy_id(genbank):
              if the query failed.
     """
     logger = logging.getLogger('GetReferenceTaxonomyID')
-    gb = SeqIO.read(genbank, format="genbank")
+    gb = list(SeqIO.parse(genbank, format="genbank"))[0]
     Entrez.email = 'A.N.Other@example.com'
     tax_id = None
 
