@@ -5,6 +5,7 @@
 ### Bugs fixed
 * Partially fixed handling of compound intervals in reference annotations (#46)
 * Fixed issue with retrieving upstream context for minus strand genes near contig ends
+* Resolved issues involving reference annotations with multiple contigs/chromosomes (#48)
 
 ### Enhancements
 * Output GFF files no longer include the genome sequence.
