@@ -1427,10 +1427,14 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     ref_annotation = {}
     # nested dictionary of contig to genomic coordinates to locus tags (needed for prodigal correction)
     ref_loci = collections.OrderedDict()
+    # upstream sequence contexts for reference genes. used in multiple places
+    global ref_prom_fp_dict
+    ref_prom_fp_dict = {}
     for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
         ref_loci[ref_record.id] = collections.OrderedDict()
         ref_contigs.append(ref_record.seq)
         ref_features.append(ref_record.features)
+        ref_prom_fp_dict.update(get_prom_for_gene(ref_record.features, ref_record.seq))
         for feature in ref_record.features:
             if feature.type != "CDS":
                 continue
@@ -1467,15 +1471,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 prodigal_list[ref_contig].append((int(coords_elements[0].replace('<', '')), int(coords_elements[1])))
 
     global refseqs_prodigal_fails_dir
-    global ref_prom_fp_dict
-    ref_prom_fp_dict = {}
     refseqs_prodigal_fails_dir = os.path.join(hybran_tmp_dir, 'prodigal-fails-refseqs')
     os.mkdir(refseqs_prodigal_fails_dir)
     for i, ref_contig in enumerate(prodigal_list.keys()):
         ref_feature_list.append(get_feature_by_locustag(ref_features[i]))
-        # write *all* reference context sequences to temporary files
-        # (they're also used for prokka inclusion criteria)
-        ref_prom_fp_dict.update(get_prom_for_gene(ref_features[i], ref_contigs[i]))
         for gene_coord in prodigal_list[ref_contig]:
             for gene in ref_loci[ref_contig].keys():
                 locus_tag = ref_loci[ref_contig][gene]
