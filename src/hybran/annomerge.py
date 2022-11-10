@@ -125,6 +125,40 @@ def load_reference_info(proteome_fasta):
            ref_temp_fasta_dict, ref_protein_lengths
 
 
+def upstream_context(feature_location, source_seq, n=40, circular=True):
+    """
+    Get the n bases upstream of a genomic feature.
+    :param feature_location: FeatureLocation
+    :source_seq: Seq or str sequence to which the FeatureLocation maps
+    :param n: int number of bases of upstream context to retrieve
+    :param circular: boolean whether the end of the sequence precedes position 0
+                     (linear support not currently implemented)
+    :return: str upstream sequence length n
+    """
+    feature_start = int(feature_location.start)
+    feature_stop = int(feature_location.end)
+    feature_strand = int(feature_location.strand)
+    if feature_strand == 1:
+        if feature_start < n:
+            prom_end = feature_start
+            prev_prom_len = n - prom_end
+            prom_start = len(source_seq) - prev_prom_len
+            prom_seq = str(source_seq[prom_start:len(source_seq)]) + str(source_seq[0:prom_end])
+        else:
+            prom_end = feature_start
+            prom_start = feature_start - n
+            prom_seq = str(source_seq[prom_start:prom_end])
+    else:
+        prom_start = feature_stop
+        if len(source_seq) - feature_stop < n:
+            prev_prom_len = len(source_seq) - prom_start
+            prom_seq = str(source_seq[prom_start:]) + str(source_seq[0:n-prev_prom_len])
+        else:
+            prom_end = feature_stop + n
+            prom_seq = str(source_seq[prom_start:prom_end])
+
+    return prom_seq
+
 def get_prom_for_gene(feature_list, source_seq):
     """
     This function gets the promoter sequence (40 bp upstream of gene) for a set of features, stores the
@@ -140,28 +174,8 @@ def get_prom_for_gene(feature_list, source_seq):
     for f in feature_list:
         if f.type != 'CDS':
             continue
-        feature_start = int(f.location.start)
-        feature_stop = int(f.location.end)
-        feature_strand = int(f.location.strand)
         locus = f.qualifiers['locus_tag'][0]
-        if feature_strand == 1:
-            if feature_start == 0:
-                prom_end = len(source_seq)
-                prom_start = len(source_seq) - 40
-                prom_seq = str(source_seq[prom_start:prom_end])
-            elif feature_start < 40:
-                prom_end = feature_start
-                prev_prom_len = 40 - prom_end
-                prom_start = len(source_seq) - prev_prom_len
-                prom_seq = str(source_seq[prom_start:len(source_seq)]) + str(source_seq[0:prom_end])
-            else:
-                prom_end = feature_start
-                prom_start = feature_start - 40
-                prom_seq = str(source_seq[prom_start:prom_end])
-        else:
-            prom_start = feature_stop
-            prom_end = feature_stop + 40
-            prom_seq = str(source_seq[prom_start:prom_end])
+        prom_seq = upstream_context(f.location, source_seq)
         fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
                                               dir=hybran_tmp_dir,
                                               delete=False,
@@ -955,25 +969,7 @@ def check_inclusion_criteria(
             ratt_stop = int(ratt_annotation.location.end)
             ratt_strand = int(ratt_annotation.location.strand)
             prom_mutation = False
-            if ratt_strand == 1:
-                if ratt_start == 0:
-                    ratt_prom_end = len(record_sequence)
-                    ratt_prom_start = len(record_sequence) - 40
-                    ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-                elif ratt_start < 40:
-                    ratt_prom_end = ratt_start
-                    prev_prom_len = 40 - ratt_prom_end
-                    ratt_prom_start = len(record_sequence) - prev_prom_len
-                    ratt_prom_seq = str(record_sequence[ratt_prom_start:len(record_sequence)]) + \
-                                    str(record_sequence[0:ratt_prom_end])
-                else:
-                    ratt_prom_end = ratt_start
-                    ratt_prom_start = ratt_start - 40
-                    ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
-            else:
-                ratt_prom_start = ratt_stop
-                ratt_prom_end = ratt_stop + 40
-                ratt_prom_seq = str(record_sequence[ratt_prom_start:ratt_prom_end])
+            ratt_prom_seq = upstream_context(ratt_annotation.location, record_sequence)
             blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[locus_tag],
                                                      outfmt='"7 qseqid sseqid pident length mismatch '
                                                             'gapopen qstart qend sstart send evalue '
