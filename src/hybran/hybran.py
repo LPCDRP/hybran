@@ -252,11 +252,9 @@ def main():
         exit()
     # Getting first reference information
     if not args.first_gbk:
-        first_reference_embl = embls[0]
-        first_reference_gbk = os.path.splitext(first_reference_embl)[0] + '.gbk'
+        first_reference_gbk = glob.glob(os.path.join(refdir, '*.gbk'))[0]
     else:
         first_reference_gbk = os.path.join(refdir, args.first_gbk)
-        first_reference_embl = os.path.splitext(args.first_gbk)[0] + '.embl'
     ref_cds     = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
     ref_genome  = os.path.join(hybran_tmp_dir, 'ref.fasta')
     genetic_code = extractor.get_genetic_code(first_reference_gbk)
