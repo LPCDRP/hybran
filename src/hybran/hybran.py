@@ -27,8 +27,14 @@ def cmds():
     :return: argparse.parse_args() object
     """
     parser = argparse.ArgumentParser(description='Hybran: hybrid reference-based and ab initio prokaryotic genomic annotation. '
-                                                 'Mixing different species within a single annotation run is NOT recommended.'
-                                                 '\n\nPlease cite: [manuscript submitted]',
+                                                 'Mixing different species within a single annotation run is NOT recommended.',
+                                     epilog=
+                                     """
+                                     Elghraoui, A.; Gunasekaran, D.; Ramirez-Busby, S. M.; Bishop, E.; Valafar, F.
+                                     Hybran: Hybrid Reference Transfer and Ab Initio Prokaryotic Genome Annotation.
+                                     bioRxiv November 10, 2022, p 2022.11.09.515824.
+                                     <https://doi.org/10.1101/2022.11.09.515824>
+                                     """,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
@@ -203,7 +209,6 @@ def main():
 
     # Setting up logging
     start_time = time.time()
-    print('\n\t\t\tPlease cite:\n\t\t\t[manuscript submitted]\n\n')
     if not args.quiet:
         if args.verbose:
             logging.basicConfig(level=logging.DEBUG,
