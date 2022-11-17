@@ -10,6 +10,53 @@ from hybran import config
 
 from .data_features import *
 
+
+@pytest.mark.parametrize('location', [
+    'internal',
+    'internal_minus',
+    'beginning',
+    'end_minus',
+# not implemented
+#    'beginning_linear',
+#    'end_minus_linear',
+])
+def test_upstream_context(location):
+    # sequence generated with `makenucseq`
+    seq = 'cgctaccgggtgcttgacta'
+    n = 7
+    locations = {
+        'internal': FeatureLocation(ExactPosition(15),ExactPosition(17), strand=1),
+        'internal_minus': FeatureLocation(ExactPosition(8),ExactPosition(10), strand=-1),
+        'beginning': FeatureLocation(ExactPosition(5),ExactPosition(7), strand=1),
+        'beginning_linear': FeatureLocation(ExactPosition(5),ExactPosition(7), strand=1),
+        'end_minus': FeatureLocation(ExactPosition(15),ExactPosition(17), strand=-1),
+        'end_minus_linear': FeatureLocation(ExactPosition(15),ExactPosition(17), strand=-1),
+    }
+    if location.endswith("_linear"):
+        circular = False
+    else:
+        circular = True
+
+    if circular:
+        expected = {
+            'internal': 'ggtgctt',
+            'internal_minus': 'tgcttga',
+            'beginning': 'tacgcta',
+            'end_minus': 'ctacgct',
+        }
+    else:
+        expected = {
+            'beginning_linear': 'cgcta',
+            'end_minus_linear': 'cta',
+        }
+
+    assert annomerge.upstream_context(
+        locations[location],
+        source_seq=seq,
+        n=n,
+        circular=circular
+    ) == expected[location]
+
 @pytest.mark.parametrize('pair', [
     'same_stop',
 ])

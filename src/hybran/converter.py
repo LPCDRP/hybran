@@ -1,6 +1,8 @@
 import os
 import subprocess
 
+from Bio import SeqIO
+
 
 def convert_gbk_to_gff(gbk_filename):
     """
@@ -39,16 +41,14 @@ def convert_embl_to_gbk(embl_filename):
 
 def convert_gbk_to_embl(genbank_filename):
     """
-    Runs a subprocess seqret call to convert the input
-    Genbank to a EMBL
+    Converts a Genbank to EMBL, one EMBL file per Genbank record
 
     :param genbank_filename: str filename of a EMBL file that needs to be converted to Genbank
-    :return: None
+    :return: list of embl file names
     """
-    seqret_cmd = ['seqret',
-                  genbank_filename,
-                  os.path.splitext(genbank_filename)[0] + '.embl',
-                  '-feature', '-osf', 'embl']
-    with open(os.devnull, 'w') as devnull:
-        subprocess.call(seqret_cmd, stderr=devnull)
-    return genbank_filename.rstrip('gbk') + 'embl'
+    embl_files = []
+    for record in SeqIO.parse(genbank_filename, "genbank"):
+        embl_file = '.'.join([genbank_filename.rstrip('gbk'), record.id, 'embl'])
+        SeqIO.write(record, embl_file, "embl")
+        embl_files.append(embl_file)
+    return embl_files

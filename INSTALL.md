@@ -10,22 +10,30 @@
 * [NCBI-BLAST](ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/)
 * [eggnog-mapper](https://github.com/eggnogdb/eggnog-mapper)
 
-All dependencies are available within the `environment.yml` within an anaconda environment
+All dependencies are available within the `environment.yml` within a [conda](https://docs.conda.io/en/latest/miniconda.html#installing) environment
 
 ## How to install
+
+The easiest way to install `hybran` is through the conda package manager:
+
+```
+conda install -c bioconda hybran
+```
+
+### Installation from Source / Development Installation
 
 * Download and extract the [latest release](https://gitlab.com/LPCDRP/hybran/-/releases/permalink/latest).
 
 * Install the dependencies using [miniconda](https://docs.conda.io/en/latest/miniconda.html#installing) (or manually)
 ```
 # From the hybran directory you downloaded, set up the conda environment with the dependencies
-conda env create -n hybran -f environment.yml
-conda activate hybran
+conda env create -n hybran-dev -f environment.yml
+conda activate hybran-dev
 ```
 
 * Install hybran
 ```
-python setup.py install
+pip install --editable .
 ```
 
 If you run into any trouble, please let us know over at our [issues page](https://gitlab.com/LPCDRP/hybran/-/issues).

@@ -53,10 +53,12 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                                 continue
                             gene = ''
                             column = line.rstrip('\n').split('\t')
-                            if len(column) >= 8 and 'CDS' in column[2]:
+                            if len(column) >= 8:
                                 info = column[8].split(';')
                                 gene_id = ''.join([i.split('=')[1] for i in info if i.startswith('ID=')])
                                 locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('locus_tag=')])
+                                if not gene_id or not locus_tag:
+                                    continue
                                 gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
                                 if not designator.is_reference(locus_tag) and not designator.is_raw_ltag(locus_tag):
                                     gene = locus_tag

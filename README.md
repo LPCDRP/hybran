@@ -129,4 +129,7 @@ Genes with differing start positions are looked for in each sample and their coo
 
 
 ## Citation
-[Manuscript submitted]
+
+Elghraoui, A.; Gunasekaran, D.; Ramirez-Busby, S. M.; Bishop, E.; Valafar, F.
+Hybran: Hybrid Reference Transfer and Ab Initio Prokaryotic Genome Annotation.
+bioRxiv November 10, 2022, p 2022.11.09.515824. doi:[10.1101/2022.11.09.515824](https://doi.org/10.1101/2022.11.09.515824).

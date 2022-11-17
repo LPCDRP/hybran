@@ -70,7 +70,7 @@ def get_taxonomy_id(genbank):
              if the query failed.
     """
     logger = logging.getLogger('GetReferenceTaxonomyID')
-    gb = SeqIO.read(genbank, format="genbank")
+    gb = list(SeqIO.parse(genbank, format="genbank"))[0]
     Entrez.email = 'A.N.Other@example.com'
     tax_id = None
 
@@ -136,13 +136,17 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     :return:
     """
     logger = logging.getLogger('FastaFromGbk')
+    contigs = []
     seqs = []
     # this is a bit circular, but I don't want to deal with the first CDS
     # possibly being a pseudogene.
     genetic_code = get_genetic_code(genbank)
     for record in SeqIO.parse(genbank, 'genbank'):
-        seq = SeqRecord(record.seq, id=os.path.splitext(os.path.basename(genbank))[0],
-                        description='')
+        contigs.append(SeqRecord(
+            record.seq,
+            id=record.id, # os.path.splitext(os.path.basename(genbank))[0],
+            description=''
+        ))
         if record.features:
             for feature in record.features:
                 if feature.type == 'CDS':
@@ -158,7 +162,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                             description=describe(feature))
                     seqs.append(seq_record)
     SeqIO.write(seqs, out_cds, 'fasta')
-    SeqIO.write(seq, out_genome, 'fasta')
+    SeqIO.write(contigs, out_genome, 'fasta')
     return
 
 def subset_fasta(inseq, outseq, match, identify = lambda _:_):

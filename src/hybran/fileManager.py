@@ -71,8 +71,9 @@ def prepare_references(references):
 
         # embl - RATT needs them in their own directory, but they're sometimes looked for in
         #        the top-level folder.
-        embl = converter.convert_gbk_to_embl(gbk)
-        os.symlink(embl, os.path.join(embl_dir, os.path.basename(embl)))
+        embl_recs = converter.convert_gbk_to_embl(gbk)
+        for embl in embl_recs:
+            os.symlink(embl, os.path.join(embl_dir, os.path.basename(embl)))
         # gff
         converter.convert_gbk_to_gff(gbk)
 

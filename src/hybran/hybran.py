@@ -27,8 +27,14 @@ def cmds():
     :return: argparse.parse_args() object
     """
     parser = argparse.ArgumentParser(description='Hybran: hybrid reference-based and ab initio prokaryotic genomic annotation. '
-                                                 'Mixing different species within a single annotation run is NOT recommended.'
-                                                 '\n\nPlease cite: [manuscript submitted]',
+                                                 'Mixing different species within a single annotation run is NOT recommended.',
+                                     epilog=
+                                     """
+                                     Elghraoui, A.; Gunasekaran, D.; Ramirez-Busby, S. M.; Bishop, E.; Valafar, F.
+                                     Hybran: Hybrid Reference Transfer and Ab Initio Prokaryotic Genome Annotation.
+                                     bioRxiv November 10, 2022, p 2022.11.09.515824.
+                                     <https://doi.org/10.1101/2022.11.09.515824>
+                                     """,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
@@ -203,7 +209,6 @@ def main():
 
     # Setting up logging
     start_time = time.time()
-    print('\n\t\t\tPlease cite:\n\t\t\t[manuscript submitted]\n\n')
     if not args.quiet:
         if args.verbose:
             logging.basicConfig(level=logging.DEBUG,
@@ -252,11 +257,9 @@ def main():
         exit()
     # Getting first reference information
     if not args.first_gbk:
-        first_reference_embl = embls[0]
-        first_reference_gbk = os.path.splitext(first_reference_embl)[0] + '.gbk'
+        first_reference_gbk = glob.glob(os.path.join(refdir, '*.gbk'))[0]
     else:
         first_reference_gbk = os.path.join(refdir, args.first_gbk)
-        first_reference_embl = os.path.splitext(args.first_gbk)[0] + '.embl'
     ref_cds     = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
     ref_genome  = os.path.join(hybran_tmp_dir, 'ref.fasta')
     genetic_code = extractor.get_genetic_code(first_reference_gbk)
@@ -313,7 +316,7 @@ def main():
                                   contigs=extractor.get_contig_names(genome),
                                   annotation_fp=os.getcwd() + '/',
                                   ref_proteins_fasta=ref_cds,
-                                  ref_embl_fp=first_reference_embl,
+                                  ref_gbk_fp=first_reference_gbk,
                                   reference_genome=ref_genome,
                                   script_directory=script_dir,
                                   seq_ident=args.identity_threshold,
