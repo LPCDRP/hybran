@@ -22,7 +22,8 @@ from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
-from Bio.SeqFeature import FeatureLocation, ExactPosition
+from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
+from Bio import Align
 import collections
 from numpy import median
 import os
@@ -608,63 +609,67 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     logger.debug('Parsing through RATT annotations')
     unbroken_cds = []
     non_cds_features = []
-    broken_cds = []
     ratt_blast_results = {}
     rejects = []
     valid_features = []
     # since we have addtional features after splitting the joins,
     # this holds the offset to get the number of actual features,
     # just for logging purposes.
-    n_extra_pseudo = 0
+
     for feature in feature_list:
         # Identify features with 'joins'
         if feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
+            if 'ribosomal_slippage' in feature.qualifiers:
+                continue
+            #Need to initialize the feature without the compound location attribute.
+            #The earliest start and the latest end of the joined feature will be bridged together
+            feature_start = feature.location.parts[0].start
+            feature_end = feature.location.parts[1].end
+            feature_strand = feature.strand
+            if feature_strand == -1:
+                feature.location = (FeatureLocation(feature_end, feature_start, strand=feature_strand))
+            else:
+                feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
             #Check if feature has an internal stop codon.
             #
-            # If it doesn't, we will accept it, but split it into two
-            # pseudo CDS entries with the same locus tag, to be grouped with
-            # a single 'gene' record later.
+            # If it doesn't, we will assign pseduo and accept it.
+
             # The gff conversion of a gbk entry with joins is not meaningful,
             # and causes some problems, as the entire sequence gets labeled
             # "biological region" and two basically empty CDS records are created.
-            disrupted = False
-            feature.qualifiers['pseudo']=['']
-            split_features = []
-            for i in range(len(feature.location.parts)):
-                split_features.append(deepcopy(feature))
-                # the 3' end of the first interval doesn't include the actual stop codon.
-                if i==0:
-                    if feature.location.strand == -1:
-                        # minus strand
-                        start_offset = 3*feature.location.strand
-                        end_offset = 0
-                    else:
-                        start_offset = 0
-                        end_offset = 3*feature.location.strand
+            ref_pos = ref_genes_positions[feature.qualifiers['locus_tag'][0]]
+            ref_seq = ref_sequence[ref_pos[0]:ref_pos[1]]
+            ref_length = abs(ref_pos[1] - ref_pos[0])
+
+            feature_seq = feature.extract(record_sequence)
+            num_stops = feature.extract(record_sequence).translate().count("*")
+
+            if num_stops > 1:
+                aligner = Align.PairwiseAligner()
+                aligner.mode = 'global'
+                alignment = aligner.align(ref_seq, feature_seq)[0]
+                target = alignment.aligned[0]
+                query = alignment.aligned[1]
+                start_align = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 3)
+                stop_align = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 3)
+
+                if stop_align
+                    feature_end = (feature_start + query[-1][1])
                 else:
-                    start_offset = 0
-                    end_offset = 0
-                split_features[-1].location = FeatureLocation(
-                    ExactPosition(feature.location.parts[i].start + start_offset),
-                    ExactPosition(feature.location.parts[i].end + end_offset),
-                    feature.location.parts[i].strand
-                )
-                t = translate(
-                    split_features[-1].extract(record_sequence),
-                    table=genetic_code,
-                )
-                split_features[-1].qualifiers['translation'] = [str(t)[:-1]]
-                num_stops = t.count('*')
-                locus_tag = feature.qualifiers['locus_tag'][0]
+                    rejects.append((feature, "RATT-introduced compound interval did not include reference stop position."))
+                    continue
+                    
+                if start_align
+                    feature_start = (feature_start + query[0][0])
+
+                feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
+                corrected_feature_seq = feature.extract(record_sequence)
+                num_stops = feature.extract(record_sequence).translate().count("*")
+                
                 if num_stops > 1:
-                    if locus_tag not in broken_cds:
-                        disrupted = True
-            if not disrupted:
-                valid_features += split_features
-                n_extra_pseudo += len(split_features) - 1
-            else:
-                broken_cds.append(locus_tag)
-                rejects.append((feature, "Multiple internal stop codons in compound CDS feature."))
+                    feature.qualifiers['pseudo']=['']
+                unbroken_cds.append(feature)
+
         elif feature.type == 'CDS' and feature.location is None:
             logger.warning('Invalid CDS: Location of CDS is missing')
             logger.warning(feature)
@@ -677,8 +682,10 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             unbroken_cds.append(feature)
         else:
             non_cds_features.append(feature)
-    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features) - n_extra_pseudo))
+
+    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features)))
     logger.debug(f"Checking similarity to reference CDSs using {nproc} process(es)")
+
 
     def refcheck(cds_feature, record_sequence=record_sequence):
         valid = False
@@ -686,6 +693,10 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
         blast_stats = {}
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
+        if 'pseudo' in cds.feature.qualifiers.keys():
+            blast_type = "n"
+        else:
+            blast_type = "p"
         if len(feature_sequence) == 0:
             remark = 'length of AA sequence is 0'
         else:
@@ -693,7 +704,8 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 query=SeqRecord(feature_sequence),
                 subject=ref_temp_fasta_dict[cds_locus_tag],
                 seq_ident=seq_ident,
-                seq_covg=seq_covg
+                seq_covg=seq_covg,
+                blast_type=blast_type
             )
 
             if ref_match:
@@ -701,6 +713,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             else:
                 remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
         return valid, feature_sequence, blast_stats, remark
+
 
     with multiprocessing.Pool(processes=nproc) as pool:
          results = pool.map(
@@ -716,7 +729,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             valid_features.append(cds_feature)
         else:
             rejects.append((cds_feature, rejection_note))
-    logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features) - n_extra_pseudo))
+    logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features)))
     return valid_features, ratt_blast_results, rejects
 
 def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
