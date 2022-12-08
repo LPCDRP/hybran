@@ -968,7 +968,7 @@ def check_inclusion_criteria(
             ratt_start = int(ratt_annotation.location.start)
             ratt_stop = int(ratt_annotation.location.end)
             ratt_strand = int(ratt_annotation.location.strand)
-            prom_mutation = False
+            prom_mutation = True
             ratt_prom_seq = upstream_context(ratt_annotation.location, record_sequence)
             blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[locus_tag],
                                                      outfmt='"7 qseqid sseqid pident length mismatch '
@@ -981,10 +981,9 @@ def check_inclusion_criteria(
                     continue
                 blast_results = line.strip().split('\t')
                 if float(blast_results[2]) == 100.0 and int(blast_results[3]) == 40:
+                    prom_mutation = False
                     reject_abinit = True
                     remark = "start position of RATT's " + locus_tag + " corresponds to the reference annotation's"
-                else:
-                    prom_mutation = True
             if prom_mutation is True:
                 ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag]['scov']) -
                                             int(ratt_blast_results[locus_tag]['qcov']))
