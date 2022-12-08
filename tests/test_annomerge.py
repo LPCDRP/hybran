@@ -455,18 +455,21 @@ def test_isolate_valid_ratt_annotations(filter):
 
 @pytest.mark.parametrize('pair', [
     'ratt_better',
+    'ratt_better_coverage',
     'different',
     'abinit_better',
 ])
 def test_check_inclusion_criteria(pair, tmp_path):
     source_genome = {
         'ratt_better':'1-0006',
+        'ratt_better_coverage':'1-0006',
         'different':'1-0006',
         'abinit_better':'4-0041',
         'corresponding_non_cds':'4-0041',
     }
     pairs = {
         'ratt_better': ('dnaA', 'dnaA'),
+        'ratt_better_coverage': ('Rv1453', 'Rv1453'), # The RATT annotation's upstream context has no hit to the reference's despite being 100% identitical...
         'different': ('dnaA', 'gyrB'),
         'corresponding_non_cds': ('rrf', 'rrf'),
         'similar': (),
@@ -479,6 +482,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         dnaA='Rv0001',
         Rv0205='Rv0205',
         rplB='Rv0704',
+        Rv1453='Rv1453',
         Rv1718='Rv1718',
         mamB='Rv2024c',
     )
@@ -486,6 +490,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         Rv0001='dnaA',
         Rv0205='Rv0205',
         Rv0704='rplB',
+        Rv1453='Rv1453',
         Rv1718='Rv1718',
         Rv2024c='mamB',
     )
@@ -502,6 +507,10 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'ratt_better': (
             False, True,
             "start position of RATT's Rv0001 corresponds to the reference annotation's",
+        ),
+        'ratt_better_coverage': (
+            False, True,
+            "RATT annotation for Rv1453 has better alignment coverage with the reference",
         ),
         'different': (True, True, ''),
         'abinit_better': (True, False, 'Ab initio feature L_02383 has better alignment coverage with the reference.'),

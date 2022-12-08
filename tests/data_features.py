@@ -13,6 +13,11 @@ ref_features = {
             type='rRNA',
             qualifiers={'locus_tag':['MTB000021'],'gene':['rrf']}
         ),
+        'Rv1453': SeqFeature(
+            FeatureLocation(1638380, 1639646, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv1453'],'gene':['Rv1453']}
+        ),
         'Rv1718': SeqFeature(
             FeatureLocation(1944808, 1945627, strand=1),
             type='CDS',
@@ -55,6 +60,18 @@ features = {
                 type='CDS',
                 qualifiers={'locus_tag':['Rv0305c'],'gene':['PPE6']}
             ),
+        },
+        'Rv1453': {
+            'ratt': SeqFeature(
+                FeatureLocation(1642703, 1643969, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv1453'],'gene':['Rv1453']}
+                ),
+            'abinit': SeqFeature(
+                FeatureLocation(1642670, 1643969, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_01557'],'gene':['Rv1453']}
+                ),
         },
         'Rv2879c': {
             'ratt': SeqFeature(
@@ -114,6 +131,7 @@ features = {
 abinit_blast_results = {
     '1-0006': {
         'L_00001': {'iden': 99.8, 'qcov': 100.0, 'scov': 97.8},
+        'L_01557': {'iden': 99.525, 'qcov': 97.454, 'scov': 100.0}, # Rv1453
     },
     '4-0041': {
         'L_02383': {'iden': 100.0, 'qcov': 100.0, 'scov': 100.0},
@@ -123,6 +141,7 @@ abinit_blast_results = {
 ratt_blast_results = {
     '1-0006': {
         'Rv0001': {'iden': 99.8, 'qcov': 100.0, 'scov': 100.0},
+        'Rv1453': {'iden': 99.525, 'qcov': 100.0, 'scov': 100.0},
     },
     '4-0041': {
         'Rv1718': {'iden': 100.0, 'qcov': 99.270, 'scov': 100.0},
