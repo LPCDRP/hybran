@@ -719,52 +719,50 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features) - n_extra_pseudo))
     return valid_features, ratt_blast_results, rejects
 
-def remove_duplicate_annotations(ratt_features, prokka_features_dictionary):
+def remove_duplicate_annotations(ratt_features, abinit_features_dictionary):
     """
-    This function prunes and selects the features that are relevant in Prokka and discards features in
-    Prokka that are annotated by RATT by taking into account the gene name and the position of the features
+    This function prunes and selects the features that are relevant in Prokka and discards ab initio features in
+    that are annotated by RATT by taking into account the gene name and the position of the features
     :param ratt_features: List of features from RATT (list of SeqFeature objects)
-    :param prokka_features_dictionary: sorted dictionary of features from Prokka ordered by the genomic position i.e.
+    :param abinit_features_dictionary: sorted dictionary of ab initio features ordered by the genomic position (i.e.,
     feature location where key is a tuple (feature_start, feature_end, feature strand) and value is the corresponding
-    SeqFeature object
+    SeqFeature object)
     :returns:
-        - prokka_features_not_in_ratt (:py:class:`dict`) -
-            sorted dictionary of features from Prokka that are not annotated by RATT ordered by the genomic position
+        - abinit_features_not_in_ratt (:py:class:`dict`) -
+            sorted dictionary of ab initio features that are not annotated by RATT ordered by the genomic position
             i.e. feature location where key is a tuple (feature_start, feature_end, feature strand) and value is the
              corresponding SeqFeature object
         - ratt_overlapping_genes (:py:class:`dict`) -
             dictionary with ab initio feature location triples as keys and a list of RATT feature location triples
             as values. Conflicts here are annotations that overlap in-frame.
-        - prokka_rejects (:py:class:`list`) -
+        - abinit_rejects (:py:class:`list`) -
             list of tuples of the form (abinit_feature, remark) where abinit_feature is a SeqFeature of a rejected
             ab initio annotation and remark is the rationale as a string.
     """
 
-    prokka_features_not_in_ratt = prokka_features_dictionary.copy()
+    abinit_features_not_in_ratt = abinit_features_dictionary.copy()
     ratt_overlapping_genes = collections.defaultdict(list)
-    prokka_rejects = []
+    abinit_rejects = []
     for ratt_feature in ratt_features:
         if ratt_feature.type != 'CDS':
             continue
         ratt_start = int(ratt_feature.location.start)
         ratt_end = int(ratt_feature.location.end)
         ratt_strand = ratt_feature.location.strand
-        prokka_duplicate_removed = False
-        for prokka_feature_position in prokka_features_dictionary.keys():
-            prokka_feature = prokka_features_dictionary[prokka_feature_position]
-            prokka_start = prokka_feature_position[0]
-            prokka_end = prokka_feature_position[1]
-            prokka_strand = prokka_feature_position[2]
-            if prokka_start > ratt_start and prokka_end > ratt_start:
+        abinit_duplicate_removed = False
+        for abinit_feature_position in abinit_features_dictionary.keys():
+            abinit_feature = abinit_features_dictionary[abinit_feature_position]
+            (abinit_start, abinit_end, abinit_strand) = abinit_feature_position
+            if abinit_start > ratt_start and abinit_end > ratt_start:
                 break
-            elif (overlap_inframe(ratt_feature.location, prokka_feature.location)):
-                if len(ratt_feature.location) == len(prokka_feature.location):
-                    prokka_rejects.append((prokka_features_not_in_ratt.pop((prokka_start, prokka_end, prokka_strand), None),
+            elif (overlap_inframe(ratt_feature.location, abinit_feature.location)):
+                if len(ratt_feature.location) == len(abinit_feature.location):
+                    abinit_rejects.append((abinit_features_not_in_ratt.pop((abinit_start, abinit_end, abinit_strand), None),
                                            'duplicate of ' + ratt_feature.qualifiers['locus_tag'][0]))
-                    prokka_duplicate_removed = True
+                    abinit_duplicate_removed = True
                 else:
-                    ratt_overlapping_genes[prokka_feature_position] += (ratt_start, ratt_end, ratt_strand)
-    return prokka_features_not_in_ratt, ratt_overlapping_genes, prokka_rejects
+                    ratt_overlapping_genes[abinit_feature_position].append((ratt_start, ratt_end, ratt_strand))
+    return abinit_features_not_in_ratt, ratt_overlapping_genes, abinit_rejects
 
 
 def get_interregions(embl_record, intergene_length=1):
