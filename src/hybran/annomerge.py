@@ -743,17 +743,17 @@ def remove_duplicate_annotations(ratt_features, abinit_features_dictionary):
     abinit_features_not_in_ratt = abinit_features_dictionary.copy()
     ratt_overlapping_genes = collections.defaultdict(list)
     abinit_rejects = []
-    for ratt_feature in ratt_features:
-        if ratt_feature.type != 'CDS':
-            continue
-        ratt_start = int(ratt_feature.location.start)
-        ratt_end = int(ratt_feature.location.end)
-        ratt_strand = ratt_feature.location.strand
+    for abinit_feature_position in abinit_features_dictionary.keys():
+        abinit_feature = abinit_features_dictionary[abinit_feature_position]
+        (abinit_start, abinit_end, abinit_strand) = abinit_feature_position
         abinit_duplicate_removed = False
-        for abinit_feature_position in abinit_features_dictionary.keys():
-            abinit_feature = abinit_features_dictionary[abinit_feature_position]
-            (abinit_start, abinit_end, abinit_strand) = abinit_feature_position
-            if abinit_start > ratt_start and abinit_end > ratt_start:
+        for ratt_feature in ratt_features:
+            if ratt_feature.type != 'CDS':
+                continue
+            ratt_start = int(ratt_feature.location.start)
+            ratt_end = int(ratt_feature.location.end)
+            ratt_strand = ratt_feature.location.strand
+            if ratt_start > abinit_start and ratt_end > abinit_start:
                 break
             elif (overlap_inframe(ratt_feature.location, abinit_feature.location)):
                 if len(ratt_feature.location) == len(abinit_feature.location):
@@ -762,6 +762,8 @@ def remove_duplicate_annotations(ratt_features, abinit_features_dictionary):
                     abinit_duplicate_removed = True
                 else:
                     ratt_overlapping_genes[abinit_feature_position].append((ratt_start, ratt_end, ratt_strand))
+        if abinit_duplicate_removed:
+            ratt_overlapping_genes.pop(abinit_feature_position, None)
     return abinit_features_not_in_ratt, ratt_overlapping_genes, abinit_rejects
 
 
