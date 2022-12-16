@@ -453,6 +453,80 @@ def test_isolate_valid_ratt_annotations(filter):
                                              'pseudo' in feature_list[3].qualifiers.keys() and feature_list[3].qualifiers['pseudo'] == [''] # Rv2434c
 
 
+@pytest.mark.parametrize(
+    "case",
+    [
+        'double_overlap',
+        'overlapping_fused_ref',
+    ]
+)
+def test_remove_duplicate_annotations(case):
+    # double-overlap
+    # issues seen when annotating AZ20 using re-annotated NISSLE as reference
+    nissleorf0212 = SeqFeature(
+        FeatureLocation(2602635, 2603246, strand=-1),
+        type='CDS',
+        qualifiers={'locus_tag':['ECOLIN_26724'],'gene':['NISSLEORF0212']}
+    )
+    nissleorf0346 = SeqFeature(
+        FeatureLocation(2603304, 2603475, strand=-1),
+        type='CDS',
+        qualifiers={'locus_tag':['ECOLIN_26723'],'gene':['NISSLEORF0346']}
+    )
+    abinit_nissleorf0212 = SeqFeature(
+        FeatureLocation(2602635, 2603475, strand=-1),
+        type='CDS',
+        qualifiers={'locus_tag':['L_02518'],'gene':['NISSLEORF0212']}
+    )
+
+    # 1-0006. abinit overlapping fused reference
+    abinit_ppe6 = SeqFeature(
+        FeatureLocation(366753, 376299, strand=-1),
+        type='CDS',
+        qualifiers={'locus_tag':['L_00329']}
+    )
+    ppe5 = SeqFeature(
+        FeatureLocation(366753, 373353, strand=-1),
+        type='CDS',
+        qualifiers={'locus_tag':['Rv0304c'], 'gene':['PPE5']}
+    )
+    ppe6 = SeqFeature(
+        FeatureLocation(366753, 376299, strand=-1),
+        type='CDS',
+        qualifiers={'locus_tag':['Rv0305c'], 'gene':['PPE6']}
+    )
+
+    def loc_triplet(feature):
+        return (feature.location.start, feature.location.end, feature.location.strand)
+    def dictate(features):
+        return {loc_triplet(_):_ for _ in features}
+
+    ratt_features = {
+        'double_overlap':[nissleorf0212, nissleorf0346],
+        'overlapping_fused_ref': [ppe5, ppe6],
+    }
+    abinit_features = {
+        'double_overlap':[abinit_nissleorf0212],
+        'overlapping_fused_ref': [abinit_ppe6],
+    }
+    expected_keep = {
+        'double_overlap': [abinit_nissleorf0212],
+        'overlapping_fused_ref': []
+    }
+    expected_rejects = {
+        'double_overlap': [],
+        'overlapping_fused_ref': [(abinit_ppe6, 'duplicate of Rv0305c')]
+    }
+    expected_overlaps = {
+        'double_overlap': defaultdict(list, {loc_triplet(abinit_nissleorf0212): [loc_triplet(nissleorf0212)]}),
+        'overlapping_fused_ref': defaultdict(list, {})
+    }
+
+    abinit_features_dictionary = dictate(abinit_features[case])
+
+    assert annomerge.remove_duplicate_annotations(ratt_features[case], abinit_features_dictionary) == \
+        (dictate(expected_keep[case]), expected_overlaps[case], expected_rejects[case])
+
 @pytest.mark.parametrize('pair', [
     'ratt_better',
     'ratt_better_coverage',
