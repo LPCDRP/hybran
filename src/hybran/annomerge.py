@@ -1737,22 +1737,22 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
             for feature_position in abinit_conflicts.keys():
                 abinit_feature = prokka_features_not_in_ratt[feature_position]
-                # When the ab initio feature only overlaps with one reference-transferred gene
-                # but didn't itself get a reference gene name assigned via direct comparison,
-                # we check whether it has a match to the reference-transferred gene itself
-                # and assign the name if it does. If the name is established, the conflict resolution
-                # is better informed.
-                if(abinit_feature.type == 'CDS'
-                   and 'gene' not in abinit_feature.qualifiers.keys()
-                   and len(abinit_conflicts[feature_position]) == 1
-                ):
-                    ratt_conflict_loc = abinit_conflicts[feature_position][0]
-                    # the conflicting RATT annotation may have already been rejected during resolution of a conflict
-                    # with the previous ab initio feature.
+                # Conflict Resolution
+                for ratt_conflict_loc in abinit_conflicts[feature_position]:
+                    # if the RATT annotation got rejected at some point, its remaining conflicts are moot
                     if ratt_conflict_loc not in ratt_contig_features_dict.keys():
-                        abinit_conflicts[feature_position].remove(ratt_conflict_loc)
                         include_abinit = True
-                    else:
+                        continue
+                    ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
+                    # When the ab initio feature is in-frame with a RATT transferred gene
+                    # but didn't itself get a reference gene name assigned via direct comparison,
+                    # we check whether it has a match to the reference-transferred gene itself
+                    # and assign the name if it does. If the name is established, the conflict resolution
+                    # is better informed.
+                    if(abinit_feature.type == 'CDS'
+                       and 'gene' not in abinit_feature.qualifiers.keys()
+                       and overlap_inframe(ratt_feature.location, abinit_feature.location)
+                       ):
                         ref_gene, pseudo = BLAST.reference_match(
                             query=SeqRecord(Seq(abinit_feature.qualifiers['translation'][0])),
                             subject=SeqRecord(Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
@@ -1775,13 +1775,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                             )
                             abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
                                 abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
-                # Conflict Resolution
-                for ratt_conflict_loc in abinit_conflicts[feature_position]:
-                    # if the RATT annotation got rejected at some point, its remaining conflicts are moot
-                    if ratt_conflict_loc not in ratt_contig_features_dict.keys():
-                        include_abinit = True
-                        continue
-                    ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
                     include_abinit, include_ratt, remark = check_inclusion_criteria(
                         ratt_annotation=ratt_feature,
                         abinit_annotation=abinit_feature,
