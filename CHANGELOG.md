@@ -17,7 +17,8 @@
   - include both locus tag and gene name of affected genes
   - always make sure the word "merge" is included in the note for consistency
 * Removed largely duplicated (and slightly buggy) code for comparing RATT
-  and ab initio annotations
+  and ab initio annotations.
+  Refined comparison code elsewhere to recover the unique operations.
 
 ## [Version 1.5.2](https://gitlab.com/LPCDRP/hybran/-/tags/1.5.2)
 
