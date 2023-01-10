@@ -719,10 +719,10 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features) - n_extra_pseudo))
     return valid_features, ratt_blast_results, rejects
 
-def remove_duplicate_annotations(ratt_features, abinit_features_dictionary):
+def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
     """
-    This function prunes and selects the features that are relevant in Prokka and discards ab initio features in
-    that are annotated by RATT by taking into account the gene name and the position of the features
+    Identify the relevant ab initio features.
+    Mark for removal those identically annotated by RATT and mark for conflict resolution those with different coordinates, but overlapping in frame.
     :param ratt_features: List of features from RATT (list of SeqFeature objects)
     :param abinit_features_dictionary: sorted dictionary of ab initio features ordered by the genomic position (i.e.,
     feature location where key is a tuple (feature_start, feature_end, feature strand) and value is the corresponding
@@ -1711,7 +1711,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
             prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
             prokka_features_not_in_ratt, inframe_conflicts, prokka_duplicates = \
-                remove_duplicate_annotations(ratt_contig_features, prokka_features_dict)
+                find_inframe_overlaps(ratt_contig_features, prokka_features_dict)
             prokka_rejects += prokka_duplicates
             logger.debug(f"{seqname}: {len(prokka_duplicates)} ab initio ORFs identical to RATT's")
             logger.debug(f"{seqname}: {len(inframe_conflicts.keys())} ab initio ORFs conflicting in-frame with RATT's")

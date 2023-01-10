@@ -460,7 +460,7 @@ def test_isolate_valid_ratt_annotations(filter):
         'overlapping_fused_ref',
     ]
 )
-def test_remove_duplicate_annotations(case):
+def test_find_inframe_overlaps(case):
     # double-overlap
     # issues seen when annotating AZ20 using re-annotated NISSLE as reference
     nissleorf0212 = SeqFeature(
