@@ -1661,7 +1661,17 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 else:
                     non_cds_ratt.append(feat)
 
-            logger.debug(f'{seqname}: Checking ab initio CDS annotations for matches to reference using {nproc} process(es)')
+
+            prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
+            prokka_features_not_in_ratt, inframe_conflicts, prokka_duplicates = \
+                find_inframe_overlaps(ratt_contig_features, prokka_features_dict)
+            prokka_rejects += prokka_duplicates
+            logger.debug(f"{seqname}: {len(prokka_duplicates)} ab initio ORFs identical to RATT's")
+            logger.debug(f"{seqname}: {len(inframe_conflicts.keys())} ab initio ORFs conflicting in-frame with RATT's")
+            logger.debug(f'{seqname}: {len(prokka_features_not_in_ratt.keys())} total ab initio ORFs remain in consideration')
+
+
+            logger.debug(f'{seqname}: Checking remaining ab initio CDS annotations for matches to reference using {nproc} process(es)')
             #
             # can contain results for hits to multiple reference genes
             abinit_blast_results_complete = {}
@@ -1674,7 +1684,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 seq_covg=seq_covg,
                 identify=lambda _:_.split(':')[1],
             )
-            prokka_contig_cdss = [f for f in prokka_contig_features if f.type == 'CDS']
+            prokka_contig_cdss = [f for f in prokka_features_not_in_ratt.values() if f.type == 'CDS']
             with multiprocessing.Pool(processes=nproc) as pool:
                 blast_package = pool.map(
                     refmatch,
@@ -1709,13 +1719,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     feature.qualifiers.pop('gene', None)
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
 
-            prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
-            prokka_features_not_in_ratt, inframe_conflicts, prokka_duplicates = \
-                find_inframe_overlaps(ratt_contig_features, prokka_features_dict)
-            prokka_rejects += prokka_duplicates
-            logger.debug(f"{seqname}: {len(prokka_duplicates)} ab initio ORFs identical to RATT's")
-            logger.debug(f"{seqname}: {len(inframe_conflicts.keys())} ab initio ORFs conflicting in-frame with RATT's")
-            logger.debug(f'{seqname}: {len(prokka_features_not_in_ratt.keys())} total ab initio ORFs remain in consideration')
 
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
