@@ -90,7 +90,7 @@ def load_reference_info(proteome_fasta):
     reference_gene_list = []
     reference_locus_list = []
     reference_locus_gene_dict = {}
-    reference_gene_locus_dict = {}
+    reference_gene_locus_dict = collections.defaultdict(list)
     ref_temp_fasta_dict = {}
     ref_protein_lengths = {}
 
@@ -109,7 +109,7 @@ def load_reference_info(proteome_fasta):
             gene = gene_locus[1]
         reference_gene_list.append(gene)
         reference_locus_list.append(locus)
-        reference_gene_locus_dict[gene] = locus
+        reference_gene_locus_dict[gene].append(locus)
         reference_locus_gene_dict[locus] = gene
         fp = tempfile.NamedTemporaryFile(suffix='.fasta',
                                          dir=hybran_tmp_dir,
@@ -961,11 +961,12 @@ def check_inclusion_criteria(
          or abinit_annotation.qualifiers['gene'][0] in reference_gene_locus_dict.keys()
     ):
         try:
-            locus_tag = reference_gene_locus_dict[abinit_annotation.qualifiers['gene'][0]]
+            locus_tag_list = reference_gene_locus_dict[abinit_annotation.qualifiers['gene'][0]]
         except KeyError:
-            locus_tag = abinit_annotation.qualifiers['gene'][0]
+            locus_tag_list = abinit_annotation.qualifiers['gene']
+        locus_tag = ratt_annotation.qualifiers['locus_tag'][0]
         blast_stats = abinit_blast_results[abinit_annotation.qualifiers['locus_tag'][0]]
-        if(locus_tag == ratt_annotation.qualifiers['locus_tag'][0]
+        if(locus_tag in locus_tag_list
            and locus_tag in ratt_blast_results.keys()
         ):
             ratt_start = int(ratt_annotation.location.start)
@@ -1099,8 +1100,9 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_cd
                     gene_name = feature_prokka.qualifiers['gene'][0].split('_')[0]
                 else:
                     gene_name = feature_prokka.qualifiers['gene'][0]
-                if gene_name in reference_gene_locus_dict.keys():
-                    rv_id = reference_gene_locus_dict[gene_name]
+                if (gene_name in reference_gene_locus_dict.keys()
+                    and len(reference_gene_locus_dict[gene_name])==1):
+                    rv_id = reference_gene_locus_dict[gene_name][0]
                 else:
                     rv_id = ''
         else:

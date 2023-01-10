@@ -552,14 +552,15 @@ def test_check_inclusion_criteria(pair, tmp_path):
     ratt = features[source_genome[pair]][pairs[pair][0]]['ratt']
     abinit = features[source_genome[pair]][pairs[pair][1]]['abinit']
 
-    reference_gene_locus_dict = dict(
-        dnaA='Rv0001',
-        Rv0205='Rv0205',
-        rplB='Rv0704',
-        Rv1453='Rv1453',
-        Rv1718='Rv1718',
-        mamB='Rv2024c',
-    )
+    reference_gene_locus_dict = defaultdict(list, dict(
+        dnaA=['Rv0001'],
+        Rv0205=['Rv0205'],
+        rplB=['Rv0704'],
+        Rv1453=['Rv1453'],
+        Rv1718=['Rv1718'],
+        mamB=['Rv2024c'],
+        pks1=['Rv2946c'],
+    ))
     reference_locus_gene_dict = dict(
         Rv0001='dnaA',
         Rv0205='Rv0205',
