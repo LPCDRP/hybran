@@ -7,6 +7,7 @@
 * Fixed issue with retrieving upstream context for minus strand genes near contig ends
 * Resolved issues involving reference annotations with multiple contigs/chromosomes (#48)
 * Fixed issue with some gene name assignments being dropped later in the pipeline due to some obsolete code (#43).
+* More comprehensive tracking of RATT/ab initio overlaps and conflicts (#49).
 
 ### Enhancements
 * Output GFF files no longer include the genome sequence.
@@ -17,9 +18,6 @@
   - removed redundant note text indicating the annotation source
   - include both locus tag and gene name of affected genes
   - always make sure the word "merge" is included in the note for consistency
-* Removed largely duplicated (and slightly buggy) code for comparing RATT
-  and ab initio annotations.
-  Refined comparison code elsewhere to recover the unique operations.
 
 ## [Version 1.5.2](https://gitlab.com/LPCDRP/hybran/-/tags/1.5.2)
 

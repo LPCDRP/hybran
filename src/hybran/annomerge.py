@@ -1804,37 +1804,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 add_prokka_contig_record.features.append(ratt_feature_append)
             for non_cds in ratt_contig_non_cds:
                 add_prokka_contig_record.features.append(non_cds)
-            records_ref, positions_ref, pre_ref, post_ref = get_interregions(add_prokka_contig_record,
-                                                                             intergene_length=1)
-            add_features_from_prokka_ref = []
-            sorted_positions_ref = sorted(positions_ref)
-            prokka_ref_features_sorted = get_ordered_features(prokka_contig_features)
-            for fill_pos in sorted_positions_ref:
-                if fill_pos[2] == '+':
-                    fill_pos_strand = 1
-                else:
-                    fill_pos_strand = -1
-                for ref_feat in prokka_ref_features_sorted:
-                    ref_feat_start = int(ref_feat.location.start)
-                    ref_feat_end = int(ref_feat.location.end)
-                    ref_feat_strand = int(ref_feat.location.strand)
-                    if ref_feat_strand != fill_pos_strand:
-                        continue
-                    elif ref_feat.type != 'CDS':
-                        continue
-                    elif ref_feat_start > fill_pos[1] and ref_feat_end > fill_pos[1]:
-                        break
-                    elif ref_feat_start < fill_pos[0] and ref_feat_end < fill_pos[0]:
-                        continue
-                    elif ref_feat_start > fill_pos[0] and ref_feat_end < fill_pos[1]:
-                        if 'gene' in ref_feat.qualifiers.keys() and designator.is_raw_ltag(ref_feat.qualifiers['gene'][0]):
-                            ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
-                        elif 'gene' not in ref_feat.qualifiers.keys():
-                            ref_feat.qualifiers['gene'] = ref_feat.qualifiers['locus_tag']
-                        add_features_from_prokka_ref.append(ref_feat)
 
-            for prokka_ref_feat in add_features_from_prokka_ref:
-                add_prokka_contig_record.features.append(prokka_ref_feat)
             annomerge_records.append(add_prokka_contig_record)
 
         # Post-processing of genbank file to remove duplicates and rename locus_tag for
