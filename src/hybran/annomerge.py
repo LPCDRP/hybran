@@ -753,7 +753,7 @@ def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
             ratt_start = int(ratt_feature.location.start)
             ratt_end = int(ratt_feature.location.end)
             ratt_strand = ratt_feature.location.strand
-            if ratt_start > abinit_start and ratt_end > abinit_start:
+            if ratt_start > abinit_end and ratt_end > abinit_end:
                 break
             elif (overlap_inframe(ratt_feature.location, abinit_feature.location)):
                 if len(ratt_feature.location) == len(abinit_feature.location):
