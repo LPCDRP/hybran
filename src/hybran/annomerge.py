@@ -653,13 +653,13 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 start_align = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 3)
                 stop_align = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 3)
 
-                if stop_align
+                if stop_align:
                     feature_end = (feature_start + query[-1][1])
                 else:
                     rejects.append((feature, "RATT-introduced compound interval did not include reference stop position."))
                     continue
                     
-                if start_align
+                if start_align:
                     feature_start = (feature_start + query[0][0])
 
                 feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
@@ -668,7 +668,9 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 
                 if num_stops > 1:
                     feature.qualifiers['pseudo']=['']
-                unbroken_cds.append(feature)
+                    valid_features.append(feature)
+                else:
+                    unbroken_cds.append(feature)
 
         elif feature.type == 'CDS' and feature.location is None:
             logger.warning('Invalid CDS: Location of CDS is missing')
@@ -693,10 +695,6 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
         blast_stats = {}
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
         cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
-        if 'pseudo' in cds.feature.qualifiers.keys():
-            blast_type = "n"
-        else:
-            blast_type = "p"
         if len(feature_sequence) == 0:
             remark = 'length of AA sequence is 0'
         else:
@@ -705,7 +703,6 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 subject=ref_temp_fasta_dict[cds_locus_tag],
                 seq_ident=seq_ident,
                 seq_covg=seq_covg,
-                blast_type=blast_type
             )
 
             if ref_match:
@@ -966,6 +963,21 @@ def check_inclusion_criteria(
     reject_abinit = False
     remark = ''
     loc_key = (int(abinit_annotation.location.start), int(abinit_annotation.location.end), int(abinit_annotation.location.strand))
+    try:
+        #Always take the non-pseudo annotation if possible
+        if ('pseudo' in ratt_annotation.qualifiers.keys()) and ('pseudo' not in abinit_annotation.qualifiers.keys()):
+            include_abinit = True
+            include_ratt = False
+            remark = "Non-pseudo prokka annotation takes precedence."
+            return include_abinit, include_ratt, remark
+        elif ('pseudo' not in ratt_annotation.qualifiers.keys()) and ('pseudo' in abinit_annotation.qualifiers.keys()):
+            include_abinit = False
+            include_ratt = True
+            remark = "Non-pseudo ratt annotation takes precedence."
+            return include_abinit, include_ratt, remark
+    except:
+        continue
+
     if(abinit_annotation.type != 'CDS'
        or 'gene' not in abinit_annotation.qualifiers.keys()
     ):
@@ -980,8 +992,24 @@ def check_inclusion_criteria(
         locus_tag = ratt_annotation.qualifiers['locus_tag'][0]
         blast_stats = abinit_blast_results[abinit_annotation.qualifiers['locus_tag'][0]]
         if(locus_tag in locus_tag_list
-           and locus_tag in ratt_blast_results.keys()
         ):
+            if (locus_tag not in ratt_blast_results.keys()
+            ):
+                abinit_ref_match, abinit_pseudo, blast_stats = BLAST.reference_match(
+                    query=SeqRecord(abinit_annotation.extract(record_sequence)),
+                    subject=ref_temp_fasta_dict[locus_tag],
+                    seq_ident=seq_ident,
+                    seq_covg=seq_covg,
+                    blast_type="n"
+
+                ratt_ref_match, ratt_pseudo, ratt_blast_results = BLAST.reference_match(
+                    query=SeqRecord(ratt_annotation.extract(record_sequence)),
+                    subject=ref_temp_fasta_dict[locus_tag],
+                    seq_ident=seq_ident,
+                    seq_covg=seq_covg,
+                    blast_type="n"
+            else:
+                continue
             ratt_start = int(ratt_annotation.location.start)
             ratt_stop = int(ratt_annotation.location.end)
             ratt_strand = int(ratt_annotation.location.strand)

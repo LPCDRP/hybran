@@ -101,10 +101,10 @@ def summarize(blast_results, identify = lambda _:_):
         }
     return summary
 
-def blastn(query, subject, seq_ident, seq_covg)
+def blastn(query, subject, seq_ident, seq_covg):
         return blast(query, subject, seq_ident, seq_covg, blast_type = "n")
         
-def blastp(query, subject, seq_ident, seq_covg)
+def blastp(query, subject, seq_ident, seq_covg):
         return blast(query, subject, seq_ident, seq_covg, blast_type = "p")
 
 def blast(query, subject, seq_ident, seq_covg, blast_type = "p"):
