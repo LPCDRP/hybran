@@ -957,27 +957,11 @@ def check_inclusion_criteria(
         - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
         - remark (:py:class:`str`) - explanation for why the rejected annotation, if any, was not included
     """
-
     logger = logging.getLogger('CheckInclusionCriteria')
     include_ratt = True
     reject_abinit = False
     remark = ''
     loc_key = (int(abinit_annotation.location.start), int(abinit_annotation.location.end), int(abinit_annotation.location.strand))
-    try:
-        #Always take the non-pseudo annotation if possible
-        if ('pseudo' in ratt_annotation.qualifiers.keys()) and ('pseudo' not in abinit_annotation.qualifiers.keys()):
-            include_abinit = True
-            include_ratt = False
-            remark = "Non-pseudo prokka annotation takes precedence."
-            return include_abinit, include_ratt, remark
-        elif ('pseudo' not in ratt_annotation.qualifiers.keys()) and ('pseudo' in abinit_annotation.qualifiers.keys()):
-            include_abinit = False
-            include_ratt = True
-            remark = "Non-pseudo ratt annotation takes precedence."
-            return include_abinit, include_ratt, remark
-    except:
-        continue
-
     if(abinit_annotation.type != 'CDS'
        or 'gene' not in abinit_annotation.qualifiers.keys()
     ):
@@ -993,23 +977,34 @@ def check_inclusion_criteria(
         blast_stats = abinit_blast_results[abinit_annotation.qualifiers['locus_tag'][0]]
         if(locus_tag in locus_tag_list
         ):
+            #Always take the non-pseudo annotation if possible
+            if ('pseudo' in ratt_annotation.qualifiers.keys()) and ('pseudo' not in abinit_annotation.qualifiers.keys()):
+                include_abinit = True
+                include_ratt = False
+                remark = "Non-pseudo ab initio annotation takes precedence."
+                return include_abinit, include_ratt, remark
+            elif ('pseudo' not in ratt_annotation.qualifiers.keys()) and ('pseudo' in abinit_annotation.qualifiers.keys()):
+                include_abinit = False
+                include_ratt = True
+                remark = "Non-pseudo ratt annotation takes precedence."
+                return include_abinit, include_ratt, remark
+
             if (locus_tag not in ratt_blast_results.keys()
             ):
                 abinit_ref_match, abinit_pseudo, blast_stats = BLAST.reference_match(
                     query=SeqRecord(abinit_annotation.extract(record_sequence)),
                     subject=ref_temp_fasta_dict[locus_tag],
-                    seq_ident=seq_ident,
-                    seq_covg=seq_covg,
+                    seq_ident=0,
+                    seq_covg=0,
                     blast_type="n"
-
+                )
                 ratt_ref_match, ratt_pseudo, ratt_blast_results = BLAST.reference_match(
                     query=SeqRecord(ratt_annotation.extract(record_sequence)),
                     subject=ref_temp_fasta_dict[locus_tag],
-                    seq_ident=seq_ident,
-                    seq_covg=seq_covg,
+                    seq_ident=0,
+                    seq_covg=0,
                     blast_type="n"
-            else:
-                continue
+                )
             ratt_start = int(ratt_annotation.location.start)
             ratt_stop = int(ratt_annotation.location.end)
             ratt_strand = int(ratt_annotation.location.strand)
