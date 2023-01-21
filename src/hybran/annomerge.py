@@ -160,7 +160,7 @@ def upstream_context(feature_location, source_seq, n=40, circular=True):
 
     return prom_seq
 
-def get_prom_for_gene(feature_list, source_seq):
+def get_nuc_seq_for_gene(feature_list, source_seq):
     """
     This function gets the promoter sequence (40 bp upstream of gene) for a set of features, stores the
     sequences in a temporary nucleotide FASTA and generates a dictionary key to reference these FASTA by headers for
@@ -172,11 +172,13 @@ def get_prom_for_gene(feature_list, source_seq):
     """
     hybran_tmp_dir = config.hybran_tmp_dir
     ref_prom_dict = {}
+    ref_fna_dict = {}
     for f in feature_list:
         if f.type != 'CDS':
             continue
         locus = f.qualifiers['locus_tag'][0]
         prom_seq = upstream_context(f.location, source_seq)
+        ref_fna_dict[locus] = SeqRecord(f.extract(source_seq))
         fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
                                               dir=hybran_tmp_dir,
                                               delete=False,
@@ -187,7 +189,7 @@ def get_prom_for_gene(feature_list, source_seq):
         fp_prom.write(header_prom)
         fp_prom.write(seq_prom)
         fp_prom.close()
-    return ref_prom_dict
+    return ref_prom_dict, ref_fna_dict
 
 
 def get_ordered_features(feature_list):
@@ -612,9 +614,9 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     ratt_blast_results = {}
     rejects = []
     valid_features = []
-    # since we have addtional features after splitting the joins,
-    # this holds the offset to get the number of actual features,
-    # just for logging purposes.
+    # initialize aligner for checking compound intervals
+    aligner = Align.PairwiseAligner()
+    aligner.mode = 'global'
 
     for feature in feature_list:
         # Identify features with 'joins'
@@ -645,8 +647,6 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             num_stops = feature.extract(record_sequence).translate().count("*")
 
             if num_stops > 1:
-                aligner = Align.PairwiseAligner()
-                aligner.mode = 'global'
                 alignment = aligner.align(ref_seq, feature_seq)[0]
                 target = alignment.aligned[0]
                 query = alignment.aligned[1]
@@ -993,14 +993,15 @@ def check_inclusion_criteria(
             ):
                 abinit_ref_match, abinit_pseudo, blast_stats = BLAST.reference_match(
                     query=SeqRecord(abinit_annotation.extract(record_sequence)),
-                    subject=ref_temp_fasta_dict[locus_tag],
+                    subject=ref_fna_dict[locus_tag],
                     seq_ident=0,
                     seq_covg=0,
                     blast_type="n"
                 )
+                blast_stats = blast_stats[locus_tag]
                 ratt_ref_match, ratt_pseudo, ratt_blast_results = BLAST.reference_match(
                     query=SeqRecord(ratt_annotation.extract(record_sequence)),
-                    subject=ref_temp_fasta_dict[locus_tag],
+                    subject=ref_fna_dict[locus_tag],
                     seq_ident=0,
                     seq_covg=0,
                     blast_type="n"
@@ -1469,12 +1470,16 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     ref_loci = collections.OrderedDict()
     # upstream sequence contexts for reference genes. used in multiple places
     global ref_prom_fp_dict
+    global ref_fna_dict
     ref_prom_fp_dict = {}
+    ref_fna_dict = {}
     for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
         ref_loci[ref_record.id] = collections.OrderedDict()
         ref_contigs.append(ref_record.seq)
         ref_features.append(ref_record.features)
-        ref_prom_fp_dict.update(get_prom_for_gene(ref_record.features, ref_record.seq))
+        prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
+        ref_prom_fp_dict.update(prom)
+        ref_fna_dict.update(fna)
         for feature in ref_record.features:
             if feature.type != "CDS":
                 continue
@@ -1794,10 +1799,24 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                        and 'gene' not in abinit_feature.qualifiers.keys()
                        and overlap_inframe(ratt_feature.location, abinit_feature.location)
                        ):
+                        if 'translation' not in ratt_contig_features_dict[ratt_conflict_loc].qualifiers.keys():
+                            blast_type = "n"
+                            query = SeqRecord(Seq(abinit_feature.extract(record_sequence)))
+                            subject = SeqRecord(
+                                Seq(ratt_contig_features_dict[ratt_conflict_loc].extract(record_sequence)),
+                                id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0],
+                            )
+                        else:
+                            blast_type = "p"
+                            query=SeqRecord(Seq(abinit_feature.qualifiers['translation'][0]))
+                            subject=SeqRecord(
+                                Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
+                                id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0],
+                            )
                         ref_gene, pseudo = BLAST.reference_match(
-                            query=SeqRecord(Seq(abinit_feature.qualifiers['translation'][0])),
-                            subject=SeqRecord(Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
-                                              id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0]),
+                            query=query,
+                            subject=subject,
+                            blast_type=blast_type,                
                             seq_ident=seq_ident,
                             seq_covg=seq_covg,
                         )[0:2]
