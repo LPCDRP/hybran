@@ -8,6 +8,7 @@
 * Resolved issues involving reference annotations with multiple contigs/chromosomes (#48)
 * Fixed issue with some gene name assignments being dropped later in the pipeline due to some obsolete code (#43).
 * More comprehensive tracking of RATT/ab initio overlaps and conflicts (#49).
+* Checking in-frame overlaps with pseudo ORFs containing internal stop codons
 
 ### Enhancements
 * Output GFF files no longer include the genome sequence.

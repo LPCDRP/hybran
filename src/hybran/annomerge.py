@@ -43,20 +43,22 @@ from . import __version__
 
 def overlap_inframe(loc1, loc2):
     """
-    Say whether two FeatureLocations are overlapping and have the same stop position.
+    Say whether two FeatureLocations are overlapping and share the same reading frame.
     This is for the purpose of CDSs to determine whether they should be corresponding to the
     same genomic feature or whether one gene has lost its stop codon and merged into its neighbor.
 
     :param loc1: FeatureLocation
     :param loc2: FeatureLocation
-    :return: True if both features have the same stop position
+    :return: True if both features overlap in-frame
     """
-    if loc1.strand == loc2.strand:
-        if ((loc1.strand == 1
-             and loc1.end == loc2.end)
-            or
-            (loc1.strand == -1
-             and loc1.start == loc2.start)
+    # overlap determination adapted from https://stackoverflow.com/a/2953979
+    overlapping = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start)) >= 0
+
+    if loc1.strand == loc2.strand and overlapping:
+        # pseudogenes may occupy multiple reading frames, so
+        # check both the start-defined and stop-defined frames.
+        if ((loc1.start - loc2.start) % 3 == 0
+            or (loc1.end - loc2.end) % 3 == 0
         ):
             return True
     return False

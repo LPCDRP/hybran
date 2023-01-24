@@ -59,6 +59,11 @@ def test_upstream_context(location):
 
 @pytest.mark.parametrize('pair', [
     'same_stop',
+    'inframe_pseudo_same_start_different_stop',
+    'inframe_pseudo_different_start_different_stop',
+    'overlapping_out_of_frame',
+    'different_strand',
+    'non_overlapping',
 ])
 def test_overlap_inframe(pair):
     pairs = {
@@ -66,9 +71,36 @@ def test_overlap_inframe(pair):
             features['1-0006']['Rv2879c']['ratt'].location,
             features['1-0006']['Rv2880c']['ratt'].location,
         ),
+        'inframe_pseudo_same_start_different_stop': (
+            # 1-0006 RATT \pseudo SpmT with an internal stop codon
+            FeatureLocation(ExactPosition(989728), ExactPosition(991202), strand=1),
+            FeatureLocation(ExactPosition(989728), ExactPosition(990112), strand=1),
+        ),
+        'inframe_pseudo_different_start_different_stop': (
+            # 1-0006 Rv2084 different start positions, but in-frame and there's an internal stop
+            FeatureLocation(ExactPosition(2345919), ExactPosition(2346942), strand=1),
+            FeatureLocation(ExactPosition(2345913), ExactPosition(2346915), strand=1),
+        ),
+        'overlapping_out_of_frame': (
+            FeatureLocation(ExactPosition(0), ExactPosition(300), strand=1),
+            FeatureLocation(ExactPosition(2), ExactPosition(299), strand=1),
+        ),
+        'different_strand': (
+            FeatureLocation(ExactPosition(0), ExactPosition(300), strand=1),
+            FeatureLocation(ExactPosition(0), ExactPosition(300), strand=-1),
+        ),
+        'non_overlapping': (
+            FeatureLocation(ExactPosition(0), ExactPosition(300), strand=1),
+            FeatureLocation(ExactPosition(304), ExactPosition(335), strand=-1),
+        ),
     }
     expected = {
         'same_stop': True,
+        'inframe_pseudo_same_start_different_stop': True,
+        'inframe_pseudo_different_start_different_stop': True,
+        'overlapping_out_of_frame': False,
+        'different_strand': False,
+        'non_overlapping': False,
     }
 
     assert annomerge.overlap_inframe(pairs[pair][0], pairs[pair][1]) == expected[pair]
