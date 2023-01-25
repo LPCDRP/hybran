@@ -951,12 +951,12 @@ def check_inclusion_criteria(
         if(locus_tag in locus_tag_list
         ):
             #Always take the non-pseudo annotation if possible
-            if ('pseudo' in ratt_annotation.qualifiers.keys()) and ('pseudo' not in abinit_annotation.qualifiers.keys()):
+            if designator.is_pseudo(ratt_annotation.qualifiers) and (not designator.is_pseudo(abinit_annotation.qualifiers)):
                 include_abinit = True
                 include_ratt = False
                 remark = "Non-pseudo ab initio annotation takes precedence."
                 return include_abinit, include_ratt, remark
-            elif ('pseudo' not in ratt_annotation.qualifiers.keys()) and ('pseudo' in abinit_annotation.qualifiers.keys()):
+            elif (not designator.is_pseudo(ratt_annotation.qualifiers)) and designator.is_pseudo(abinit_annotation.qualifiers):
                 include_abinit = False
                 include_ratt = True
                 remark = "Non-pseudo ratt annotation takes precedence."

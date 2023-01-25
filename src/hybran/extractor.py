@@ -9,6 +9,7 @@ from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 
+from . import designator
 
 def get_ltag(feature):
     return feature.qualifiers['locus_tag'][0]
@@ -150,7 +151,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
         if record.features:
             for feature in record.features:
                 if feature.type == 'CDS':
-                    if 'pseudo' or 'pseudogene' in feature.qualifiers:
+                    if designator.is_pseudo(feature.qualifiers):
                         seq_record = SeqRecord(
                             translate(feature.extract(record.seq), table=genetic_code, to_stop=True),
                             id=identify(feature),

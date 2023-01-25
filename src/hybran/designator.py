@@ -122,6 +122,8 @@ def create_gene_entries(gbk):
                     )
                 if 'pseudo' in f.qualifiers.keys():
                     genes[ltag].qualifiers['pseudo'] = ['']
+                elif 'pseudogene' in f.qualifiers.keys():
+                    genes[ltag].qualifiers['pseudogene'] = f.qualifiers['pseudogene']
             updated_record_features.append(f)
         record.features = updated_record_features
         output_records.append(record)
@@ -146,6 +148,14 @@ def find_next_increment(fasta, prefix=generic_orf_prefix):
         return int(last_orf.replace(prefix[0], '')) + 1
     else:
         return 1
+
+
+def is_pseudo(qualifiers):
+    """
+    :param qualifiers: dict (pass feature.qualifiers here)
+    :return: True if pseudo or pseudogene
+    """
+    return 'pseudo' in qualifiers.keys() or 'pseudogene' in qualifiers.keys()
 
 #
 # These can be applied to sequence record IDs to match the designated property
