@@ -3,12 +3,14 @@
 ## Development
 
 ### Bugs fixed
-* Partially fixed handling of compound intervals in reference annotations (#46)
+* Fixed handling of compound intervals in reference annotations (#46, #47)
 * Fixed issue with retrieving upstream context for minus strand genes near contig ends
 * Resolved issues involving reference annotations with multiple contigs/chromosomes (#48)
 * Fixed issue with some gene name assignments being dropped later in the pipeline due to some obsolete code (#43).
 * More comprehensive tracking of RATT/ab initio overlaps and conflicts (#49).
 * Checking in-frame overlaps with pseudo ORFs containing internal stop codons
+* Revamped postprocessing of RATT-introduced compound intervals (#44, #45)
+* Updated inclusion criteria for special handling of pseudo ORFs (#42)
 
 ### Enhancements
 * Output GFF files no longer include the genome sequence.
