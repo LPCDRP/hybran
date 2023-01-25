@@ -4,7 +4,7 @@ import os
 import tempfile
 
 from Bio import SeqIO
-from Bio.Blast.Applications import NcbiblastpCommandline
+from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastnCommandline
 import multiprocessing
 from Bio.SeqRecord import SeqRecord
 
@@ -17,9 +17,9 @@ from . import config
 # you have no network connection.
 os.environ["BLAST_USAGE_REPORT"] = "false"
 
-def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, metric='iden'):
+def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, metric='iden', blast_type = "p"):
     """
-    Wrapper to blastp(), summarize(), and top_hit() that tells you the bottom line.
+    Wrapper to blast(), summarize(), and top_hit() that tells you the bottom line.
     See those functions for descriptions of the input parameters.
     This function checks for complete hits and, failing that, partial hits.
     :returns:
@@ -30,11 +30,13 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
         - stats (:py:class:`dict`)  -
              summary dict of blast results from either hits, truncation_signatures, or misses
     """
-    hits, misses, truncation_signatures = blastp(
+    
+    hits, misses, truncation_signatures = blast(
         query,
         subject,
         seq_ident,
         seq_covg,
+        blast_type,
     )
     result = None
     pseudo = False
@@ -99,7 +101,13 @@ def summarize(blast_results, identify = lambda _:_):
         }
     return summary
 
+def blastn(query, subject, seq_ident, seq_covg):
+        return blast(query, subject, seq_ident, seq_covg, blast_type = "n")
+        
 def blastp(query, subject, seq_ident, seq_covg):
+        return blast(query, subject, seq_ident, seq_covg, blast_type = "p")
+
+def blast(query, subject, seq_ident, seq_covg, blast_type = "p"):
     """
     Runs BLAST with one sequence as the query and
     the fasta file as the subject.
@@ -108,6 +116,7 @@ def blastp(query, subject, seq_ident, seq_covg):
     :param subject: str subject fasta file name or SeqRecord
     :param seq_ident: sequence identity threshold
     :param seq_covg: alignment coverage threshold
+    :param blast_type: nucleotide or protein blast
     :returns:
         - blast_filtered (:py:class:`list`) - list of tab-delimited strings corresponding
                                               to BLAST hits meeting the thresholds
@@ -151,7 +160,11 @@ def blastp(query, subject, seq_ident, seq_covg):
                                '','','','','1','0','1','1','',''])+'\n'
     else:
         dummy_hit = ''
-    blast_to_all = NcbiblastpCommandline(subject=fa, outfmt=blast_outfmt)
+    if blast_type == "n":
+        blast_func = NcbiblastnCommandline
+    elif blast_type == "p":
+        blast_func = NcbiblastpCommandline
+    blast_to_all = blast_func(subject=fa, outfmt=blast_outfmt)
     stdout, stderr=blast_to_all(stdin=str(query.seq))
     stdout += dummy_hit
     blast_filtered = []
