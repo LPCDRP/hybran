@@ -1794,6 +1794,12 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                             seq_covg=seq_covg,
                         )[0:2]
                         if ref_gene:
+                            # reference_match's pseudo determination may not be accurate since we are here
+                            # comparing annotations on the same genome, so
+                            # a full-length match to an already truncated gene should not be considered
+                            # a complete reference match
+                            if designator.is_pseudo(ratt_feature.qualifiers):
+                                pseudo = True
                             liftover_annotation(
                                 abinit_feature,
                                 ref_annotation[ref_gene],

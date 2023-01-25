@@ -11,6 +11,7 @@
 * Checking in-frame overlaps with pseudo ORFs containing internal stop codons
 * Revamped postprocessing of RATT-introduced compound intervals (#44, #45)
 * Updated inclusion criteria for special handling of pseudo ORFs (#42)
+* Propagate `pseudo` tags to ab initio genes that were assigned names due to a complete match to RATT pseudo.
 
 ### Enhancements
 * Output GFF files no longer include the genome sequence.
