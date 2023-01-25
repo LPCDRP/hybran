@@ -437,7 +437,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
                 merged_features_string = ",".join(merged_gene_locus[feature_location])
                 designator.append_qualifier(
                     feature.qualifiers, 'note',
-                    'The genes ' + merged_features_string + ' in reference) are merged in this isolate '
+                    'Fusion: ' + merged_features_string
                 )
                 merged_genes[feature.location.strand].remove(feature_location)
                 merged_features_addition.append(feature)
@@ -460,8 +460,7 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
         new_feature.qualifiers['locus_tag'] = [new_gene_name]
         designator.append_qualifier(
             new_feature.qualifiers, 'note',
-            'The genes ' + merged_features_string +
-            ' in reference) are merged in this isolate'
+            'Fusion: ' + merged_features_string
         )
         merged_features_addition.append(new_feature)
         merged_genes[new_feature.location.strand].remove(location)
@@ -500,7 +499,7 @@ def identify_conjoined_genes(ratt_features):
             designator.append_qualifier(
                 upstream.qualifiers,
                 'note',
-                f"Nonstop mutation in this gene causes an in-frame merge with {'|'.join([extractor.get_ltag(downstream),extractor.get_gene(downstream)])}"
+                f"Nonstop mutation in this gene causes an in-frame fusion with {'|'.join([extractor.get_ltag(downstream),extractor.get_gene(downstream)])}"
             )
             upstream.qualifiers['pseudo'] = ['']
             conjoined_features.append(upstream)
@@ -1869,7 +1868,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             if feature.type != 'CDS':
                 prokka_rec.features.append(feature)
             elif feature.type == 'CDS' and 'note' in feature.qualifiers.keys():
-                if 'merged in this isolate' in feature.qualifiers['note'][0]:
+                if 'Fusion' in feature.qualifiers['note'][0]:
                     if 'gene' in feature.qualifiers.keys():
                         feature.qualifiers.pop('gene')
                     loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))

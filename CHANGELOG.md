@@ -18,10 +18,10 @@
 * Substantially sped up the pipeline by not performing reference matches for redundant ab initio annotations.
 
 ### Housekeeping
-* merged genes notes:
+* fused genes notes:
   - removed redundant note text indicating the annotation source
   - include both locus tag and gene name of affected genes
-  - always make sure the word "merge" is included in the note for consistency
+  - always make sure the word "fusion" is included in the note for consistency
 
 ## [Version 1.5.2](https://gitlab.com/LPCDRP/hybran/-/tags/1.5.2)
 
