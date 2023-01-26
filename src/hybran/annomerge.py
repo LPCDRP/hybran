@@ -1773,9 +1773,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                        ):
                         if 'translation' not in ratt_contig_features_dict[ratt_conflict_loc].qualifiers.keys():
                             blast_type = "n"
-                            query = SeqRecord(Seq(abinit_feature.extract(record_sequence)))
+                            query = SeqRecord(abinit_feature.extract(record_sequence))
                             subject = SeqRecord(
-                                Seq(ratt_contig_features_dict[ratt_conflict_loc].extract(record_sequence)),
+                                ratt_contig_features_dict[ratt_conflict_loc].extract(record_sequence),
                                 id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0],
                             )
                         else:
