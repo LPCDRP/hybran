@@ -343,6 +343,43 @@ def merge_qualifiers(f1quals, f2quals):
             )
     return final_qualifiers
 
+def process_split_genes(flist):
+    """
+    Given a list of features ordered by genomic position, assign the same
+    locus tag to consecutive fragments of the same gene.
+    :param flist: list of SeqFeature objects
+    :return: list of SeqFeature objects to keep (some modified from the original)
+    """
+    outlist = []
+    i = 0
+    prev_gene_frag = dict()
+    for feature in flist:
+        if 'gene' in feature.qualifiers.keys() and 'pseudo' in feature.qualifiers.keys():
+            feature.qualifiers.pop('translation', None)
+            if 'gene' in prev_gene_frag.keys() and feature.qualifiers['gene'][0] == prev_gene_frag['gene']:
+                # merge this feature's data into the previous one's and throw it away.
+                outlist[prev_gene_frag['ind']].location = FeatureLocation(
+                    outlist[prev_gene_frag['ind']].location.start,
+                    feature.location.end,
+                    outlist[prev_gene_frag['ind']].location.strand
+                )
+                outlist[prev_gene_frag['ind']].qualifiers = merge_qualifiers(
+                    outlist[prev_gene_frag['ind']].qualifiers,
+                    feature.qualifiers,
+                )
+                continue
+            prev_gene_frag = dict(
+                gene = feature.qualifiers['gene'][0],
+                locus_tag = feature.qualifiers['locus_tag'][0],
+                ind = i,
+            )
+            outlist.append(deepcopy(feature))
+            i += 1
+        else:
+            outlist.append(deepcopy(feature))
+            i += 1
+    return outlist
+
 def identify_merged_genes(ratt_features):
     """
     This function takes as input a list features annotated in RATT and identifies instances of merged CDS
@@ -1990,6 +2027,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             else:
                 prokka_rejects.append((prokka_annotation, remark))
         ordered_feats = get_ordered_features(output_isolate_recs[i].features)
+        ordered_feats = process_split_genes(ordered_feats)
         output_isolate_recs[i].features = ordered_feats[:]
         final_cdss = [f for f in ordered_feats if f.type == 'CDS']
         logger.debug(f'{seqname}: {len(final_cdss)} CDSs annomerge')
