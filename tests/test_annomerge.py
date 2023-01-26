@@ -64,6 +64,7 @@ def test_upstream_context(location):
     'overlapping_out_of_frame',
     'different_strand',
     'non_overlapping',
+    'one_bp_apart',
 ])
 def test_overlap_inframe(pair):
     pairs = {
@@ -93,6 +94,11 @@ def test_overlap_inframe(pair):
             FeatureLocation(ExactPosition(0), ExactPosition(300), strand=1),
             FeatureLocation(ExactPosition(304), ExactPosition(335), strand=-1),
         ),
+        # 1-0006's Rv0138 and Rv0139
+        'one_bp_apart': (
+            FeatureLocation(ExactPosition(163764), ExactPosition(164268), strand=1),
+            FeatureLocation(ExactPosition(164268), ExactPosition(165291), strand=1),
+        )
     }
     expected = {
         'same_stop': True,
@@ -101,6 +107,7 @@ def test_overlap_inframe(pair):
         'overlapping_out_of_frame': False,
         'different_strand': False,
         'non_overlapping': False,
+        'one_bp_apart': False,
     }
 
     assert annomerge.overlap_inframe(pairs[pair][0], pairs[pair][1]) == expected[pair]
