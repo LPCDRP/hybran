@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+
+import os
+import sys
+
+from Bio import SeqIO
+
+infile = sys.argv[1]
+
+for record in SeqIO.parse(infile,"genbank"):
+    for f in record.features:
+        if f.type == 'CDS':
+            pseudo = (('pseudo' in f.qualifiers.keys())
+                      or 'pseudogene' in f.qualifiers.keys())
+            inference = ""
+            if 'inference' in f.qualifiers.keys():
+                if any(['Prodigal' in inf for inf in f.qualifiers['inference']]):
+                    inference = "Prokka"
+                elif any(['RATT' in inf for inf in f.qualifiers['inference']]):
+                    inference = "RATT"
+
+            print('\t'.join([
+                os.path.basename(os.path.splitext(infile)[0]),
+                str(f.location.start+1),
+                str(f.location.end),
+                str(f.location.strand),
+                f.qualifiers['gene'][0],
+                inference,
+                pseudo,
+            ]))
