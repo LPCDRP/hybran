@@ -64,6 +64,22 @@ def overlap_inframe(loc1, loc2):
             return True
     return False
 
+def have_same_stop(loc1, loc2):
+    """
+    Say whether two FeatureLocations have the same stop position.
+    This is a special case of overlap_inframe().
+    :param loc1: FeatureLocation
+    :param loc2: FeatureLocation
+    :return: True if both features have the same stop position
+    """
+    if loc1.strand == loc2.strand:
+        return (
+            (loc1.strand == 1 and loc1.end == loc2.end)
+            or
+            (loc1.strand == -1 and loc1.start == loc2.start)
+        )
+    return False
+
 def log_feature_fate(feature, logfile, remark=""):
     """
     General-purpose logging function to print out a gene's information and a comment
@@ -487,7 +503,7 @@ def identify_conjoined_genes(ratt_features):
             continue
 
         if (prev_feature.location != feature.location # dealing with these is the job of identify_merged_genes()
-            and overlap_inframe(prev_feature.location, feature.location)
+            and have_same_stop(prev_feature.location, feature.location)
         ):
             if feature.strand == -1:
                 upstream = feature
