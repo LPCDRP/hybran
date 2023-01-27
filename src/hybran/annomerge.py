@@ -615,6 +615,53 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
         feature.qualifiers.pop('pseudo', None)
         feature.qualifiers.pop('pseudogene', None)
 
+def coord_check(feature, fix_start, fix_stop,
+):
+    """
+    :param feature: SeqFeature object
+    :param fix_start: Boolean
+    :param fix_stop: Boolean
+    :return: True/False if the start/stop was fixed
+    """
+    ref_pos = ref_genes_positions[feature.qualifiers['locus_tag'][0]]
+    ref_seq = ref_sequence[ref_pos[0]:ref_pos[1]]
+    ref_length = abs(ref_pos[1] - ref_pos[0])
+
+    feature_start = feature.location.start
+    feature_end = feature.location.end
+    feature_seq = feature.extract(record_sequence)
+
+    aligner = Align.PairwiseAligner()
+    aligner.mode = 'global'
+    alignment = aligner.align(ref_seq, feature_seq)[0]
+    target = alignment.aligned[0]
+    query = alignment.aligned[1]
+    found_start = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 3)
+    found_stop = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 3)
+
+    if found_stop:
+        new_feature_end = (feature_start + query[-1][1])
+        if fix_stop:
+            feature_end = new_feature_end
+            good_stop = True
+        else:
+            good_stop = (feature_end == new_feature_end) #query[-1][1]+1 == len(feature_seq)
+    else:
+        good_stop = False
+
+    if found_start:
+        new_feature_start = (feature_start + query[0][0])
+        if fix_start:
+            feature_start = new_feature_start
+            good_start = True
+        else:
+            good_start = (feature_start == new_feature_start) #query[0][0] == 0
+    else:
+        good_start = False
+
+    feature.location = (FeatureLocation(feature_start, feature_end, strand=feature.strand))
+    return good_start, good_stop
+
 
 def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg,
     nproc=1,
@@ -634,9 +681,6 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     ratt_blast_results = {}
     rejects = []
     valid_features = []
-    # initialize aligner for checking compound intervals
-    aligner = Align.PairwiseAligner()
-    aligner.mode = 'global'
 
     for feature in feature_list:
         # Identify features with 'joins'
@@ -659,33 +703,17 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             # The gff conversion of a gbk entry with joins is not meaningful,
             # and causes some problems, as the entire sequence gets labeled
             # "biological region" and two basically empty CDS records are created.
-            ref_pos = ref_genes_positions[feature.qualifiers['locus_tag'][0]]
-            ref_seq = ref_sequence[ref_pos[0]:ref_pos[1]]
-            ref_length = abs(ref_pos[1] - ref_pos[0])
 
-            feature_seq = feature.extract(record_sequence)
             num_stops = feature.extract(record_sequence).translate().count("*")
 
             if num_stops > 1:
-                alignment = aligner.align(ref_seq, feature_seq)[0]
-                target = alignment.aligned[0]
-                query = alignment.aligned[1]
-                start_align = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 3)
-                stop_align = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 3)
-
-                if stop_align:
-                    feature_end = (feature_start + query[-1][1])
-                else:
+                changed_start, changed_stop = coord_check(feature, fix_start=True, fix_stop=True)
+                if not changed_stop:
                     rejects.append((feature, "RATT-introduced compound interval did not include reference stop position."))
                     continue
-                    
-                if start_align:
-                    feature_start = (feature_start + query[0][0])
 
-                feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
                 corrected_feature_seq = feature.extract(record_sequence)
                 num_stops = feature.extract(record_sequence).translate().count("*")
-                
                 if num_stops > 1:
                     feature.qualifiers['pseudo']=['']
                     designator.append_qualifier(
@@ -1841,7 +1869,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         ref_gene, pseudo = BLAST.reference_match(
                             query=query,
                             subject=subject,
-                            blast_type=blast_type,                
+                            blast_type=blast_type,
                             seq_ident=seq_ident,
                             seq_covg=seq_covg,
                         )[0:2]
