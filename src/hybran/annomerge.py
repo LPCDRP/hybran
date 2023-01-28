@@ -1169,13 +1169,11 @@ def check_inclusion_criteria(
         remark = 'corner case: unhandled by inclusion criteria'
     return include_abinit, include_ratt, remark
 
-
-def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_cds_dict, reference_locus_list,
-                                reference_gene_locus_dict, log):
+def correct_start_coords(features):
     """
     This function parses through prokka records and corrects start coordinates for cases where Prodigal
     annotates these incorrectly
-    :param prokka_record:
+    :param features: list of SeqFeatures
     :param correction_dict:
     :param fasta_seq:
     :param rv_cds_dict:
@@ -1185,31 +1183,31 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_cd
     hybran_tmp_dir = config.hybran_tmp_dir
     report = []
     logger = logging.getLogger('CorrectCoords')
-    modified_prokka_record = prokka_record[:]
-    modified_prokka_record.features = []
-    modified_features = []
-    for feature_prokka in prokka_record.features:
-        if feature_prokka.type != 'CDS':
-            modified_features.append(feature_prokka)
-            continue
-        if feature_prokka.type == 'CDS' and 'gene' not in feature_prokka.qualifiers.keys():
-            rv_id = ''
-        elif feature_prokka.type == 'CDS' and 'gene' in feature_prokka.qualifiers.keys():
-            if feature_prokka.qualifiers['gene'][0] in reference_locus_list:
-                rv_id = feature_prokka.qualifiers['gene'][0]
-            else:
-                if '_' in feature_prokka.qualifiers['gene'][0]:
-                    gene_name = feature_prokka.qualifiers['gene'][0].split('_')[0]
+
+    for feature in features.values():
+        if feature.type == 'CDS' and 'gene' in feature.qualifiers.keys():
+            good_start, good_stop = coord_check(feature, fix_start=False, fix_stop=False)
+            og_feature = deepcopy(feature)
+            if not good_start:
+                n = round(0.2 * (len(feature.extract(record_sequence))))
+
+                prom_feature_seq = upstream_context(feature.location, record_sequence, n=n, circular=False)
+                feature_seq = Seq(prom_feature_seq + str(feature.extract(record_sequence)))
+                if feature.location.strand == 1:
+                    feature_start = max(0, (feature.location.start - n))
+                    feature_end = feature.location.end
                 else:
-                    gene_name = feature_prokka.qualifiers['gene'][0]
-                if (gene_name in reference_gene_locus_dict.keys()
-                    and len(reference_gene_locus_dict[gene_name])==1):
-                    rv_id = reference_gene_locus_dict[gene_name][0]
+                    feature_start = feature.location.start
+                    feature_end = min(len(record_sequence), feature.location.end + n)
+                feature.location = (FeatureLocation(feature_start, feature_end,
+                                                          strand=feature.strand))
+                good_start, good_stop = coord_check(feature, fix_start=True, fix_stop=False)
+                if not good_start:
+                    feature = og_feature
                 else:
-                    rv_id = ''
-        else:
-            rv_id = ''
-        if feature_prokka.type == 'CDS' and len(rv_id) > 0:
+                    feature.qualifiers['inference'].append("COORDINATES:alignment: Start position adjusted to correspond to reference")
+
+'''
             if rv_id in correction_dict.keys():
                 # If Prokka annotation of gene is in a different strand, prodigal start coordinates are considered
                 # as is
@@ -1376,24 +1374,8 @@ def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_cd
                 str(int(modified_features[-1].location.start) - int(feature_prokka.location.start)),
             ]
             report.append(data)
+'''
 
-    with open(log, 'w') as logfile:
-        print('\t'.join([
-            "reference_locus_tag",
-            "locus_tag",
-            "original_start",
-            "original_end",
-            "original_strand",
-            "start",
-            "end",
-            "strand",
-            "start_shift",
-            ]),
-              file=logfile)
-        for entry in report:
-            print('\t'.join(entry), file=logfile)
-    modified_prokka_record.features = get_ordered_features(modified_features)
-    return modified_prokka_record
 
 
 def get_feature_by_locustag(features):
@@ -1635,12 +1617,8 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
         ratt_contig_record = SeqIO.read(ratt_gbk_files[contig], 'genbank')
         global record_sequence
         record_sequence = ratt_contig_record.seq
-        prokka_contig_record_pre = prokka_records[i]
+        prokka_contig_record = prokka_records[i]
 
-        prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, incorrect_coords_dict,
-                                                           record_sequence, ref_feature_list[i],
-                                                           reference_locus_list, reference_gene_locus_dict,
-                                                           os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv'))
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
         # When prokka assigns the same gene name to multiple orfs, it appends _1, _2, ... to make the names unique.
@@ -1825,6 +1803,14 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     feature.qualifiers.pop('gene', None)
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
 
+            correct_start_coords(
+                prokka_features_not_in_ratt,
+#                record_sequence,
+#                ref_feature_list[i],
+#                reference_locus_list,
+#                reference_gene_locus_dict,
+#                os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv')
+            )
 
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
