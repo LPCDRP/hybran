@@ -1473,6 +1473,8 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     logger.debug('Running Annomerge on ' + isolate_id)
     start_time = time.time()
 
+    global reference_gene_locus_dict
+    global reference_locus_gene_dict
     reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
         ref_temp_fasta_dict, ref_protein_lengths = load_reference_info(ref_proteins_fasta)
     if annotation_fp.endswith('/'):
