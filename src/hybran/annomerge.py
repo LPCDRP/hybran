@@ -631,7 +631,11 @@ def coord_check(feature, fix_start, fix_stop,
     :param fix_stop: Boolean
     :return: True/False if the start/stop was fixed
     """
-    ref_pos = ref_genes_positions[feature.qualifiers['locus_tag'][0]]
+    if designator.is_raw_ltag(feature.qualifiers['locus_tag'][0]):
+        ref_locus = reference_gene_locus_dict[feature.qualifiers['gene'][0]][0]
+    else:
+        ref_locus = feature.qualifiers['locus_tag'][0]
+    ref_pos = ref_genes_positions[ref_locus]
     ref_seq = ref_sequence[ref_pos[0]:ref_pos[1]]
     ref_length = abs(ref_pos[1] - ref_pos[0])
 
