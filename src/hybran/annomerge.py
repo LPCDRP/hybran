@@ -380,33 +380,61 @@ def process_split_genes(flist):
     :return: list of SeqFeature objects to keep (some modified from the original)
     """
     outlist = []
-    i = 0
-    prev_gene_frag = dict()
+    last_gene_by_strand = {}
     for feature in flist:
-        if 'gene' in feature.qualifiers.keys() and 'pseudo' in feature.qualifiers.keys():
-            feature.qualifiers.pop('translation', None)
-            if 'gene' in prev_gene_frag.keys() and feature.qualifiers['gene'][0] == prev_gene_frag['gene']:
-                # merge this feature's data into the previous one's and throw it away.
-                outlist[prev_gene_frag['ind']].location = FeatureLocation(
-                    outlist[prev_gene_frag['ind']].location.start,
-                    feature.location.end,
-                    outlist[prev_gene_frag['ind']].location.strand
-                )
-                outlist[prev_gene_frag['ind']].qualifiers = merge_qualifiers(
-                    outlist[prev_gene_frag['ind']].qualifiers,
-                    feature.qualifiers,
-                )
+        if feature.type=='CDS':
+            outlist.append(feature)
+            if feature.location.strand in last_gene_by_strand:
+                last_gene = last_gene_by_strand[feature.location.strand]
+                # we'll be working with the loop variable so we can update the dictionary ahead of time
+                last_gene_by_strand[feature.location.strand] = feature
+            else:
+                last_gene_by_strand[feature.location.strand] = feature
                 continue
-            prev_gene_frag = dict(
-                gene = feature.qualifiers['gene'][0],
-                locus_tag = feature.qualifiers['locus_tag'][0],
-                ind = i,
-            )
-            outlist.append(deepcopy(feature))
-            i += 1
-        else:
-            outlist.append(deepcopy(feature))
-            i += 1
+
+            last_gene_named = 'gene' in last_gene.qualifiers
+            curr_gene_named = 'gene' in feature.qualifiers
+            only_one_named = last_gene_named ^ curr_gene_named
+
+
+            # We have no way to know
+            if not last_gene_named and not curr_gene_named:
+                continue
+
+
+            #
+            # Make sure there isn't a real tandem duplication or partial duplication
+            #
+            if last_gene_named and curr_gene_named:
+                # Not even the same gene!
+                if feature.qualifiers['gene'][0] != last_gene.qualifiers['gene'][0]:
+                    continue
+                # Both named and non-pseudo means both are largely intact copies -- do not combine
+                if not designator.is_pseudo(feature.qualifiers) and not designator.is_pseudo(last_gene.qualifiers):
+                    continue
+            # At least one copy is complete (has consistent-with-reference start *and* stop codons) -- do not combine
+            if all(coord_check(last_gene)) or all(coord_check(feature)):
+                continue
+
+
+            #
+            # Combine intervals and check validity, aborting otherwise
+            #
+            new_start = last_gene.location.start
+            new_end = feature.location.end
+            if only_one_named and last_gene_named:
+                new_feature = deepcopy(last_gene)
+            else:
+                new_feature = deepcopy(feature)
+            new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
+            new_feature.qualifiers['pseudo'] = ['']
+
+            if all(coord_check(new_feature, fix_start=True, fix_stop=True)):
+                last_gene_by_strand[feature.location.strand] = new_feature
+                outlist.remove(last_gene)
+                outlist.remove(feature)
+                outlist.append(new_feature)
+
     return outlist
 
 def identify_merged_genes(ratt_features):
@@ -1870,6 +1898,11 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 prokka_rejects.append((prokka_annotation, remark))
         ordered_feats = get_ordered_features(output_isolate_recs[i].features)
         ordered_feats = process_split_genes(ordered_feats)
+        # Remove AA translation from pseudos
+        for feature in ordered_feats:
+            if designator.is_pseudo(feature.qualifiers):
+                feature.qualifiers.pop('translation', None)
+
         output_isolate_recs[i].features = ordered_feats[:]
         final_cdss = [f for f in ordered_feats if f.type == 'CDS']
         logger.debug(f'{seqname}: {len(final_cdss)} CDSs annomerge')
