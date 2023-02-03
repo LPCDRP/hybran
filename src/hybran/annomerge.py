@@ -102,19 +102,17 @@ def log_coord_correction(og_feature, feature, logfile):
     :param logfile: An open filehandle
     :param remark: (str) Comment regarding the origin of the fixed annotation.
     """
-    breakpoint()
     if designator.is_raw_ltag(og_feature.qualifiers['locus_tag'][0]):
-        gene_name = reference_locus_gene_dict[og_feature.qualifiers['locus_tag'][0]]
+        gene_name = reference_gene_locus_dict[og_feature.qualifiers['locus_tag'][0]]
     else:
         gene_name = og_feature.qualifiers['gene'][0]
-    og_start = int(og_feature.location.start)
-    og_end = int(og_feature.location.end)
-    new_start = int(feature.qualifiers.start)
-    new_end = int(feature.qualifiers.end)
-    remark = feature.qualifiers['inference'][0]
-
+    og_start = (og_feature.location.start)
+    og_end = (og_feature.location.end)
+    new_start = (feature.location.start)
+    new_end = (feature.location.end)
+    remark = ", ".join(feature.qualifiers['inference'])
     line = [gene_name, og_start, og_end, new_start, new_end, remark]
-    print('\t'.join(line), file=log_file)
+    print('\t'.join(str(v) for v in line), file=logfile)
 
 
 def load_reference_info(proteome_fasta):
@@ -681,57 +679,10 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     target = alignment.aligned[0]
     query = alignment.aligned[1]
 
-    #alignment_list = aligner.align(ref_seq, feature_seq)
-    #new_alignment_list = []
-
-    #Prevents looping through an infinite amount of generated alignments.
-    #for i in range(10):
-    #    try:
-    #        new_alignment_list.append(alignment_list[i])
-    #    except IndexError:
-    #        break
-    #low_alignment = []
-    #high_alignment = []
-    #longest_low_coord = -1
-    #smallest_high_coord = 10000000
-    #for i in range(0, len(new_alignment_list)):
-    #    alignment = new_alignment_list[i]
-    #    target = alignment.aligned[0]
-    #    query = alignment.aligned[1]
-
     found_low = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 3)
     found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 3)
 
-    #    if found_low:
-    #        if target[0][1] > longest_low_coord:
-    #            longest_low_coord = target[0][1]
-    #            low_alignment = [alignment, found_low, found_high]
-
-    #    if found_high:
-    #        if target[-1][0] < smallest_high_coord:
-    #            smallest_high_coord = target[-1][0]
-    #            high_alignment = [alignment, found_low, found_high]
-
-    #try:
-    #    if low_alignment[1] == True:
-    #        if high_alignment[1] == True:
-    #            found_low = True
-    #        else:
-    #            found_low = False
-    #except:
-    #    found_low = False
-
-    #try:
-    #    if high_alignment[2] == True:
-    #        if low_alignment[2] == True:
-    #            found_high = True
-    #        else:
-    #            found_high = False
-    #except:
-    #    found_high = False
-
     if found_high:
-        #query = high_alignment[0].aligned[1]
         new_feature_end = (feature_start + query[-1][1])
         if (fix_stop and feature.strand==1) or (fix_start and feature.strand==-1):
             feature_end = new_feature_end
@@ -744,7 +695,6 @@ def coord_check(feature, fix_start=False, fix_stop=False,
         good_high = False
 
     if found_low:
-        #query = low_alignment[0].aligned[1]
         new_feature_start = (feature_start - query[0][0])
         if (fix_start and feature.strand==1) or (fix_stop and feature.strand==-1):
             feature_start = new_feature_start
