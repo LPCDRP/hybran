@@ -24,6 +24,7 @@ from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
 from Bio import Align
+from Bio.Align import substitution_matrices
 import collections
 from numpy import median
 import os
@@ -92,6 +93,29 @@ def log_feature_fate(feature, logfile, remark=""):
     else:
         locus_tag = feature.id
     print('\t'.join([locus_tag, remark]), file=logfile)
+
+def log_coord_correction(og_feature, feature, logfile):
+    """
+    This function is used to log gene information when coord_check() fixes a start/stop postition
+    :param og_feature: Original SeqFeature object
+    :param feature: Updated SeqFeature object
+    :param logfile: An open filehandle
+    :param remark: (str) Comment regarding the origin of the fixed annotation.
+    """
+    breakpoint()
+    if designator.is_raw_ltag(og_feature.qualifiers['locus_tag'][0]):
+        gene_name = reference_locus_gene_dict[og_feature.qualifiers['locus_tag'][0]]
+    else:
+        gene_name = og_feature.qualifiers['gene'][0]
+    og_start = int(og_feature.location.start)
+    og_end = int(og_feature.location.end)
+    new_start = int(feature.qualifiers.start)
+    new_end = int(feature.qualifiers.end)
+    remark = feature.qualifiers['inference'][0]
+
+    line = [gene_name, og_start, og_end, new_start, new_end, remark]
+    print('\t'.join(line), file=log_file)
+
 
 def load_reference_info(proteome_fasta):
     """
@@ -623,9 +647,12 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
         feature.qualifiers.pop('pseudo', None)
         feature.qualifiers.pop('pseudogene', None)
 
-def coord_check(feature, fix_start, fix_stop,
+def coord_check(feature, fix_start=False, fix_stop=False,
 ):
     """
+    This function takes a feature as an input and aligns it to the corresponding reference gene.
+    This function will return two Boolean values (True if the start/end coordinates align with the reference).
+    The start/end coordinates can be corrected to match the reference if desired in various circumstances.
     :param feature: SeqFeature object
     :param fix_start: Boolean
     :param fix_stop: Boolean
@@ -638,40 +665,104 @@ def coord_check(feature, fix_start, fix_stop,
     ref_pos = ref_genes_positions[ref_locus]
     ref_seq = ref_sequence[ref_pos[0]:ref_pos[1]]
     ref_length = abs(ref_pos[1] - ref_pos[0])
-
     feature_start = feature.location.start
     feature_end = feature.location.end
     feature_seq = feature.extract(record_sequence)
+    og_feature = deepcopy(feature)
 
+    if feature.strand == -1:
+        feature_seq = feature_seq.reverse_complement()
+
+    #Default for parameter for "blastn"
     aligner = Align.PairwiseAligner()
+    aligner.substitution_matrix = substitution_matrices.load("BLASTN")
     aligner.mode = 'global'
     alignment = aligner.align(ref_seq, feature_seq)[0]
     target = alignment.aligned[0]
     query = alignment.aligned[1]
-    found_start = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 3)
-    found_stop = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 3)
 
-    if found_stop:
+    #alignment_list = aligner.align(ref_seq, feature_seq)
+    #new_alignment_list = []
+
+    #Prevents looping through an infinite amount of generated alignments.
+    #for i in range(10):
+    #    try:
+    #        new_alignment_list.append(alignment_list[i])
+    #    except IndexError:
+    #        break
+    #low_alignment = []
+    #high_alignment = []
+    #longest_low_coord = -1
+    #smallest_high_coord = 10000000
+    #for i in range(0, len(new_alignment_list)):
+    #    alignment = new_alignment_list[i]
+    #    target = alignment.aligned[0]
+    #    query = alignment.aligned[1]
+
+    found_low = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 3)
+    found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 3)
+
+    #    if found_low:
+    #        if target[0][1] > longest_low_coord:
+    #            longest_low_coord = target[0][1]
+    #            low_alignment = [alignment, found_low, found_high]
+
+    #    if found_high:
+    #        if target[-1][0] < smallest_high_coord:
+    #            smallest_high_coord = target[-1][0]
+    #            high_alignment = [alignment, found_low, found_high]
+
+    #try:
+    #    if low_alignment[1] == True:
+    #        if high_alignment[1] == True:
+    #            found_low = True
+    #        else:
+    #            found_low = False
+    #except:
+    #    found_low = False
+
+    #try:
+    #    if high_alignment[2] == True:
+    #        if low_alignment[2] == True:
+    #            found_high = True
+    #        else:
+    #            found_high = False
+    #except:
+    #    found_high = False
+
+    if found_high:
+        #query = high_alignment[0].aligned[1]
         new_feature_end = (feature_start + query[-1][1])
-        if fix_stop:
+        if (fix_stop and feature.strand==1) or (fix_start and feature.strand==-1):
             feature_end = new_feature_end
-            good_stop = True
+            good_high = True
+            designator.append_qualifier(feature.qualifiers, 'inference',
+                                        "COORDINATES:alignment: Stop position adjusted to correspond to reference")
         else:
-            good_stop = (feature_end == new_feature_end) #query[-1][1]+1 == len(feature_seq)
+            good_high = (feature_end == new_feature_end)
     else:
-        good_stop = False
+        good_high = False
 
-    if found_start:
-        new_feature_start = (feature_start + query[0][0])
-        if fix_start:
+    if found_low:
+        #query = low_alignment[0].aligned[1]
+        new_feature_start = (feature_start - query[0][0])
+        if (fix_start and feature.strand==1) or (fix_stop and feature.strand==-1):
             feature_start = new_feature_start
-            good_start = True
+            good_low = True
+            designator.append_qualifier(feature.qualifiers, 'inference',
+                                        "COORDINATES:alignment: Start position adjusted to correspond to reference")
         else:
-            good_start = (feature_start == new_feature_start) #query[0][0] == 0
+            good_low = (feature_start == new_feature_start)
     else:
-        good_start = False
+        good_low = False
 
-    feature.location = (FeatureLocation(feature_start, feature_end, strand=feature.strand))
+    feature.location = (FeatureLocation(int(feature_start), int(feature_end), strand=feature.strand))
+    if feature.strand == -1:
+        good_start, good_stop = good_high, good_low
+    else:
+        good_start, good_stop = good_low, good_high
+
+    corrected_abinit_orf_report.append([og_feature, feature])
     return good_start, good_stop
 
 
@@ -1183,16 +1274,18 @@ def correct_start_coords(features):
     hybran_tmp_dir = config.hybran_tmp_dir
     report = []
     logger = logging.getLogger('CorrectCoords')
+    num_fix = 0
 
-    for feature in features.values():
+    for feature in features:
         if feature.type == 'CDS' and 'gene' in feature.qualifiers.keys():
             good_start, good_stop = coord_check(feature, fix_start=False, fix_stop=False)
             og_feature = deepcopy(feature)
+            ref_locus = reference_gene_locus_dict[feature.qualifiers['gene'][0]][0]
+            ref_pos = ref_genes_positions[ref_locus]
+            ref_seq = ref_sequence[ref_pos[0]:ref_pos[1]]
+            bp_diff = abs(len(ref_seq) - len(feature.extract(record_sequence)))
             if not good_start:
-                n = round(0.2 * (len(feature.extract(record_sequence))))
-
-                prom_feature_seq = upstream_context(feature.location, record_sequence, n=n, circular=False)
-                feature_seq = Seq(prom_feature_seq + str(feature.extract(record_sequence)))
+                n = bp_diff + round(.1 * bp_diff)
                 if feature.location.strand == 1:
                     feature_start = max(0, (feature.location.start - n))
                     feature_end = feature.location.end
@@ -1205,177 +1298,8 @@ def correct_start_coords(features):
                 if not good_start:
                     feature = og_feature
                 else:
-                    feature.qualifiers['inference'].append("COORDINATES:alignment: Start position adjusted to correspond to reference")
-
-'''
-            if rv_id in correction_dict.keys():
-                # If Prokka annotation of gene is in a different strand, prodigal start coordinates are considered
-                # as is
-                query_temp = tempfile.NamedTemporaryFile(suffix='_query_nuc.fasta',
-                                                         dir=hybran_tmp_dir,
-                                                         delete=False,
-                                                         mode='w')
-                prokka_nuc_seq = str(fasta_seq)[int(feature_prokka.location.start):int(feature_prokka.location.end)]
-                q_header = '>' + rv_id + '_query\n'
-                query_temp.write(q_header)
-                query_temp.write(prokka_nuc_seq)
-                query_temp.write('\n')
-                blast_to_rv = NcbiblastnCommandline(subject=os.path.join(refseqs_prodigal_fails_dir, rv_id+'.fasta'),
-                                                    outfmt='"7 qseqid sseqid pident length mismatch gapopen qstart qend'
-                                                           ' sstart send evalue bitscore"')
-                stdout, stderr = blast_to_rv(prokka_nuc_seq)
-                stdout_elements = stdout.split('\n')
-
-                blast_length = len(stdout_elements)
-                blast_counter = 0
-                for line in stdout_elements:
-                    if line.startswith('#') or len(line) == 0:
-                        blast_counter += 1
-                        continue
-                    else:
-                        line_elements = line.strip().split('\t')
-                        if int(line_elements[6]) < int(line_elements[8]):
-                            if int(feature_prokka.location.start) < 40 or int(rv_cds_dict[rv_id].location.start) < 40:
-                                change_start = int(line_elements[8]) - int(line_elements[6])
-                                mod_feature = deepcopy(feature_prokka)
-                                mod_start = int(feature_prokka.location.start) - change_start
-                                mod_end = int(feature_prokka.location.end)
-                                mod_strand = int(feature_prokka.location.strand)
-                                mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end),
-                                                                       strand=mod_strand)
-                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=True)
-                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=False)
-                                if len(mod_feature_seq) == len(check_feature_seq) - 1:
-                                    mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
-                                    modified_features.append(mod_feature)
-                                else:
-                                    modified_features.append(feature_prokka)
-                            else:
-                                change_start = int(line_elements[8]) - int(line_elements[6])
-                                mod_prokka_start = int(feature_prokka.location.start) - change_start
-                                prokka_prom_start = mod_prokka_start - 40
-                                prokka_prom_location = FeatureLocation(ExactPosition(prokka_prom_start),
-                                                                       ExactPosition(mod_prokka_start),
-                                                                       strand=int(feature_prokka.location.strand))
-                                feature_prokka_prom_seq = prokka_prom_location.extract(fasta_seq)
-                                blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[rv_id],
-                                                                         outfmt='"7 qseqid sseqid pident length '
-                                                                                'mismatch gapopen qstart qend sstart '
-                                                                                'send evalue bitscore gaps"')
-                                stdout_2, stderr_2 = blast_to_rv_prom(stdin=str(feature_prokka_prom_seq))
-                                prom_blast_elements = stdout_2.split('\n')
-                                prom_blast = len(prom_blast_elements)
-                                prom_counter = 0
-                                for line in prom_blast_elements:
-                                    if line.startswith('#') or len(line) == 0:
-                                        prom_counter += 1
-                                        continue
-                                    else:
-                                        line_elements = line.strip().split('\t')
-                                        if float(line_elements[2]) == 100.0 and int(line_elements[12]) == 0:
-                                            mod_feature = deepcopy(feature_prokka)
-                                            mod_start = int(feature_prokka.location.start) - change_start
-                                            mod_end = int(feature_prokka.location.end)
-                                            mod_strand = int(feature_prokka.location.strand)
-                                            mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end), strand=mod_strand)
-                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
-                                                                        to_stop=True)
-                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
-                                                                          to_stop=False)
-                                            if len(mod_feature_seq) == len(check_feature_seq) - 1:
-                                                mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
-                                                modified_features.append(mod_feature)
-                                            else:
-                                                modified_features.append(feature_prokka)
-                                        else:
-                                            modified_features.append(feature_prokka)
-                                if prom_blast == prom_counter:
-                                    modified_features.append(feature_prokka)
-                        elif int(line_elements[6]) > int(line_elements[8]):
-                            if int(feature_prokka.location.start) < 40 or int(rv_cds_dict[rv_id].location.start) < 40:
-                                change_start = int(line_elements[6]) - int(line_elements[8])
-                                mod_feature = deepcopy(feature_prokka)
-                                mod_start = int(feature_prokka.location.start) + change_start
-                                mod_end = int(feature_prokka.location.end)
-                                mod_strand = int(feature_prokka.location.strand)
-                                mod_feature.location = FeatureLocation(ExactPosition(mod_start),
-                                                                       ExactPosition(mod_end), strand=mod_strand)
-                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=True)
-                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=False)
-                                if len(mod_feature_seq) == len(check_feature_seq) - 1:
-                                    mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
-                                    modified_features.append(mod_feature)
-                                else:
-                                    modified_features.append(feature_prokka)
-                            else:
-                                change_start = int(line_elements[6]) - int(line_elements[8])
-                                mod_prokka_start = int(feature_prokka.location.start) + change_start
-                                prokka_prom_start = mod_prokka_start - 40
-                                prokka_prom_location = FeatureLocation(ExactPosition(prokka_prom_start),
-                                                                       ExactPosition(mod_prokka_start),
-                                                                       strand=int(feature_prokka.location.strand))
-                                feature_prokka_prom_seq = prokka_prom_location.extract(fasta_seq)
-                                blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[rv_id],
-                                                                         outfmt='"7 qseqid sseqid pident length '
-                                                                                'mismatch gapopen qstart qend sstart '
-                                                                                'send evalue bitscore gaps"')
-                                stdout_2, stderr_2 = blast_to_rv_prom(stdin=str(feature_prokka_prom_seq))
-                                prom_blast_elements = stdout_2.split('\n')
-                                prom_blast = len(prom_blast_elements)
-                                prom_counter = 0
-                                for line in prom_blast_elements:
-                                    if line.startswith('#') or len(line) == 0:
-                                        prom_counter += 1
-                                        continue
-                                    else:
-                                        line_elements = line.strip().split('\t')
-                                        if float(line_elements[2]) == 100.0 and int(line_elements[12]) == 0:
-                                            mod_feature = deepcopy(feature_prokka)
-                                            mod_start = int(feature_prokka.location.start) + change_start
-                                            mod_end = int(feature_prokka.location.end)
-                                            mod_strand = int(feature_prokka.location.strand)
-                                            mod_feature.location = FeatureLocation(ExactPosition(mod_start),
-                                                                                   ExactPosition(mod_end),
-                                                                                   strand=mod_strand)
-                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
-                                                                        to_stop=True)
-                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
-                                                                          to_stop=False)
-                                            if len(mod_feature_seq) == len(check_feature_seq) - 1:
-                                                mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
-                                                modified_features.append(mod_feature)
-                                            else:
-                                                modified_features.append(feature_prokka)
-                                        else:
-                                            modified_features.append(feature_prokka)
-                                if prom_blast == prom_counter:
-                                    modified_features.append(feature_prokka)
-                        else:
-                            # The start and stop are the same in both Blast and the reference i.e. Prodigal start location is
-                            # correct
-                            modified_features.append(feature_prokka)
-                if blast_length == blast_counter:
-                    modified_features.append(feature_prokka)
-            else:
-                modified_features.append(feature_prokka)
-        else:
-            modified_features.append(feature_prokka)
-
-        if modified_features[-1] != feature_prokka:
-            data = [
-                rv_id,
-                feature_prokka.qualifiers['locus_tag'][0],
-                str(int(feature_prokka.location.start) + 1),
-                str(int(feature_prokka.location.end) + 1),
-                str(feature_prokka.location.strand),
-                str(int(modified_features[-1].location.start) + 1),
-                str(int(modified_features[-1].location.end) + 1),
-                str(modified_features[-1].location.strand),
-                str(int(modified_features[-1].location.start) - int(feature_prokka.location.start)),
-            ]
-            report.append(data)
-'''
-
+                    num_fix += 1
+    logger.debug(f"Corrected start positions for {num_fix} ORFs")
 
 
 def get_feature_by_locustag(features):
@@ -1510,7 +1434,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     prokka_rejects = []
     prokka_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'prokka_unused.tsv')
     annomerge_records = []
-
+    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka', 'hybran_coord_corrections.tsv')
+    global corrected_abinit_orf_report
+    corrected_abinit_orf_report = []
     ref_contigs = []
     ref_features = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
@@ -1806,12 +1732,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
 
             correct_start_coords(
-                prokka_features_not_in_ratt,
-#                record_sequence,
-#                ref_feature_list[i],
-#                reference_locus_list,
-#                reference_gene_locus_dict,
-#                os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv')
+                prokka_features_not_in_ratt.values(),
             )
 
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
@@ -2077,6 +1998,15 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             last_gene = gene
             last_remark = remark
         log_feature_fate(last_gene, prokka_rejects_log, last_remark)
+
+    with open(corrected_abinit_orf_logfile, 'w') as logfile:
+        header = ['Gene_Name', 'OG_Start', 'OG_Stop', 'New_Start', 'New_Stop', 'Remark']
+        print('\t'.join(header), file=logfile)
+        for i in range(len(corrected_abinit_orf_report)):
+            log_coord_correction(corrected_abinit_orf_report[i][0],
+                                 corrected_abinit_orf_report[i][1],
+                                 logfile
+            )
 
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
 
