@@ -102,16 +102,21 @@ def log_coord_correction(og_feature, feature, logfile):
     :param logfile: An open filehandle
     :param remark: (str) Comment regarding the origin of the fixed annotation.
     """
+    locus_tag = og_feature.qualifiers['locus_tag'][0]
+    gene_name = og_feature.qualifiers['gene'][0]
     if designator.is_raw_ltag(og_feature.qualifiers['locus_tag'][0]):
-        gene_name = reference_gene_locus_dict[og_feature.qualifiers['locus_tag'][0]]
+        source = 'ab_init'
     else:
-        gene_name = og_feature.qualifiers['gene'][0]
+        source = 'ratt'
+    strand = (og_feature.strand)
     og_start = (og_feature.location.start)
     og_end = (og_feature.location.end)
     new_start = (feature.location.start)
     new_end = (feature.location.end)
+    start_fixed = str(any(["Start position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
+    stop_fixed = str(any(["Stop position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
     remark = ", ".join(feature.qualifiers['inference'])
-    line = [gene_name, og_start, og_end, new_start, new_end, remark]
+    line = [source, locus_tag, gene_name, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
     print('\t'.join(str(v) for v in line), file=logfile)
 
 
@@ -1384,7 +1389,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     prokka_rejects = []
     prokka_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'prokka_unused.tsv')
     annomerge_records = []
-    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka', 'hybran_coord_corrections.tsv')
+    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'annomerge', 'hybran_coord_corrections.tsv')
     global corrected_abinit_orf_report
     corrected_abinit_orf_report = []
     ref_contigs = []
@@ -1950,7 +1955,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
         log_feature_fate(last_gene, prokka_rejects_log, last_remark)
 
     with open(corrected_abinit_orf_logfile, 'w') as logfile:
-        header = ['Gene_Name', 'OG_Start', 'OG_Stop', 'New_Start', 'New_Stop', 'Remark']
+        header = ['Source', 'Locus_tag', 'Gene_Name', 'OG_Start', 'OG_Stop', 'New_Start', 'New_Stop', 'Fixed_Start', 'Fixed_Stop']
         print('\t'.join(header), file=logfile)
         for i in range(len(corrected_abinit_orf_report)):
             log_coord_correction(corrected_abinit_orf_report[i][0],
