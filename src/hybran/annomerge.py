@@ -104,15 +104,15 @@ def log_coord_correction(og_feature, feature, logfile):
     """
     locus_tag = og_feature.qualifiers['locus_tag'][0]
     gene_name = og_feature.qualifiers['gene'][0]
-    strand = (og_feature.strand)
-    og_start = (og_feature.location.start)
+    strand = str(og_feature.strand)
+    og_start = str(int(og_feature.location.start) + 1)
     og_end = (og_feature.location.end)
-    new_start = (feature.location.start)
+    new_start = str(int(feature.location.start) + 1)
     new_end = (feature.location.end)
     start_fixed = str(any(["Start position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
     stop_fixed = str(any(["Stop position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
     remark = ", ".join(feature.qualifiers['inference'])
-    line = [locus_tag, gene_name, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
+    line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
     print('\t'.join(str(v) for v in line), file=logfile)
 
 
@@ -1837,7 +1837,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
     with open(corrected_abinit_orf_logfile, 'w') as abinit_corlog, \
          open(corrected_ratt_orf_logfile, 'w') as ratt_corlog:
-        header = ['Locus_tag', 'Gene_Name', 'OG_Start', 'OG_Stop', 'New_Start', 'New_Stop', 'Fixed_Start', 'Fixed_Stop']
+        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon']
         print('\t'.join(header), file=abinit_corlog)
         print('\t'.join(header), file=ratt_corlog)
         for (orig_feature, corr_feature) in corrected_orf_report:

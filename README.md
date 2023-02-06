@@ -101,20 +101,27 @@ Two columns: the locus tag and the reason why it was excluded from the final ann
 
 ##### `*/*/hybran_coord_corrections.tsv`
 
-
-- reference_locus_tag:
-The gene from your reference annotation corresponding to the annotated feature.
 - locus_tag:
-Annotated feature from the source indicated by the parent directory.
-- original_start
-- original_end
-- original_strand
-- start
-- end
+Locus tag of the annotated feature from the source indicated by the parent directory.
+- gene_name:
+Assigned gene name (lifted over from reference annotation)
 - strand
-- start_shift
-The difference between `start` and `original_start`.
-End coordinates will not have been adjusted.
+- og_start
+Original start position
+- og_end
+Original end position
+- new_start
+Updated start position
+- new_end
+Updated end position
+- fixed_start_codon
+Whether the start codon was corrected ('true' or 'false')
+- fixed_stop_codon
+Whether the stop codon was corrected ('true' or 'false')
+
+For `og_start`, `og_end`, `new_start`, and `new_end`, "start" always corresponds to the low number on the genome and "stop" corresponds to the high number, regardless of strand.
+`new_start` and `new_end` are not necessary modified from the original coordinates.
+`fixed_start_codon` and `fixed_stop_codon` indicate whether they have changed, but these correspond to the strand-adjusted start and stop positions, hence the reference to codons.
 
 ## Citation
 
