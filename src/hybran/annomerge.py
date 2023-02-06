@@ -1343,7 +1343,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     prokka_rejects = []
     prokka_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'prokka_unused.tsv')
     annomerge_records = []
-    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'annomerge', 'hybran_coord_corrections.tsv')
+    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka', 'hybran_coord_corrections.tsv')
     global corrected_abinit_orf_report
     corrected_abinit_orf_report = []
     ref_contigs = []
