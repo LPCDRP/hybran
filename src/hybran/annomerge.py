@@ -661,19 +661,16 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     :param fix_stop: Boolean
     :return: True/False if the start/stop was fixed
     """
-    if designator.is_raw_ltag(feature.qualifiers['locus_tag'][0]):
-        ref_locus = reference_gene_locus_dict[feature.qualifiers['gene'][0]][0]
-    else:
-        ref_locus = feature.qualifiers['locus_tag'][0]
-    ref_pos = ref_genes_positions[ref_locus]
-    ref_seq = ref_sequence[ref_pos[0]:ref_pos[1]]
-    ref_length = abs(ref_pos[1] - ref_pos[0])
+    ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
+    ref_seq = ref_feature.extract(ref_sequence)
+    ref_length = len(ref_seq)
     feature_start = feature.location.start
     feature_end = feature.location.end
     feature_seq = feature.extract(record_sequence)
     og_feature = deepcopy(feature)
 
     if feature.strand == -1:
+        ref_seq = ref_seq.reverse_complement()
         feature_seq = feature_seq.reverse_complement()
 
     #Default for parameter for "blastn"
@@ -1235,9 +1232,8 @@ def correct_start_coords(features):
         if feature.type == 'CDS' and 'gene' in feature.qualifiers.keys():
             good_start, good_stop = coord_check(feature, fix_start=False, fix_stop=False)
             og_feature = deepcopy(feature)
-            ref_locus = reference_gene_locus_dict[feature.qualifiers['gene'][0]][0]
-            ref_pos = ref_genes_positions[ref_locus]
-            ref_seq = ref_sequence[ref_pos[0]:ref_pos[1]]
+            ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
+            ref_seq = ref_feature.extract(ref_sequence)
             bp_diff = abs(len(ref_seq) - len(feature.extract(record_sequence)))
             if not good_start:
                 n = bp_diff + round(.1 * bp_diff)
@@ -1257,25 +1253,6 @@ def correct_start_coords(features):
     logger.debug(f"Corrected start positions for {num_fix} ORFs")
 
 
-def get_feature_by_locustag(features):
-    """
-
-    :param features:
-    :return:
-    """
-    global ref_genes_positions
-    ref_genes_positions = {}
-    cds_dict = {}
-    for feature in features:
-        if feature.type != 'CDS':
-            continue
-        else:
-            rv = feature.qualifiers['locus_tag'][0]
-            cds_dict[rv] = feature
-            ref_genes_positions[rv] = (int(feature.location.start), int(feature.location.end))
-    return cds_dict
-
-
 def fix_embl_id_line(embl_file):
     """
 
@@ -1292,29 +1269,6 @@ def fix_embl_id_line(embl_file):
     with open(embl_file, 'w') as out:
         for line in lines:
             out.write(line)
-
-
-def run_prodigal(reference_genome, outfile):
-    """
-    :param reference_genome:
-    :param outfile: str path to file that prodigal should output
-    :return:
-    """
-    logger = logging.getLogger('Prodigal')
-    c = os.getcwd()
-    logger.debug('Executing Prodigal on ' + reference_genome)
-    cmd = [os.sep.join([script_dir, 'prodigal.sh']),
-           reference_genome,
-           outfile]
-    try:
-        subprocess.run(
-            cmd,
-            check=True,
-        )
-    except subprocess.CalledProcessError:
-        logger.error('Prodigal failed.')
-        exit(1)
-    os.chdir(c)
 
 
 def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
@@ -1395,16 +1349,14 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     ref_contigs = []
     ref_features = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
+    global ref_annotation
     ref_annotation = {}
-    # nested dictionary of contig to genomic coordinates to locus tags (needed for prodigal correction)
-    ref_loci = collections.OrderedDict()
     # upstream sequence contexts for reference genes. used in multiple places
     global ref_prom_fp_dict
     global ref_fna_dict
     ref_prom_fp_dict = {}
     ref_fna_dict = {}
     for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
-        ref_loci[ref_record.id] = collections.OrderedDict()
         ref_contigs.append(ref_record.seq)
         ref_features.append(ref_record.features)
         prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
@@ -1413,77 +1365,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
         for feature in ref_record.features:
             if feature.type != "CDS":
                 continue
-            ref_loci[ref_record.id][(int(feature.location.start) + 1, int(feature.location.end))] = feature.qualifiers['locus_tag'][0]
             # if reference paralogs have been collapsed, the last occurrence in the genome
             # will prevail.
             ref_annotation[feature.qualifiers['gene'][0]] = feature
-
-    # RUNNING PRODIGAL
-    prodigal_list = {ref_contig:[] for ref_contig in ref_loci.keys()}
-    incorrect_coords_dict = {}
-    ref_feature_list = []
-    prodigal_results_fp = os.path.join('prodigal-test', 'reference_prodigal')
-    if not os.path.exists(prodigal_results_fp):
-        run_prodigal(reference_genome, prodigal_results_fp)
-
-    dict_save_fp = prodigal_results_fp + '.p'
-    prodigal_raw = open(prodigal_results_fp, "r").readlines()
-    for line in prodigal_raw:
-        if line.startswith('DEFINITION'):
-            header_fields = re.sub(r'^DEFINITION\s+', '', line.strip())
-            header_fields = dict(_.split('=') for _ in header_fields.replace('"','').split(';'))
-            ref_contig = header_fields['seqhdr']
-        elif line.startswith('     CDS'):
-            line_elements = line.strip().split()
-            coords = line_elements[1]
-            if '(' in coords:
-                coords_elements = coords.split('..')
-                coords_start = coords_elements[0].split('(')[1]
-                coords_end = coords_elements[1].split(')')[0]
-                prodigal_list[ref_contig].append((int(coords_start), int(coords_end)))
-            else:
-                coords_elements = coords.split('..')
-                prodigal_list[ref_contig].append((int(coords_elements[0].replace('<', '')), int(coords_elements[1])))
-
-    global refseqs_prodigal_fails_dir
-    refseqs_prodigal_fails_dir = os.path.join(hybran_tmp_dir, 'prodigal-fails-refseqs')
-    os.mkdir(refseqs_prodigal_fails_dir)
-    for i, ref_contig in enumerate(prodigal_list.keys()):
-        ref_feature_list.append(get_feature_by_locustag(ref_features[i]))
-        for gene_coord in prodigal_list[ref_contig]:
-            for gene in ref_loci[ref_contig].keys():
-                locus_tag = ref_loci[ref_contig][gene]
-                if gene[0] > gene_coord[1]:
-                    break
-                elif gene[1] == gene_coord[1] and gene[0] != gene_coord[0]:
-                    prodigal_length = gene_coord[1] - gene_coord[0] + 1
-                    start_change = gene[0] - gene_coord[0] - 1
-                    incorrect_coords_dict[ref_loci[ref_contig][gene]] = {'length': prodigal_length,
-                                                                         'start_change': start_change}
-                    # write affected reference genes to temporary files
-                    ref_gene_seq = SeqRecord(
-                        ref_feature_list[i][locus_tag].extract(ref_contigs[i]),
-                        id=locus_tag
-                    )
-                    SeqIO.write(
-                        ref_gene_seq,
-                        os.path.join(refseqs_prodigal_fails_dir, locus_tag + '.fasta'),
-                        format="fasta"
-                    )
-                    break
-    logger.debug('Number of genes with incorrect start predictions by Prodigal: ' +
-                 str(len(list(incorrect_coords_dict.keys()))))
-    pickle.dump(incorrect_coords_dict, open(dict_save_fp, "wb"))
-
-    # Write out the genes with incorrect start predictions by Prodigal
-    with open(os.path.join('prodigal-test','incorrect_starts.txt'), 'w') as f:
-        print('\t'.join(['reference_locus_tag', 'length_according_to_prodigal','start_change']),
-              file=f)
-        for key in incorrect_coords_dict.keys():
-            print('\t'.join([str(key),
-                             str(incorrect_coords_dict[key]['length']),
-                             str(incorrect_coords_dict[key]['start_change'])]),
-                  file=f)
 
     if ratt_enforce_thresholds:
         ratt_seq_ident = seq_ident

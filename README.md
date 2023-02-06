@@ -48,9 +48,6 @@ outdir/
 │   ├── <i>reference1</i>.gbk
 │   ├── ...
 │   └── <i>referenceN</i>.gbk
-├── prodigal-test/
-│   ├── incorrect_starts.txt
-│   └── reference_prodigal
 ├── clustering/
 │   ├── multigene_clusters.txt
 │   ├── novelty_report.tsv
@@ -117,16 +114,6 @@ Annotated feature from the source indicated by the parent directory.
 - start_shift
 The difference between `start` and `original_start`.
 End coordinates will not have been adjusted.
-
-##### `prodigal-test/incorrect_starts.txt`
-
-The results of the comparison of the reference annotation(s) to Prodigal's annotation of them.
-Genes with differing start positions are looked for in each sample and their coordinates checked more closely against the reference annotation.
-
-- reference_locus_tag
-- length_according_to_prodigal
-- start_change
-
 
 ## Citation
 
