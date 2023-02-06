@@ -104,10 +104,6 @@ def log_coord_correction(og_feature, feature, logfile):
     """
     locus_tag = og_feature.qualifiers['locus_tag'][0]
     gene_name = og_feature.qualifiers['gene'][0]
-    if designator.is_raw_ltag(og_feature.qualifiers['locus_tag'][0]):
-        source = 'ab_init'
-    else:
-        source = 'ratt'
     strand = (og_feature.strand)
     og_start = (og_feature.location.start)
     og_end = (og_feature.location.end)
@@ -116,7 +112,7 @@ def log_coord_correction(og_feature, feature, logfile):
     start_fixed = str(any(["Start position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
     stop_fixed = str(any(["Stop position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
     remark = ", ".join(feature.qualifiers['inference'])
-    line = [source, locus_tag, gene_name, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
+    line = [locus_tag, gene_name, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
     print('\t'.join(str(v) for v in line), file=logfile)
 
 
@@ -714,7 +710,7 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     else:
         good_start, good_stop = good_low, good_high
 
-    corrected_abinit_orf_report.append([og_feature, feature])
+    corrected_orf_report.append([og_feature, feature])
     return good_start, good_stop
 
 
@@ -1344,8 +1340,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     prokka_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'prokka_unused.tsv')
     annomerge_records = []
     corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka', 'hybran_coord_corrections.tsv')
-    global corrected_abinit_orf_report
-    corrected_abinit_orf_report = []
+    corrected_ratt_orf_logfile = os.path.join(isolate_id, 'ratt', 'hybran_coord_corrections.tsv')
+    global corrected_orf_report
+    corrected_orf_report = []
     ref_contigs = []
     ref_features = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
@@ -1838,12 +1835,18 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             last_remark = remark
         log_feature_fate(last_gene, prokka_rejects_log, last_remark)
 
-    with open(corrected_abinit_orf_logfile, 'w') as logfile:
-        header = ['Source', 'Locus_tag', 'Gene_Name', 'OG_Start', 'OG_Stop', 'New_Start', 'New_Stop', 'Fixed_Start', 'Fixed_Stop']
-        print('\t'.join(header), file=logfile)
-        for i in range(len(corrected_abinit_orf_report)):
-            log_coord_correction(corrected_abinit_orf_report[i][0],
-                                 corrected_abinit_orf_report[i][1],
+    with open(corrected_abinit_orf_logfile, 'w') as abinit_corlog, \
+         open(corrected_ratt_orf_logfile, 'w') as ratt_corlog:
+        header = ['Locus_tag', 'Gene_Name', 'OG_Start', 'OG_Stop', 'New_Start', 'New_Stop', 'Fixed_Start', 'Fixed_Stop']
+        print('\t'.join(header), file=abinit_corlog)
+        print('\t'.join(header), file=ratt_corlog)
+        for (orig_feature, corr_feature) in corrected_orf_report:
+            if designator.is_raw_ltag(orig_feature.qualifiers['locus_tag'][0]):
+                logfile = abinit_corlog
+            else:
+                logfile = ratt_corlog
+            log_coord_correction(orig_feature,
+                                 corr_feature,
                                  logfile
             )
 

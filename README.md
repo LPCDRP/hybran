@@ -36,6 +36,7 @@ outdir/
 │   │   ├── prokka_unused.tsv
 │   │   └── ratt_unused.tsv
 |   ├── ratt/
+│   │   ├── hybran_coord_corrections.tsv
 │   │   └── ...
 |   ├── prokka/
 │   │   ├── hybran_coord_corrections.tsv
