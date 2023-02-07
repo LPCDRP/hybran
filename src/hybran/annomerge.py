@@ -711,6 +711,13 @@ def coord_check(feature, fix_start=False, fix_stop=False,
         good_start, good_stop = good_low, good_high
 
     if og_feature != feature:
+        feature.qualifiers['translation'] = [
+            str(translate(
+                feature.extract(record_sequence),
+                table=genetic_code,
+                to_stop=True,
+            ))
+        ]
         corrected_orf_report.append([og_feature, feature])
     return good_start, good_stop
 
