@@ -710,7 +710,8 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     else:
         good_start, good_stop = good_low, good_high
 
-    corrected_orf_report.append([og_feature, feature])
+    if og_feature != feature:
+        corrected_orf_report.append([og_feature, feature])
     return good_start, good_stop
 
 
