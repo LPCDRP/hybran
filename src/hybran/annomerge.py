@@ -660,8 +660,23 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     ref_length = len(ref_seq)
     feature_start = feature.location.start
     feature_end = feature.location.end
-    feature_seq = feature.extract(record_sequence)
     og_feature = deepcopy(feature)
+    og_feature_start = og_feature.location.start
+    og_feature_end = og_feature.location.end
+
+    # If we're looking to make corrections, add some context to help the aligner
+    bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
+    n = bp_diff + round(.1 * bp_diff)
+    if (feature.strand == 1 and fix_start) or (feature.strand == -1 and fix_stop):
+        feature_start = max(0, (feature_start - n))
+    if (feature.strand == 1 and fix_stop) or (feature.strand == -1 and fix_start):
+        feature_end = min(len(record_sequence), feature.location.end + n)
+    feature.location = FeatureLocation(
+        feature_start,
+        feature_end,
+        strand=feature.strand
+    )
+    feature_seq = feature.extract(record_sequence)
 
     if feature.strand == -1:
         ref_seq = ref_seq.reverse_complement()
@@ -683,10 +698,13 @@ def coord_check(feature, fix_start=False, fix_stop=False,
         if (fix_stop and feature.strand==1) or (fix_start and feature.strand==-1):
             feature_end = new_feature_end
             good_high = True
-            designator.append_qualifier(feature.qualifiers, 'inference',
-                                        "COORDINATES:alignment: Stop position adjusted to correspond to reference")
+            if og_feature_end != new_feature_end:
+                designator.append_qualifier(
+                    feature.qualifiers, 'inference',
+                    "COORDINATES:alignment: Stop position adjusted to correspond to reference"
+                )
         else:
-            good_high = (feature_end == new_feature_end)
+            good_high = (og_feature_end == new_feature_end)
     else:
         good_high = False
 
@@ -695,10 +713,13 @@ def coord_check(feature, fix_start=False, fix_stop=False,
         if (fix_start and feature.strand==1) or (fix_stop and feature.strand==-1):
             feature_start = new_feature_start
             good_low = True
-            designator.append_qualifier(feature.qualifiers, 'inference',
-                                        "COORDINATES:alignment: Start position adjusted to correspond to reference")
+            if og_feature_start != new_feature_start:
+                designator.append_qualifier(
+                    feature.qualifiers, 'inference',
+                    "COORDINATES:alignment: Start position adjusted to correspond to reference"
+                )
         else:
-            good_low = (feature_start == new_feature_start)
+            good_low = (og_feature_start == new_feature_start)
     else:
         good_low = False
 
@@ -1542,16 +1563,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 ref_gene, pseudo, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
                 if ref_gene:
-                    # we'll do the full liftover soon, but we need at least the gene name in place to check the start coords
-                    feature.qualifiers['gene'] = [ref_gene]
-                    needed_correction = correct_start_coords(feature)
-                    if needed_correction:
-                        n_coords_corrected += 1
-                        # re-do the blast with the updated gene coordinates.
-                        # ref_gene should not change (since coordinates were fixed to match it better),
-                        # but pseudo may change and blast_hits will change.
-                        ref_gene, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
-                    abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
                     liftover_annotation(
                         feature,
                         ref_annotation[ref_gene],
@@ -1564,6 +1575,17 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                             "blastp",
                         ])
                     )
+                    og_feature = deepcopy(feature)
+                    good_start = coord_check(feature, fix_start=True)[0]
+                    if good_start and (og_feature != feature):
+                        n_coords_corrected += 1
+                        # re-do the blast with the updated gene coordinates.
+                        # ref_gene should not change (since coordinates were fixed to match it better),
+                        # but pseudo may change and blast_hits will change.
+                        top_hit, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
+                        if top_hit != ref_gene:
+                            logger.warning(f"coordinate correction for {str(feature)} now matches to {top_hit} instead of {ref_gene} ")
+                    abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
                 # Don't keep gene name assignments from Prokka. They can sometimes be based on
                 # poor sequence similarity and partial matches (despite its --coverage option).
                 # Keeping them is risky for propagation of the name during clustering.
