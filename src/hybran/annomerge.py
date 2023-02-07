@@ -1532,11 +1532,20 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     refmatch,
                     [SeqRecord(Seq(f.qualifiers['translation'][0])) for f in prokka_contig_cdss],
                 )
+            n_coords_corrected = 0
             for j in range(len(prokka_contig_cdss)):
                 ref_gene, pseudo, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
-                abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
                 if ref_gene:
+                    # we'll do the full liftover soon, but we need at least the gene name in place to check the start coords
+                    feature.qualifiers['gene'] = [ref_gene]
+                    needed_correction = correct_start_coords(feature)
+                    if needed_correction:
+                        n_coords_corrected += 1
+                        # re-do the blast with the updated gene coordinates.
+                        # ref_gene should not change (since coordinates were fixed to match it better),
+                        # but pseudo may change and blast_hits will change.
+                        ref_gene, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
                     abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
                     liftover_annotation(
                         feature,
@@ -1559,15 +1568,11 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         feature.qualifiers['gene'][0],
                     )
                     feature.qualifiers.pop('gene', None)
+                # We save all the blast hits at this point in case coordinates were corrected and the hits changed
+                abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
+
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
-
-
-            logger.info("Checking start coordinates for ab initio ORFs")
-            n_corrected = 0
-            for abinit_feature in prokka_features_not_in_ratt.values():
-                if correct_start_coords(abinit_feature):
-                    n_corrected += 1
-            logger.debug(f"Corrected start positions for {n_corrected} ORFs")
+            logger.debug(f'{seqname}: Corrected start positions for {n_coords_corrected} ab initio ORFs')
 
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
