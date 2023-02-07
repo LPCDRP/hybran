@@ -1208,41 +1208,38 @@ def check_inclusion_criteria(
         remark = 'corner case: unhandled by inclusion criteria'
     return include_abinit, include_ratt, remark
 
-def correct_start_coords(features):
+def correct_start_coords(feature):
     """
     This function checks for bad start positions and tests whether adding upstream sequence
     improves the reference match, then updates the feature if so.
-    :param features: list of SeqFeature objects to check
-    :return: nothing, but can modify the SeqFeatures in the input list
+    :param features: SeqFeature object to check
+    :return: bool True if corrected (input SeqFeature modified) and False otherwise
     """
-    hybran_tmp_dir = config.hybran_tmp_dir
-    report = []
-    logger = logging.getLogger('CorrectCoords')
-    num_fix = 0
+    corrected = False
 
-    for feature in features:
-        if feature.type == 'CDS' and 'gene' in feature.qualifiers.keys():
-            good_start, good_stop = coord_check(feature, fix_start=False, fix_stop=False)
-            og_feature = deepcopy(feature)
-            ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
-            ref_seq = ref_feature.extract(ref_sequence)
-            bp_diff = abs(len(ref_seq) - len(feature.extract(record_sequence)))
+    if feature.type == 'CDS' and 'gene' in feature.qualifiers.keys():
+        good_start, good_stop = coord_check(feature)
+        og_feature = deepcopy(feature)
+        ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
+        ref_seq = ref_feature.extract(ref_sequence)
+        bp_diff = abs(len(ref_seq) - len(feature.extract(record_sequence)))
+        if not good_start:
+            n = bp_diff + round(.1 * bp_diff)
+            if feature.location.strand == 1:
+                feature_start = max(0, (feature.location.start - n))
+                feature_end = feature.location.end
+            else:
+                feature_start = feature.location.start
+                feature_end = min(len(record_sequence), feature.location.end + n)
+            feature.location = (FeatureLocation(feature_start, feature_end,
+                                                      strand=feature.strand))
+            good_start, good_stop = coord_check(feature, fix_start=True)
             if not good_start:
-                n = bp_diff + round(.1 * bp_diff)
-                if feature.location.strand == 1:
-                    feature_start = max(0, (feature.location.start - n))
-                    feature_end = feature.location.end
-                else:
-                    feature_start = feature.location.start
-                    feature_end = min(len(record_sequence), feature.location.end + n)
-                feature.location = (FeatureLocation(feature_start, feature_end,
-                                                          strand=feature.strand))
-                good_start, good_stop = coord_check(feature, fix_start=True, fix_stop=False)
-                if not good_start:
-                    feature = og_feature
-                else:
-                    num_fix += 1
-    logger.debug(f"Corrected start positions for {num_fix} ORFs")
+                feature = og_feature
+            else:
+                corrected = True
+
+    return corrected
 
 
 def fix_embl_id_line(embl_file):
@@ -1563,9 +1560,13 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     feature.qualifiers.pop('gene', None)
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
 
-            correct_start_coords(
-                prokka_features_not_in_ratt.values(),
-            )
+
+            logger.info("Checking start coordinates for ab initio ORFs")
+            n_corrected = 0
+            for abinit_feature in prokka_features_not_in_ratt.values():
+                if correct_start_coords(abinit_feature):
+                    n_corrected += 1
+            logger.debug(f"Corrected start positions for {n_corrected} ORFs")
 
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
