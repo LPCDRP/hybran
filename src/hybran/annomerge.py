@@ -679,8 +679,9 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     feature_seq = feature.extract(record_sequence)
 
     if feature.strand == -1:
-        ref_seq = ref_seq.reverse_complement()
         feature_seq = feature_seq.reverse_complement()
+    if ref_feature.strand == -1:
+        ref_seq = ref_seq.reverse_complement()
 
     #Default for parameter for "blastn"
     aligner = Align.PairwiseAligner()
