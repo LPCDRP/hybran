@@ -1210,14 +1210,10 @@ def check_inclusion_criteria(
 
 def correct_start_coords(features):
     """
-    This function parses through prokka records and corrects start coordinates for cases where Prodigal
-    annotates these incorrectly
-    :param features: list of SeqFeatures
-    :param correction_dict:
-    :param fasta_seq:
-    :param rv_cds_dict:
-    :param log: filename in which to log corrections
-    :return:
+    This function checks for bad start positions and tests whether adding upstream sequence
+    improves the reference match, then updates the feature if so.
+    :param features: list of SeqFeature objects to check
+    :return: nothing, but can modify the SeqFeatures in the input list
     """
     hybran_tmp_dir = config.hybran_tmp_dir
     report = []
