@@ -100,7 +100,6 @@ def log_coord_correction(og_feature, feature, logfile):
     :param og_feature: Original SeqFeature object
     :param feature: Updated SeqFeature object
     :param logfile: An open filehandle
-    :param remark: (str) Comment regarding the origin of the fixed annotation.
     """
     locus_tag = og_feature.qualifiers['locus_tag'][0]
     gene_name = og_feature.qualifiers['gene'][0]
@@ -111,7 +110,6 @@ def log_coord_correction(og_feature, feature, logfile):
     new_end = (feature.location.end)
     start_fixed = str(any(["Start position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
     stop_fixed = str(any(["Stop position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
-    remark = ", ".join(feature.qualifiers['inference'])
     line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
     print('\t'.join(str(v) for v in line), file=logfile)
 
