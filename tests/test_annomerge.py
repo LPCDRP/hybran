@@ -646,10 +646,10 @@ def test_check_inclusion_criteria(pair, tmp_path):
     config.hybran_tmp_dir = tmp_path
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
     ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
-    annomerge.ref_prom_fp_dict = annomerge.get_prom_for_gene(
+    annomerge.ref_prom_fp_dict = annomerge.get_nuc_seq_for_gene(
         [ref_features['H37Rv'][pairs[pair][0]]],
         ref_sequence,
-    )
+    )[0]
 
     expected = {
         'ratt_better': (
