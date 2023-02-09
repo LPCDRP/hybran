@@ -605,6 +605,9 @@ def test_find_inframe_overlaps(case):
     'ratt_better_coverage',
     'different',
     'abinit_better',
+    # https://gitlab.com/LPCDRP/hybran/-/issues/57
+    'overlapping_different_names_ratt_better',
+    'overlapping_different_names_abinit_better',
 ])
 def test_check_inclusion_criteria(pair, tmp_path):
     source_genome = {
@@ -613,6 +616,8 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'different':'1-0006',
         'abinit_better':'4-0041',
         'corresponding_non_cds':'4-0041',
+        'overlapping_different_names_ratt_better':'1-0006',
+        'overlapping_different_names_abinit_better':'1-0006',
     }
     pairs = {
         'ratt_better': ('dnaA', 'dnaA'),
@@ -621,6 +626,8 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'corresponding_non_cds': ('rrf', 'rrf'),
         'similar': (),
         'abinit_better': ('Rv1718', 'Rv1718'),
+        'overlapping_different_names_ratt_better': ('esxM', 'esxM'),
+        'overlapping_different_names_abinit_better': ('Rv2180c', 'ORF0004'),
     }
     ratt = features[source_genome[pair]][pairs[pair][0]]['ratt']
     abinit = features[source_genome[pair]][pairs[pair][1]]['abinit']
@@ -629,17 +636,39 @@ def test_check_inclusion_criteria(pair, tmp_path):
         dnaA=['Rv0001'],
         Rv0205=['Rv0205'],
         rplB=['Rv0704'],
+        esxK=['Rv1197'],
         Rv1453=['Rv1453'],
         Rv1718=['Rv1718'],
+        esxM=['Rv1792'],
         mamB=['Rv2024c'],
         pks1=['Rv2946c'],
+        ORF0004=[
+            'Rv0796',
+            'Rv1369c',
+            'Rv1756c',
+            'Rv1764',
+            'Rv2106',
+            'Rv2167c',
+            'Rv2279',
+            'Rv2355',
+            'Rv2479c',
+            'Rv2649',
+            'Rv2814c',
+            'Rv3185',
+            'Rv3187',
+            'Rv3326',
+            'Rv3380c',
+            'Rv3475',
+        ],
     ))
     reference_locus_gene_dict = dict(
         Rv0001='dnaA',
         Rv0205='Rv0205',
         Rv0704='rplB',
+        Rv1197='esxK',
         Rv1453='Rv1453',
         Rv1718='Rv1718',
+        Rv1792='esxM',
         Rv2024c='mamB',
     )
 
@@ -662,6 +691,14 @@ def test_check_inclusion_criteria(pair, tmp_path):
         ),
         'different': (True, True, ''),
         'abinit_better': (True, False, 'Ab initio feature L_02383 has better alignment coverage with the reference.'),
+        'overlapping_different_names_ratt_better': (
+            False, True,
+            "RATT annotation has more accurate gene name",
+        ),
+        'overlapping_different_names_abinit_better': (
+            True, False,
+            "Ab initio feature more accurately named and delineated"
+        )
     }
 
 
