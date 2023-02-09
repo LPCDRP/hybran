@@ -1262,6 +1262,8 @@ def check_inclusion_criteria(
             locus_tag_list = abinit_annotation.qualifiers['gene']
         locus_tag = ratt_annotation.qualifiers['locus_tag'][0]
         blast_stats = abinit_blast_results[abinit_annotation.qualifiers['locus_tag'][0]]
+        if locus_tag not in locus_tag_list:
+            pass
         if(locus_tag in locus_tag_list
         ):
             #Always take the non-pseudo annotation if possible
