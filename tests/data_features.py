@@ -23,6 +23,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv1718'],'gene':['Rv1718']}
         ),
+        'Rv3181c': SeqFeature(
+            FeatureLocation(3549690,3550143 , strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv3181c'],'gene':['Rv3181c']}
+        ),
     },
 }
 
@@ -85,6 +90,14 @@ features = {
                 FeatureLocation(3182302, 3183397, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['Rv2880c'],'gene':['Rv2880c']}
+            )
+        },
+        'Rv3181c': {
+            'abinit': SeqFeature(
+                FeatureLocation(3548089, 3548338, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_03370'],'gene':['Rv3181c'],
+                            'pseudo':['']}
             )
         },
     },

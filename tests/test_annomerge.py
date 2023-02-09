@@ -300,6 +300,28 @@ def test_liftover_annotation():
     annomerge.liftover_annotation(abinit, ref, False, inference='alignment:blastp')
     assert abinit.qualifiers == expected
 
+@pytest.mark.parametrize('feature_type', [
+    'abinit_start_bad_minus',
+])
+def test_coord_check(feature_type):
+    #prokka for Rv2300c and Rv3181c
+    source_genome = '1-0006'
+    test_features = {
+        'abinit_start_bad_minus': features[source_genome]['Rv3181c']['abinit']
+    }
+    feature = test_features[feature_type]
+    annomerge.ref_annotation = {
+        'Rv3181c': ref_features['H37Rv']['Rv3181c'],
+    }
+    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
+    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
+
+    expected = {
+        'abinit_start_bad_minus': [(True, True), FeatureLocation(3548089, 3548542, strand=-1)],
+    }
+    results = annomerge.coord_check(feature, fix_start=True)
+    assert [results, feature.location] == expected[feature_type]
+
 def test_populate_gaps():
     intergenic_positions = [
         (1525, 3409, '+'),
