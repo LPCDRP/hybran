@@ -660,13 +660,10 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
-    feature_seq = feature.extract(record_sequence)
     og_feature = deepcopy(feature)
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
 
-    if feature.strand == -1:
-        feature_seq = feature_seq.reverse_complement()
     if ref_feature.strand == -1:
         ref_seq = ref_seq.reverse_complement()
 
@@ -689,6 +686,11 @@ def coord_check(feature, fix_start=False, fix_stop=False,
                 feature_end,
                 strand=feature.strand
             )
+
+        feature_seq = feature.extract(record_sequence)
+        if feature.strand == -1:
+            feature_seq = feature_seq.reverse_complement()
+
         aligner = Align.PairwiseAligner(scoring="megablast", mode = 'global')
         alignment = aligner.align(ref_seq, feature_seq)[0]
         target = alignment.aligned[0]
