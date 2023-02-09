@@ -315,6 +315,8 @@ def test_coord_check(feature_type):
     }
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
+    annomerge.genetic_code = 11
+    annomerge.corrected_orf_report = []
 
     expected = {
         'abinit_start_bad_minus': [(True, True), FeatureLocation(3548089, 3548542, strand=-1)],
