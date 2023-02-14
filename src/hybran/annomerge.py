@@ -675,107 +675,107 @@ def coord_check(feature, fix_start=False, fix_stop=False,
         return found_low, found_high, target, query, alignment
 
 
-    for i in range(2):
-        if i == 1:
-            #If we're looking to make corrections, add some context to help the aligner
-            bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
-            n = bp_diff + round(.2 * bp_diff)
+    feature_seq = feature.extract(record_sequence)
+    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq)
 
-            if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
-                padded_feature_start = max(0, (feature_start - n))
-                if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
-                    feature_start = padded_feature_start
+    #If we're looking to make corrections, add some context to help the aligner
+    bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
+    n = bp_diff + round(.2 * bp_diff)
 
-            if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
-                padded_feature_end = min(len(record_sequence), feature_end + n)
-                if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
-                    feature_end = padded_feature_end
+    if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
+        padded_feature_start = max(0, (feature_start - n))
+        if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
+            feature_start = padded_feature_start
 
-            feature.location = FeatureLocation(
-                feature_start,
-                feature_end,
-                strand=feature.strand
-            )
+    if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
+        padded_feature_end = min(len(record_sequence), feature_end + n)
+        if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
+            feature_end = padded_feature_end
 
-        feature_seq = feature.extract(record_sequence)
-        feature_start = feature.location.start
-        feature_end = feature.location.end
+    feature.location = FeatureLocation(
+        feature_start,
+        feature_end,
+        strand=feature.strand
+    )
+    feature_seq = feature.extract(record_sequence)
+    feature_start = feature.location.start
+    feature_end = feature.location.end
 
-        found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq)
+    #Align again after adding padding to the feature sequence
+    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq)
 
-
-        if feature.strand == 1 and i == 1:
-            if found_high:
-                new_feature_end = (feature_start + query[-1][1])
-                if fix_stop:
-                    feature_end = new_feature_end
-                    good_stop = True
-                    if og_feature_end != new_feature_end:
-                        designator.append_qualifier(
-                            feature.qualifiers, 'inference',
-                            "COORDINATES:alignment: Stop position adjusted to correspond to reference"
-                        )
-                else:
-                    good_stop = (og_feature_end == new_feature_end)
+    if feature.strand == 1:
+        if found_high:
+            new_feature_end = (feature_start + query[-1][1])
+            if fix_stop:
+                feature_end = new_feature_end
+                good_stop = True
+                if og_feature_end != new_feature_end:
+                    designator.append_qualifier(
+                        feature.qualifiers, 'inference',
+                        "COORDINATES:alignment: Stop position adjusted to correspond to reference"
+                    )
             else:
-                feature_end = og_feature_end
-                good_stop = False
+                good_stop = (og_feature_end == new_feature_end)
+        else:
+            feature_end = og_feature_end
+            good_stop = False
 
-            if found_low:
-                new_feature_start = (feature_start + query[0][0])
-                if fix_start:
-                    feature_start = new_feature_start
-                    good_start = True
-                    if og_feature_start != new_feature_start:
-                        designator.append_qualifier(
-                            feature.qualifiers, 'inference',
-                            "COORDINATES:alignment: Start position adjusted to correspond to reference"
-                        )
-                else:
-                    good_start = (og_feature_start == new_feature_start)
+        if found_low:
+            new_feature_start = (feature_start + query[0][0])
+            if fix_start:
+                feature_start = new_feature_start
+                good_start = True
+                if og_feature_start != new_feature_start:
+                    designator.append_qualifier(
+                        feature.qualifiers, 'inference',
+                        "COORDINATES:alignment: Start position adjusted to correspond to reference"
+                    )
             else:
-                feature_start = og_feature_start
-                good_start = False
+                good_start = (og_feature_start == new_feature_start)
+        else:
+            feature_start = og_feature_start
+            good_start = False
 
-        elif feature.strand == -1 and i == 1:
-            if found_low:
-                new_feature_end = (feature_end - query[0][0])
-                if fix_start:
-                    feature_end = new_feature_end
-                    good_start = True
-                    if og_feature_end != new_feature_end:
-                        designator.append_qualifier(
-                            feature.qualifiers, 'inference',
-                            "COORDINATES:alignment: Start position adjusted to correspond to reference"
-                        )
-                else:
-                    good_start = (og_feature_end == new_feature_end)
+    elif feature.strand == -1:
+        if found_low:
+            new_feature_end = (feature_end - query[0][0])
+            if fix_start:
+                feature_end = new_feature_end
+                good_start = True
+                if og_feature_end != new_feature_end:
+                    designator.append_qualifier(
+                        feature.qualifiers, 'inference',
+                        "COORDINATES:alignment: Start position adjusted to correspond to reference"
+                    )
             else:
-                feature_end = og_feature_end
-                good_start = False
+                good_start = (og_feature_end == new_feature_end)
+        else:
+            feature_end = og_feature_end
+            good_start = False
 
-            if found_high:
-                new_feature_start = (feature_start + (len(feature) - query[-1][1]))
-                if fix_stop:
-                    feature_start = new_feature_start
-                    good_stop = True
-                    if og_feature_start != new_feature_start:
-                        designator.append_qualifier(
-                            feature.qualifiers, 'inference',
-                            "COORDINATES:alignment: Stop position adjusted to correspond to reference"
-                        )
-                else:
-                    good_stop = (og_feature_start == new_feature_start)
+        if found_high:
+            new_feature_start = (feature_start + (len(feature) - query[-1][1]))
+            if fix_stop:
+                feature_start = new_feature_start
+                good_stop = True
+                if og_feature_start != new_feature_start:
+                    designator.append_qualifier(
+                        feature.qualifiers, 'inference',
+                        "COORDINATES:alignment: Stop position adjusted to correspond to reference"
+                    )
             else:
-                feature_start = og_feature_start
-                good_stop = False
+                good_stop = (og_feature_start == new_feature_start)
+        else:
+            feature_start = og_feature_start
+            good_stop = False
 
 
-        feature.location = FeatureLocation(
-            int(feature_start),
-            int(feature_end),
-            strand=feature.strand
-        )
+    feature.location = FeatureLocation(
+        int(feature_start),
+        int(feature_end),
+        strand=feature.strand
+    )
 
     if og_feature.location != feature.location:
         feature.qualifiers['translation'] = [
