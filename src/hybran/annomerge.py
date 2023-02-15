@@ -1611,13 +1611,13 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 ref_gene, pseudo, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
                 if ref_gene:
-                    og_feature = deepcopy(feature)
+                    og_feature_location = deepcopy(feature.location)
                     og_pseudo = pseudo
                     og_blast_hits = blast_hits
                     match_type = 'AA'
                     feature.qualifiers['gene'] = [ref_gene]
                     good_start = coord_check(feature, fix_start=True)[0]
-                    if good_start and (og_feature != feature):
+                    if good_start and (og_feature_location != feature.location):
                         n_coords_corrected += 1
                         # re-do the blast with the updated gene coordinates.
                         # ref_gene should not change (since coordinates were fixed to match it better),
@@ -1626,8 +1626,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         if top_hit != ref_gene:
                             top_hit = refmatch(SeqRecord(Seq(feature.extract(record_sequence))), blast_type="n")[0]
                             if top_hit != ref_gene:
-                                logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}. Rejecting {str(og_feature.location)} -> {str(feature.location)} coordinate correction.")
-                                feature = og_feature
+                                logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}. Rejecting {str(og_feature_location)} -> {str(feature.location)} coordinate correction.")
+                                n_coords_corrected -= 1
+                                feature.location = og_feature_location
                                 blast_hits = og_blast_hits
                                 pseudo = og_pseudo
                             else:
