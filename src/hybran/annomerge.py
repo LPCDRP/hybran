@@ -1611,19 +1611,11 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 ref_gene, pseudo, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
                 if ref_gene:
-                    liftover_annotation(
-                        feature,
-                        ref_annotation[ref_gene],
-                        pseudo,
-                        inference=':'.join([
-                            "similar to AA sequence",
-                            os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
-                            ref_annotation[ref_gene].qualifiers['locus_tag'][0],
-                            ref_gene,
-                            "blastp",
-                        ])
-                    )
                     og_feature = deepcopy(feature)
+                    og_pseudo = pseudo
+                    og_blast_hits = blast_hits
+                    match_type = 'AA'
+                    feature.qualifiers['gene'] = [ref_gene]
                     good_start = coord_check(feature, fix_start=True)[0]
                     if good_start and (og_feature != feature):
                         n_coords_corrected += 1
@@ -1632,7 +1624,27 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         # but pseudo may change and blast_hits will change.
                         top_hit, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
                         if top_hit != ref_gene:
-                            logger.warning(f"coordinate correction for {str(feature)} now matches to {top_hit} instead of {ref_gene} ")
+                            top_hit = refmatch(SeqRecord(Seq(feature.extract(record_sequence))), blast_type="n")[0]
+                            if top_hit != ref_gene:
+                                logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}. Rejecting {str(og_feature.location)} -> {str(feature.location)} coordinate correction.")
+                                feature = og_feature
+                                blast_hits = og_blast_hits
+                                pseudo = og_pseudo
+                            else:
+                                match_type = 'nucleotide'
+                                pseudo = True
+                    liftover_annotation(
+                        feature,
+                        ref_annotation[ref_gene],
+                        pseudo,
+                        inference=':'.join([
+                            f"similar to {match_type} sequence",
+                            os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
+                            ref_annotation[ref_gene].qualifiers['locus_tag'][0],
+                            ref_gene,
+                            "blast",
+                        ])
+                    )
                     abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
                 # Don't keep gene name assignments from Prokka. They can sometimes be based on
                 # poor sequence similarity and partial matches (despite its --coverage option).
