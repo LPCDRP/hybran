@@ -1283,40 +1283,6 @@ def check_inclusion_criteria(
         remark = 'corner case: unhandled by inclusion criteria'
     return include_abinit, include_ratt, remark
 
-def correct_start_coords(feature):
-    """
-    This function checks for bad start positions and tests whether adding upstream sequence
-    improves the reference match, then updates the feature if so.
-    :param features: SeqFeature object to check
-    :return: bool True if corrected (input SeqFeature modified) and False otherwise
-    """
-    corrected = False
-
-    if feature.type == 'CDS' and 'gene' in feature.qualifiers.keys():
-        good_start, good_stop = coord_check(feature)
-        og_feature = deepcopy(feature)
-        ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
-        ref_seq = ref_feature.extract(ref_sequence)
-        bp_diff = abs(len(ref_seq) - len(feature.extract(record_sequence)))
-        if not good_start:
-            n = bp_diff + round(.1 * bp_diff)
-            if feature.location.strand == 1:
-                feature_start = max(0, (feature.location.start - n))
-                feature_end = feature.location.end
-            else:
-                feature_start = feature.location.start
-                feature_end = min(len(record_sequence), feature.location.end + n)
-            feature.location = (FeatureLocation(feature_start, feature_end,
-                                                      strand=feature.strand))
-            good_start, good_stop = coord_check(feature, fix_start=True)
-            if not good_start:
-                feature = og_feature
-            else:
-                corrected = True
-
-    return corrected
-
-
 def fix_embl_id_line(embl_file):
     """
 
