@@ -10,8 +10,8 @@ infile = sys.argv[1]
 for record in SeqIO.parse(infile,"genbank"):
     for f in record.features:
         if f.type == 'CDS':
-            pseudo = (('pseudo' in f.qualifiers.keys())
-                      or 'pseudogene' in f.qualifiers.keys())
+            pseudo = str((('pseudo' in f.qualifiers.keys())
+                      or 'pseudogene' in f.qualifiers.keys()))
             inference = ""
             if 'inference' in f.qualifiers.keys():
                 if any(['Prodigal' in inf for inf in f.qualifiers['inference']]):

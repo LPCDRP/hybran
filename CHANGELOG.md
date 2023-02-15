@@ -3,6 +3,9 @@
 ## Development
 
 ### Bugs fixed
+* Reimplemented coordinate correction and applied to ab initio ORFs.
+  This resolves many instances of false `pseudo` CDSs ab initio that were due simply to
+  incorrect start coordinate predictions spuriously shortening the genes.
 * Fixed handling of compound intervals in reference annotations (#46, #47)
 * Fixed issue with retrieving upstream context for minus strand genes near contig ends
 * Resolved issues involving reference annotations with multiple contigs/chromosomes (#48)

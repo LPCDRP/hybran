@@ -24,6 +24,7 @@ from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
 from Bio import Align
+from Bio.Align import substitution_matrices
 import collections
 from numpy import median
 import os
@@ -93,6 +94,26 @@ def log_feature_fate(feature, logfile, remark=""):
         locus_tag = feature.id
     print('\t'.join([locus_tag, remark]), file=logfile)
 
+def log_coord_correction(og_feature, feature, logfile):
+    """
+    This function is used to log gene information when coord_check() fixes a start/stop postition
+    :param og_feature: Original SeqFeature object
+    :param feature: Updated SeqFeature object
+    :param logfile: An open filehandle
+    """
+    locus_tag = og_feature.qualifiers['locus_tag'][0]
+    gene_name = og_feature.qualifiers['gene'][0]
+    strand = str(og_feature.strand)
+    og_start = str(int(og_feature.location.start) + 1)
+    og_end = (og_feature.location.end)
+    new_start = str(int(feature.location.start) + 1)
+    new_end = (feature.location.end)
+    start_fixed = str(any(["Start position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
+    stop_fixed = str(any(["Stop position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
+    line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
+    print('\t'.join(str(v) for v in line), file=logfile)
+
+
 def load_reference_info(proteome_fasta):
     """
     This function gets all the global variables for annomerge.
@@ -158,23 +179,31 @@ def upstream_context(feature_location, source_seq, n=40, circular=True):
     feature_stop = int(feature_location.end)
     feature_strand = int(feature_location.strand)
     if feature_strand == 1:
+        prom_end = feature_start
         if feature_start < n:
-            prom_end = feature_start
-            prev_prom_len = n - prom_end
-            prom_start = len(source_seq) - prev_prom_len
-            prom_seq = str(source_seq[prom_start:len(source_seq)]) + str(source_seq[0:prom_end])
+            if circular:
+                prev_prom_len = n - prom_end
+                prom_start = len(source_seq) - prev_prom_len
+                extra_prom_seq = str(source_seq[prom_start:len(source_seq)])
+            else:
+                extra_prom_seq = ''
+            prom_seq = extra_prom_seq + str(source_seq[0:prom_end])
         else:
-            prom_end = feature_start
             prom_start = feature_start - n
             prom_seq = str(source_seq[prom_start:prom_end])
     else:
         prom_start = feature_stop
         if len(source_seq) - feature_stop < n:
-            prev_prom_len = len(source_seq) - prom_start
-            prom_seq = str(source_seq[prom_start:]) + str(source_seq[0:n-prev_prom_len])
+            if circular:
+                prev_prom_len = len(source_seq) - prom_start
+                extra_prom_seq = str(source_seq[0:n-prev_prom_len])
+            else:
+                extra_prom_seq = ''
+            prom_seq = str(source_seq[prom_start:]) + extra_prom_seq
         else:
             prom_end = feature_stop + n
             prom_seq = str(source_seq[prom_start:prom_end])
+        prom_seq = str(Seq(prom_seq).reverse_complement())
 
     return prom_seq
 
@@ -342,6 +371,43 @@ def merge_qualifiers(f1quals, f2quals):
                 set(f1quals[qual]).union(set(f2quals[qual]))
             )
     return final_qualifiers
+
+def process_split_genes(flist):
+    """
+    Given a list of features ordered by genomic position, assign the same
+    locus tag to consecutive fragments of the same gene.
+    :param flist: list of SeqFeature objects
+    :return: list of SeqFeature objects to keep (some modified from the original)
+    """
+    outlist = []
+    i = 0
+    prev_gene_frag = dict()
+    for feature in flist:
+        if 'gene' in feature.qualifiers.keys() and 'pseudo' in feature.qualifiers.keys():
+            feature.qualifiers.pop('translation', None)
+            if 'gene' in prev_gene_frag.keys() and feature.qualifiers['gene'][0] == prev_gene_frag['gene']:
+                # merge this feature's data into the previous one's and throw it away.
+                outlist[prev_gene_frag['ind']].location = FeatureLocation(
+                    outlist[prev_gene_frag['ind']].location.start,
+                    feature.location.end,
+                    outlist[prev_gene_frag['ind']].location.strand
+                )
+                outlist[prev_gene_frag['ind']].qualifiers = merge_qualifiers(
+                    outlist[prev_gene_frag['ind']].qualifiers,
+                    feature.qualifiers,
+                )
+                continue
+            prev_gene_frag = dict(
+                gene = feature.qualifiers['gene'][0],
+                locus_tag = feature.qualifiers['locus_tag'][0],
+                ind = i,
+            )
+            outlist.append(deepcopy(feature))
+            i += 1
+        else:
+            outlist.append(deepcopy(feature))
+            i += 1
+    return outlist
 
 def identify_merged_genes(ratt_features):
     """
@@ -578,6 +644,150 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
         feature.qualifiers.pop('pseudo', None)
         feature.qualifiers.pop('pseudogene', None)
 
+def coord_check(feature, fix_start=False, fix_stop=False,
+):
+    """
+    This function takes a feature as an input and aligns it to the corresponding reference gene.
+    This function will return two Boolean values (True if the start/end coordinates align with the reference).
+    The start/end coordinates can be corrected to match the reference if desired in various circumstances.
+    :param feature: SeqFeature object
+    :param fix_start: Boolean
+    :param fix_stop: Boolean
+    :return: True/False if the start/stop was fixed
+    """
+    ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
+    ref_seq = ref_feature.extract(ref_sequence)
+    ref_length = len(ref_seq)
+    feature_start = int(feature.location.start)
+    feature_end = int(feature.location.end)
+    og_feature = deepcopy(feature)
+    og_feature_start = int(og_feature.location.start)
+    og_feature_end = int(og_feature.location.end)
+
+
+    def coord_align(ref_seq, feature_seq):
+        aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
+        alignment = aligner.align(ref_seq, feature_seq)[0]
+        target = alignment.aligned[0]
+        query = alignment.aligned[1]
+        found_low = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 4)
+        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 4)
+        return found_low, found_high, target, query, alignment
+
+
+    feature_seq = feature.extract(record_sequence)
+    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq)
+
+    #If we're looking to make corrections, add some context to help the aligner
+    bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
+    n = bp_diff + round(.2 * bp_diff)
+
+    if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
+        padded_feature_start = max(0, (feature_start - n))
+        if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
+            feature_start = padded_feature_start
+
+    if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
+        padded_feature_end = min(len(record_sequence), feature_end + n)
+        if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
+            feature_end = padded_feature_end
+
+    feature.location = FeatureLocation(
+        feature_start,
+        feature_end,
+        strand=feature.strand
+    )
+    feature_seq = feature.extract(record_sequence)
+    feature_start = feature.location.start
+    feature_end = feature.location.end
+
+    #Align again after adding padding to the feature sequence
+    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq)
+
+    if feature.strand == 1:
+        if found_high:
+            new_feature_end = (feature_start + query[-1][1])
+            if fix_stop:
+                feature_end = new_feature_end
+                good_stop = True
+                if og_feature_end != new_feature_end:
+                    designator.append_qualifier(
+                        feature.qualifiers, 'inference',
+                        "COORDINATES:alignment: Stop position adjusted to correspond to reference"
+                    )
+            else:
+                good_stop = (og_feature_end == new_feature_end)
+        else:
+            feature_end = og_feature_end
+            good_stop = False
+
+        if found_low:
+            new_feature_start = (feature_start + query[0][0])
+            if fix_start:
+                feature_start = new_feature_start
+                good_start = True
+                if og_feature_start != new_feature_start:
+                    designator.append_qualifier(
+                        feature.qualifiers, 'inference',
+                        "COORDINATES:alignment: Start position adjusted to correspond to reference"
+                    )
+            else:
+                good_start = (og_feature_start == new_feature_start)
+        else:
+            feature_start = og_feature_start
+            good_start = False
+
+    elif feature.strand == -1:
+        if found_low:
+            new_feature_end = (feature_end - query[0][0])
+            if fix_start:
+                feature_end = new_feature_end
+                good_start = True
+                if og_feature_end != new_feature_end:
+                    designator.append_qualifier(
+                        feature.qualifiers, 'inference',
+                        "COORDINATES:alignment: Start position adjusted to correspond to reference"
+                    )
+            else:
+                good_start = (og_feature_end == new_feature_end)
+        else:
+            feature_end = og_feature_end
+            good_start = False
+
+        if found_high:
+            new_feature_start = (feature_start + (len(feature) - query[-1][1]))
+            if fix_stop:
+                feature_start = new_feature_start
+                good_stop = True
+                if og_feature_start != new_feature_start:
+                    designator.append_qualifier(
+                        feature.qualifiers, 'inference',
+                        "COORDINATES:alignment: Stop position adjusted to correspond to reference"
+                    )
+            else:
+                good_stop = (og_feature_start == new_feature_start)
+        else:
+            feature_start = og_feature_start
+            good_stop = False
+
+
+    feature.location = FeatureLocation(
+        int(feature_start),
+        int(feature_end),
+        strand=feature.strand
+    )
+
+    if og_feature.location != feature.location:
+        feature.qualifiers['translation'] = [
+            str(translate(
+                feature.extract(record_sequence),
+                table=genetic_code,
+                to_stop=True,
+            ))
+        ]
+        corrected_orf_report.append([og_feature, feature])
+    return good_start, good_stop
+
 
 def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg,
     nproc=1,
@@ -597,9 +807,6 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     ratt_blast_results = {}
     rejects = []
     valid_features = []
-    # initialize aligner for checking compound intervals
-    aligner = Align.PairwiseAligner()
-    aligner.mode = 'global'
 
     for feature in feature_list:
         # Identify features with 'joins'
@@ -622,33 +829,17 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             # The gff conversion of a gbk entry with joins is not meaningful,
             # and causes some problems, as the entire sequence gets labeled
             # "biological region" and two basically empty CDS records are created.
-            ref_pos = ref_genes_positions[feature.qualifiers['locus_tag'][0]]
-            ref_seq = ref_sequence[ref_pos[0]:ref_pos[1]]
-            ref_length = abs(ref_pos[1] - ref_pos[0])
 
-            feature_seq = feature.extract(record_sequence)
             num_stops = feature.extract(record_sequence).translate().count("*")
 
             if num_stops > 1:
-                alignment = aligner.align(ref_seq, feature_seq)[0]
-                target = alignment.aligned[0]
-                query = alignment.aligned[1]
-                start_align = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 3)
-                stop_align = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 3)
-
-                if stop_align:
-                    feature_end = (feature_start + query[-1][1])
-                else:
+                changed_start, changed_stop = coord_check(feature, fix_start=True, fix_stop=True)
+                if not changed_stop:
                     rejects.append((feature, "RATT-introduced compound interval did not include reference stop position."))
                     continue
-                    
-                if start_align:
-                    feature_start = (feature_start + query[0][0])
 
-                feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
                 corrected_feature_seq = feature.extract(record_sequence)
                 num_stops = feature.extract(record_sequence).translate().count("*")
-                
                 if num_stops > 1:
                     feature.qualifiers['pseudo']=['']
                     designator.append_qualifier(
@@ -1092,250 +1283,38 @@ def check_inclusion_criteria(
         remark = 'corner case: unhandled by inclusion criteria'
     return include_abinit, include_ratt, remark
 
+def correct_start_coords(feature):
+    """
+    This function checks for bad start positions and tests whether adding upstream sequence
+    improves the reference match, then updates the feature if so.
+    :param features: SeqFeature object to check
+    :return: bool True if corrected (input SeqFeature modified) and False otherwise
+    """
+    corrected = False
 
-def correct_start_coords_prokka(prokka_record, correction_dict, fasta_seq, rv_cds_dict, reference_locus_list,
-                                reference_gene_locus_dict, log):
-    """
-    This function parses through prokka records and corrects start coordinates for cases where Prodigal
-    annotates these incorrectly
-    :param prokka_record:
-    :param correction_dict:
-    :param fasta_seq:
-    :param rv_cds_dict:
-    :param log: filename in which to log corrections
-    :return:
-    """
-    hybran_tmp_dir = config.hybran_tmp_dir
-    report = []
-    logger = logging.getLogger('CorrectCoords')
-    modified_prokka_record = prokka_record[:]
-    modified_prokka_record.features = []
-    modified_features = []
-    for feature_prokka in prokka_record.features:
-        if feature_prokka.type != 'CDS':
-            modified_features.append(feature_prokka)
-            continue
-        if feature_prokka.type == 'CDS' and 'gene' not in feature_prokka.qualifiers.keys():
-            rv_id = ''
-        elif feature_prokka.type == 'CDS' and 'gene' in feature_prokka.qualifiers.keys():
-            if feature_prokka.qualifiers['gene'][0] in reference_locus_list:
-                rv_id = feature_prokka.qualifiers['gene'][0]
+    if feature.type == 'CDS' and 'gene' in feature.qualifiers.keys():
+        good_start, good_stop = coord_check(feature)
+        og_feature = deepcopy(feature)
+        ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
+        ref_seq = ref_feature.extract(ref_sequence)
+        bp_diff = abs(len(ref_seq) - len(feature.extract(record_sequence)))
+        if not good_start:
+            n = bp_diff + round(.1 * bp_diff)
+            if feature.location.strand == 1:
+                feature_start = max(0, (feature.location.start - n))
+                feature_end = feature.location.end
             else:
-                if '_' in feature_prokka.qualifiers['gene'][0]:
-                    gene_name = feature_prokka.qualifiers['gene'][0].split('_')[0]
-                else:
-                    gene_name = feature_prokka.qualifiers['gene'][0]
-                if (gene_name in reference_gene_locus_dict.keys()
-                    and len(reference_gene_locus_dict[gene_name])==1):
-                    rv_id = reference_gene_locus_dict[gene_name][0]
-                else:
-                    rv_id = ''
-        else:
-            rv_id = ''
-        if feature_prokka.type == 'CDS' and len(rv_id) > 0:
-            if rv_id in correction_dict.keys():
-                # If Prokka annotation of gene is in a different strand, prodigal start coordinates are considered
-                # as is
-                query_temp = tempfile.NamedTemporaryFile(suffix='_query_nuc.fasta',
-                                                         dir=hybran_tmp_dir,
-                                                         delete=False,
-                                                         mode='w')
-                prokka_nuc_seq = str(fasta_seq)[int(feature_prokka.location.start):int(feature_prokka.location.end)]
-                q_header = '>' + rv_id + '_query\n'
-                query_temp.write(q_header)
-                query_temp.write(prokka_nuc_seq)
-                query_temp.write('\n')
-                blast_to_rv = NcbiblastnCommandline(subject=os.path.join(refseqs_prodigal_fails_dir, rv_id+'.fasta'),
-                                                    outfmt='"7 qseqid sseqid pident length mismatch gapopen qstart qend'
-                                                           ' sstart send evalue bitscore"')
-                stdout, stderr = blast_to_rv(prokka_nuc_seq)
-                stdout_elements = stdout.split('\n')
-
-                blast_length = len(stdout_elements)
-                blast_counter = 0
-                for line in stdout_elements:
-                    if line.startswith('#') or len(line) == 0:
-                        blast_counter += 1
-                        continue
-                    else:
-                        line_elements = line.strip().split('\t')
-                        if int(line_elements[6]) < int(line_elements[8]):
-                            if int(feature_prokka.location.start) < 40 or int(rv_cds_dict[rv_id].location.start) < 40:
-                                change_start = int(line_elements[8]) - int(line_elements[6])
-                                mod_feature = deepcopy(feature_prokka)
-                                mod_start = int(feature_prokka.location.start) - change_start
-                                mod_end = int(feature_prokka.location.end)
-                                mod_strand = int(feature_prokka.location.strand)
-                                mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end),
-                                                                       strand=mod_strand)
-                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=True)
-                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=False)
-                                if len(mod_feature_seq) == len(check_feature_seq) - 1:
-                                    mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
-                                    modified_features.append(mod_feature)
-                                else:
-                                    modified_features.append(feature_prokka)
-                            else:
-                                change_start = int(line_elements[8]) - int(line_elements[6])
-                                mod_prokka_start = int(feature_prokka.location.start) - change_start
-                                prokka_prom_start = mod_prokka_start - 40
-                                prokka_prom_location = FeatureLocation(ExactPosition(prokka_prom_start),
-                                                                       ExactPosition(mod_prokka_start),
-                                                                       strand=int(feature_prokka.location.strand))
-                                feature_prokka_prom_seq = prokka_prom_location.extract(fasta_seq)
-                                blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[rv_id],
-                                                                         outfmt='"7 qseqid sseqid pident length '
-                                                                                'mismatch gapopen qstart qend sstart '
-                                                                                'send evalue bitscore gaps"')
-                                stdout_2, stderr_2 = blast_to_rv_prom(stdin=str(feature_prokka_prom_seq))
-                                prom_blast_elements = stdout_2.split('\n')
-                                prom_blast = len(prom_blast_elements)
-                                prom_counter = 0
-                                for line in prom_blast_elements:
-                                    if line.startswith('#') or len(line) == 0:
-                                        prom_counter += 1
-                                        continue
-                                    else:
-                                        line_elements = line.strip().split('\t')
-                                        if float(line_elements[2]) == 100.0 and int(line_elements[12]) == 0:
-                                            mod_feature = deepcopy(feature_prokka)
-                                            mod_start = int(feature_prokka.location.start) - change_start
-                                            mod_end = int(feature_prokka.location.end)
-                                            mod_strand = int(feature_prokka.location.strand)
-                                            mod_feature.location = FeatureLocation(ExactPosition(mod_start), ExactPosition(mod_end), strand=mod_strand)
-                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
-                                                                        to_stop=True)
-                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
-                                                                          to_stop=False)
-                                            if len(mod_feature_seq) == len(check_feature_seq) - 1:
-                                                mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
-                                                modified_features.append(mod_feature)
-                                            else:
-                                                modified_features.append(feature_prokka)
-                                        else:
-                                            modified_features.append(feature_prokka)
-                                if prom_blast == prom_counter:
-                                    modified_features.append(feature_prokka)
-                        elif int(line_elements[6]) > int(line_elements[8]):
-                            if int(feature_prokka.location.start) < 40 or int(rv_cds_dict[rv_id].location.start) < 40:
-                                change_start = int(line_elements[6]) - int(line_elements[8])
-                                mod_feature = deepcopy(feature_prokka)
-                                mod_start = int(feature_prokka.location.start) + change_start
-                                mod_end = int(feature_prokka.location.end)
-                                mod_strand = int(feature_prokka.location.strand)
-                                mod_feature.location = FeatureLocation(ExactPosition(mod_start),
-                                                                       ExactPosition(mod_end), strand=mod_strand)
-                                mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=True)
-                                check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code, to_stop=False)
-                                if len(mod_feature_seq) == len(check_feature_seq) - 1:
-                                    mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
-                                    modified_features.append(mod_feature)
-                                else:
-                                    modified_features.append(feature_prokka)
-                            else:
-                                change_start = int(line_elements[6]) - int(line_elements[8])
-                                mod_prokka_start = int(feature_prokka.location.start) + change_start
-                                prokka_prom_start = mod_prokka_start - 40
-                                prokka_prom_location = FeatureLocation(ExactPosition(prokka_prom_start),
-                                                                       ExactPosition(mod_prokka_start),
-                                                                       strand=int(feature_prokka.location.strand))
-                                feature_prokka_prom_seq = prokka_prom_location.extract(fasta_seq)
-                                blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[rv_id],
-                                                                         outfmt='"7 qseqid sseqid pident length '
-                                                                                'mismatch gapopen qstart qend sstart '
-                                                                                'send evalue bitscore gaps"')
-                                stdout_2, stderr_2 = blast_to_rv_prom(stdin=str(feature_prokka_prom_seq))
-                                prom_blast_elements = stdout_2.split('\n')
-                                prom_blast = len(prom_blast_elements)
-                                prom_counter = 0
-                                for line in prom_blast_elements:
-                                    if line.startswith('#') or len(line) == 0:
-                                        prom_counter += 1
-                                        continue
-                                    else:
-                                        line_elements = line.strip().split('\t')
-                                        if float(line_elements[2]) == 100.0 and int(line_elements[12]) == 0:
-                                            mod_feature = deepcopy(feature_prokka)
-                                            mod_start = int(feature_prokka.location.start) + change_start
-                                            mod_end = int(feature_prokka.location.end)
-                                            mod_strand = int(feature_prokka.location.strand)
-                                            mod_feature.location = FeatureLocation(ExactPosition(mod_start),
-                                                                                   ExactPosition(mod_end),
-                                                                                   strand=mod_strand)
-                                            mod_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
-                                                                        to_stop=True)
-                                            check_feature_seq = translate(mod_feature.extract(fasta_seq), table=genetic_code,
-                                                                          to_stop=False)
-                                            if len(mod_feature_seq) == len(check_feature_seq) - 1:
-                                                mod_feature.qualifiers['translation'] = [str(mod_feature_seq)]
-                                                modified_features.append(mod_feature)
-                                            else:
-                                                modified_features.append(feature_prokka)
-                                        else:
-                                            modified_features.append(feature_prokka)
-                                if prom_blast == prom_counter:
-                                    modified_features.append(feature_prokka)
-                        else:
-                            # The start and stop are the same in both Blast and the reference i.e. Prodigal start location is
-                            # correct
-                            modified_features.append(feature_prokka)
-                if blast_length == blast_counter:
-                    modified_features.append(feature_prokka)
+                feature_start = feature.location.start
+                feature_end = min(len(record_sequence), feature.location.end + n)
+            feature.location = (FeatureLocation(feature_start, feature_end,
+                                                      strand=feature.strand))
+            good_start, good_stop = coord_check(feature, fix_start=True)
+            if not good_start:
+                feature = og_feature
             else:
-                modified_features.append(feature_prokka)
-        else:
-            modified_features.append(feature_prokka)
+                corrected = True
 
-        if modified_features[-1] != feature_prokka:
-            data = [
-                rv_id,
-                feature_prokka.qualifiers['locus_tag'][0],
-                str(int(feature_prokka.location.start) + 1),
-                str(int(feature_prokka.location.end) + 1),
-                str(feature_prokka.location.strand),
-                str(int(modified_features[-1].location.start) + 1),
-                str(int(modified_features[-1].location.end) + 1),
-                str(modified_features[-1].location.strand),
-                str(int(modified_features[-1].location.start) - int(feature_prokka.location.start)),
-            ]
-            report.append(data)
-
-    with open(log, 'w') as logfile:
-        print('\t'.join([
-            "reference_locus_tag",
-            "locus_tag",
-            "original_start",
-            "original_end",
-            "original_strand",
-            "start",
-            "end",
-            "strand",
-            "start_shift",
-            ]),
-              file=logfile)
-        for entry in report:
-            print('\t'.join(entry), file=logfile)
-    modified_prokka_record.features = get_ordered_features(modified_features)
-    return modified_prokka_record
-
-
-def get_feature_by_locustag(features):
-    """
-
-    :param features:
-    :return:
-    """
-    global ref_genes_positions
-    ref_genes_positions = {}
-    cds_dict = {}
-    for feature in features:
-        if feature.type != 'CDS':
-            continue
-        else:
-            rv = feature.qualifiers['locus_tag'][0]
-            cds_dict[rv] = feature
-            ref_genes_positions[rv] = (int(feature.location.start), int(feature.location.end))
-    return cds_dict
+    return corrected
 
 
 def fix_embl_id_line(embl_file):
@@ -1354,29 +1333,6 @@ def fix_embl_id_line(embl_file):
     with open(embl_file, 'w') as out:
         for line in lines:
             out.write(line)
-
-
-def run_prodigal(reference_genome, outfile):
-    """
-    :param reference_genome:
-    :param outfile: str path to file that prodigal should output
-    :return:
-    """
-    logger = logging.getLogger('Prodigal')
-    c = os.getcwd()
-    logger.debug('Executing Prodigal on ' + reference_genome)
-    cmd = [os.sep.join([script_dir, 'prodigal.sh']),
-           reference_genome,
-           outfile]
-    try:
-        subprocess.run(
-            cmd,
-            check=True,
-        )
-    except subprocess.CalledProcessError:
-        logger.error('Prodigal failed.')
-        exit(1)
-    os.chdir(c)
 
 
 def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
@@ -1414,6 +1370,8 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     logger.debug('Running Annomerge on ' + isolate_id)
     start_time = time.time()
 
+    global reference_gene_locus_dict
+    global reference_locus_gene_dict
     reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
         ref_temp_fasta_dict, ref_protein_lengths = load_reference_info(ref_proteins_fasta)
     if annotation_fp.endswith('/'):
@@ -1449,20 +1407,21 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     prokka_rejects = []
     prokka_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'prokka_unused.tsv')
     annomerge_records = []
-
+    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka', 'hybran_coord_corrections.tsv')
+    corrected_ratt_orf_logfile = os.path.join(isolate_id, 'ratt', 'hybran_coord_corrections.tsv')
+    global corrected_orf_report
+    corrected_orf_report = []
     ref_contigs = []
     ref_features = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
+    global ref_annotation
     ref_annotation = {}
-    # nested dictionary of contig to genomic coordinates to locus tags (needed for prodigal correction)
-    ref_loci = collections.OrderedDict()
     # upstream sequence contexts for reference genes. used in multiple places
     global ref_prom_fp_dict
     global ref_fna_dict
     ref_prom_fp_dict = {}
     ref_fna_dict = {}
     for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
-        ref_loci[ref_record.id] = collections.OrderedDict()
         ref_contigs.append(ref_record.seq)
         ref_features.append(ref_record.features)
         prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
@@ -1471,77 +1430,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
         for feature in ref_record.features:
             if feature.type != "CDS":
                 continue
-            ref_loci[ref_record.id][(int(feature.location.start) + 1, int(feature.location.end))] = feature.qualifiers['locus_tag'][0]
             # if reference paralogs have been collapsed, the last occurrence in the genome
             # will prevail.
             ref_annotation[feature.qualifiers['gene'][0]] = feature
-
-    # RUNNING PRODIGAL
-    prodigal_list = {ref_contig:[] for ref_contig in ref_loci.keys()}
-    incorrect_coords_dict = {}
-    ref_feature_list = []
-    prodigal_results_fp = os.path.join('prodigal-test', 'reference_prodigal')
-    if not os.path.exists(prodigal_results_fp):
-        run_prodigal(reference_genome, prodigal_results_fp)
-
-    dict_save_fp = prodigal_results_fp + '.p'
-    prodigal_raw = open(prodigal_results_fp, "r").readlines()
-    for line in prodigal_raw:
-        if line.startswith('DEFINITION'):
-            header_fields = re.sub(r'^DEFINITION\s+', '', line.strip())
-            header_fields = dict(_.split('=') for _ in header_fields.replace('"','').split(';'))
-            ref_contig = header_fields['seqhdr']
-        elif line.startswith('     CDS'):
-            line_elements = line.strip().split()
-            coords = line_elements[1]
-            if '(' in coords:
-                coords_elements = coords.split('..')
-                coords_start = coords_elements[0].split('(')[1]
-                coords_end = coords_elements[1].split(')')[0]
-                prodigal_list[ref_contig].append((int(coords_start), int(coords_end)))
-            else:
-                coords_elements = coords.split('..')
-                prodigal_list[ref_contig].append((int(coords_elements[0].replace('<', '')), int(coords_elements[1])))
-
-    global refseqs_prodigal_fails_dir
-    refseqs_prodigal_fails_dir = os.path.join(hybran_tmp_dir, 'prodigal-fails-refseqs')
-    os.mkdir(refseqs_prodigal_fails_dir)
-    for i, ref_contig in enumerate(prodigal_list.keys()):
-        ref_feature_list.append(get_feature_by_locustag(ref_features[i]))
-        for gene_coord in prodigal_list[ref_contig]:
-            for gene in ref_loci[ref_contig].keys():
-                locus_tag = ref_loci[ref_contig][gene]
-                if gene[0] > gene_coord[1]:
-                    break
-                elif gene[1] == gene_coord[1] and gene[0] != gene_coord[0]:
-                    prodigal_length = gene_coord[1] - gene_coord[0] + 1
-                    start_change = gene[0] - gene_coord[0] - 1
-                    incorrect_coords_dict[ref_loci[ref_contig][gene]] = {'length': prodigal_length,
-                                                                         'start_change': start_change}
-                    # write affected reference genes to temporary files
-                    ref_gene_seq = SeqRecord(
-                        ref_feature_list[i][locus_tag].extract(ref_contigs[i]),
-                        id=locus_tag
-                    )
-                    SeqIO.write(
-                        ref_gene_seq,
-                        os.path.join(refseqs_prodigal_fails_dir, locus_tag + '.fasta'),
-                        format="fasta"
-                    )
-                    break
-    logger.debug('Number of genes with incorrect start predictions by Prodigal: ' +
-                 str(len(list(incorrect_coords_dict.keys()))))
-    pickle.dump(incorrect_coords_dict, open(dict_save_fp, "wb"))
-
-    # Write out the genes with incorrect start predictions by Prodigal
-    with open(os.path.join('prodigal-test','incorrect_starts.txt'), 'w') as f:
-        print('\t'.join(['reference_locus_tag', 'length_according_to_prodigal','start_change']),
-              file=f)
-        for key in incorrect_coords_dict.keys():
-            print('\t'.join([str(key),
-                             str(incorrect_coords_dict[key]['length']),
-                             str(incorrect_coords_dict[key]['start_change'])]),
-                  file=f)
 
     if ratt_enforce_thresholds:
         ratt_seq_ident = seq_ident
@@ -1558,12 +1449,8 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
         ratt_contig_record = SeqIO.read(ratt_gbk_files[contig], 'genbank')
         global record_sequence
         record_sequence = ratt_contig_record.seq
-        prokka_contig_record_pre = prokka_records[i]
+        prokka_contig_record = prokka_records[i]
 
-        prokka_contig_record = correct_start_coords_prokka(prokka_contig_record_pre, incorrect_coords_dict,
-                                                           record_sequence, ref_feature_list[i],
-                                                           reference_locus_list, reference_gene_locus_dict,
-                                                           os.path.join(isolate_id, 'prokka','hybran_coord_corrections.tsv'))
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
         # When prokka assigns the same gene name to multiple orfs, it appends _1, _2, ... to make the names unique.
@@ -1719,24 +1606,47 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     refmatch,
                     [SeqRecord(Seq(f.qualifiers['translation'][0])) for f in prokka_contig_cdss],
                 )
+            n_coords_corrected = 0
             for j in range(len(prokka_contig_cdss)):
                 ref_gene, pseudo, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
-                abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
                 if ref_gene:
-                    abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
+                    og_feature_location = deepcopy(feature.location)
+                    og_pseudo = pseudo
+                    og_blast_hits = blast_hits
+                    match_type = 'AA'
+                    feature.qualifiers['gene'] = [ref_gene]
+                    good_start = coord_check(feature, fix_start=True)[0]
+                    if good_start and (og_feature_location != feature.location):
+                        n_coords_corrected += 1
+                        # re-do the blast with the updated gene coordinates.
+                        # ref_gene should not change (since coordinates were fixed to match it better),
+                        # but pseudo may change and blast_hits will change.
+                        top_hit, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
+                        if top_hit != ref_gene:
+                            top_hit = refmatch(SeqRecord(Seq(feature.extract(record_sequence))), blast_type="n")[0]
+                            if top_hit != ref_gene:
+                                logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}. Rejecting {str(og_feature_location)} -> {str(feature.location)} coordinate correction.")
+                                n_coords_corrected -= 1
+                                feature.location = og_feature_location
+                                blast_hits = og_blast_hits
+                                pseudo = og_pseudo
+                            else:
+                                match_type = 'nucleotide'
+                                pseudo = True
                     liftover_annotation(
                         feature,
                         ref_annotation[ref_gene],
                         pseudo,
                         inference=':'.join([
-                            "similar to AA sequence",
+                            f"similar to {match_type} sequence",
                             os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
                             ref_annotation[ref_gene].qualifiers['locus_tag'][0],
                             ref_gene,
-                            "blastp",
+                            "blast",
                         ])
                     )
+                    abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
                 # Don't keep gene name assignments from Prokka. They can sometimes be based on
                 # poor sequence similarity and partial matches (despite its --coverage option).
                 # Keeping them is risky for propagation of the name during clustering.
@@ -1746,8 +1656,11 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         feature.qualifiers['gene'][0],
                     )
                     feature.qualifiers.pop('gene', None)
-            logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
+                # We save all the blast hits at this point in case coordinates were corrected and the hits changed
+                abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
 
+            logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
+            logger.debug(f'{seqname}: Corrected start positions for {n_coords_corrected} ab initio ORFs')
 
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
@@ -1804,7 +1717,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         ref_gene, pseudo = BLAST.reference_match(
                             query=query,
                             subject=subject,
-                            blast_type=blast_type,                
+                            blast_type=blast_type,
                             seq_ident=seq_ident,
                             seq_covg=seq_covg,
                         )[0:2]
@@ -1990,6 +1903,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             else:
                 prokka_rejects.append((prokka_annotation, remark))
         ordered_feats = get_ordered_features(output_isolate_recs[i].features)
+        ordered_feats = process_split_genes(ordered_feats)
         output_isolate_recs[i].features = ordered_feats[:]
         final_cdss = [f for f in ordered_feats if f.type == 'CDS']
         logger.debug(f'{seqname}: {len(final_cdss)} CDSs annomerge')
@@ -2011,6 +1925,21 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             last_gene = gene
             last_remark = remark
         log_feature_fate(last_gene, prokka_rejects_log, last_remark)
+
+    with open(corrected_abinit_orf_logfile, 'w') as abinit_corlog, \
+         open(corrected_ratt_orf_logfile, 'w') as ratt_corlog:
+        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon']
+        print('\t'.join(header), file=abinit_corlog)
+        print('\t'.join(header), file=ratt_corlog)
+        for (orig_feature, corr_feature) in corrected_orf_report:
+            if designator.is_raw_ltag(orig_feature.qualifiers['locus_tag'][0]):
+                logfile = abinit_corlog
+            else:
+                logfile = ratt_corlog
+            log_coord_correction(orig_feature,
+                                 corr_feature,
+                                 logfile
+            )
 
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
 

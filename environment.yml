@@ -16,7 +16,6 @@ dependencies:
   - multiprocess
   - mummer
   - paml
-  - prodigal
   - prokka
   - python=3.7
   - ratt
