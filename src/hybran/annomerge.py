@@ -227,7 +227,7 @@ def get_nuc_seq_for_gene(feature_list, source_seq):
             continue
         locus = f.qualifiers['locus_tag'][0]
         prom_seq = upstream_context(f.location, source_seq)
-        ref_fna_dict[locus] = SeqRecord(f.extract(source_seq))
+        ref_fna_dict[locus] = SeqRecord(seq=f.extract(source_seq), id=locus)
         fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
                                               dir=hybran_tmp_dir,
                                               delete=False,
@@ -1578,7 +1578,13 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         # but pseudo may change and blast_hits will change.
                         top_hit, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
                         if top_hit != ref_gene:
-                            top_hit = refmatch(SeqRecord(Seq(feature.extract(record_sequence))), blast_type="n")[0]
+                            top_hit = reference_locus_gene_dict.get(
+                                refmatch(SeqRecord(Seq(feature.extract(record_sequence))),
+                                         subject=ref_fna_dict[reference_gene_locus_dict[ref_gene][0]],
+                                         identify=lambda _:_,
+                                         blast_type="n",
+                                )[0]
+                            )
                             if top_hit != ref_gene:
                                 logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}. Rejecting {str(og_feature_location)} -> {str(feature.location)} coordinate correction.")
                                 n_coords_corrected -= 1
