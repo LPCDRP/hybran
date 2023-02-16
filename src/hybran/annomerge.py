@@ -607,10 +607,12 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
     for rubbish in ['gene', 'protein_id']:
         feature.qualifiers.pop(rubbish, None)
     # Remove inferences for the assignments that we're going to discard.
-    # Only keep the ab initio inference from the ORF finder.
+    # Only keep the ab initio inference from the ORF finder and ones that we assign.
     feature.qualifiers['inference'][:] = [
         _ for _ in feature.qualifiers['inference']
-        if 'ab initio prediction' in _
+        if ('ab initio prediction' in _ or
+            'Hybran' in _
+            )
     ]
     # Add our own qualifier
     feature.qualifiers['inference'].append(
