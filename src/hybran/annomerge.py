@@ -108,8 +108,10 @@ def log_coord_correction(og_feature, feature, logfile):
     og_end = (og_feature.location.end)
     new_start = str(int(feature.location.start) + 1)
     new_end = (feature.location.end)
-    start_fixed = str(any(["Start position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
-    stop_fixed = str(any(["Stop position adjusted" in _ for _ in feature.qualifiers['inference']])).lower()
+    start_fixed = str(og_start != new_start).lower()
+    stop_fixed = str(og_end != new_end).lower()
+    if og_feature.strand == -1:
+        start_fixed, stop_fixed = stop_fixed, start_fixed
     line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
     print('\t'.join(str(v) for v in line), file=logfile)
 
@@ -710,11 +712,6 @@ def coord_check(feature, fix_start=False, fix_stop=False,
             if fix_stop:
                 feature_end = new_feature_end
                 good_stop = True
-                if og_feature_end != new_feature_end:
-                    designator.append_qualifier(
-                        feature.qualifiers, 'inference',
-                        "COORDINATES:alignment: Stop position adjusted to correspond to reference"
-                    )
             else:
                 good_stop = (og_feature_end == new_feature_end)
         else:
@@ -726,11 +723,6 @@ def coord_check(feature, fix_start=False, fix_stop=False,
             if fix_start:
                 feature_start = new_feature_start
                 good_start = True
-                if og_feature_start != new_feature_start:
-                    designator.append_qualifier(
-                        feature.qualifiers, 'inference',
-                        "COORDINATES:alignment: Start position adjusted to correspond to reference"
-                    )
             else:
                 good_start = (og_feature_start == new_feature_start)
         else:
@@ -743,11 +735,6 @@ def coord_check(feature, fix_start=False, fix_stop=False,
             if fix_start:
                 feature_end = new_feature_end
                 good_start = True
-                if og_feature_end != new_feature_end:
-                    designator.append_qualifier(
-                        feature.qualifiers, 'inference',
-                        "COORDINATES:alignment: Start position adjusted to correspond to reference"
-                    )
             else:
                 good_start = (og_feature_end == new_feature_end)
         else:
@@ -759,11 +746,6 @@ def coord_check(feature, fix_start=False, fix_stop=False,
             if fix_stop:
                 feature_start = new_feature_start
                 good_stop = True
-                if og_feature_start != new_feature_start:
-                    designator.append_qualifier(
-                        feature.qualifiers, 'inference',
-                        "COORDINATES:alignment: Stop position adjusted to correspond to reference"
-                    )
             else:
                 good_stop = (og_feature_start == new_feature_start)
         else:
@@ -785,6 +767,10 @@ def coord_check(feature, fix_start=False, fix_stop=False,
                 to_stop=True,
             ))
         ]
+        designator.append_qualifier(
+            feature.qualifiers, 'inference',
+            "COORDINATES:alignment:Hybran"
+        )
         corrected_orf_report.append([og_feature, feature])
     return good_start, good_stop
 
