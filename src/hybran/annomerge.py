@@ -679,14 +679,46 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
 
-
-    def coord_align(ref_seq, feature_seq):
+    def coord_align(ref_seq, feature_seq, mismatch_check=False):
         aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
         alignment = aligner.align(ref_seq, feature_seq)[0]
         target = alignment.aligned[0]
         query = alignment.aligned[1]
-        found_low = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 4)
-        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 4)
+        target_low_seq = alignment[0][(query[0][0]):(query[0][1])]
+        query_low_seq  = alignment[1][(query[0][0]):(query[0][1])]
+
+        target_high_seq = alignment[0][(query[-1][0]):(query[-1][1])]
+        query_high_seq = alignment[1][(query[-1][0]):(query[-1][1])]
+
+        found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= 4
+        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= 4
+
+        #make sure there aren't too many mismatches causing falsely assigned found_low/high values
+        if not mismatch_check:
+            return found_low, found_high, target, query, alignment
+        if found_low and target[0][1] < (len(ref_seq)/3):
+            gaps = ident = mismatch = 0
+            for i in range(len(target_low_seq)):
+                if target_low_seq[i] == '-' or query_low_seq[i] == "-":
+                    gaps += 1
+                elif target_low_seq[i] == query_low_seq[i]:
+                    ident += 1
+                else:
+                    mismatch += 1
+            if (gaps + mismatch) > (len(target_low_seq)/3):
+                found_low = False
+
+        if found_high and abs(target[-1][1] - target[-1][0]) < (len(ref_seq)/3):
+            gaps = ident = mismatch = 0
+            for i in range(len(target_high_seq)):
+                if target_high_seq[i] == '-' or query_high_seq[i] == "-":
+                    gaps += 1
+                elif target_high_seq[i] == query_high_seq[i]:
+                    ident += 1
+                else:
+                    mismatch += 1
+            if (gaps + mismatch) > (len(target_high_seq)/3):
+                found_high = False
         return found_low, found_high, target, query, alignment
 
 
@@ -717,7 +749,7 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     feature_end = feature.location.end
 
     #Align again after adding padding to the feature sequence
-    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq)
+    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq, mismatch_check=True)
 
     if feature.strand == 1:
         if found_high:
