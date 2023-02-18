@@ -110,9 +110,20 @@ def log_coord_correction(og_feature, feature, logfile):
     new_end = (feature.location.end)
     start_fixed = str(og_start != new_start).lower()
     stop_fixed = str(og_end != new_end).lower()
+
+    if designator.is_pseudo(og_feature.qualifiers) == designator.is_pseudo(feature.qualifiers):
+        if designator.is_pseudo(og_feature.qualifiers):
+            status = "remains_pseudo"
+        else:
+            status = "remains_non_pseudo"
+    elif designator.is_pseudo(feature.qualifiers):
+        status = "became_pseudo"
+    else:
+        status = "became_non_pseudo"
+
     if og_feature.strand == -1:
         start_fixed, stop_fixed = stop_fixed, start_fixed
-    line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
+    line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed, status]
     print('\t'.join(str(v) for v in line), file=logfile)
 
 
@@ -773,7 +784,7 @@ def coord_check(feature, fix_start=False, fix_stop=False,
             feature.qualifiers, 'inference',
             "COORDINATES:alignment:Hybran"
         )
-        corrected_orf_report.append([og_feature, feature])
+        corrected_orf_report.append([og_feature, deepcopy(feature)])
     return good_start, good_stop
 
 
@@ -1577,6 +1588,13 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         # ref_gene should not change (since coordinates were fixed to match it better),
                         # but pseudo may change and blast_hits will change.
                         top_hit, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
+
+                        # for logging purposes
+                        if og_pseudo:
+                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
+                        if ((top_hit == ref_gene) and pseudo) or (top_hit != ref_gene):
+                            corrected_orf_report[-1][1].qualifiers['pseudo'] = ['']
+
                         if top_hit != ref_gene:
                             top_hit = reference_locus_gene_dict.get(
                                 refmatch(SeqRecord(Seq(feature.extract(record_sequence))),
@@ -1888,7 +1906,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
     with open(corrected_abinit_orf_logfile, 'w') as abinit_corlog, \
          open(corrected_ratt_orf_logfile, 'w') as ratt_corlog:
-        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon']
+        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon', 'status']
         print('\t'.join(header), file=abinit_corlog)
         print('\t'.join(header), file=ratt_corlog)
         for (orig_feature, corr_feature) in corrected_orf_report:
@@ -1898,7 +1916,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 logfile = ratt_corlog
             log_coord_correction(orig_feature,
                                  corr_feature,
-                                 logfile
+                                 logfile,
             )
 
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
