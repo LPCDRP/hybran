@@ -427,6 +427,7 @@ def process_split_genes(flist):
             else:
                 new_feature = deepcopy(feature)
             new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
+            new_feature.qualifiers = merge_qualifiers(last_gene.qualifiers, feature.qualifiers)
             new_feature.qualifiers['pseudo'] = ['']
 
             if all(coord_check(new_feature, fix_start=True, fix_stop=True)):
