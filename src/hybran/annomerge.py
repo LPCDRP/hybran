@@ -413,7 +413,8 @@ def process_split_genes(flist):
                 if not designator.is_pseudo(feature.qualifiers) and not designator.is_pseudo(last_gene.qualifiers):
                     continue
             # At least one copy is complete (has consistent-with-reference start *and* stop codons) -- do not combine
-            if all(coord_check(last_gene)) or all(coord_check(feature)):
+            if ((all(coord_check(last_gene)) and all(coord_check(feature)))
+                and not overlap_inframe(last_gene, feature)):
                 continue
 
 
