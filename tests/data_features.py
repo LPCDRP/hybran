@@ -23,6 +23,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv1718'],'gene':['Rv1718']}
         ),
+        'dosT': SeqFeature(
+            FeatureLocation(2272786, 2274508, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv2027c'],'gene':['dosT']}
+        ),
         'Rv3181c': SeqFeature(
             FeatureLocation(3549690,3550143 , strand=-1),
             type='CDS',

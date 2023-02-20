@@ -1,4 +1,5 @@
 from collections import defaultdict, OrderedDict
+import os
 
 from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundLocation
@@ -112,100 +113,58 @@ def test_overlap_inframe(pair):
 
     assert annomerge.overlap_inframe(pairs[pair][0], pairs[pair][1]) == expected[pair]
 
-@pytest.mark.skip(reason="needs update")
-def test_process_split_genes():
-    interrupted_by_another_gene = [
-        SeqFeature(FeatureLocation(ExactPosition(936376), ExactPosition(937165), strand=-1), type='CDS',
-                   qualifiers=OrderedDict([('gene', ['pip']),
-                                           ('locus_tag', ['Rv0840c']),
-                                           ('note',
-                                            ['FunctionalCategory: intermediary metabolism and respiration',
-                                             'my_bogus_second_note']),
-                                           ('codon_start', ['1']),
-                                           ('transl_table', ['11']),
-                                           ('product',
-                                            ['Probable proline iminopeptidase Pip (prolyl aminopeptidase) '
-                                             '(pap)']),
-                                           ('inference', ['alignment:RATT']),
-                                           ('pseudo', ['']),
-                                           ('translation',
-                                            ['PRISATIRTARSRSSGGYLLDEPPDMTPSFPRTGVSGHAGAVHVDLWTMNRSVAEMATVAEALALTRFHIFSHSWGGMLAQQYVLDKAPDAVSLTIANSTASIPEFSASLVSLKSCLDVATRSAIDRHEAAGTTHSAEYQAAIRTWNETYLCRTRPWPRELTEAFANMGTEIFETMFGPSDFRIVGNVRDWDVVDRLADIAVPTLLVVGRFDECSPEHMREMQGRIAGSRLEFFESSSHMPFIEEPARFDRVMREFLRLHDI'])])
-                   ),
-        SeqFeature(FeatureLocation(ExactPosition(937088), ExactPosition(937415), strand=1), type='CDS',
-                   qualifiers=OrderedDict([('gene', ['ORF0009']),
-                                           ('locus_tag', ['L_00897']),
-                                           ('inference',
-                                            ['ab initio prediction:Prodigal:002006',
-                                             'similar to AA sequence:ref_proteome.fasta:Rv3474:ORF0009']),
-                                           ('codon_start', ['1']),
-                                           ('transl_table', ['11']),
-                                           ('product',
-                                            ['putative transposase for insertion element IS6110 (fragment)']),
-                                           ('protein_id', ['C:L_00897']),
-                                           ('translation',
-                                            ['MSGGSSRRYPPELRERAVRMVAEIRGQHDSEWAAISEVARLLGVGCAETVRKWVRQAQVDAGARPGTTTEESAELKRLRRDNAELRRANAILKTASAFFAAELDRPAR']),
-                                           ('note', ['This annotation is added from Prokka reference run'])])
-                   ),
-        SeqFeature(FeatureLocation(ExactPosition(937168), ExactPosition(937360), strand=-1), type='CDS',
-                   qualifiers=OrderedDict([('gene', ['pip']),
-                                           ('locus_tag', ['Rv0840c']),
-                                           ('note',
-                                            ['FunctionalCategory: intermediary metabolism and respiration']),
-                                           ('codon_start', ['1']),
-                                           ('transl_table', ['11']),
-                                           ('product',
-                                            ['Probable proline iminopeptidase Pip (prolyl aminopeptidase) '
-                                             '(pap)']),
-                                           ('inference', ['alignment:RATT']),
-                                           ('pseudo', ['']),
-                                           ('translation',
-                                            ['IAFALRNSALSRRKRFSSADSSVVVPGRAPASTCAWRTHLRTVSAQPTPSRRATSLIAAHSESC'])])
-                   ),
-    ]
-    result = annomerge.process_split_genes(interrupted_by_another_gene)
-    received = dict(
-        locations = [r.location for r in result],
-        qualifiers = [r.qualifiers for r in result]
-    )
-    expected = dict(
-        locations = [
-            FeatureLocation(ExactPosition(936376), ExactPosition(937360), strand=-1),
-            FeatureLocation(ExactPosition(937088), ExactPosition(937415), strand=1)
+@pytest.mark.parametrize('gene_list', [
+    'complementary_fragments',
+#    'seemingly_complete_fragment',
+#    'independent_fragments',
+])
+@pytest.mark.skipif(not os.path.isfile("data/1-0006.fasta"), reason="test genome sequence not available")
+@pytest.mark.skipif(not os.path.isfile("data/H37Rv.fasta"), reason="test reference genome sequence not available")
+def test_process_split_genes(gene_list):
+    inputs = {
+        # post coordinate correction, so they both have the same start position
+        'complementary_fragments' : [
+            SeqFeature(
+                FeatureLocation(ExactPosition(2275540), ExactPosition(2277261), strand=-1), type='CDS', qualifiers={
+                    'gene': ['dosT'],
+                    'locus_tag': ['L_02173'],
+                    'pseudo': [''],
+                }
+            ),
+            SeqFeature(
+                FeatureLocation(ExactPosition(2276448), ExactPosition(2277261), strand=-1), type='CDS', qualifiers={
+                    'gene': ['dosT'],
+                    'locus_tag': ['L_02174'],
+                    'pseudo': [''],
+                }
+            ),
         ],
-        qualifiers = [
-            OrderedDict([('gene', ['pip']),
-                                           ('locus_tag', ['Rv0840c']),
-                                           ('note',
-                                            ['FunctionalCategory: intermediary metabolism and respiration',
-                                             'my_bogus_second_note']),
-                                           ('codon_start', ['1']),
-                                           ('transl_table', ['11']),
-                                           ('product',
-                                            ['Probable proline iminopeptidase Pip (prolyl aminopeptidase) '
-                                             '(pap)']),
-                                           ('inference', ['alignment:RATT']),
-                                           ('pseudo', ['']),
-                         ]),
-            OrderedDict([('gene', ['ORF0009']),
-                                           ('locus_tag', ['L_00897']),
-                                           ('inference',
-                                            ['ab initio prediction:Prodigal:002006',
-                                             'similar to AA sequence:ref_proteome.fasta:Rv3474:ORF0009']),
-                                           ('codon_start', ['1']),
-                                           ('transl_table', ['11']),
-                                           ('product',
-                                            ['putative transposase for insertion element IS6110 (fragment)']),
-                                           ('protein_id', ['C:L_00897']),
-                                           ('translation',
-                                            ['MSGGSSRRYPPELRERAVRMVAEIRGQHDSEWAAISEVARLLGVGCAETVRKWVRQAQVDAGARPGTTTEESAELKRLRRDNAELRRANAILKTASAFFAAELDRPAR']),
-                                           ('note', ['This annotation is added from Prokka reference run'])
-                         ]),
-        ]
-    )
-    assert (
-        received['locations'] == expected['locations']
-        and received['qualifiers'] == expected['qualifiers']
-    )
+        'seemingly_complete_fragment': [
+        ],
+        'independent_fragments': [
+        ],
+    }
+    source_genome = '1-0006'
+    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
+    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
+    annomerge.genetic_code = 11
+    annomerge.ref_annotation = {
+        'dosT': ref_features['H37Rv']['dosT'],
+    }
+
+    expected = {
+        'complementary_fragments': [
+            SeqFeature(
+                FeatureLocation(ExactPosition(2275540), ExactPosition(2277261), strand=-1), type='CDS', qualifiers={
+                    'gene': ['dosT'],
+                    'locus_tag': ['L_02173'],
+                    'pseudo': [''],
+                }
+            ),
+        ],
+    }
+
+    assert annomerge.process_split_genes(inputs[gene_list]) == expected[gene_list]
 
 
 def test_identify_conjoined_genes():
