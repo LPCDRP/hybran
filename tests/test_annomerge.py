@@ -157,7 +157,7 @@ def test_process_split_genes(gene_list):
             SeqFeature(
                 FeatureLocation(ExactPosition(2275540), ExactPosition(2277261), strand=-1), type='CDS', qualifiers={
                     'gene': ['dosT'],
-                    'locus_tag': ['L_02173'],
+                    'locus_tag': ['L_02174'],
                     'pseudo': [''],
                 }
             ),
