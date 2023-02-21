@@ -377,9 +377,12 @@ def process_split_genes(flist):
     Given a list of features ordered by genomic position, assign the same
     locus tag to consecutive fragments of the same gene.
     :param flist: list of SeqFeature objects
-    :return: list of SeqFeature objects to keep (some modified from the original)
+    :returns:
+        list of SeqFeature objects to keep (some modified from the original)
+        list of annotations that have been merged into their neighbor.
     """
     outlist = []
+    dropped_ltag_features = []
     last_gene_by_strand = {}
     for feature in flist:
         if feature.type=='CDS':
@@ -425,10 +428,13 @@ def process_split_genes(flist):
             new_end = feature.location.end
             if only_one_named and last_gene_named:
                 new_feature = deepcopy(last_gene)
+                dropped_feature = feature
             else:
                 new_feature = deepcopy(feature)
+                dropped_feature = last_gene
             new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
             new_feature.qualifiers = merge_qualifiers(last_gene.qualifiers, feature.qualifiers)
+            dropped_ltag_features.append((dropped_feature, f"Combined with {new_feature.qualifiers['locus_tag'][0]}"))
             new_feature.qualifiers['pseudo'] = ['']
 
             if all(coord_check(new_feature, fix_start=True, fix_stop=True)):
@@ -437,7 +443,7 @@ def process_split_genes(flist):
                 outlist.remove(feature)
                 outlist.append(new_feature)
 
-    return outlist
+    return outlist, dropped_ltag_features
 
 def identify_merged_genes(ratt_features):
     """
@@ -1663,9 +1669,16 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
 
             # Check for in-frame conflicts/duplicates again since the ab initio gene coordinates changed
-            unique_abinit_features_post_coord_correction = generate_feature_dictionary(
-                process_split_genes(unique_abinit_features_pre_coord_correction.values())
+            logger.info(f"{seqname}: Checking for fragmented ab initio annotations")
+            unique_abinit_features_post_coord_correction_list, dropped_abinit_fragments = process_split_genes(
+                unique_abinit_features_pre_coord_correction.values()
             )
+            prokka_rejects += dropped_abinit_fragments
+            logger.debug(f"{seqname}: {len(dropped_abinit_fragments)} gene fragment pairs merged")
+            unique_abinit_features_post_coord_correction = generate_feature_dictionary(
+                unique_abinit_features_post_coord_correction_list
+            )
+
             logger.info(f"{seqname}: Checking for new in-frame overlaps with corrected ab initio gene annotations")
             unique_abinit_features, inframe_conflicts, new_abinit_duplicates = find_inframe_overlaps(
                 ratt_contig_features,
@@ -1673,7 +1686,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             )
             prokka_rejects += new_abinit_duplicates
             logger.debug(f"{seqname}: {len(new_abinit_duplicates)} corrected ab initio ORFs now identical to RATT's")
-            logger.debug(f'{seqname}: {len(inframe_conflicts)-len(inframe_conflicts_pre_coord_correction)} corrected ab initio ORFs now conflicting in-frame with RATT')
+            logger.debug(f'{seqname}: {len(inframe_conflicts_pre_coord_correction)-len(inframe_conflicts)} corrected ab initio ORFs now conflicting in-frame with RATT')
             logger.debug(f'{seqname}: {len(unique_abinit_features)} total ab initio ORFs remain in consideration')
 
 

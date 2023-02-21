@@ -164,7 +164,7 @@ def test_process_split_genes(gene_list):
         ],
     }
 
-    assert annomerge.process_split_genes(inputs[gene_list]) == expected[gene_list]
+    assert annomerge.process_split_genes(inputs[gene_list])[0] == expected[gene_list]
 
 
 def test_identify_conjoined_genes():
