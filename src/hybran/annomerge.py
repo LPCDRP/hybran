@@ -434,7 +434,7 @@ def process_split_genes(flist):
                 new_feature = deepcopy(feature)
                 dropped_feature = last_gene
             new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
-            new_feature.qualifiers = merge_qualifiers(last_gene.qualifiers, feature.qualifiers)
+            new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
             dropped_ltag_features.append((dropped_feature, f"Combined with {new_feature.qualifiers['locus_tag'][0]}"))
             new_feature.qualifiers['pseudo'] = ['']
 
