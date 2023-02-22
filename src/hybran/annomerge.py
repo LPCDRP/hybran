@@ -403,6 +403,12 @@ def process_split_genes(flist):
         combine = False
         reason = ''
 
+        # Many ab initio CDSs are rejected before this step, so we cannot deduce adjacency on the genome by adjacency on the list.
+        # We can use the difference in their locus tag numbers to determine that.
+        n_last_gene = int(last_gene.qualifiers['locus_tag'][0].split('_')[1])
+        n_curr_gene = int(feature.qualifiers['locus_tag'][0].split('_')[1])
+        dist = n_curr_gene - n_last_gene
+
         #
         # This function runs after coordinate correction, so if two ab initio CDSs now overlap in-frame,
         # it means that one of them had its start position corrected to correspond to that of the other fragment.
@@ -410,6 +416,13 @@ def process_split_genes(flist):
         if overlap_inframe(last_gene.location, feature.location):
             combine = True
             reason = 'overlapping_inframe'
+        #
+        # Don't merge CDSs that are too far apart.
+        # We only want to consider those that are directly adjacent, but we have to account for alternating genes on the opposite strand.
+        # Using 3 as a cutoff because I do not expect more than one or two overlapping genes/gene fragments on the opposite strand between two fragments of what should be a single gene.
+        #
+        elif dist > 3:
+            continue
         #
         # When neither are named, we have no other way to know whether they should be combined
         #
