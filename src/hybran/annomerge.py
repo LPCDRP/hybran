@@ -447,7 +447,7 @@ def process_split_genes(flist):
             )
             if (int(lg_goodstart)+int(cg_goodstart), int(lg_goodstop)+int(cg_goodstop)) == (1,1):
                 combine = True
-                reason = 'complementary fragments'
+                reason = 'complementary_fragments'
 
         #
         # Combine intervals and check validity, aborting otherwise
