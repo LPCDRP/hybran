@@ -431,7 +431,7 @@ def process_split_genes(flist):
         #
         # Check for complementarity
         #
-        else:
+        elif only_one_named or extractor.get_gene(last_gene) == extractor.get_gene(feature):
             if only_one_named and last_gene_named:
                 ref_gene = last_gene.qualifiers['gene'][0]
             else:
