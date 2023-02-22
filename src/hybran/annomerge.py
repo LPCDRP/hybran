@@ -385,46 +385,82 @@ def process_split_genes(flist):
     dropped_ltag_features = []
     last_gene_by_strand = {}
     for feature in flist:
-        if feature.type=='CDS':
-            outlist.append(feature)
-            if feature.location.strand in last_gene_by_strand:
-                last_gene = last_gene_by_strand[feature.location.strand]
-                # we'll be working with the loop variable so we can update the dictionary ahead of time
-                last_gene_by_strand[feature.location.strand] = feature
+        outlist.append(feature)
+        if feature.type != 'CDS':
+            continue
+        if feature.location.strand in last_gene_by_strand:
+            last_gene = last_gene_by_strand[feature.location.strand]
+            # we'll be working with the loop variable so we can update the dictionary ahead of time
+            last_gene_by_strand[feature.location.strand] = feature
+        else:
+            last_gene_by_strand[feature.location.strand] = feature
+            continue
+
+        last_gene_named = 'gene' in last_gene.qualifiers
+        curr_gene_named = 'gene' in feature.qualifiers
+        only_one_named = last_gene_named ^ curr_gene_named
+
+        combine = False
+        reason = ''
+
+        #
+        # This function runs after coordinate correction, so if two ab initio CDSs now overlap in-frame,
+        # it means that one of them had its start position corrected to correspond to that of the other fragment.
+        #
+        if overlap_inframe(last_gene.location, feature.location):
+            combine = True
+            reason = 'overlapping_inframe'
+        #
+        # When neither are named, we have no other way to know whether they should be combined
+        #
+        elif (not last_gene_named) and (not curr_gene_named):
+            continue
+        #
+        # Check for complementarity
+        #
+        else:
+            sac_last_gene = deepcopy(last_gene)
+            sac_curr_gene = deepcopy(feature)
+            if only_one_named and last_gene_named:
+                ref_gene = last_gene.qualifiers['gene'][0]
             else:
-                last_gene_by_strand[feature.location.strand] = feature
-                continue
+                ref_gene = feature.qualifiers['gene'][0]
 
-            last_gene_named = 'gene' in last_gene.qualifiers
-            curr_gene_named = 'gene' in feature.qualifiers
-            only_one_named = last_gene_named ^ curr_gene_named
+            if feature.strand == 1:
+                fix_last_gene_start = True
+                fix_curr_gene_start = False
+                (lg_goodstart, lg_goodstop) = coord_check(
+                    sac_last_gene,
+                    fix_start=True,
+                    ref_gene_name=ref_gene,
+                )
+                (cg_goodstart, cg_goodstop) = coord_check(
+                    sac_curr_gene,
+                    fix_start=False,
+                    ref_gene_name=ref_gene,
+                )
+            else:
+                (lg_goodstart, lg_goodstop) = coord_check(
+                    sac_last_gene,
+                    fix_start=False,
+                    ref_gene_name=ref_gene,
+                )
+                (cg_goodstart, cg_goodstop) = coord_check(
+                    sac_curr_gene,
+                    fix_start=True,
+                    ref_gene_name=ref_gene,
+                )
 
+            if (int(lg_goodstart)+int(cg_goodstart), int(lg_goodstop)+int(cg_goodstop)) == (1,1):
+                combine = True
+                reason = 'complementary fragments'
+                last_gene.location = sac_last_gene.location
+                feature.location = sac_curr_gene.location
 
-            # We have no way to know
-            if not last_gene_named and not curr_gene_named:
-                continue
-
-
-            #
-            # Make sure there isn't a real tandem duplication or partial duplication
-            #
-            if last_gene_named and curr_gene_named:
-                # Not even the same gene!
-                if feature.qualifiers['gene'][0] != last_gene.qualifiers['gene'][0]:
-                    continue
-                # Both named and non-pseudo means both are largely intact copies -- do not combine
-                if not designator.is_pseudo(feature.qualifiers) and not designator.is_pseudo(last_gene.qualifiers):
-                    continue
-            # At least one copy is complete (has consistent-with-reference start *and* stop codons) -- do not combine
-            if ((('gene' in last_gene.qualifiers and all(coord_check(last_gene)))
-                 and ('gene' in feature.qualifiers and all(coord_check(feature))))
-                and not overlap_inframe(last_gene, feature)):
-                continue
-
-
-            #
-            # Combine intervals and check validity, aborting otherwise
-            #
+        #
+        # Combine intervals and check validity, aborting otherwise
+        #
+        if combine:
             new_start = last_gene.location.start
             new_end = feature.location.end
             if only_one_named and last_gene_named:
@@ -435,7 +471,7 @@ def process_split_genes(flist):
                 dropped_feature = last_gene
             new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
-            dropped_ltag_features.append((dropped_feature, f"Combined with {new_feature.qualifiers['locus_tag'][0]}"))
+            dropped_ltag_features.append((dropped_feature, f"Combined with {new_feature.qualifiers['locus_tag'][0]}: {reason}"))
             new_feature.qualifiers['pseudo'] = ['']
 
             if all(coord_check(new_feature, fix_start=True, fix_stop=True)):
@@ -681,7 +717,7 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
         feature.qualifiers.pop('pseudo', None)
         feature.qualifiers.pop('pseudogene', None)
 
-def coord_check(feature, fix_start=False, fix_stop=False,
+def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
 ):
     """
     This function takes a feature as an input and aligns it to the corresponding reference gene.
@@ -690,14 +726,21 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     :param feature: SeqFeature object
     :param fix_start: Boolean
     :param fix_stop: Boolean
+    :param ref_gene_name: str reference gene to check against.
+        Must be a key existing in the `ref_annotation` dictionary.
+        If not defined, the reference gene matching `feature`'s gene qualifier is used instead.
     :return: True/False if the start/stop was fixed
     """
-    ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
+    if not ref_gene_name:
+        ref_gene_name = feature.qualifiers['gene'][0]
+    ref_feature = ref_annotation[ref_gene_name]
     ref_seq = ref_feature.extract(ref_sequence)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
     og_feature = deepcopy(feature)
+    if 'gene' not in og_feature.qualifiers:
+        og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
 
