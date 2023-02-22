@@ -432,43 +432,22 @@ def process_split_genes(flist):
         # Check for complementarity
         #
         else:
-            sac_last_gene = deepcopy(last_gene)
-            sac_curr_gene = deepcopy(feature)
             if only_one_named and last_gene_named:
                 ref_gene = last_gene.qualifiers['gene'][0]
             else:
                 ref_gene = feature.qualifiers['gene'][0]
 
-            if feature.strand == 1:
-                fix_last_gene_start = True
-                fix_curr_gene_start = False
-                (lg_goodstart, lg_goodstop) = coord_check(
-                    sac_last_gene,
-                    fix_start=True,
-                    ref_gene_name=ref_gene,
-                )
-                (cg_goodstart, cg_goodstop) = coord_check(
-                    sac_curr_gene,
-                    fix_start=False,
-                    ref_gene_name=ref_gene,
-                )
-            else:
-                (lg_goodstart, lg_goodstop) = coord_check(
-                    sac_last_gene,
-                    fix_start=False,
-                    ref_gene_name=ref_gene,
-                )
-                (cg_goodstart, cg_goodstop) = coord_check(
-                    sac_curr_gene,
-                    fix_start=True,
-                    ref_gene_name=ref_gene,
-                )
-
+            (lg_goodstart, lg_goodstop) = coord_check(
+                last_gene,
+                ref_gene_name=ref_gene,
+            )
+            (cg_goodstart, cg_goodstop) = coord_check(
+                feature,
+                ref_gene_name=ref_gene,
+            )
             if (int(lg_goodstart)+int(cg_goodstart), int(lg_goodstop)+int(cg_goodstop)) == (1,1):
                 combine = True
                 reason = 'complementary fragments'
-                last_gene.location = sac_last_gene.location
-                feature.location = sac_curr_gene.location
 
         #
         # Combine intervals and check validity, aborting otherwise
