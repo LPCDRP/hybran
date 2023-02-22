@@ -437,15 +437,16 @@ def process_split_genes(flist):
             else:
                 ref_gene = feature.qualifiers['gene'][0]
 
-            (lg_goodstart, lg_goodstop) = coord_check(
+            lg_status = coord_check(
                 last_gene,
                 ref_gene_name=ref_gene,
             )
-            (cg_goodstart, cg_goodstop) = coord_check(
+            cg_status = coord_check(
                 feature,
                 ref_gene_name=ref_gene,
             )
-            if (int(lg_goodstart)+int(cg_goodstart), int(lg_goodstop)+int(cg_goodstop)) == (1,1):
+            if ((any(lg_status) and any(cg_status))
+                and (int(lg_status[0])+int(cg_status[0]), int(lg_status[1])+int(cg_status[1]))==(1,1)):
                 combine = True
                 reason = 'complementary_fragments'
 
