@@ -469,9 +469,11 @@ def process_split_genes(flist):
             else:
                 new_feature = deepcopy(feature)
                 dropped_feature = last_gene
+            dropped_feature_name = f"{extractor.get_ltag(dropped_feature)}:{extractor.get_gene(dropped_feature)}"
+            new_feature_name = f"{extractor.get_ltag(new_feature)}:{extractor.get_gene(new_feature)}"
             new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
-            dropped_ltag_features.append((dropped_feature, f"Combined with {new_feature.qualifiers['locus_tag'][0]}: {reason}"))
+            dropped_ltag_features.append((dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}"))
             new_feature.qualifiers['pseudo'] = ['']
 
             if all(coord_check(new_feature, fix_start=True, fix_stop=True)):
