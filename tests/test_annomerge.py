@@ -124,6 +124,7 @@ def test_overlap_inframe(pair):
 
 @pytest.mark.parametrize('gene_list', [
     'complementary_fragments',
+    'complementary_fragments_one_unnamed',
 #    'seemingly_complete_fragment',
 #    'independent_fragments',
 ])
@@ -148,6 +149,20 @@ def test_process_split_genes(gene_list):
                 }
             ),
         ],
+        'complementary_fragments_one_unnamed': [
+            SeqFeature(
+                FeatureLocation(ExactPosition(1104310), ExactPosition(1104607), strand=1), type='CDS', qualifiers={
+                    'locus_tag': ['L_01053'],
+                }
+            ),
+            SeqFeature(
+                FeatureLocation(ExactPosition(1104558), ExactPosition(1105056), strand=1), type='CDS', qualifiers={
+                    'gene': ['Rv0986'],
+                    'locus_tag': ['L_01054'],
+                    'pseudo': [''],
+                }
+            ),
+        ],
         'seemingly_complete_fragment': [
         ],
         'independent_fragments': [
@@ -159,7 +174,9 @@ def test_process_split_genes(gene_list):
     annomerge.genetic_code = 11
     annomerge.ref_annotation = {
         'dosT': ref_features['H37Rv']['dosT'],
+        'Rv0986': ref_features['H37Rv']['Rv0986'],
     }
+    annomerge.corrected_orf_report = []
 
     expected = {
         'complementary_fragments': [
@@ -167,6 +184,15 @@ def test_process_split_genes(gene_list):
                 FeatureLocation(ExactPosition(2275540), ExactPosition(2277261), strand=-1), type='CDS', qualifiers={
                     'gene': ['dosT'],
                     'locus_tag': ['L_02174'],
+                    'pseudo': [''],
+                }
+            ),
+        ],
+        'complementary_fragments_one_unnamed': [
+            SeqFeature(
+                FeatureLocation(ExactPosition(1104310), ExactPosition(1105056), strand=1), type='CDS', qualifiers={
+                    'gene': ['Rv0986'],
+                    'locus_tag': ['L_01054'],
                     'pseudo': [''],
                 }
             ),

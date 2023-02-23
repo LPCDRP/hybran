@@ -8,6 +8,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv0001'],'gene':['dnaA']}
         ),
+        'Rv0986': SeqFeature(
+            FeatureLocation(1101802, 1102549, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0986'],'gene':['Rv0986']}
+        ),
         'rrf': SeqFeature(
             FeatureLocation(1476898, 1477013, strand=1),
             type='rRNA',
