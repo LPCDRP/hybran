@@ -62,6 +62,7 @@ def test_upstream_context(location):
     'same_stop',
     'inframe_pseudo_same_start_different_stop',
     'inframe_pseudo_different_start_different_stop',
+    'inframe_pseudo_on_nonoverlapping_part',
     'overlapping_out_of_frame',
     'different_strand',
     'non_overlapping',
@@ -83,9 +84,16 @@ def test_overlap_inframe(pair):
             FeatureLocation(ExactPosition(2345919), ExactPosition(2346942), strand=1),
             FeatureLocation(ExactPosition(2345913), ExactPosition(2346915), strand=1),
         ),
+        # 1-0006 combined CDS L_01053 and L_01054 compared to start-corrected
+        'inframe_pseudo_on_nonoverlapping_part': (
+            FeatureLocation(ExactPosition(1104310), ExactPosition(1105056), strand=1),
+            FeatureLocation(ExactPosition(1105048), ExactPosition(1107616), strand=1),
+        ),
         'overlapping_out_of_frame': (
-            FeatureLocation(ExactPosition(0), ExactPosition(300), strand=1),
-            FeatureLocation(ExactPosition(2), ExactPosition(299), strand=1),
+            # 1-0006 espH and eccA1
+            FeatureLocation(ExactPosition(4350755), ExactPosition(4351307), strand=1),
+            # not a multiple of 3
+            FeatureLocation(ExactPosition(4351299), ExactPosition(4353020), strand=1),
         ),
         'different_strand': (
             FeatureLocation(ExactPosition(0), ExactPosition(300), strand=1),
@@ -105,6 +113,7 @@ def test_overlap_inframe(pair):
         'same_stop': True,
         'inframe_pseudo_same_start_different_stop': True,
         'inframe_pseudo_different_start_different_stop': True,
+        'inframe_pseudo_on_nonoverlapping_part': False,
         'overlapping_out_of_frame': False,
         'different_strand': False,
         'non_overlapping': False,

@@ -54,13 +54,15 @@ def overlap_inframe(loc1, loc2):
     :return: True if both features overlap in-frame
     """
     # overlap determination adapted from https://stackoverflow.com/a/2953979
-    overlapping = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start)) > 0
+    overlap = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start))
 
-    if loc1.strand == loc2.strand and overlapping:
+    if loc1.strand == loc2.strand and overlap > 0:
         # pseudogenes may occupy multiple reading frames, so
-        # check both the start-defined and stop-defined frames.
-        if ((loc1.start - loc2.start) % 3 == 0
-            or (loc1.end - loc2.end) % 3 == 0
+        # check both the start-defined and stop-defined frames,
+        # as well as the actual overlapping part.
+        if (((loc1.start - loc2.start) % 3 == 0
+             or (loc1.end - loc2.end) % 3 == 0)
+            and (overlap % 3 == 0)
         ):
             return True
     return False
