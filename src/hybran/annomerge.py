@@ -970,9 +970,18 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             logger.warning(feature)
             rejects.append((feature, "location of CDS is missing"))
         elif (len(feature.location) % 3) != 0:
-            logger.warning('Nucleotide sequence is not divisible by 3')
-            logger.warning(feature)
-            rejects.append((feature, "nucleotide sequence is not divisible by 3"))
+            if 'note' in feature.qualifiers:
+                pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo")]
+                if pseudo_note:
+                    feature.qualifiers['note'].remove(pseudo_note[0])
+                    feature.qualifiers['pseudo'] = ['']
+            if not designator.is_pseudo(feature):
+                logger.warning('Nucleotide sequence is not divisible by 3')
+                logger.warning(feature)
+                rejects.append((feature, "nucleotide sequence is not divisible by 3"))
+            else:
+                coord_check(feature, fix_start=True, fix_stop=True)
+                valid_features.append(feature)
         else:
             unbroken_cds.append(feature)
 
