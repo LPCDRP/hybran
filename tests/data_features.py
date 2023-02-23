@@ -8,6 +8,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv0001'],'gene':['dnaA']}
         ),
+        'PPE38': SeqFeature(
+            FeatureLocation(2632922, 2634098, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv2352c'],'gene':['PPE38']}
+        ),
         'rrf': SeqFeature(
             FeatureLocation(1476898, 1477013, strand=1),
             type='rRNA',
@@ -32,6 +37,11 @@ ref_features = {
             FeatureLocation(4222693, 4223680, strand=1),
             type='CDS',
             qualifiers={'locus_tag':['Rv3777'],'gene':['Rv3777']}
+        ),
+        'Rv3785': SeqFeature(
+            FeatureLocation(4231319, 4232393, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv3785'],'gene':['Rv3785']}
         ),
     },
 }
@@ -69,6 +79,13 @@ features = {
                 FeatureLocation(366754, 376299, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['Rv0305c'],'gene':['PPE6']}
+            ),
+        },
+        'PPE38': {
+            'abinit': SeqFeature(
+                FeatureLocation(2636045, 2637140, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_02521'],'gene':['PPE38']}
             ),
         },
         'Rv1453': {
@@ -110,6 +127,13 @@ features = {
                 FeatureLocation(4230776, 4231754, strand=1),
                 type='CDS',
                 qualifiers={'locus_tag':['L_04009'],'gene':['Rv3777']}
+            )
+        },
+        'Rv3785': {
+            'abinit': SeqFeature(
+                FeatureLocation(4239976, 4240378, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_04018'],'gene':['Rv3785']}
             )
         },
     },

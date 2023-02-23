@@ -303,6 +303,8 @@ def test_liftover_annotation():
 @pytest.mark.parametrize('feature_type', [
     'abinit_start_bad_minus',
     'bad_translation',
+    'tricky_found_low',
+    'good_start_stop_deletion',
 ])
 def test_coord_check(feature_type):
     #prokka for Rv2300c and Rv3181c
@@ -310,12 +312,16 @@ def test_coord_check(feature_type):
     test_features = {
         'abinit_start_bad_minus': features[source_genome]['Rv3181c']['abinit'],
         'bad_translation': features[source_genome]['Rv3777']['abinit'],
+        'tricky_found_low': features[source_genome]['PPE38']['abinit'],
+        'good_start_stop_deletion': features[source_genome]['Rv3785']['abinit'],
     }
 
     feature = test_features[feature_type]
     annomerge.ref_annotation = {
         'Rv3181c': ref_features['H37Rv']['Rv3181c'],
         'Rv3777': ref_features['H37Rv']['Rv3777'],
+        'PPE38': ref_features['H37Rv']['PPE38'],
+        'Rv3785': ref_features['H37Rv']['Rv3785'],
     }
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
@@ -324,7 +330,9 @@ def test_coord_check(feature_type):
 
     expected = {
         'abinit_start_bad_minus': [(True, True), FeatureLocation(3548089, 3548542, strand=-1)],
-        'bad_translation':[(True, True), FeatureLocation(4230767, 4231754, strand=1)]
+        'bad_translation':[(True, True), FeatureLocation(4230767, 4231754, strand=1)],
+        'tricky_found_low':[(False, True), FeatureLocation(2636045, 2637140, strand=-1)],
+        'good_start_stop_deletion':[(True, True), FeatureLocation(4239393, 4240378, strand=1)],
     }
     results = annomerge.coord_check(feature, fix_start=True)
     assert [results, feature.location] == expected[feature_type]
