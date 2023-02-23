@@ -54,13 +54,15 @@ def overlap_inframe(loc1, loc2):
     :return: True if both features overlap in-frame
     """
     # overlap determination adapted from https://stackoverflow.com/a/2953979
-    overlapping = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start)) > 0
+    overlap = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start))
 
-    if loc1.strand == loc2.strand and overlapping:
+    if loc1.strand == loc2.strand and overlap > 0:
         # pseudogenes may occupy multiple reading frames, so
-        # check both the start-defined and stop-defined frames.
-        if ((loc1.start - loc2.start) % 3 == 0
-            or (loc1.end - loc2.end) % 3 == 0
+        # check both the start-defined and stop-defined frames,
+        # as well as the actual overlapping part.
+        if (((loc1.start - loc2.start) % 3 == 0
+             or (loc1.end - loc2.end) % 3 == 0)
+            and (overlap % 3 == 0)
         ):
             return True
     return False
@@ -379,37 +381,105 @@ def process_split_genes(flist):
     Given a list of features ordered by genomic position, assign the same
     locus tag to consecutive fragments of the same gene.
     :param flist: list of SeqFeature objects
-    :return: list of SeqFeature objects to keep (some modified from the original)
+    :returns:
+        list of SeqFeature objects to keep (some modified from the original)
+        list of annotations that have been merged into their neighbor.
     """
     outlist = []
-    i = 0
-    prev_gene_frag = dict()
+    dropped_ltag_features = []
+    last_gene_by_strand = {}
     for feature in flist:
-        if 'gene' in feature.qualifiers.keys() and 'pseudo' in feature.qualifiers.keys():
-            feature.qualifiers.pop('translation', None)
-            if 'gene' in prev_gene_frag.keys() and feature.qualifiers['gene'][0] == prev_gene_frag['gene']:
-                # merge this feature's data into the previous one's and throw it away.
-                outlist[prev_gene_frag['ind']].location = FeatureLocation(
-                    outlist[prev_gene_frag['ind']].location.start,
-                    feature.location.end,
-                    outlist[prev_gene_frag['ind']].location.strand
-                )
-                outlist[prev_gene_frag['ind']].qualifiers = merge_qualifiers(
-                    outlist[prev_gene_frag['ind']].qualifiers,
-                    feature.qualifiers,
-                )
-                continue
-            prev_gene_frag = dict(
-                gene = feature.qualifiers['gene'][0],
-                locus_tag = feature.qualifiers['locus_tag'][0],
-                ind = i,
-            )
-            outlist.append(deepcopy(feature))
-            i += 1
+        outlist.append(feature)
+        if feature.type != 'CDS':
+            continue
+        if feature.location.strand in last_gene_by_strand:
+            last_gene = last_gene_by_strand[feature.location.strand]
+            # we'll be working with the loop variable so we can update the dictionary ahead of time
+            last_gene_by_strand[feature.location.strand] = feature
         else:
-            outlist.append(deepcopy(feature))
-            i += 1
-    return outlist
+            last_gene_by_strand[feature.location.strand] = feature
+            continue
+
+        last_gene_named = 'gene' in last_gene.qualifiers
+        curr_gene_named = 'gene' in feature.qualifiers
+        only_one_named = last_gene_named ^ curr_gene_named
+
+        combine = False
+        reason = ''
+
+        # Many ab initio CDSs are rejected before this step, so we cannot deduce adjacency on the genome by adjacency on the list.
+        # We can use the difference in their locus tag numbers to determine that.
+        n_last_gene = int(last_gene.qualifiers['locus_tag'][0].split('_')[1])
+        n_curr_gene = int(feature.qualifiers['locus_tag'][0].split('_')[1])
+        dist = n_curr_gene - n_last_gene
+
+        #
+        # This function runs after coordinate correction, so if two ab initio CDSs now overlap in-frame,
+        # it means that one of them had its start position corrected to correspond to that of the other fragment.
+        #
+        if overlap_inframe(last_gene.location, feature.location):
+            combine = True
+            reason = 'overlapping_inframe'
+        #
+        # Don't merge CDSs that are too far apart.
+        # We only want to consider those that are directly adjacent, but we have to account for alternating genes on the opposite strand.
+        # Using 3 as a cutoff because I do not expect more than one or two overlapping genes/gene fragments on the opposite strand between two fragments of what should be a single gene.
+        #
+        elif dist > 3:
+            continue
+        #
+        # When neither are named, we have no other way to know whether they should be combined
+        #
+        elif (not last_gene_named) and (not curr_gene_named):
+            continue
+        #
+        # Check for complementarity
+        #
+        elif only_one_named or extractor.get_gene(last_gene) == extractor.get_gene(feature):
+            if only_one_named and last_gene_named:
+                ref_gene = last_gene.qualifiers['gene'][0]
+            else:
+                ref_gene = feature.qualifiers['gene'][0]
+
+            lg_status = coord_check(
+                last_gene,
+                ref_gene_name=ref_gene,
+            )
+            cg_status = coord_check(
+                feature,
+                ref_gene_name=ref_gene,
+            )
+            if ((any(lg_status) and any(cg_status))
+                and (int(lg_status[0])+int(cg_status[0]), int(lg_status[1])+int(cg_status[1]))==(1,1)):
+                combine = True
+                reason = 'complementary_fragments'
+
+        #
+        # Combine intervals and check validity, aborting otherwise
+        #
+        if combine:
+            new_start = last_gene.location.start
+            new_end = feature.location.end
+            if only_one_named and last_gene_named:
+                new_feature = deepcopy(last_gene)
+                dropped_feature = feature
+            else:
+                new_feature = deepcopy(feature)
+                dropped_feature = last_gene
+            dropped_feature_name = f"{extractor.get_ltag(dropped_feature)}:{extractor.get_gene(dropped_feature)}"
+            new_feature_name = f"{extractor.get_ltag(new_feature)}:{extractor.get_gene(new_feature)}"
+            new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
+            new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
+            dropped_ltag_features.append((dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}"))
+            new_feature.qualifiers['pseudo'] = ['']
+
+            if all(coord_check(new_feature, fix_start=True, fix_stop=True)):
+                last_gene_by_strand[feature.location.strand] = new_feature
+                outlist.remove(last_gene)
+                outlist.remove(feature)
+                outlist.append(new_feature)
+
+    return outlist, dropped_ltag_features
 
 def identify_merged_genes(ratt_features):
     """
@@ -648,7 +718,7 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
         feature.qualifiers.pop('pseudo', None)
         feature.qualifiers.pop('pseudogene', None)
 
-def coord_check(feature, fix_start=False, fix_stop=False,
+def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
 ):
     """
     This function takes a feature as an input and aligns it to the corresponding reference gene.
@@ -657,14 +727,21 @@ def coord_check(feature, fix_start=False, fix_stop=False,
     :param feature: SeqFeature object
     :param fix_start: Boolean
     :param fix_stop: Boolean
+    :param ref_gene_name: str reference gene to check against.
+        Must be a key existing in the `ref_annotation` dictionary.
+        If not defined, the reference gene matching `feature`'s gene qualifier is used instead.
     :return: True/False if the start/stop was fixed
     """
-    ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
+    if not ref_gene_name:
+        ref_gene_name = feature.qualifiers['gene'][0]
+    ref_feature = ref_annotation[ref_gene_name]
     ref_seq = ref_feature.extract(ref_sequence)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
     og_feature = deepcopy(feature)
+    if 'gene' not in og_feature.qualifiers:
+        og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
 
@@ -1532,13 +1609,16 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     non_cds_ratt.append(feat)
 
 
-            prokka_features_dict = generate_feature_dictionary(prokka_contig_features)
-            prokka_features_not_in_ratt, inframe_conflicts, prokka_duplicates = \
-                find_inframe_overlaps(ratt_contig_features, prokka_features_dict)
-            prokka_rejects += prokka_duplicates
-            logger.debug(f"{seqname}: {len(prokka_duplicates)} ab initio ORFs identical to RATT's")
-            logger.debug(f"{seqname}: {len(inframe_conflicts.keys())} ab initio ORFs conflicting in-frame with RATT's")
-            logger.debug(f'{seqname}: {len(prokka_features_not_in_ratt.keys())} total ab initio ORFs remain in consideration')
+            abinit_features_dict = generate_feature_dictionary(prokka_contig_features)
+            logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
+            unique_abinit_features_pre_coord_correction, inframe_conflicts_pre_coord_correction, abinit_duplicates = find_inframe_overlaps(
+                ratt_contig_features,
+                abinit_features_dict,
+            )
+            prokka_rejects += abinit_duplicates
+            logger.debug(f"{seqname}: {len(abinit_duplicates)} ab initio ORFs identical to RATT's")
+            logger.debug(f"{seqname}: {len(inframe_conflicts_pre_coord_correction)} ab initio ORFs conflicting in-frame with RATT's")
+            logger.debug(f'{seqname}: {len(unique_abinit_features_pre_coord_correction)} total ab initio ORFs remain in consideration')
 
 
             logger.debug(f'{seqname}: Checking remaining ab initio CDS annotations for matches to reference using {nproc} process(es)')
@@ -1554,7 +1634,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 seq_covg=seq_covg,
                 identify=lambda _:_.split(':')[1],
             )
-            prokka_contig_cdss = [f for f in prokka_features_not_in_ratt.values() if f.type == 'CDS']
+            prokka_contig_cdss = [f for f in unique_abinit_features_pre_coord_correction.values() if f.type == 'CDS']
             with multiprocessing.Pool(processes=nproc) as pool:
                 blast_package = pool.map(
                     refmatch,
@@ -1616,11 +1696,34 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
             logger.debug(f'{seqname}: Corrected start positions for {n_coords_corrected} ab initio ORFs')
 
+
+            # Check for in-frame conflicts/duplicates again since the ab initio gene coordinates changed
+            logger.info(f"{seqname}: Checking for fragmented ab initio annotations")
+            unique_abinit_features_post_coord_correction_list, dropped_abinit_fragments = process_split_genes(
+                unique_abinit_features_pre_coord_correction.values()
+            )
+            prokka_rejects += dropped_abinit_fragments
+            logger.debug(f"{seqname}: {len(dropped_abinit_fragments)} gene fragment pairs merged")
+            unique_abinit_features_post_coord_correction = generate_feature_dictionary(
+                unique_abinit_features_post_coord_correction_list
+            )
+
+            logger.info(f"{seqname}: Checking for new in-frame overlaps with corrected ab initio gene annotations")
+            unique_abinit_features, inframe_conflicts, new_abinit_duplicates = find_inframe_overlaps(
+                ratt_contig_features,
+                unique_abinit_features_post_coord_correction,
+            )
+            prokka_rejects += new_abinit_duplicates
+            logger.debug(f"{seqname}: {len(new_abinit_duplicates)} corrected ab initio ORFs now identical to RATT's")
+            logger.debug(f'{seqname}: {len(inframe_conflicts_pre_coord_correction)-len(inframe_conflicts)} corrected ab initio ORFs now conflicting in-frame with RATT')
+            logger.debug(f'{seqname}: {len(unique_abinit_features)} total ab initio ORFs remain in consideration')
+
+
             intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
                 get_interregions(ratt_contig_record_mod, intergene_length=1)
             sorted_intergenic_positions = sorted(intergenic_positions)
             add_features_from_prokka, overlap_conflicts = populate_gaps(
-                abinit_features=prokka_features_not_in_ratt,
+                abinit_features=unique_abinit_features,
                 intergenic_positions=sorted_intergenic_positions,
                 ratt_pre_intergene=ratt_pre_intergene,
                 ratt_post_intergene=ratt_post_intergene,
@@ -1637,7 +1740,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             logger.debug(f"{seqname}: {len(abinit_conflicts.keys())} ab initio CDSs in total overlap RATT CDSs. Resolving...")
 
             for feature_position in abinit_conflicts.keys():
-                abinit_feature = prokka_features_not_in_ratt[feature_position]
+                abinit_feature = unique_abinit_features[feature_position]
                 # Conflict Resolution
                 for ratt_conflict_loc in abinit_conflicts[feature_position]:
                     # if the RATT annotation got rejected at some point, its remaining conflicts are moot
@@ -1857,7 +1960,11 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             else:
                 prokka_rejects.append((prokka_annotation, remark))
         ordered_feats = get_ordered_features(output_isolate_recs[i].features)
-        ordered_feats = process_split_genes(ordered_feats)
+        # Remove AA translation from pseudos
+        for feature in ordered_feats:
+            if designator.is_pseudo(feature.qualifiers):
+                feature.qualifiers.pop('translation', None)
+
         output_isolate_recs[i].features = ordered_feats[:]
         final_cdss = [f for f in ordered_feats if f.type == 'CDS']
         logger.debug(f'{seqname}: {len(final_cdss)} CDSs annomerge')

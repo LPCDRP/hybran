@@ -8,6 +8,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv0001'],'gene':['dnaA']}
         ),
+        'Rv0986': SeqFeature(
+            FeatureLocation(1101802, 1102549, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0986'],'gene':['Rv0986']}
+        ),
         'rrf': SeqFeature(
             FeatureLocation(1476898, 1477013, strand=1),
             type='rRNA',
@@ -22,6 +27,11 @@ ref_features = {
             FeatureLocation(1944808, 1945627, strand=1),
             type='CDS',
             qualifiers={'locus_tag':['Rv1718'],'gene':['Rv1718']}
+        ),
+        'dosT': SeqFeature(
+            FeatureLocation(2272786, 2274508, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv2027c'],'gene':['dosT']}
         ),
         'Rv3181c': SeqFeature(
             FeatureLocation(3549690,3550143 , strand=-1),
