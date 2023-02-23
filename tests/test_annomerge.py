@@ -179,27 +179,29 @@ def test_process_split_genes(gene_list):
     annomerge.corrected_orf_report = []
 
     expected = {
-        'complementary_fragments': [
+        'complementary_fragments': ([
             SeqFeature(
                 FeatureLocation(ExactPosition(2275540), ExactPosition(2277261), strand=-1), type='CDS', qualifiers={
                     'gene': ['dosT'],
                     'locus_tag': ['L_02174'],
                     'pseudo': [''],
                 }
-            ),
-        ],
-        'complementary_fragments_one_unnamed': [
+            )],
+            [(inputs['complementary_fragments'][0], 'L_02173:dosT combined with L_02174:dosT: overlapping_inframe')]
+        ),
+        'complementary_fragments_one_unnamed': ([
             SeqFeature(
                 FeatureLocation(ExactPosition(1104310), ExactPosition(1105056), strand=1), type='CDS', qualifiers={
                     'gene': ['Rv0986'],
                     'locus_tag': ['L_01054'],
                     'pseudo': [''],
                 }
-            ),
-        ],
+            )],
+            [(inputs['complementary_fragments_one_unnamed'][0], 'L_01053:L_01053 combined with L_01054:Rv0986: complementary_fragments')]
+        ),
     }
 
-    assert annomerge.process_split_genes(inputs[gene_list])[0] == expected[gene_list]
+    assert annomerge.process_split_genes(inputs[gene_list]) == expected[gene_list]
 
 
 def test_identify_conjoined_genes():
