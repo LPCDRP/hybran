@@ -915,10 +915,12 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     ratt_blast_results = {}
     rejects = []
     valid_features = []
-
     for feature in feature_list:
+        if feature.type != 'CDS':
+            non_cds_features.append(feature)
+            continue
         # Identify features with 'joins'
-        if feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
+        if isinstance(feature.location,Bio.SeqFeature.CompoundLocation):
             if 'ribosomal_slippage' in feature.qualifiers:
                 continue
             #Need to initialize the feature without the compound location attribute.
@@ -958,19 +960,16 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                     valid_features.append(feature)
                 else:
                     unbroken_cds.append(feature)
-
-        elif feature.type == 'CDS' and feature.location is None:
+        elif not feature.location:
             logger.warning('Invalid CDS: Location of CDS is missing')
             logger.warning(feature)
             rejects.append((feature, "location of CDS is missing"))
-        elif feature.type == 'CDS' and (len(feature.location) % 3) != 0:
+        elif (len(feature.location) % 3) != 0:
             logger.warning('Nucleotide sequence is not divisible by 3')
             logger.warning(feature)
             rejects.append((feature, "nucleotide sequence is not divisible by 3"))
-        elif feature.type == 'CDS':
-            unbroken_cds.append(feature)
         else:
-            non_cds_features.append(feature)
+            unbroken_cds.append(feature)
 
     logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features)))
     logger.debug(f"Checking similarity to reference CDSs using {nproc} process(es)")
