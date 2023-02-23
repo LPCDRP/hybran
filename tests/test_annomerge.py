@@ -103,11 +103,11 @@ def test_overlap_inframe(pair):
             FeatureLocation(ExactPosition(0), ExactPosition(300), strand=1),
             FeatureLocation(ExactPosition(304), ExactPosition(335), strand=-1),
         ),
-        # 1-0006's Rv0138 and Rv0139
         'one_bp_apart': (
+            # 1-0006's Rv0138 and Rv0139
             FeatureLocation(ExactPosition(163764), ExactPosition(164268), strand=1),
             FeatureLocation(ExactPosition(164268), ExactPosition(165291), strand=1),
-        )
+        ),
     }
     expected = {
         'same_stop': True,
