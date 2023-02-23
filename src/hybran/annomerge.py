@@ -1641,6 +1641,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     [SeqRecord(Seq(f.qualifiers['translation'][0])) for f in prokka_contig_cdss],
                 )
             n_coords_corrected = 0
+            n_bad_starts = 0
             for j in range(len(prokka_contig_cdss)):
                 ref_gene, pseudo, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
@@ -1668,6 +1669,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                             else:
                                 match_type = 'nucleotide'
                                 pseudo = True
+                    elif not good_start:
+                        n_bad_starts += 1
+                        logger.debug(f"Failed to correct start for {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}")
+                        pseudo = True
                     liftover_annotation(
                         feature,
                         ref_annotation[ref_gene],
@@ -1695,6 +1700,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
             logger.debug(f'{seqname}: Corrected start positions for {n_coords_corrected} ab initio ORFs')
+            logger.debug(f'{seqname}: Start positions for {n_bad_starts} ab initio ORFs could not be corrected')
 
 
             # Check for in-frame conflicts/duplicates again since the ab initio gene coordinates changed
