@@ -112,9 +112,20 @@ def log_coord_correction(og_feature, feature, logfile):
     new_end = (feature.location.end)
     start_fixed = str(og_start != new_start).lower()
     stop_fixed = str(og_end != new_end).lower()
+
+    if designator.is_pseudo(og_feature.qualifiers) == designator.is_pseudo(feature.qualifiers):
+        if designator.is_pseudo(og_feature.qualifiers):
+            status = "remains_pseudo"
+        else:
+            status = "remains_non_pseudo"
+    elif designator.is_pseudo(feature.qualifiers):
+        status = "became_pseudo"
+    else:
+        status = "became_non_pseudo"
+
     if og_feature.strand == -1:
         start_fixed, stop_fixed = stop_fixed, start_fixed
-    line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed]
+    line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed, status]
     print('\t'.join(str(v) for v in line), file=logfile)
 
 
@@ -229,7 +240,7 @@ def get_nuc_seq_for_gene(feature_list, source_seq):
             continue
         locus = f.qualifiers['locus_tag'][0]
         prom_seq = upstream_context(f.location, source_seq)
-        ref_fna_dict[locus] = SeqRecord(f.extract(source_seq))
+        ref_fna_dict[locus] = SeqRecord(seq=f.extract(source_seq), id=locus)
         fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
                                               dir=hybran_tmp_dir,
                                               delete=False,
@@ -745,14 +756,46 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
 
-
-    def coord_align(ref_seq, feature_seq):
+    def coord_align(ref_seq, feature_seq, mismatch_check=False):
         aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
         alignment = aligner.align(ref_seq, feature_seq)[0]
         target = alignment.aligned[0]
         query = alignment.aligned[1]
-        found_low = (target[0][0] == 0) and ((abs(target[0][0] - target[0][1])) >= 4)
-        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1]) >= 4)
+        target_low_seq = alignment[0][(query[0][0]):(query[0][1])]
+        query_low_seq  = alignment[1][(query[0][0]):(query[0][1])]
+
+        target_high_seq = alignment[0][(query[-1][0]):(query[-1][1])]
+        query_high_seq = alignment[1][(query[-1][0]):(query[-1][1])]
+
+        found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= 4
+        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= 4
+
+        #make sure there aren't too many mismatches causing falsely assigned found_low/high values
+        if not mismatch_check:
+            return found_low, found_high, target, query, alignment
+        if found_low and target[0][1] < (len(ref_seq)/3):
+            gaps = ident = mismatch = 0
+            for i in range(len(target_low_seq)):
+                if target_low_seq[i] == '-' or query_low_seq[i] == "-":
+                    gaps += 1
+                elif target_low_seq[i] == query_low_seq[i]:
+                    ident += 1
+                else:
+                    mismatch += 1
+            if (gaps + mismatch) > (len(target_low_seq)/3):
+                found_low = False
+
+        if found_high and abs(target[-1][1] - target[-1][0]) < (len(ref_seq)/3):
+            gaps = ident = mismatch = 0
+            for i in range(len(target_high_seq)):
+                if target_high_seq[i] == '-' or query_high_seq[i] == "-":
+                    gaps += 1
+                elif target_high_seq[i] == query_high_seq[i]:
+                    ident += 1
+                else:
+                    mismatch += 1
+            if (gaps + mismatch) > (len(target_high_seq)/3):
+                found_high = False
         return found_low, found_high, target, query, alignment
 
 
@@ -783,7 +826,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
     feature_end = feature.location.end
 
     #Align again after adding padding to the feature sequence
-    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq)
+    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq, mismatch_check=True)
 
     if feature.strand == 1:
         if found_high:
@@ -850,7 +893,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
             feature.qualifiers, 'inference',
             "COORDINATES:alignment:Hybran"
         )
-        corrected_orf_report.append([og_feature, feature])
+        corrected_orf_report.append([og_feature, deepcopy(feature)])
     return good_start, good_stop
 
 
@@ -1658,8 +1701,21 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         # ref_gene should not change (since coordinates were fixed to match it better),
                         # but pseudo may change and blast_hits will change.
                         top_hit, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
+
+                        # for logging purposes
+                        if og_pseudo:
+                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
+                        if ((top_hit == ref_gene) and pseudo) or (top_hit != ref_gene):
+                            corrected_orf_report[-1][1].qualifiers['pseudo'] = ['']
+
                         if top_hit != ref_gene:
-                            top_hit = refmatch(SeqRecord(Seq(feature.extract(record_sequence))), blast_type="n")[0]
+                            top_hit = reference_locus_gene_dict.get(
+                                refmatch(SeqRecord(Seq(feature.extract(record_sequence))),
+                                         subject=ref_fna_dict[reference_gene_locus_dict[ref_gene][0]],
+                                         identify=lambda _:_,
+                                         blast_type="n",
+                                )[0]
+                            )
                             if top_hit != ref_gene:
                                 logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}. Rejecting {str(og_feature_location)} -> {str(feature.location)} coordinate correction.")
                                 n_coords_corrected -= 1
@@ -1995,7 +2051,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
     with open(corrected_abinit_orf_logfile, 'w') as abinit_corlog, \
          open(corrected_ratt_orf_logfile, 'w') as ratt_corlog:
-        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon']
+        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon', 'status']
         print('\t'.join(header), file=abinit_corlog)
         print('\t'.join(header), file=ratt_corlog)
         for (orig_feature, corr_feature) in corrected_orf_report:
@@ -2005,7 +2061,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 logfile = ratt_corlog
             log_coord_correction(orig_feature,
                                  corr_feature,
-                                 logfile
+                                 logfile,
             )
 
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
