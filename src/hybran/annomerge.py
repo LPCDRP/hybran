@@ -1094,8 +1094,8 @@ def get_interregions(embl_record, intergene_length=1):
     for feature in seq_record.features:
         if feature.type != 'CDS':
             continue
-        mystart = feature.location.start.position
-        myend = feature.location.end.position
+        mystart = feature.location.start
+        myend = feature.location.end
         if feature.strand == -1:
             cds_list_minus.append((mystart, myend, -1))
             pre_intergene[(myend, -1)] = feature
