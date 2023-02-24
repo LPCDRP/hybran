@@ -766,11 +766,6 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         alignment = aligner.align(ref_seq, feature_seq)[0]
         target = alignment.aligned[0]
         query = alignment.aligned[1]
-        target_low_seq = alignment[0][(query[0][0]):(query[0][1])]
-        query_low_seq  = alignment[1][(query[0][0]):(query[0][1])]
-
-        target_high_seq = alignment[0][(query[-1][0]):(query[-1][1])]
-        query_high_seq = alignment[1][(query[-1][0]):(query[-1][1])]
 
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= 4
         found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= 4
@@ -778,6 +773,18 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         #make sure there aren't too many mismatches causing falsely assigned found_low/high values
         if not mismatch_check:
             return found_low, found_high, target, query, alignment
+
+        if len(ref_seq) < len(feature_seq):
+            target_low_seq = alignment[0][(query[0][0]):(query[0][1])]
+            target_high_seq = alignment[0][(query[-1][0]):(query[-1][1])]
+            query_low_seq  = alignment[1][(query[0][0]):(query[0][1])]
+            query_high_seq = alignment[1][(query[-1][0]):(query[-1][1])]
+        else:
+            target_low_seq = alignment[0][(target[0][0]):(target[0][1])]
+            target_high_seq = alignment[0][(target[-1][0]):(target[-1][1])]
+            query_low_seq  = alignment[1][(target[0][0]):(target[0][1])]
+            query_high_seq = alignment[1][(target[-1][0]):(target[-1][1])]
+
         if found_low and target[0][1] < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
             for i in range(len(target_low_seq)):
@@ -832,6 +839,14 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
 
     #Align again after adding padding to the feature sequence
     found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq, mismatch_check=True)
+
+    #Note:
+    #strand = 1 (start, stop) ... strand = -1 (stop, start)
+    #these pairs correspond to the left and right side of the aligner with respect to the feature.
+    #the left side will always show the start codon, the right side will always show the stop codon, regardless of strand.
+    #if the strand = -1, modifying 'stop/end' will modify the bases near the start codon (left)
+    #if the strand = -1, modifying 'start/start' will modify the bases near the stop codon (right)
+    #Everything on strand = 1 should be intuitive.
 
     if feature.strand == 1:
         if found_high:
