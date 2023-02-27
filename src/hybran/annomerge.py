@@ -1,4 +1,3 @@
-__author__ = "Deepika Gunasekaran"
 __maintainer__ = "Deepika Gunasekaran"
 __email__ = "dgunasekaran@sdsu.edu"
 __status__ = "Development"
@@ -750,36 +749,30 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
+    feature_seq = feature.extract(record_sequence)
     og_feature = deepcopy(feature)
     if 'gene' not in og_feature.qualifiers:
         og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
 
-    def coord_align(ref_seq, feature_seq, mismatch_check=False):
+    def coord_align(ref_seq, feature_seq):
+        padding = False
         aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
         alignment = aligner.align(ref_seq, feature_seq)[0]
         target = alignment.aligned[0]
         query = alignment.aligned[1]
+        score = alignment.score
 
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= 4
         found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= 4
 
+        target_low_seq = ref_seq[target[0][0]:target[0][1]]
+        target_high_seq = ref_seq[target[-1][0]:target[-1][1]]
+        query_low_seq = feature_seq[query[0][0]:query[0][1]]
+        query_high_seq = feature_seq[query[-1][0]:query[-1][1]]
+
         #make sure there aren't too many mismatches causing falsely assigned found_low/high values
-        if not mismatch_check:
-            return found_low, found_high, target, query, alignment
-
-        if len(ref_seq) < len(feature_seq):
-            target_low_seq = alignment[0][(query[0][0]):(query[0][1])]
-            target_high_seq = alignment[0][(query[-1][0]):(query[-1][1])]
-            query_low_seq  = alignment[1][(query[0][0]):(query[0][1])]
-            query_high_seq = alignment[1][(query[-1][0]):(query[-1][1])]
-        else:
-            target_low_seq = alignment[0][(target[0][0]):(target[0][1])]
-            target_high_seq = alignment[0][(target[-1][0]):(target[-1][1])]
-            query_low_seq  = alignment[1][(target[0][0]):(target[0][1])]
-            query_high_seq = alignment[1][(target[-1][0]):(target[-1][1])]
-
         if found_low and target[0][1] < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
             for i in range(len(target_low_seq)):
@@ -791,6 +784,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                     mismatch += 1
             if (gaps + mismatch) > (len(target_low_seq)/3):
                 found_low = False
+                padding = True
 
         if found_high and abs(target[-1][1] - target[-1][0]) < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
@@ -803,37 +797,54 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                     mismatch += 1
             if (gaps + mismatch) > (len(target_high_seq)/3):
                 found_high = False
-        return found_low, found_high, target, query, alignment
+                padding = True
+        if not found_low or not found_high:
+            padding = True
+        return found_low, found_high, target, query, alignment, padding, score
 
+    def add_padding(feature):
+        #If we're looking to make corrections, add some context to help the aligner
+        feature_start = feature.location.start
+        feature_end = feature.location.end
+        bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
+        n = bp_diff + round(.2 * bp_diff)
 
-    feature_seq = feature.extract(record_sequence)
-    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq)
+        if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
+            padded_feature_start = max(0, (feature_start - n))
+            if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
+                feature_start = padded_feature_start
 
-    #If we're looking to make corrections, add some context to help the aligner
-    bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
-    n = bp_diff + round(.2 * bp_diff)
+        if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
+            padded_feature_end = min(len(record_sequence), feature_end + n)
+            if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
+                feature_end = padded_feature_end
 
-    if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
-        padded_feature_start = max(0, (feature_start - n))
-        if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
-            feature_start = padded_feature_start
+        feature.location = FeatureLocation(
+            feature_start,
+            feature_end,
+            strand=feature.strand
+        )
+        return feature
 
-    if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
-        padded_feature_end = min(len(record_sequence), feature_end + n)
-        if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
-            feature_end = padded_feature_end
+    #First alignment
+    found_low, found_high, target, query, alignment, padding, first_score = coord_align(ref_seq, feature_seq)
+    if padding:
+        #Align again after adding padding to the feature sequence if warranted
+        pad_feature = add_padding(feature)
+        pad_feature_seq = pad_feature.extract(record_sequence)
 
-    feature.location = FeatureLocation(
-        feature_start,
-        feature_end,
-        strand=feature.strand
-    )
+        pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score = coord_align(ref_seq, pad_feature_seq)
+        if (found_low, found_high != pad_found_low, pad_found_high) and (second_score > first_score):
+            feature = pad_feature
+            found_low = pad_found_low
+            found_high = pad_found_high
+            alignment = pad_alignment
+            target = pad_target
+            query = pad_query
+
     feature_seq = feature.extract(record_sequence)
     feature_start = feature.location.start
     feature_end = feature.location.end
-
-    #Align again after adding padding to the feature sequence
-    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq, mismatch_check=True)
 
     #Note:
     #strand = 1 (start, stop) ... strand = -1 (stop, start)
