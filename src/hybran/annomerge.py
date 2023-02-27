@@ -1,3 +1,4 @@
+__author__ = "Deepika Gunasekaran"
 __maintainer__ = "Deepika Gunasekaran"
 __email__ = "dgunasekaran@sdsu.edu"
 __status__ = "Development"

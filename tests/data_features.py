@@ -48,6 +48,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv1945'],'gene':['Rv1945']}
         ),
+        'Rv1877': SeqFeature(
+            FeatureLocation(2125903, 2127967, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv1877'],'gene':['Rv1877']}
+        ),
         'dosT': SeqFeature(
             FeatureLocation(2272786, 2274508, strand=-1),
             type='CDS',
@@ -58,8 +63,13 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv2180c'],'gene':['Rv2180c']}
         ),
+        'PPE47': SeqFeature(
+            FeatureLocation(3379375, 3380452, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv3021c'],'gene':['PPE47']}
+        ),
         'Rv3181c': SeqFeature(
-            FeatureLocation(3549690,3550143 , strand=-1),
+            FeatureLocation(3549690, 3550143, strand=-1),
             type='CDS',
             qualifiers={'locus_tag':['Rv3181c'],'gene':['Rv3181c']}
         ),
@@ -154,6 +164,13 @@ features = {
                 qualifiers={'locus_tag':['L_02521'],'gene':['PPE38']}
             ),
         },
+        'PPE47': {
+            'abinit': SeqFeature(
+                FeatureLocation(3374234, 3375542, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_03201'],'gene':['PPE47']}
+            ),
+        },
         'Rv1453': {
             'ratt': SeqFeature(
                 FeatureLocation(1642703, 1643969, strand=1),
@@ -194,6 +211,13 @@ features = {
                 qualifiers={'locus_tag':['Rv2180c'],'gene':['Rv2180c']}
                 ),
         },
+        'Rv1877': {
+            'ratt': SeqFeature(
+                FeatureLocation(2112334, 2114834, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv1877'],'gene':['Rv1877']}
+            )
+        },
         'Rv2879c': {
             'ratt': SeqFeature(
                 FeatureLocation(3182302, 3183397, strand=-1),
@@ -214,6 +238,13 @@ features = {
                 type='CDS',
                 qualifiers={'locus_tag':['L_03370'],'gene':['Rv3181c'],
                             'pseudo':['']}
+            )
+        },
+        'Rv3327': {
+            'ratt': SeqFeature(
+                FeatureLocation(3707086, 3709176, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3327'], 'gene':['Rv3327']},
             )
         },
         'Rv3777': {
