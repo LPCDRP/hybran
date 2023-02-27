@@ -297,13 +297,16 @@ def test_liftover_annotation():
     annomerge.liftover_annotation(abinit, ref, False, inference='alignment:blastp')
     assert abinit.qualifiers == expected
 
-@pytest.mark.parametrize('feature_type', [
-    'abinit_start_bad_minus',
-    'bad_translation',
-    'tricky_found_low',
-    'good_start_stop_deletion',
+@pytest.mark.parametrize('feature_type,fix_start,fix_stop', [
+    ['abinit_start_bad_minus', True, False],
+    ['bad_translation', True, False],
+    ['tricky_found_low', True, False],
+    ['good_start_stop_deletion', True, False],
+    ['bad_mismatch_check', True, True],
+    ['bad_mismatch_check2', True, True],
+    ['ref_start_frameshift', True, True],
 ])
-def test_coord_check(feature_type):
+def test_coord_check(feature_type, fix_start, fix_stop):
     #prokka for Rv2300c and Rv3181c
     source_genome = '1-0006'
     test_features = {
@@ -311,6 +314,9 @@ def test_coord_check(feature_type):
         'bad_translation': features[source_genome]['Rv3777']['abinit'],
         'tricky_found_low': features[source_genome]['PPE38']['abinit'],
         'good_start_stop_deletion': features[source_genome]['Rv3785']['abinit'],
+        'bad_mismatch_check': features[source_genome]['Rv1877']['ratt'],
+        'bad_mismatch_check2': features[source_genome]['Rv3327']['ratt'],
+        'ref_start_frameshift' : features[source_genome]['PPE47']['abinit'],
     }
 
     feature = test_features[feature_type]
@@ -319,6 +325,9 @@ def test_coord_check(feature_type):
         'Rv3777': ref_features['H37Rv']['Rv3777'],
         'PPE38': ref_features['H37Rv']['PPE38'],
         'Rv3785': ref_features['H37Rv']['Rv3785'],
+        'Rv1877': ref_features['H37Rv']['Rv1877'],
+        'Rv3327': ref_features['H37Rv']['Rv3327'],
+        'PPE47': ref_features['H37Rv']['PPE47'],
     }
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
@@ -330,8 +339,11 @@ def test_coord_check(feature_type):
         'bad_translation':[(True, True), FeatureLocation(4230767, 4231754, strand=1)],
         'tricky_found_low':[(False, True), FeatureLocation(2636045, 2637140, strand=-1)],
         'good_start_stop_deletion':[(True, True), FeatureLocation(4239393, 4240378, strand=1)],
+        'bad_mismatch_check':[(True, False), FeatureLocation(2112334, 2114834, strand=1)],
+        'bad_mismatch_check2':[(False, False), FeatureLocation(3707086, 3709176, strand =1)],
+        'ref_start_frameshift':[(True, True), FeatureLocation(3374234, 3375312, strand=-1)],
     }
-    results = annomerge.coord_check(feature, fix_start=True)
+    results = annomerge.coord_check(feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]
 
 def test_populate_gaps():
