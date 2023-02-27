@@ -980,6 +980,25 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                     valid_features.append(feature)
                 else:
                     unbroken_cds.append(feature)
+        elif len(feature.location) < .95*len(ref_annotation[feature.qualifiers['gene'][0]].location):
+            og_loc = deepcopy(feature.location)
+            good_start, good_stop = coord_check(feature, fix_start=True, fix_stop=True)
+            if not all((good_start, good_stop)):
+                feature.qualifiers['pseudo'] = ['']
+                designator.append_qualifier(
+                    feature.qualifiers, 'note',
+                    'Pseudo: Truncation signature. Ratt annotation had less than 95% subject coverage.' +
+                    'Failed to find a perfect start/stop.')
+                valid_features.append(feature)
+            elif og_loc != feature.location:
+                feature.qualifiers['pseudo'] = ['']
+                designator.append_qualifier(
+                    feature.qualifiers, 'note',
+                    'Pseudo: Frameshift signature. Ratt annotation had less than 95% subject coverage.' +
+                    'Found and corrected a perfect start/stop.')
+                valid_features.append(feature)
+            else:
+                unbroken_cds.append(feature)
         elif not feature.location:
             logger.warning('Invalid CDS: Location of CDS is missing')
             logger.warning(feature)
@@ -990,7 +1009,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 if pseudo_note:
                     feature.qualifiers['note'].remove(pseudo_note[0])
                     feature.qualifiers['pseudo'] = ['']
-            if not designator.is_pseudo(feature):
+            if not designator.is_pseudo(feature.qualifiers):
                 logger.warning('Nucleotide sequence is not divisible by 3')
                 logger.warning(feature)
                 rejects.append((feature, "nucleotide sequence is not divisible by 3"))
