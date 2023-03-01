@@ -8,6 +8,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv0001'],'gene':['dnaA']}
         ),
+        'Rv0007': SeqFeature(
+            FeatureLocation(9913, 10828, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv0007'],'gene':['Rv0007']}
+        ),
         'PPE38': SeqFeature(
             FeatureLocation(2632922, 2634098, strand=-1),
             type='CDS',
@@ -23,6 +28,11 @@ ref_features = {
             type='rRNA',
             qualifiers={'locus_tag':['MTB000021'],'gene':['rrf']}
         ),
+        'Rv1148c': SeqFeature(
+            FeatureLocation(1276299, 1277748, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv1148c'],'gene':['Rv1148c']}
+        ),
         'Rv1453': SeqFeature(
             FeatureLocation(1638380, 1639646, strand=1),
             type='CDS',
@@ -33,15 +43,30 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv1718'],'gene':['Rv1718']}
         ),
+        'Rv1945': SeqFeature(
+            FeatureLocation(2195988, 2197353, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv1945'],'gene':['Rv1945']}
+        ),
         'dosT': SeqFeature(
             FeatureLocation(2272786, 2274508, strand=-1),
             type='CDS',
             qualifiers={'locus_tag':['Rv2027c'],'gene':['dosT']}
         ),
+        'Rv2180c': SeqFeature(
+            FeatureLocation(2442326, 2443214, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv2180c'],'gene':['Rv2180c']}
+        ),
         'Rv3181c': SeqFeature(
             FeatureLocation(3549690,3550143 , strand=-1),
             type='CDS',
             qualifiers={'locus_tag':['Rv3181c'],'gene':['Rv3181c']}
+        ),
+        'ORF0004': SeqFeature(
+            FeatureLocation(3891104, 3892091, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv3475'],'gene':['ORF0004']}
         ),
         'Rv3777': SeqFeature(
             FeatureLocation(4222693, 4223680, strand=1),
@@ -77,6 +102,18 @@ features = {
                 qualifiers={'locus_tag':['L_00007'],'gene':['gyrB1']}
             ),
         },
+        'Rv0007': {
+            'ratt': SeqFeature(
+                FeatureLocation(11271, 12186, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv0007'],'gene':['Rv0007']}
+            ),
+            'abinit': SeqFeature(
+                FeatureLocation(11880, 12186, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_00010'],'gene':['Rv0007'],'pseudo':[""]}
+            ),
+        },
         'PPE5': {
             'ratt': SeqFeature(
                 FeatureLocation(366754, 373353, strand=-1),
@@ -90,6 +127,20 @@ features = {
                 type='CDS',
                 qualifiers={'locus_tag':['Rv0305c'],'gene':['PPE6']}
             ),
+        },
+        'Rv0907': {
+            'ratt': SeqFeature(
+                # Actually join(1012633..1012764,1012769..1014232)
+                # query has a frameshift insertion, so combined interval isn't divisible by 3
+                FeatureLocation(1012632, 1014232, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv0907'],'gene':['Rv0907']}
+                ),
+            'abinit': SeqFeature(
+                FeatureLocation(1012543, 1014232, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_00971'],'gene':['Rv0907']}
+                ),
         },
         'PPE38': {
             'abinit': SeqFeature(
@@ -108,6 +159,34 @@ features = {
                 FeatureLocation(1642670, 1643969, strand=1),
                 type='CDS',
                 qualifiers={'locus_tag':['L_01557'],'gene':['Rv1453']}
+                ),
+        },
+        'Rv1945': {
+            'ratt': SeqFeature(
+                FeatureLocation(2186568, 2187933, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv1945'],'gene':['Rv1945']}
+                ),
+            'abinit': SeqFeature(
+                FeatureLocation(2186484, 2187933, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_02063'],'gene':['Rv1148c']}
+                ),
+        },
+        'ORF0004': {
+            'abinit': SeqFeature(
+                # original was pseudo and FeatureLocation(2444022, 2444907, strand=-1)
+                # before coord_check fixed it
+                FeatureLocation(2444022, 2445009, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_02335'],'gene':['ORF0004']}
+                ),
+        },
+        'Rv2180c': {
+            'ratt': SeqFeature(
+                FeatureLocation(2444022, 2445033, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv2180c'],'gene':['Rv2180c']}
                 ),
         },
         'Rv2879c': {
@@ -190,7 +269,10 @@ features = {
 abinit_blast_results = {
     '1-0006': {
         'L_00001': {'iden': 99.8, 'qcov': 100.0, 'scov': 97.8},
+        'L_00010': {'iden': 99.01, 'qcov': 100.0, 'scov': 33.224}, # Rv0007
         'L_01557': {'iden': 99.525, 'qcov': 97.454, 'scov': 100.0}, # Rv1453
+        'L_02063': {'iden': 96.888, 'qcov': 100.0, 'scov': 100.0}, # Rv1148c
+        'L_02335': {'iden': 100.0, 'qcov': 100.0, 'scov': 100.0}, # ORF0004 (Rv3475)
     },
     '4-0041': {
         'L_02383': {'iden': 100.0, 'qcov': 100.0, 'scov': 100.0},
@@ -200,7 +282,11 @@ abinit_blast_results = {
 ratt_blast_results = {
     '1-0006': {
         'Rv0001': {'iden': 99.8, 'qcov': 100.0, 'scov': 100.0},
+        'Rv0007': {'iden': 99.671, 'qcov': 100.0, 'scov': 100.0},
         'Rv1453': {'iden': 99.525, 'qcov': 100.0, 'scov': 100.0},
+        'Rv2180c': {'iden': 41.176, 'qcov': 4.762, 'scov': 5.424}, # overlaps with L_02235
+        'Rv2946c': {'iden': 99.876, 'qcov': 100.0, 'scov': 100.0},
+
     },
     '4-0041': {
         'Rv1718': {'iden': 100.0, 'qcov': 99.270, 'scov': 100.0},
