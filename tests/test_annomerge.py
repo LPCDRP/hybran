@@ -603,6 +603,7 @@ def test_find_inframe_overlaps(case):
 @pytest.mark.parametrize('pair', [
     'ratt_better',
     'ratt_better_coverage',
+    'pseudo_vs_nonpseudo',
     'different',
     'abinit_better',
     # https://gitlab.com/LPCDRP/hybran/-/issues/57
@@ -613,6 +614,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
     source_genome = {
         'ratt_better':'1-0006',
         'ratt_better_coverage':'1-0006',
+        'pseudo_vs_nonpseudo':'1-0006',
         'different':'1-0006',
         'abinit_better':'4-0041',
         'corresponding_non_cds':'4-0041',
@@ -622,11 +624,11 @@ def test_check_inclusion_criteria(pair, tmp_path):
     pairs = {
         'ratt_better': ('dnaA', 'dnaA'),
         'ratt_better_coverage': ('Rv1453', 'Rv1453'), # The RATT annotation's upstream context has no hit to the reference's despite being 100% identitical...
+        'pseudo_vs_nonpseudo': ('Rv0007','Rv0007'),
         'different': ('dnaA', 'gyrB'),
         'corresponding_non_cds': ('rrf', 'rrf'),
-        'similar': (),
         'abinit_better': ('Rv1718', 'Rv1718'),
-#        'overlapping_different_names_ratt_better': ('esxM', 'esxM'),
+        'overlapping_different_names_ratt_better': ('Rv1945', 'Rv1945'),
         'overlapping_different_names_abinit_better': ('Rv2180c', 'ORF0004'),
     }
     ratt = features[source_genome[pair]][pairs[pair][0]]['ratt']
@@ -635,19 +637,21 @@ def test_check_inclusion_criteria(pair, tmp_path):
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.ref_annotation = {
+        'Rv1148c': ref_features['H37Rv']['Rv1148c'],
+        'Rv1945': ref_features['H37Rv']['Rv1945'],
         'Rv2180c': ref_features['H37Rv']['Rv2180c'],
         'ORF0004': ref_features['H37Rv']['ORF0004'],
     }
     reference_gene_locus_dict = defaultdict(list, dict(
         dnaA=['Rv0001'],
+        Rv0007=['Rv0007'],
         Rv0205=['Rv0205'],
         rplB=['Rv0704'],
-        esxK=['Rv1197'],
+        Rv1148c=['Rv1148c'],
         Rv1453=['Rv1453'],
         Rv1718=['Rv1718'],
-        esxM=['Rv1792'],
+        Rv1945=['Rv1945'],
         mamB=['Rv2024c'],
-        pks1=['Rv2946c'],
         ORF0004=[
             'Rv0796',
             'Rv1369c',
@@ -669,12 +673,13 @@ def test_check_inclusion_criteria(pair, tmp_path):
     ))
     reference_locus_gene_dict = dict(
         Rv0001='dnaA',
+        Rv0007='Rv0007',
         Rv0205='Rv0205',
         Rv0704='rplB',
-        Rv1197='esxK',
+        Rv1148c='Rv1148c',
         Rv1453='Rv1453',
         Rv1718='Rv1718',
-        Rv1792='esxM',
+        Rv1945='Rv1945',
         Rv2024c='mamB',
     )
 
@@ -695,11 +700,15 @@ def test_check_inclusion_criteria(pair, tmp_path):
             False, True,
             "RATT annotation for Rv1453 has better alignment coverage with the reference",
         ),
+        'pseudo_vs_nonpseudo': (
+            False, True,
+            "Non-pseudo ratt annotation takes precedence.",
+        ),
         'different': (True, True, ''),
         'abinit_better': (True, False, 'Ab initio feature L_02383 has better alignment coverage with the reference.'),
         'overlapping_different_names_ratt_better': (
             False, True,
-            "RATT annotation has more accurate gene name",
+            "Equally valid call, but conflicting name with RATT annotation Rv1945:Rv1945; RATT favored due to synteny.",
         ),
         'overlapping_different_names_abinit_better': (
             True, False,
