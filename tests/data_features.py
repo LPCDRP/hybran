@@ -58,6 +58,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv3181c'],'gene':['Rv3181c']}
         ),
+        'ORF0004': SeqFeature(
+            FeatureLocation(3891104, 3892091, strand=1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv3475'],'gene':['ORF0004']}
+        ),
         'Rv3777': SeqFeature(
             FeatureLocation(4222693, 4223680, strand=1),
             type='CDS',
@@ -140,10 +145,11 @@ features = {
         },
         'ORF0004': {
             'abinit': SeqFeature(
-                FeatureLocation(2444022, 2444907, strand=-1),
+                # original was pseudo and FeatureLocation(2444022, 2444907, strand=-1)
+                # before coord_check fixed it
+                FeatureLocation(2444022, 2445009, strand=-1),
                 type='CDS',
-                qualifiers={'locus_tag':['L_02335'],'gene':['ORF0004'],
-                            'pseudo':['']},
+                qualifiers={'locus_tag':['L_02335'],'gene':['ORF0004']}
                 ),
         },
         'Rv2180c': {
@@ -234,7 +240,7 @@ abinit_blast_results = {
     '1-0006': {
         'L_00001': {'iden': 99.8, 'qcov': 100.0, 'scov': 97.8},
         'L_01557': {'iden': 99.525, 'qcov': 97.454, 'scov': 100.0}, # Rv1453
-        'L_02335': {'iden': 99.660, 'qcov': 100.0, 'scov': 89.634}, # Rv2279/ORF0004
+        'L_02335': {'iden': 100.0, 'qcov': 100.0, 'scov': 100.0}, # ORF0004 (Rv3475)
         'L_01895': {'iden': 100.0, 'qcov': 100.0, 'scov': 39.796}, # esxK but should be esxM
     },
     '4-0041': {
@@ -247,6 +253,7 @@ ratt_blast_results = {
         'Rv0001': {'iden': 99.8, 'qcov': 100.0, 'scov': 100.0},
         'Rv1453': {'iden': 99.525, 'qcov': 100.0, 'scov': 100.0},
         'Rv1792': {'iden': 100.0, 'qcov': 100.0, 'scov': 100.0}, # esxM
+        'Rv2180c': {'iden': 41.176, 'qcov': 4.762, 'scov': 5.424}, # overlaps with L_02235
 
     },
     '4-0041': {

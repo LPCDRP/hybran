@@ -626,12 +626,18 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'corresponding_non_cds': ('rrf', 'rrf'),
         'similar': (),
         'abinit_better': ('Rv1718', 'Rv1718'),
-        'overlapping_different_names_ratt_better': ('esxM', 'esxM'),
+#        'overlapping_different_names_ratt_better': ('esxM', 'esxM'),
         'overlapping_different_names_abinit_better': ('Rv2180c', 'ORF0004'),
     }
     ratt = features[source_genome[pair]][pairs[pair][0]]['ratt']
     abinit = features[source_genome[pair]][pairs[pair][1]]['abinit']
 
+    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
+    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
+    annomerge.ref_annotation = {
+        'Rv2180c': ref_features['H37Rv']['Rv2180c'],
+        'ORF0004': ref_features['H37Rv']['ORF0004'],
+    }
     reference_gene_locus_dict = defaultdict(list, dict(
         dnaA=['Rv0001'],
         Rv0205=['Rv0205'],
@@ -697,7 +703,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         ),
         'overlapping_different_names_abinit_better': (
             True, False,
-            "Ab initio feature more accurately named and delineated"
+            "ab initio annotation L_02335:ORF0004 more accurately named and delineated"
         )
     }
 

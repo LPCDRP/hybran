@@ -1262,10 +1262,44 @@ def check_inclusion_criteria(
             locus_tag_list = abinit_annotation.qualifiers['gene']
         locus_tag = ratt_annotation.qualifiers['locus_tag'][0]
         blast_stats = abinit_blast_results[abinit_annotation.qualifiers['locus_tag'][0]]
-        if locus_tag not in locus_tag_list:
-            pass
-        if(locus_tag in locus_tag_list
-        ):
+        same_gene_name = locus_tag in locus_tag_list
+        if (not same_gene_name
+            and overlap_inframe(abinit_annotation.location, ratt_annotation.location)
+            and not designator.is_pseudo(abinit_annotation.qualifiers)
+            and not designator.is_pseudo(ratt_annotation.qualifiers)
+            ):
+            ratt_coord_status = coord_check(ratt_annotation)
+            (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
+            ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
+
+            abinit_coord_status = coord_check(abinit_annotation)
+            (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
+            abinit_coord_score = sum([int(_) for _ in ratt_coord_status])
+
+            # Both annotations being intact according to their respective reference names
+            # suggests that the reference genes are highly similar.
+            # RATT's assignment is furthermore based on synteny, so it wins out
+            if ((all(ratt_coord_status) and all(abinit_coord_status))
+                or ratt_coord_status == abinit_coord_status
+                ):
+                reject_abinit = True
+                remark = f"Equally valid call, but conflicting name with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
+            elif (all(ratt_coord_status)
+                  or ratt_coord_score > abinit_coord_score
+                  or (ratt_stop_ok and not abinit_stop_ok)
+                  ):
+                reject_abinit = True
+                remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated"
+            # This is the only other possibility:
+            #elif (all(abinit_coord_status)
+            #      or abinit_coord_score > ratt_coord_score
+            #      or (abinit_stop_ok and not ratt_stop_ok)
+            #      ):
+            else:
+                include_ratt = False
+                remark = f"ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated"
+
+        elif same_gene_name:
             #Always take the non-pseudo annotation if possible
             if designator.is_pseudo(ratt_annotation.qualifiers) and (not designator.is_pseudo(abinit_annotation.qualifiers)):
                 include_abinit = True
