@@ -88,6 +88,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv3327'],'gene':['Rv3327']}
         ),
+        'PE_PGRS50': SeqFeature(
+            FeatureLocation(3738157, 3742774, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv3345c'],'gene':['PE_PGRS50']}
+        ),
         'Rv3777': SeqFeature(
             FeatureLocation(4222693, 4223680, strand=1),
             type='CDS',
@@ -250,6 +255,13 @@ features = {
                 FeatureLocation(3707086, 3709176, strand=1),
                 type='CDS',
                 qualifiers={'locus_tag':['Rv3327'], 'gene':['Rv3327']},
+            )
+        },
+        'PE_PGRS50': {
+            'ratt_raw': SeqFeature(
+                FeatureLocation(3741108, 3746955, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3345c'],'gene':['PE_PGRS50']}
             )
         },
         'Rv3777': {
