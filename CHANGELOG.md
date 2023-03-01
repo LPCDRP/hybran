@@ -3,6 +3,7 @@
 ## Development
 
 ### Bugs fixed
+* Fixed handling of conflicting annotations that are differently named (#57).
 * Reimplemented coordinate correction and applied to ab initio ORFs.
   This resolves many instances of false `pseudo` CDSs ab initio that were due simply to
   incorrect start coordinate predictions spuriously shortening the genes.
