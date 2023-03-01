@@ -396,6 +396,7 @@ def process_split_genes(flist):
         list of SeqFeature objects to keep (some modified from the original)
         list of annotations that have been merged into their neighbor.
     """
+    logger = logging.getLogger('ProcessSplitGenes')
     outlist = []
     dropped_ltag_features = []
     last_gene_by_strand = {}
@@ -481,14 +482,18 @@ def process_split_genes(flist):
             new_feature_name = f"{extractor.get_ltag(new_feature)}:{extractor.get_gene(new_feature)}"
             new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
-            dropped_ltag_features.append((dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}"))
             new_feature.qualifiers['pseudo'] = ['']
 
-            if all(coord_check(new_feature, fix_start=True, fix_stop=True)):
+            if all(coord_check(new_feature, fix_start=True, fix_stop=True)) or reason == 'overlapping_inframe':
+                dropped_ltag_features.append(
+                    (dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}")
+                )
                 last_gene_by_strand[feature.location.strand] = new_feature
                 outlist.remove(last_gene)
                 outlist.remove(feature)
                 outlist.append(new_feature)
+            else:
+                logger.debug(f"Did not combine {dropped_feature_name} and {new_feature_name} ({reason}) due to failing coordinate verification.")
 
     return outlist, dropped_ltag_features
 

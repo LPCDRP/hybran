@@ -125,10 +125,12 @@ def test_overlap_inframe(pair):
 @pytest.mark.parametrize('gene_list', [
     'complementary_fragments',
     'complementary_fragments_one_unnamed',
+    'fails_final_coord_check_inframe_overlap',
 #    'seemingly_complete_fragment',
 #    'independent_fragments',
 ])
 @pytest.mark.skipif(not os.path.isfile("data/1-0006.fasta"), reason="test genome sequence not available")
+@pytest.mark.skipif(not os.path.isfile("data/2-0031.fasta"), reason="test genome sequence not available")
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.fasta"), reason="test reference genome sequence not available")
 def test_process_split_genes(gene_list):
     inputs = {
@@ -163,18 +165,41 @@ def test_process_split_genes(gene_list):
                 }
             ),
         ],
+        'fails_final_coord_check_inframe_overlap' : [
+            SeqFeature(
+                # pre-correction: FeatureLocation(ExactPosition(3522323), ExactPosition(3523235), strand=-1)
+                FeatureLocation(ExactPosition(3522323), ExactPosition(3523418), strand=-1), type='CDS', qualifiers={
+                    'gene': ['Rv3327'],
+                    'locus_tag': ['L_03351'],
+                    'pseudo': [''],
+                }
+            ),
+            SeqFeature(
+                FeatureLocation(ExactPosition(3523256), ExactPosition(3523418), strand=-1), type='CDS', qualifiers={
+                    'gene': ['Rv3327'],
+                    'locus_tag': ['L_03352'],
+                    'pseudo': [''],
+                }
+            ),
+        ],
         'seemingly_complete_fragment': [
         ],
         'independent_fragments': [
         ],
     }
-    source_genome = '1-0006'
+    source_genomes = {
+        'complementary_fragments':'1-0006',
+        'complementary_fragments_one_unnamed':'1-0006',
+        'fails_final_coord_check_inframe_overlap':'2-0031',
+    }
+    source_genome = source_genomes[gene_list]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.genetic_code = 11
     annomerge.ref_annotation = {
         'dosT': ref_features['H37Rv']['dosT'],
         'Rv0986': ref_features['H37Rv']['Rv0986'],
+        'Rv3327': ref_features['H37Rv']['Rv3327'],
     }
     annomerge.corrected_orf_report = []
 
@@ -198,6 +223,16 @@ def test_process_split_genes(gene_list):
                 }
             )],
             [(inputs['complementary_fragments_one_unnamed'][0], 'L_01053:L_01053 combined with L_01054:Rv0986: complementary_fragments')]
+        ),
+        'fails_final_coord_check_inframe_overlap': ([
+            SeqFeature(
+                FeatureLocation(ExactPosition(3522323), ExactPosition(3523418), strand=-1), type='CDS', qualifiers={
+                    'gene': ['Rv3327'],
+                    'locus_tag': ['L_03352'],
+                    'pseudo': [''],
+                }
+            )],
+            [(inputs['fails_final_coord_check_inframe_overlap'][0], 'L_03351:Rv3327 combined with L_03352:Rv3327: overlapping_inframe')]
         ),
     }
 
