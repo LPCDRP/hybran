@@ -994,10 +994,6 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 valid_features.append(feature)
             else:
                 unbroken_cds.append(feature)
-        elif not feature.location:
-            logger.warning('Invalid CDS: Location of CDS is missing')
-            logger.warning(feature)
-            rejects.append((feature, "location of CDS is missing"))
         elif (len(feature.location) % 3) != 0:
             if 'note' in feature.qualifiers:
                 pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo")]
