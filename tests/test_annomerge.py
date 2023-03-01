@@ -1,4 +1,5 @@
 from collections import defaultdict, OrderedDict
+from copy import deepcopy
 import os
 
 from Bio import SeqIO
@@ -444,9 +445,19 @@ def test_populate_gaps():
     assert (([_.location for _ in keepers], conflicts)
             == ([_.location for _ in expected_keepers], expected_conflicts))
 
-@pytest.mark.skip(reason="needs update")
-@pytest.mark.parametrize("filter",[True, False])
-def test_isolate_valid_ratt_annotations(filter):
+@pytest.mark.parametrize("case",[
+    'long_unbroken_pseudo',
+])
+@pytest.mark.skipif(not os.path.isfile("data/1-0009.fasta"), reason="test genome sequence not available")
+def test_isolate_valid_ratt_annotations(case):
+    source_genome = {
+        'long_unbroken_pseudo':'1-0006',
+    }
+    cases = {
+        'long_unbroken_pseudo': 'PE_PGRS50',
+    }
+    feature_list = [ features[source_genome[case]][cases[case]]['ratt_raw'] ]
+
     Rv0001 = SeqFeature(FeatureLocation(ExactPosition(0), ExactPosition(1524), strand=1), type='CDS')
     Rv0001.qualifiers = dict(locus_tag=["Rv0001"], codon_start=['1'], transl_table='11')
     Rv0071 = SeqFeature(FeatureLocation(ExactPosition(81037), ExactPosition(82096), strand=1), type='CDS')
@@ -458,10 +469,12 @@ def test_isolate_valid_ratt_annotations(filter):
     Rv0739.qualifiers = dict(locus_tag=["Rv0739"], codon_start=['1'], transl_table='11')
     Rv3020c = SeqFeature(FeatureLocation(ExactPosition(3371022), ExactPosition(3371217), strand=-1), type='CDS')
     Rv3020c.qualifiers = dict(locus_tag=["Rv3020c"], codon_start=['1'], transl_table='11')
-    feature_list = [Rv0001, Rv0071, Rv0739, Rv2434c, Rv3020c]
 
-
+    annomerge.ref_annotation = {
+        'PE_PGRS50': ref_features['H37Rv']['PE_PGRS50'],
+    }
     annomerge.genetic_code = 11
+    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
 
     ref_temp_fasta_dict = dict(
         Rv0001  = 'gene-seqs/Rv0001.fasta',
@@ -471,13 +484,19 @@ def test_isolate_valid_ratt_annotations(filter):
         )
 
     reference_locus_list = ['Rv0001','Rv0071','Rv2434c','Rv3020c']
+    filter = False
     if filter:
         seq_ident = seq_covg = 95
     else:
         seq_ident = seq_covg = 0
 
     annomerge.record_sequence = SeqIO.read("/grp/valafar/data/genomes/1-0009.fasta",format="fasta").seq
-    expected = {
+    if case == 'long_unbroken_pseudo':
+        out_list = deepcopy(feature_list)
+        out_list[0].qualifiers['pseudo'] = ['']
+        expected = (out_list, {}, [])
+
+    last_expected = {
         True : (
             [Rv2434c, Rv0001],
             {
@@ -521,9 +540,8 @@ def test_isolate_valid_ratt_annotations(filter):
     assert annomerge.isolate_valid_ratt_annotations(feature_list,
                                              ref_temp_fasta_dict,
                                              reference_locus_list,
-                                             seq_ident, seq_covg) == expected[filter] \
-                                             and \
-                                             'pseudo' in feature_list[3].qualifiers.keys() and feature_list[3].qualifiers['pseudo'] == [''] # Rv2434c
+                                             seq_ident, seq_covg) == expected
+#                                             'pseudo' in feature_list[3].qualifiers.keys() and feature_list[3].qualifiers['pseudo'] == [''] # Rv2434c
 
 
 @pytest.mark.parametrize(
