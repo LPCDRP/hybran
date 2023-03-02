@@ -762,12 +762,14 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         target = alignment.aligned[0]
         query = alignment.aligned[1]
         score = alignment.score
-        confirm_low = False
-        confirm_high = False
         padding = False
 
-        found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= 4
-        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= 4
+        #Probability that the continuous interval used to find good start/stops
+        #occurs by chance should be = (1/ref_seq)*10
+        x = max(round((log(len(ref_seq) * 10))/log(4)), 3)
+        print(x)
+        found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= x
+        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= x
 
         target_low_seq = ref_seq[target[0][0]:target[0][1]]
         target_high_seq = ref_seq[target[-1][0]:target[-1][1]]
@@ -786,8 +788,6 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                     mismatch += 1
             if (gaps + mismatch) > (len(target_low_seq)/3):
                 found_low = False
-            elif len(target) > 3:
-                confirm_low = True
 
         if found_high and abs(target[-1][1] - target[-1][0]) < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
@@ -800,44 +800,6 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                     mismatch += 1
             if (gaps + mismatch) > (len(target_high_seq)/3):
                 found_high = False
-            elif len(target) > 3:
-                confirm_high = True
-
-        if (found_low and confirm_low) or (found_high and confirm_high):
-        #find longest continuous interval
-            big_interval = 0
-            for x in range(len(target)):
-                if int(target[x][1] - target[x][0]) > big_interval:
-                    big_interval = int(target[x][1] - target[x][0])
-                    index = x
-
-            if confirm_low:
-                suspect_low_region = alignment[0][query[0][0]:query[index][0]]
-                feature_low_region = alignment[1][query[0][0]:query[index][0]]
-                gaps = ident = mismatch = 0
-                for i in range(len(suspect_low_region)):
-                    if suspect_low_region[i] == '-' or feature_low_region[i] == '-':
-                        gaps += 1
-                    elif suspect_low_region[i] == feature_low_region[i]:
-                        ident += 1
-                    else:
-                        mismatch += 1
-                if (gaps + mismatch) > (len(suspect_low_region)/3):
-                    found_low = False
-
-            if confirm_high:
-                suspect_high_region = alignment[0][target[index][1]:target[-1][1]]
-                feature_high_region = alignment[1][target[index][1]:target[-1][1]]
-                gaps = ident = mismatch = 0
-                for i in range(len(suspect_high_region)):
-                    if suspect_high_region[i] == '-' or feature_high_region[i] == '-':
-                        gaps += 1
-                    elif suspect_high_region[i] == feature_high_region[i]:
-                        ident += 1
-                    else:
-                        mismatch += 1
-                if (gaps + mismatch) > (len(suspect_high_region)/3):
-                    found_high = False
 
         if not found_low or not found_high:
             padding = True
