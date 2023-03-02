@@ -968,6 +968,18 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
         if feature.type != 'CDS':
             non_cds_features.append(feature)
             continue
+
+        # Check if the reference annotation was pseudo (some branches of the upcoming conditional use this information)
+        # RATT moves the reference pseudo tags to a note field beginning with *pseudo or *pseudogene
+        # Save the information and drop the note.
+        ref_was_pseudo = False
+        if 'note' in feature.qualifiers:
+            pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo")]
+            if pseudo_note:
+                feature.qualifiers['note'].remove(pseudo_note[0])
+                ref_was_pseudo = True
+
+
         # Identify features with 'joins'
         if isinstance(feature.location,Bio.SeqFeature.CompoundLocation):
             if 'ribosomal_slippage' in feature.qualifiers:
@@ -1028,16 +1040,9 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 valid_features.append(feature)
             else:
                 unbroken_cds.append(feature)
-        elif not feature.location:
-            logger.warning('Invalid CDS: Location of CDS is missing')
-            logger.warning(feature)
-            rejects.append((feature, "location of CDS is missing"))
         elif (len(feature.location) % 3) != 0:
-            if 'note' in feature.qualifiers:
-                pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo")]
-                if pseudo_note:
-                    feature.qualifiers['note'].remove(pseudo_note[0])
-                    feature.qualifiers['pseudo'] = ['']
+            if ref_was_pseudo:
+                feature.qualifiers['pseudo'] = ['']
             if not designator.is_pseudo(feature.qualifiers):
                 logger.warning('Nucleotide sequence is not divisible by 3')
                 logger.warning(feature)
@@ -1045,6 +1050,11 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             else:
                 coord_check(feature, fix_start=True, fix_stop=True)
                 valid_features.append(feature)
+        elif len(feature.location) > len(ref_annotation[feature.qualifiers['gene'][0]].location):
+            coords_ok = coord_check(feature)
+            if not ref_was_pseudo and any(coords_ok) and not all(coords_ok):
+                feature.qualifiers['pseudo'] = ['']
+                unbroken_cds.append(feature)
         else:
             unbroken_cds.append(feature)
 
