@@ -63,6 +63,11 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv2180c'],'gene':['Rv2180c']}
         ),
+        'PPE34': SeqFeature(
+            FeatureLocation(2162931, 2167311, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv1917c'],'gene':['PPE34']}
+        ),
         'PPE47': SeqFeature(
             FeatureLocation(3379375, 3380452, strand=-1),
             type='CDS',
@@ -272,6 +277,15 @@ features = {
                     'translation':['MASEGGAGGQGGDGGDGGEGGGAGFGSGVAGAAGAGGNGGKGGDGGTGGTGGTNFAGGQGGAGGRGGAGGNGANGVGDNAAGGDGGNGGAGGLGGGGGTGGTNGNGGLGGGGGNGGAGGAGGTPTGSGTEGTGGDGGDAGAGGNGGSATGVGNGGNGGDGGNGGDGGNGAPGGFGGGAGAGGLGGSGAGGGTDGDDGNGGSPGTDGS'],
                 }
             ),
+        },
+    },
+    '2-0031': {
+        'PPE34': {
+            'abinit': SeqFeature(
+                FeatureLocation(1927378, 1927894, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_01804'],'gene':['PPE34']}
+            )
         },
     },
     '4-0041': {

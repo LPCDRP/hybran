@@ -339,19 +339,31 @@ def test_liftover_annotation():
     ['good_start_stop_deletion', True, False],
     ['bad_mismatch_check', True, True],
     ['bad_mismatch_check2', True, True],
-    ['ref_start_frameshift', True, True],
+    ['ref_start_frameshift', True, False],
+    ['bad_start_good_padding', True, False],
 ])
 def test_coord_check(feature_type, fix_start, fix_stop):
     #prokka for Rv2300c and Rv3181c
-    source_genome = '1-0006'
+    source_genome = {
+        'abinit_start_bad_minus':'1-0006',
+        'bad_translation':'1-0006',
+        'tricky_found_low':'1-0006',
+        'good_start_stop_deletion':'1-0006',
+        'bad_mismatch_check':'1-0006',
+        'bad_mismatch_check2':'1-0006',
+        'ref_start_frameshift':'1-0006',
+        'bad_start_good_padding':'2-0031',
+    }
+
     test_features = {
-        'abinit_start_bad_minus': features[source_genome]['Rv3181c']['abinit'],
-        'bad_translation': features[source_genome]['Rv3777']['abinit'],
-        'tricky_found_low': features[source_genome]['PPE38']['abinit'],
-        'good_start_stop_deletion': features[source_genome]['Rv3785']['abinit'],
-        'bad_mismatch_check': features[source_genome]['Rv1877']['ratt'],
-        'bad_mismatch_check2': features[source_genome]['Rv3327']['ratt'],
-        'ref_start_frameshift' : features[source_genome]['PPE47']['abinit'],
+        'abinit_start_bad_minus': features[source_genome['abinit_start_bad_minus']]['Rv3181c']['abinit'],
+        'bad_translation': features[source_genome['bad_translation']]['Rv3777']['abinit'],
+        'tricky_found_low': features[source_genome['tricky_found_low']]['PPE38']['abinit'],
+        'good_start_stop_deletion': features[source_genome['good_start_stop_deletion']]['Rv3785']['abinit'],
+        'bad_mismatch_check': features[source_genome['bad_mismatch_check']]['Rv1877']['ratt'],
+        'bad_mismatch_check2': features[source_genome['bad_mismatch_check2']]['Rv3327']['ratt'],
+        'ref_start_frameshift' : features[source_genome['ref_start_frameshift']]['PPE47']['abinit'],
+        'bad_start_good_padding' : features[source_genome['bad_start_good_padding']]['PPE34']['abinit'],
     }
 
     feature = test_features[feature_type]
@@ -363,8 +375,9 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'Rv1877': ref_features['H37Rv']['Rv1877'],
         'Rv3327': ref_features['H37Rv']['Rv3327'],
         'PPE47': ref_features['H37Rv']['PPE47'],
+        'PPE34': ref_features['H37Rv']['PPE34'],
     }
-    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
+    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
@@ -377,6 +390,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_mismatch_check':[(True, False), FeatureLocation(2112334, 2114834, strand=1)],
         'bad_mismatch_check2':[(False, False), FeatureLocation(3707086, 3709176, strand =1)],
         'ref_start_frameshift':[(True, True), FeatureLocation(3374234, 3375312, strand=-1)],
+        'bad_start_good_padding':[(False, True), FeatureLocation(1927378, 1927894, strand=-1)],
     }
     results = annomerge.coord_check(feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]
