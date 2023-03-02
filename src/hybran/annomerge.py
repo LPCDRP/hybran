@@ -850,45 +850,33 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
 
     if feature.strand == 1:
         good_stop = found_high
-        if not found_high:
-            if pad_found_high and (second_score > first_score):
-                new_feature_end = (pad_feature.location.start + pad_query[-1][1])
-                good_stop = True
-        else:
-            new_feature_end = feature_start + query[-1][1]
-        if fix_stop and good_stop:
-            feature_end = new_feature_end
+        if pad_found_high and (second_score > first_score) and fix_stop:
+            feature_end = (pad_feature.location.start + pad_query[-1][1])
+            good_stop = True
+        elif found_high and fix_stop:
+            feature_end = feature_start + query[-1][1]
 
         good_start = found_low
-        if not found_low:
-            if pad_found_low and (second_score > first_score):
-                new_feature_start = (pad_feature.location.start + (pad_query[0][0]))
-                good_start = True
-        else:
-            new_feature_start = feature_start + query[0][0]
-        if fix_start and good_start:
-            feature_start = new_feature_start
+        if pad_found_low and (second_score > first_score):
+            feature_start = (pad_feature.location.start + (pad_query[0][0]))
+            good_start = True
+        elif found_low and fix_start:
+            feature_start = feature_start + query[0][0]
 
     elif feature.strand == -1:
         good_stop = found_high
-        if not found_high:
-            if pad_found_high and (second_score > first_score):
-                new_feature_start = (pad_feature.location.end - pad_query[-1][1])
-                good_stop = True
-        else:
-            new_feature_start = feature_end - query[-1][1]
-        if fix_stop and found_high:
-            feature_start = new_feature_start
+        if pad_found_high and (second_score > first_score) and fix_stop:
+            feature_start = (pad_feature.location.end - pad_query[-1][1])
+            good_stop = True
+        elif found_high and fix_stop:
+            feature_start = feature_end - query[-1][1]
 
         good_start = found_low
-        if not found_low:
-            if pad_found_low and (second_score > first_score):
-                new_feature_end = (pad_feature.location.end - pad_query[0][0])
-                good_start = True
-        else:
-            new_feature_end = feature_end - query[0][0]
-        if fix_start and good_start:
-            feature_end = new_feature_end
+        if pad_found_low and (second_score > first_score) and fix_start:
+            feature_end = (pad_feature.location.end - pad_query[0][0])
+            good_start = True
+        elif found_low and fix_start:
+            feature_end = feature_end - query[0][0]
 
     feature.location = FeatureLocation(
         int(feature_start),
