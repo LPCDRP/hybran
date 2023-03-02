@@ -342,6 +342,7 @@ def test_liftover_annotation():
     ['bad_mismatch_check2', True, True],
     ['ref_start_frameshift', True, False],
     ['bad_start_good_padding', True, False],
+    ['ratt_pseudo_pgrs', True, True],
 ])
 def test_coord_check(feature_type, fix_start, fix_stop):
     #prokka for Rv2300c and Rv3181c
@@ -354,6 +355,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_mismatch_check2':'1-0006',
         'ref_start_frameshift':'1-0006',
         'bad_start_good_padding':'2-0031',
+        'ratt_pseudo_pgrs':'1-0006',
     }
 
     test_features = {
@@ -365,6 +367,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_mismatch_check2': features[source_genome['bad_mismatch_check2']]['Rv3327']['ratt'],
         'ref_start_frameshift' : features[source_genome['ref_start_frameshift']]['PPE47']['abinit'],
         'bad_start_good_padding' : features[source_genome['bad_start_good_padding']]['PPE34']['abinit'],
+        'ratt_pseudo_pgrs': features[source_genome['ratt_pseudo_pgrs']]['PE_PGRS50']['ratt_raw'],
     }
 
     feature = test_features[feature_type]
@@ -377,6 +380,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'Rv3327': ref_features['H37Rv']['Rv3327'],
         'PPE47': ref_features['H37Rv']['PPE47'],
         'PPE34': ref_features['H37Rv']['PPE34'],
+        'PE_PGRS50': ref_features['H37Rv']['PE_PGRS50'],
     }
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
@@ -392,6 +396,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_mismatch_check2':[(False, False), FeatureLocation(3707086, 3709176, strand =1)],
         'ref_start_frameshift':[(True, True), FeatureLocation(3374234, 3375312, strand=-1)],
         'bad_start_good_padding':[(False, True), FeatureLocation(1927378, 1927894, strand=-1)],
+        'ratt_pseudo_pgrs':[(True,False,), FeatureLocation(3741108, 3746955, strand=-1)],
     }
     results = annomerge.coord_check(feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]
