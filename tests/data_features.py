@@ -177,7 +177,7 @@ features = {
                 type='CDS',
                 qualifiers={'locus_tag':['Rv3327'], 'gene':['Rv3327']}
             )
-        }
+        },
         'PE_PGRS50': {
             'ratt_raw': SeqFeature(
                 FeatureLocation(3741108, 3746955, strand=-1),
