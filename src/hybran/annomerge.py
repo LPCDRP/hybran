@@ -851,27 +851,28 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
 
     def add_padding(feature):
         #If we're looking to make corrections, add some context to help the aligner
+        pad_feature = deepcopy(feature)
         feature_start = feature.location.start
         feature_end = feature.location.end
         bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
-        n = bp_diff + round(.2 * bp_diff)
+        x = bp_diff + round(.2 * bp_diff)
 
         if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
-            padded_feature_start = max(0, (feature_start - n))
+            padded_feature_start = max(0, (feature_start - x))
             if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
                 feature_start = padded_feature_start
 
         if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
-            padded_feature_end = min(len(record_sequence), feature_end + n)
+            padded_feature_end = min(len(record_sequence), feature_end + x)
             if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
                 feature_end = padded_feature_end
 
-        feature.location = FeatureLocation(
+        pad_feature.location = FeatureLocation(
             feature_start,
             feature_end,
             strand=feature.strand
         )
-        return feature
+        return pad_feature
 
     #First alignment
     found_low, found_high, target, query, alignment, padding, first_score = coord_align(ref_seq, feature_seq)
