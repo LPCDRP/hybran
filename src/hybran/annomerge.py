@@ -20,7 +20,7 @@ from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
 from Bio import Align
 from Bio.Align import substitution_matrices
 from numpy import median
-from math import log
+from math import log, ceil
 # standard multiprocessing can't pickle lambda
 import multiprocess as multiprocessing
 import sys
@@ -771,8 +771,8 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
 
         #Probability that the continuous interval used to find good start/stops
         #occurs by chance should be = (1/ref_seq)*10
-        x = max(round((log(len(ref_seq) * 10))/log(4)), 3)
-        print(x)
+        x = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
+
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= x
         found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= x
 
