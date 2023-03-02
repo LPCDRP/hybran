@@ -758,12 +758,14 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
     og_feature_end = int(og_feature.location.end)
 
     def coord_align(ref_seq, feature_seq):
-        padding = False
         aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
         alignment = aligner.align(ref_seq, feature_seq)[0]
         target = alignment.aligned[0]
         query = alignment.aligned[1]
         score = alignment.score
+        confirm_low = False
+        confirm_high = False
+        padding = False
 
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= 4
         found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= 4
@@ -777,7 +779,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         if found_low and target[0][1] < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
             for i in range(len(target_low_seq)):
-                if target_low_seq[i] == '-' or query_low_seq[i] == "-":
+                if target_low_seq[i] == '-' or query_low_seq[i] == '-':
                     gaps += 1
                 elif target_low_seq[i] == query_low_seq[i]:
                     ident += 1
@@ -785,12 +787,13 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                     mismatch += 1
             if (gaps + mismatch) > (len(target_low_seq)/3):
                 found_low = False
-                padding = True
+            elif len(target) > 3:
+                confirm_low = True
 
         if found_high and abs(target[-1][1] - target[-1][0]) < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
             for i in range(len(target_high_seq)):
-                if target_high_seq[i] == '-' or query_high_seq[i] == "-":
+                if target_high_seq[i] == '-' or query_high_seq[i] == '-':
                     gaps += 1
                 elif target_high_seq[i] == query_high_seq[i]:
                     ident += 1
@@ -798,7 +801,45 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                     mismatch += 1
             if (gaps + mismatch) > (len(target_high_seq)/3):
                 found_high = False
-                padding = True
+            elif len(target) > 3:
+                confirm_high = True
+
+        if (found_low and confirm_low) or (found_high and confirm_high):
+        #find longest continuous interval
+            big_interval = 0
+            for x in range(len(target)):
+                if int(target[x][1] - target[x][0]) > big_interval:
+                    big_interval = int(target[x][1] - target[x][0])
+                    index = x
+
+            if confirm_low:
+                suspect_low_region = alignment[0][query[0][0]:query[index][0]]
+                feature_low_region = alignment[1][query[0][0]:query[index][0]]
+                gaps = ident = mismatch = 0
+                for i in range(len(suspect_low_region)):
+                    if suspect_low_region[i] == '-' or feature_low_region[i] == '-':
+                        gaps += 1
+                    elif suspect_low_region[i] == feature_low_region[i]:
+                        ident += 1
+                    else:
+                        mismatch += 1
+                if (gaps + mismatch) > (len(suspect_low_region)/3):
+                    found_low = False
+
+            if confirm_high:
+                suspect_high_region = alignment[0][target[index][1]:target[-1][1]]
+                feature_high_region = alignment[1][target[index][1]:target[-1][1]]
+                gaps = ident = mismatch = 0
+                for i in range(len(suspect_high_region)):
+                    if suspect_high_region[i] == '-' or feature_high_region[i] == '-':
+                        gaps += 1
+                    elif suspect_high_region[i] == feature_high_region[i]:
+                        ident += 1
+                    else:
+                        mismatch += 1
+                if (gaps + mismatch) > (len(suspect_high_region)/3):
+                    found_high = False
+
         if not found_low or not found_high:
             padding = True
         return found_low, found_high, target, query, alignment, padding, score
