@@ -11,12 +11,6 @@ __status__ = "Development"
 # generates a log file to indicate characteristics of the transferred features from Prokka.
 
 from copy import deepcopy
-import sys
-import functools
-# standard multiprocessing can't pickle lambda
-import multiprocess as multiprocessing
-
-import Bio
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
@@ -25,8 +19,13 @@ from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
 from Bio import Align
 from Bio.Align import substitution_matrices
-import collections
 from numpy import median
+from math import log
+# standard multiprocessing can't pickle lambda
+import multiprocess as multiprocessing
+import sys
+import functools
+import collections
 import os
 import tempfile
 import pickle
