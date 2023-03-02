@@ -877,72 +877,52 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         pad_feature_seq = pad_feature.extract(record_sequence)
 
         pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score = coord_align(ref_seq, pad_feature_seq)
-        if (found_low, found_high != pad_found_low, pad_found_high) and (second_score > first_score):
-            feature = pad_feature
-            found_low = pad_found_low
-            found_high = pad_found_high
-            alignment = pad_alignment
-            target = pad_target
-            query = pad_query
-
-    feature_seq = feature.extract(record_sequence)
-    feature_start = feature.location.start
-    feature_end = feature.location.end
-
-    #Note:
-    #strand = 1 (start, stop) ... strand = -1 (stop, start)
-    #these pairs correspond to the left and right side of the aligner with respect to the feature.
-    #the left side will always show the start codon, the right side will always show the stop codon, regardless of strand.
-    #if the strand = -1, modifying 'stop/end' will modify the bases near the start codon (left)
-    #if the strand = -1, modifying 'start/start' will modify the bases near the stop codon (right)
-    #Everything on strand = 1 should be intuitive.
+    else:
+        second_score = -1
+        pad_found_high = False
+        pad_found_low = False
 
     if feature.strand == 1:
-        if found_high:
-            new_feature_end = (feature_start + query[-1][1])
-            if fix_stop:
-                feature_end = new_feature_end
+        good_stop = found_high
+        if not found_high:
+            if pad_found_high and (second_score > first_score):
+                new_feature_end = (pad_feature.location.start + pad_query[-1][1])
                 good_stop = True
-            else:
-                good_stop = (og_feature_end == new_feature_end)
         else:
-            feature_end = og_feature_end
-            good_stop = False
+            new_feature_end = feature_start + query[-1][1]
+        if fix_stop and good_stop:
+            feature_end = new_feature_end
 
-        if found_low:
-            new_feature_start = (feature_start + query[0][0])
-            if fix_start:
-                feature_start = new_feature_start
+        good_start = found_low
+        if not found_low:
+            if pad_found_low and (second_score > first_score):
+                new_feature_start = (pad_feature.location.start + (pad_query[0][0]))
                 good_start = True
-            else:
-                good_start = (og_feature_start == new_feature_start)
         else:
-            feature_start = og_feature_start
-            good_start = False
+            new_feature_start = feature_start + query[0][0]
+        if fix_start and good_start:
+            feature_start = new_feature_start
 
     elif feature.strand == -1:
-        if found_low:
-            new_feature_end = (feature_end - query[0][0])
-            if fix_start:
-                feature_end = new_feature_end
-                good_start = True
-            else:
-                good_start = (og_feature_end == new_feature_end)
-        else:
-            feature_end = og_feature_end
-            good_start = False
-
-        if found_high:
-            new_feature_start = (feature_start + (len(feature) - query[-1][1]))
-            if fix_stop:
-                feature_start = new_feature_start
+        good_stop = found_high
+        if not found_high:
+            if pad_found_high and (second_score > first_score):
+                new_feature_start = (pad_feature.location.end - pad_query[-1][1])
                 good_stop = True
-            else:
-                good_stop = (og_feature_start == new_feature_start)
         else:
-            feature_start = og_feature_start
-            good_stop = False
+            new_feature_start = feature_end - query[-1][1]
+        if fix_stop and found_high:
+            feature_start = new_feature_start
 
+        good_start = found_low
+        if not found_low:
+            if pad_found_low and (second_score > first_score):
+                new_feature_end = (pad_feature.location.end - pad_query[0][0])
+                good_start = True
+        else:
+            new_feature_end = feature_end - query[0][0]
+        if fix_start and good_start:
+            feature_end = new_feature_end
 
     feature.location = FeatureLocation(
         int(feature_start),
