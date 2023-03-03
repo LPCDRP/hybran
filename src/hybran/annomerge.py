@@ -82,6 +82,19 @@ def have_same_stop(loc1, loc2):
         )
     return False
 
+def has_internal_stop(feature):
+    """
+    Finds the amount and location of internal stops.
+    :param feature: A SeqFeature object
+    """
+    internal_stop = False
+    note = ''
+    num_stop = [i for i,e in enumerate(feature.extract(record_sequence).translate()) if e == "*"]
+    if len(num_stop) > 1:
+        internal_stop = True
+        note = f"Hybran performed translation of {feature.qualifiers['locus_tag'][0]} and found internal stop codons in the following amino acid positions: {','.join([str(i) for i in num_stop])}"
+    return internal_stop, note
+
 def log_feature_fate(feature, logfile, remark=""):
     """
     General-purpose logging function to print out a gene's information and a comment
