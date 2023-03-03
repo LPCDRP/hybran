@@ -254,7 +254,7 @@ features = {
             'ratt': SeqFeature(
                 FeatureLocation(3707086, 3709176, strand=1),
                 type='CDS',
-                qualifiers={'locus_tag':['Rv3327'], 'gene':['Rv3327']},
+                qualifiers={'locus_tag':['Rv3327'], 'gene':['Rv3327']}
             )
         },
         'PE_PGRS50': {

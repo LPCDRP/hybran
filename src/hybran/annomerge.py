@@ -990,6 +990,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
         elif len(feature.location) < .95*len(ref_annotation[feature.qualifiers['gene'][0]].location):
             og_loc = deepcopy(feature.location)
             good_start, good_stop = coord_check(feature, fix_start=True, fix_stop=True)
+
             internal_stop, stop_note = has_internal_stop(feature)
             if not all((good_start, good_stop)):
                 if internal_stop:
