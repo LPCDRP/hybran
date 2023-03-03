@@ -10,19 +10,6 @@ __status__ = "Development"
 # predominantly from RATT and the intergenic regions annotated by RATT are filled with Prokka. This script also
 # generates a log file to indicate characteristics of the transferred features from Prokka.
 
-from copy import deepcopy
-from Bio import SeqIO
-from Bio.Seq import Seq
-from Bio.Seq import translate
-from Bio.Blast.Applications import NcbiblastnCommandline
-from Bio.SeqRecord import SeqRecord
-from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
-from Bio import Align
-from Bio.Align import substitution_matrices
-from numpy import median
-from math import log, ceil
-# standard multiprocessing can't pickle lambda
-import multiprocess as multiprocessing
 import sys
 import functools
 import collections
@@ -33,6 +20,19 @@ import logging
 import time
 import re
 import subprocess
+from copy import deepcopy
+from math import log, ceil
+
+# standard multiprocessing can't pickle lambda
+import multiprocess as multiprocessing
+import Bio
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.Seq import translate
+from Bio.Blast.Applications import NcbiblastnCommandline
+from Bio.SeqRecord import SeqRecord
+from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
+from Bio import Align
 
 from . import BLAST
 from . import converter
