@@ -968,45 +968,50 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             # and causes some problems, as the entire sequence gets labeled
             # "biological region" and two basically empty CDS records are created.
 
-            num_stops = feature.extract(record_sequence).translate().count("*")
+            internal_stop, stop_note = has_internal_stop(feature)
 
-            if num_stops > 1:
+            if internal_stop:
                 changed_start, changed_stop = coord_check(feature, fix_start=True, fix_stop=True)
                 if not changed_stop:
-                    rejects.append((feature, "RATT-introduced compound interval did not include reference stop position."))
+                    rejects.append((feature, "RATT-introduced compound interval did not include reference" +
+                                    "stop position."))
                     continue
 
-                corrected_feature_seq = feature.extract(record_sequence)
-                num_stops = feature.extract(record_sequence).translate().count("*")
-                if num_stops > 1:
+                internal_stop, stop_note = has_internal_stop(feature)
+                if internal_stop:
                     feature.qualifiers['pseudo']=['']
-                    designator.append_qualifier(
-                        feature.qualifiers, 'note',
-                        'Pseudo: Ratt annotation encountered a Compound Interval (early stop), but also aligned ' +
-                        'with the reference stop position. After updating the coordinates, the gene ' +
-                        'still had at least one early stop.')
+                    designator.append_qualifier(feature.qualifiers, 'note',
+                        'Ratt annotation encountered a Compound Interval, and aligned' +
+                        'with the reference stop position. Hybran coordinate correction shows multiple' +
+                        'internal stop codons present.')
                     valid_features.append(feature)
                 else:
                     unbroken_cds.append(feature)
         elif len(feature.location) < .95*len(ref_annotation[feature.qualifiers['gene'][0]].location):
             og_loc = deepcopy(feature.location)
             good_start, good_stop = coord_check(feature, fix_start=True, fix_stop=True)
+            internal_stop, stop_note = has_internal_stop(feature)
             if not all((good_start, good_stop)):
-                feature.qualifiers['pseudo'] = ['']
-                designator.append_qualifier(
-                    feature.qualifiers, 'note',
-                    'Pseudo: Truncation signature. Ratt annotation had less than 95% subject coverage.' +
-                    'Failed to find a perfect start/stop.')
-                valid_features.append(feature)
+                if internal_stop:
+                    feature.qualifiers['pseudo'] = ['']
+                    designator.append_qualifier(
+                        feature.qualifiers, 'note',
+                        'Ratt annotation failed to align to reference start/stop position.'  +
+                        'Hybran coordinate correction shows multiple internal stop codons present.')
+                    valid_features.append(feature)
+                else:
+                    unbroken_cds.append(feature)
             elif og_loc != feature.location:
-                feature.qualifiers['pseudo'] = ['']
-                designator.append_qualifier(
-                    feature.qualifiers, 'note',
-                    'Pseudo: Frameshift signature. Ratt annotation had less than 95% subject coverage.' +
-                    'Found and corrected a perfect start/stop.')
-                valid_features.append(feature)
+                if internal_stop:
+                    feature.qualifiers['pseudo'] = ['']
+                    designator.append_qualifier(
+                        feature.qualifiers, 'note',
+                        'Pseudo: Frameshift signature. Ratt annotation had less than 95% subject coverage.' +
+                        'Found and corrected a perfect start/stop.')
+                    valid_features.append(feature)
             else:
                 unbroken_cds.append(feature)
+
         elif (len(feature.location) % 3) != 0:
             if ref_was_pseudo:
                 feature.qualifiers['pseudo'] = ['']
