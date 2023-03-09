@@ -82,17 +82,18 @@ def have_same_stop(loc1, loc2):
         )
     return False
 
-def has_internal_stop(feature):
+def is_broken_stop(feature):
     """
     Finds the amount and location of internal stops.
     :param feature: A SeqFeature object
     """
     internal_stop = False
     note = ''
-    num_stop = [i for i,e in enumerate(feature.extract(record_sequence).translate()) if e == "*"]
-    if len(num_stop) > 1:
+    translation = str(feature.extract(record_sequence).translate(to_stop=False))
+    num_stop = [i for i,e in enumerate(translation) if e == "*"]
+    if len(num_stop) > 1 or translation[-1] != "*":
         internal_stop = True
-        note = f"Hybran performed translation of {feature.qualifiers['locus_tag'][0]} and found internal stop codons in the following amino acid positions: {','.join([str(i) for i in num_stop])}"
+        note = f"Hybran: Internal stop detected in the following codon(s): {','.join([str(i) for i in num_stop])}"
     return internal_stop, note
 
 def log_feature_fate(feature, logfile, remark=""):
