@@ -864,41 +864,57 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         pad_found_high = False
         pad_found_low = False
 
-    if feature.strand == 1:
-        good_stop = found_high
-        if pad_found_high and (second_score > first_score) and fix_stop:
-            feature_end = (pad_feature.location.start + pad_query[-1][1])
-            good_stop = True
-        elif found_high and fix_stop:
-            feature_end = feature_start + query[-1][1]
+    for i in range(1):
+        if feature.strand == 1:
+            good_stop = found_high
+            if pad_found_high and (second_score > first_score) and fix_stop:
+                feature_end = (pad_feature.location.start + pad_query[-1][1])
+                good_stop = True
+            elif found_high and fix_stop:
+                feature_end = feature_start + query[-1][1]
 
-        good_start = found_low
-        if pad_found_low and (second_score > first_score):
-            feature_start = (pad_feature.location.start + (pad_query[0][0]))
-            good_start = True
-        elif found_low and fix_start:
-            feature_start = feature_start + query[0][0]
+            good_start = found_low
+            if pad_found_low and (second_score > first_score) and fix_start:
+                feature_start = (pad_feature.location.start + (pad_query[0][0]))
+                good_start = True
+            elif found_low and fix_start:
+                feature_start = feature_start + query[0][0]
 
-    elif feature.strand == -1:
-        good_stop = found_high
-        if pad_found_high and (second_score > first_score) and fix_stop:
-            feature_start = (pad_feature.location.end - pad_query[-1][1])
-            good_stop = True
-        elif found_high and fix_stop:
-            feature_start = feature_end - query[-1][1]
+        elif feature.strand == -1:
+            good_stop = found_high
+            if pad_found_high and (second_score > first_score) and fix_stop:
+                feature_start = (pad_feature.location.end - pad_query[-1][1])
+                good_stop = True
+            elif found_high and fix_stop:
+                feature_start = feature_end - query[-1][1]
 
-        good_start = found_low
-        if pad_found_low and (second_score > first_score) and fix_start:
-            feature_end = (pad_feature.location.end - pad_query[0][0])
-            good_start = True
-        elif found_low and fix_start:
-            feature_end = feature_end - query[0][0]
+            good_start = found_low
+            if pad_found_low and (second_score > first_score) and fix_start:
+                feature_end = (pad_feature.location.end - pad_query[0][0])
+                good_start = True
+            elif found_low and fix_start:
+                feature_end = feature_end - query[0][0]
 
-    feature.location = FeatureLocation(
-        int(feature_start),
-        int(feature_end),
-        strand=feature.strand
-    )
+        feature.location = FeatureLocation(
+            int(feature_start),
+            int(feature_end),
+            strand=feature.strand
+        )
+        feature_seq = feature.extract(record_sequence)
+
+        if i == 1:
+            continue
+        elif any([pad_found_low, pad_found_high]) and any([fix_start, fix_stop]) and (first_score > second_score):
+            found_low, found_high, new_target, new_query, new_alignment, padding, third_score = coord_align(ref_seq, feature_seq)
+            if (third_score > first_score):
+                second_score = third_score
+                continue
+            else:
+                break
+        else:
+            break
+
+
 
     if og_feature.location != feature.location:
         feature.qualifiers['translation'] = [
