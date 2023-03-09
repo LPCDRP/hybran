@@ -965,9 +965,14 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 feature.qualifiers['note'].remove(pseudo_note[0])
                 ref_was_pseudo = True
 
+        og_loc = deepcopy(feature.location)
+        compound_interval = isinstance(feature.location,Bio.SeqFeature.CompoundLocation)
+        shorter_than_ref = len(feature.location) < .95*len(ref_annotation[feature.qualifiers['gene'][0]].location)
+        divisible_by_three = (len(feature.location) % 3) == 0
+        bigger_than_ref = len(feature.location) > len(ref_annotation[feature.qualifiers['gene'][0]].location)
 
         # Identify features with 'joins'
-        if isinstance(feature.location,Bio.SeqFeature.CompoundLocation):
+        if compound_interval:
             if 'ribosomal_slippage' in feature.qualifiers:
                 continue
             #Need to initialize the feature without the compound location attribute.
@@ -987,72 +992,68 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             # and causes some problems, as the entire sequence gets labeled
             # "biological region" and two basically empty CDS records are created.
 
-            internal_stop, stop_note = has_internal_stop(feature)
-
-            if internal_stop:
+            broken_stop, stop_note = is_broken_stop(feature)
+            if broken_stop:
                 changed_start, changed_stop = coord_check(feature, fix_start=True, fix_stop=True)
                 if not changed_stop:
                     rejects.append((feature, "RATT-introduced compound interval did not include reference" +
                                     "stop position."))
                     continue
-
-                internal_stop, stop_note = has_internal_stop(feature)
-                if internal_stop:
+                broken_stop, stop_note = is_broken_stop(feature)
+                if broken_stop:
                     feature.qualifiers['pseudo']=['']
-                    designator.append_qualifier(feature.qualifiers, 'note',
-                        'Ratt annotation encountered a Compound Interval, and aligned' +
-                        'with the reference stop position. Hybran coordinate correction shows multiple' +
-                        'internal stop codons present.')
+                    designator.append_qualifier(feature.qualifiers, 'note', stop_note)
                     valid_features.append(feature)
                 else:
                     unbroken_cds.append(feature)
-        elif len(feature.location) < .95*len(ref_annotation[feature.qualifiers['gene'][0]].location):
-            og_loc = deepcopy(feature.location)
-            good_start, good_stop = coord_check(feature, fix_start=True, fix_stop=True)
 
-            internal_stop, stop_note = has_internal_stop(feature)
-            if not all((good_start, good_stop)):
-                if internal_stop:
-                    feature.qualifiers['pseudo'] = ['']
-                    designator.append_qualifier(
-                        feature.qualifiers, 'note',
-                        'Ratt annotation failed to align to reference start/stop position.'  +
-                        'Hybran coordinate correction shows multiple internal stop codons present.')
-                    valid_features.append(feature)
+        valid_pseudo = False
+        if shorter_than_ref or not divisible_by_three or bigger_than_ref:
+            good_start, good_stop = coord_check(feature, fix_start=True, fix_stop=True)
+            coords_ok = [good_start, good_stop]
+            broken_stop, stop_note = is_broken_stop(feature)
+
+        if ref_was_pseudo:
+                feature.qualifiers['pseudo'] = ['']
+
+        if shorter_than_ref:
+            if not all(coords_ok) or og_loc != feature.location:
+                if broken_stop:
+                    valid_pseudo = True
                 else:
                     unbroken_cds.append(feature)
-            elif og_loc != feature.location:
-                if internal_stop:
-                    feature.qualifiers['pseudo'] = ['']
-                    designator.append_qualifier(
-                        feature.qualifiers, 'note',
-                        'Pseudo: Frameshift signature. Ratt annotation had less than 95% subject coverage.' +
-                        'Found and corrected a perfect start/stop.')
-                    valid_features.append(feature)
             else:
                 unbroken_cds.append(feature)
 
-        elif (len(feature.location) % 3) != 0:
-            if ref_was_pseudo:
-                feature.qualifiers['pseudo'] = ['']
+        elif not divisible_by_three:
             if not designator.is_pseudo(feature.qualifiers):
                 logger.warning('Nucleotide sequence is not divisible by 3')
                 logger.warning(feature)
                 rejects.append((feature, "nucleotide sequence is not divisible by 3"))
             else:
-                coord_check(feature, fix_start=True, fix_stop=True)
-                valid_features.append(feature)
-        elif len(feature.location) > len(ref_annotation[feature.qualifiers['gene'][0]].location):
-            coords_ok = coord_check(feature)
+                if broken_stop:
+                    valid_pseudo = True
+                else:
+                    unbroken_cds.append(feature)
+
+        elif bigger_than_ref:
             if not ref_was_pseudo and any(coords_ok) and not all(coords_ok):
                 feature.qualifiers['pseudo'] = ['']
                 unbroken_cds.append(feature)
+            else:
+                if broken_stop:
+                    valid_pseudo = True
         else:
             unbroken_cds.append(feature)
 
+        if valid_pseudo:
+            feature.qualifiers['pseudo'] = ['']
+            designator.append_qualifier(feature.qualifiers, 'note', stop_note)
+            valid_features.append(feature)
+
+
     logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features)))
     logger.debug(f"Checking similarity to reference CDSs using {nproc} process(es)")
-
 
     def refcheck(cds_feature, record_sequence=record_sequence):
         valid = False
