@@ -784,7 +784,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         padding = False
 
         #Probability that the continuous interval used to find good start/stops
-        #occurs by chance should be = (1/ref_seq)*10
+        #occurs by chance should be = (1/ref_seq*10)
         x = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
 
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= x
@@ -805,6 +805,8 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                     ident += 1
                 else:
                     mismatch += 1
+                    if i < 3:
+                        found_low = False
             if (gaps + mismatch) > (len(target_low_seq)/3):
                 found_low = False
 
