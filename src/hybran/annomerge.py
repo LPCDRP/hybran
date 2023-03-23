@@ -993,13 +993,10 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 continue
             #Need to initialize the feature without the compound location attribute.
             #The earliest start and the latest end of the joined feature will be bridged together
-            feature_start = feature.location.parts[0].start
-            feature_end = feature.location.parts[1].end
+            feature_start = feature.location.start
+            feature_end = feature.location.end
             feature_strand = feature.strand
-            if feature_strand == -1:
-                feature.location = (FeatureLocation(feature_end, feature_start, strand=feature_strand))
-            else:
-                feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
+            feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
             #Check if feature has an internal stop codon.
             #
             # If it doesn't, we will assign pseduo and accept it.
