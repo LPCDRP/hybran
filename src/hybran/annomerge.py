@@ -1009,7 +1009,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             if broken_stop:
                 changed_start, changed_stop = coord_check(feature, fix_start=True, fix_stop=True)
                 if not changed_stop:
-                    rejects.append((feature, "RATT-introduced compound interval did not include reference" +
+                    rejects.append((feature, "RATT-introduced compound interval did not include reference " +
                                     "stop position."))
                     continue
                 broken_stop, stop_note = is_broken_stop(feature)
@@ -1027,7 +1027,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             broken_stop, stop_note = is_broken_stop(feature)
 
         if ref_was_pseudo:
-                feature.qualifiers['pseudo'] = ['']
+            feature.qualifiers['pseudo'] = ['']
 
         if shorter_than_ref:
             if not all(coords_ok) or og_loc != feature.location:
