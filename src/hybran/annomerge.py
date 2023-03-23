@@ -853,6 +853,9 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
 
     #First alignment
     found_low, found_high, target, query, alignment, padding, first_score = coord_align(ref_seq, feature_seq)
+    corrected_feature = deepcopy(feature)
+    corrected_feature_start = corrected_feature.location.start
+    corrected_feature_end = corrected_feature.location.end
     if padding:
         #Align again after adding padding to the feature sequence if warranted
         pad_feature = add_padding(feature)
@@ -864,34 +867,42 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         pad_found_high = False
         pad_found_low = False
 
-    for i in range(1):
+    for i in range(2):
         if feature.strand == 1:
             good_stop = found_high
-            if pad_found_high and (second_score > first_score) and fix_stop:
-                feature_end = (pad_feature.location.start + pad_query[-1][1])
-                good_stop = True
+            if pad_found_high and fix_stop:
+                corrected_feature_end = (pad_feature.location.start + pad_query[-1][1])
+                if (second_score > first_score):
+                    feature_end = corrected_feature_end
+                    good_stop = True
             elif found_high and fix_stop:
                 feature_end = feature_start + query[-1][1]
 
             good_start = found_low
-            if pad_found_low and (second_score > first_score) and fix_start:
-                feature_start = (pad_feature.location.start + (pad_query[0][0]))
-                good_start = True
+            if pad_found_low and fix_start:
+                corrected_feature_start = (pad_feature.location.start + (pad_query[0][0]))
+                if (second_score > first_score):
+                    feature_start = corrected_feature_start
+                    good_start = True
             elif found_low and fix_start:
                 feature_start = feature_start + query[0][0]
 
         elif feature.strand == -1:
             good_stop = found_high
-            if pad_found_high and (second_score > first_score) and fix_stop:
-                feature_start = (pad_feature.location.end - pad_query[-1][1])
-                good_stop = True
+            if pad_found_high and fix_stop:
+                corrected_feature_start = (pad_feature.location.end - pad_query[-1][1])
+                if (second_score > first_score):
+                    feature_start = corrected_feature_start
+                    good_stop = True
             elif found_high and fix_stop:
                 feature_start = feature_end - query[-1][1]
 
             good_start = found_low
-            if pad_found_low and (second_score > first_score) and fix_start:
-                feature_end = (pad_feature.location.end - pad_query[0][0])
-                good_start = True
+            if pad_found_low and fix_start:
+                corrected_feature_end = (pad_feature.location.end - pad_query[0][0])
+                if (second_score > first_score):
+                    feature_end = corrected_feature_end
+                    good_start = True
             elif found_low and fix_start:
                 feature_end = feature_end - query[0][0]
 
@@ -905,16 +916,21 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         if i == 1:
             continue
         elif any([pad_found_low, pad_found_high]) and any([fix_start, fix_stop]) and (first_score > second_score):
-            found_low, found_high, new_target, new_query, new_alignment, padding, third_score = coord_align(ref_seq, feature_seq)
-            if (third_score > first_score):
-                second_score = third_score
+            corrected_feature.location = FeatureLocation(
+                int(corrected_feature_start),
+                int(corrected_feature_end),
+                strand=feature.strand
+            )
+            corrected_feature_seq = corrected_feature.extract(record_sequence)
+            cor_low, cor_high, cor_target, cor_query, cor_alignment, cor_padding, third_score = coord_align(ref_seq, corrected_feature_seq)
+
+            if (third_score >= first_score):
+                second_score = third_score + 1
                 continue
             else:
                 break
         else:
             break
-
-
 
     if og_feature.location != feature.location:
         feature.qualifiers['translation'] = [
