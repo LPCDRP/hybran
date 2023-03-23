@@ -1026,6 +1026,8 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             good_start, good_stop = coord_check(feature, fix_start=True, fix_stop=True)
             coords_ok = [good_start, good_stop]
             broken_stop, stop_note = is_broken_stop(feature)
+            # Re-evaluate this since coordinates may have changed
+            divisible_by_three = (len(feature.location) % 3) == 0
 
         if ref_was_pseudo:
             feature.qualifiers['pseudo'] = ['']
