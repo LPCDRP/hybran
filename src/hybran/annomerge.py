@@ -1019,6 +1019,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                     valid_features.append(feature)
                 else:
                     unbroken_cds.append(feature)
+                continue
 
         valid_pseudo = False
         if shorter_than_ref or not divisible_by_three or bigger_than_ref:
@@ -1056,6 +1057,8 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             else:
                 if broken_stop:
                     valid_pseudo = True
+                else:
+                    unbroken_cds.append(feature)
         else:
             unbroken_cds.append(feature)
 
