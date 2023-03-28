@@ -948,7 +948,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
     return good_start, good_stop
 
 
-def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg,
+def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg, ratt_enforce_thresholds,
     nproc=1,
 ):
     """
@@ -966,6 +966,36 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     ratt_blast_results = {}
     rejects = []
     valid_features = []
+    og_loc = deepcopy(feature.location)
+
+    if ratt_enforce_thresholds:
+        ratt_seq_ident = seq_ident
+        ratt_seq_covg = seq_covg
+    else:
+        ratt_seq_ident = ratt_seq_covg = 0
+
+    def refcheck(cds_feature, ratt_seq_ident=ratt_seq_ident, ratt_seq_covg=ratt_seq_covg, record_sequence=record_sequence):
+        valid = False
+        remark = ''
+        blast_stats = {}
+        feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
+        cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
+        if len(feature_sequence) == 0:
+            remark = 'length of AA sequence is 0'
+        else:
+            ref_match, pseudo, blast_stats = BLAST.reference_match(
+                query=SeqRecord(feature_sequence),
+                subject=ref_temp_fasta_dict[cds_locus_tag],
+                seq_ident=ratt_seq_ident,
+                seq_covg=ratt_seq_covg,
+            )
+
+            if ref_match:
+                valid = True
+            else:
+                remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
+        return valid, feature_sequence, blast_stats, remark
+
     for feature in feature_list:
         if feature.type != 'CDS':
             non_cds_features.append(feature)
@@ -1072,29 +1102,6 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
 
     logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features)))
     logger.debug(f"Checking similarity to reference CDSs using {nproc} process(es)")
-
-    def refcheck(cds_feature, record_sequence=record_sequence):
-        valid = False
-        remark = ''
-        blast_stats = {}
-        feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
-        cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
-        if len(feature_sequence) == 0:
-            remark = 'length of AA sequence is 0'
-        else:
-            ref_match, pseudo, blast_stats = BLAST.reference_match(
-                query=SeqRecord(feature_sequence),
-                subject=ref_temp_fasta_dict[cds_locus_tag],
-                seq_ident=seq_ident,
-                seq_covg=seq_covg,
-            )
-
-            if ref_match:
-                valid = True
-            else:
-                remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
-        return valid, feature_sequence, blast_stats, remark
-
 
     with multiprocessing.Pool(processes=nproc) as pool:
          results = pool.map(
@@ -1641,12 +1648,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             # will prevail.
             ref_annotation[feature.qualifiers['gene'][0]] = feature
 
-    if ratt_enforce_thresholds:
-        ratt_seq_ident = seq_ident
-        ratt_seq_covg = seq_covg
-    else:
-        ratt_seq_ident = ratt_seq_covg = 0
-
     output_isolate_recs = []
 
     for i, contig in enumerate(contigs):
@@ -1695,8 +1696,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             isolate_valid_ratt_annotations(feature_list=ratt_contig_features,
                                            ref_temp_fasta_dict=ref_temp_fasta_dict,
                                            reference_locus_list=reference_locus_list,
-                                           seq_ident=ratt_seq_ident,
-                                           seq_covg=ratt_seq_covg,
+                                           seq_ident=seq_ident,
+                                           seq_covg=seq_covg,
+                                           ratt_enforce_thresholds=ratt_enforce_thresholds,
                                            nproc=nproc,
             )
 
