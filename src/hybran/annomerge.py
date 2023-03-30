@@ -993,7 +993,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
                 valid = True
             else:
                 remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
-        return valid, feature_sequence, blast_stats, remark
+        return valid, pseudo, blast_stats, remark
 
     for feature in feature_list:
         if feature.type != 'CDS':
@@ -1048,31 +1048,44 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             continue
 
         shorter_than_ref = len(feature.location) < .95*len(ref_annotation[feature.qualifiers['gene'][0]].location)
-        divisible_by_three = (len(feature.location) % 3) == 0
         bigger_than_ref = len(feature.location) > len(ref_annotation[feature.qualifiers['gene'][0]].location)
-        valid_pseudo = False
-
-        if not divisible_by_three:
-            logger.warning('Nucleotide sequence is not divisible by 3')
-            logger.warning(feature)
-            feature.qualifiers['pseudo'] = ['']
-            designator.append_qualifier(feature.qualifiers, 'note', stop_note)
-            valid_features.append(feature)
-            continue
+        og_broken_stop, og_stop_note = is_broken_stop(feature)
+        og_divisible_by_three = (len(feature.location) % 3) == 0
+        og_feature = deepcopy(feature)
 
         if shorter_than_ref or bigger_than_ref:
-            good_start, good_stop = coord_check(feature, fix_start=False, fix_stop=False)
-            coords_ok = [good_start, good_stop]
-            broken_stop, stop_note = is_broken_stop(feature)
-            #ref_match with 'thresholds enforced'
-            valid, feature_sequence, blast_stats, remark = refcheck(feature, seq_ident, seq_covg)
+            fix_start = fix_stop = False
+            confirmed_feature = False
+            while not confirmed_feature:
+                good_start, good_stop = coord_check(feature, fix_start, fix_stop)
+                coords_ok = [good_start, good_stop]
+                #Re-evaluate divisibility following potential coordinaate correction
+                divisible_by_three = (len(feature.location) % 3) == 0
+                #ref_match with 'thresholds enforced'
+                valid, pseudo, blast_stats, remark = refcheck(feature, seq_ident, seq_covg)
+                broken_stop, stop_note = is_broken_stop(feature)
 
-            if (all(coords_ok) and divisible_by_three) or valid:
-                unbroken_cds.append(feature)
-            else:
-                feature.qualifiers['pseudo'] = ['']
-                designator.append_qualifier(feature.qualifiers, 'note', stop_note)
-                valid_features.append(feature)
+                if (all(coords_ok) and divisible_by_three) or (valid and not pseudo):
+                    confirmed_feature = True
+
+                elif not all([fix_start, fix_stop]):
+                    fix_start = fix_stop = True
+                    continue
+                else:
+                    confirm_feature = True
+                    feature = og_feature
+                    broken_stop, stop_note = og_broken_stop, stop_note
+                    divisible_by_three = og_divisible_by_three
+
+                if confirmed_feature:
+                    if broken_stop or not divisible_by_three:
+                        feature.qualifiers['pseudo']=['']
+                        if any(stop_note):
+                            designator.append_qualifier(feature.qualifiers, 'note', stop_note)
+                        valid_features.append(feature)
+                    else:
+                        unbroken_cds.append(feature)
+                    break
         else:
             unbroken_cds.append(feature)
 
