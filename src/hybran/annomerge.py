@@ -832,7 +832,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         feature_start = feature.location.start
         feature_end = feature.location.end
         bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
-        x = bp_diff + max(1, round(0.05 * bp_diff))
+        x = bp_diff + ceil(0.05 * bp_diff)
 
         if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
             padded_feature_start = max(0, (feature_start - x))
