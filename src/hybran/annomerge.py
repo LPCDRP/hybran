@@ -875,8 +875,10 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                 if (second_score > first_score):
                     feature_end = corrected_feature_end
                     good_stop = True
-            elif found_high and fix_stop:
-                feature_end = feature_start + query[-1][1]
+            elif found_high:
+                corrected_feature_end = feature_start + query[-1][1]
+                if fix_stop:
+                    feature_end = corrected_feature_end
 
             good_start = found_low
             if pad_found_low and fix_start:
@@ -884,8 +886,10 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                 if (second_score > first_score):
                     feature_start = corrected_feature_start
                     good_start = True
-            elif found_low and fix_start:
-                feature_start = feature_start + query[0][0]
+            elif found_low:
+                corrected_feature_start = feature_start + query[0][0]
+                if fix_start:
+                    feature_start = corrected_feature_start
 
         elif feature.strand == -1:
             good_stop = found_high
@@ -894,8 +898,10 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                 if (second_score > first_score):
                     feature_start = corrected_feature_start
                     good_stop = True
-            elif found_high and fix_stop:
-                feature_start = feature_end - query[-1][1]
+            elif found_high:
+                corrected_feature_start = feature_end - query[-1][1]
+                if fix_stop:
+                    feature_start = corrected_feature_start
 
             good_start = found_low
             if pad_found_low and fix_start:
@@ -903,8 +909,10 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                 if (second_score > first_score):
                     feature_end = corrected_feature_end
                     good_start = True
-            elif found_low and fix_start:
-                feature_end = feature_end - query[0][0]
+            elif found_low:
+                corrected_feature_end = feature_end - query[0][0]
+                if fix_start:
+                    feature_end = feature_end - query[0][0]
 
         feature.location = FeatureLocation(
             int(feature_start),
@@ -931,6 +939,16 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                 break
         else:
             break
+
+    #For cases where we DON'T want to fix coords, good_start/stop should only be true if positionally identical to the
+    #start/stop in the reference. This is opposed to the normal definition of good_start/stop as CONTAINING a reference
+    #corresponding start/stop site.
+    if good_start and not fix_start:
+        if feature.location.start != corrected_feature_start:
+            good_start = False
+    if good_stop and not fix_stop:
+        if feature.location.end != corrected_feature_end:
+            good_stop = False
 
     if og_feature.location != feature.location:
         feature.qualifiers['translation'] = [
