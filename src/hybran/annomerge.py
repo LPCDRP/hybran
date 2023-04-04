@@ -796,7 +796,9 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         query_high_seq = feature_seq[query[-1][0]:query[-1][1]]
 
         #make sure there aren't too many mismatches causing falsely assigned found_low/high values
-        if found_low and target[0][1] < (len(ref_seq)/3):
+        if (target_low_seq[:3] != query_low_seq[:3]):
+            found_low = False
+        elif found_low and target[0][1] < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
             for i in range(len(target_low_seq)):
                 if target_low_seq[i] == '-' or query_low_seq[i] == '-':
@@ -805,12 +807,12 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                     ident += 1
                 else:
                     mismatch += 1
-                    if i < 3:
-                        found_low = False
             if (gaps + mismatch) > (len(target_low_seq)/3):
                 found_low = False
 
-        if found_high and abs(target[-1][1] - target[-1][0]) < (len(ref_seq)/3):
+        if (target_high_seq[-3:] != query_high_seq[-3:]):
+            found_high = False
+        elif found_high and abs(target[-1][1] - target[-1][0]) < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
             for i in range(len(target_high_seq)):
                 if target_high_seq[i] == '-' or query_high_seq[i] == '-':
