@@ -1,120 +1,23 @@
+from collections import defaultdict
+import os
+import pathlib
+
+from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundLocation
 
 
-ref_features = {
-    'H37Rv': {
-        'dnaA': SeqFeature(
-            FeatureLocation(0, 1524, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv0001'],'gene':['dnaA']}
-        ),
-        'Rv0007': SeqFeature(
-            FeatureLocation(9913, 10828, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv0007'],'gene':['Rv0007']}
-        ),
-        'PPE38': SeqFeature(
-            FeatureLocation(2632922, 2634098, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv2352c'],'gene':['PPE38']}
-        ),
-        'Rv0986': SeqFeature(
-            FeatureLocation(1101802, 1102549, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv0986'],'gene':['Rv0986']}
-        ),
-        'rrf': SeqFeature(
-            FeatureLocation(1476898, 1477013, strand=1),
-            type='rRNA',
-            qualifiers={'locus_tag':['MTB000021'],'gene':['rrf']}
-        ),
-        'Rv1148c': SeqFeature(
-            FeatureLocation(1276299, 1277748, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1148c'],'gene':['Rv1148c']}
-        ),
-        'Rv1453': SeqFeature(
-            FeatureLocation(1638380, 1639646, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1453'],'gene':['Rv1453']}
-        ),
-        'Rv1718': SeqFeature(
-            FeatureLocation(1944808, 1945627, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1718'],'gene':['Rv1718']}
-        ),
-        'Rv1945': SeqFeature(
-            FeatureLocation(2195988, 2197353, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1945'],'gene':['Rv1945']}
-        ),
-        'Rv1877': SeqFeature(
-            FeatureLocation(2125903, 2127967, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1877'],'gene':['Rv1877']}
-        ),
-        'dosT': SeqFeature(
-            FeatureLocation(2272786, 2274508, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv2027c'],'gene':['dosT']}
-        ),
-        'Rv2180c': SeqFeature(
-            FeatureLocation(2442326, 2443214, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv2180c'],'gene':['Rv2180c']}
-        ),
-        'Rv2879c': SeqFeature(
-            FeatureLocation(3189582, 3190152, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv2879c'],'gene':['Rv2879c']}
-        ),
-        'Rv2880c': SeqFeature(
-            FeatureLocation(3189850, 3190678, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv2880c'],'gene':['Rv2880c']}
-        ),
-        'PPE34': SeqFeature(
-            FeatureLocation(2162931, 2167311, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1917c'],'gene':['PPE34']}
-        ),
-        'PPE47': SeqFeature(
-            FeatureLocation(3379375, 3380452, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3021c'],'gene':['PPE47']}
-        ),
-        'Rv3181c': SeqFeature(
-            FeatureLocation(3549690, 3550143, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3181c'],'gene':['Rv3181c']}
-        ),
-        'ORF0004': SeqFeature(
-            FeatureLocation(3891104, 3892091, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3475'],'gene':['ORF0004']}
-        ),
-        'Rv3327': SeqFeature(
-            FeatureLocation(3711748, 3713461, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3327'],'gene':['Rv3327']}
-        ),
-        'PE_PGRS50': SeqFeature(
-            FeatureLocation(3738157, 3742774, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3345c'],'gene':['PE_PGRS50']}
-        ),
-        'Rv3777': SeqFeature(
-            FeatureLocation(4222693, 4223680, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3777'],'gene':['Rv3777']}
-        ),
-        'Rv3785': SeqFeature(
-            FeatureLocation(4231319, 4232393, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3785'],'gene':['Rv3785']}
-        ),
-    },
-}
+ref_features = {}
+for ref in [
+        'H37Rv',
+]:
+    ref_file = os.path.join(pathlib.Path(__file__).parent.resolve(), 'data', f'{ref}.gbk')
+    ref_features[ref] = {}
+    if os.path.isfile(ref_file):
+        for record in SeqIO.parse(ref_file, 'genbank'):
+            for feature in record.features:
+                if 'gene' in feature.qualifiers:
+                    ref_features[ref][feature.qualifiers['gene'][0]] = feature
+
 
 features = {
     '1-0006': {

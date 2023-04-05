@@ -193,15 +193,12 @@ def test_process_split_genes(gene_list):
         'complementary_fragments_one_unnamed':'1-0006',
         'fails_final_coord_check_inframe_overlap':'2-0031',
     }
+    ref_genome = defaultdict(lambda :'H37Rv')
     source_genome = source_genomes[gene_list]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.genetic_code = 11
-    annomerge.ref_annotation = {
-        'dosT': ref_features['H37Rv']['dosT'],
-        'Rv0986': ref_features['H37Rv']['Rv0986'],
-        'Rv3327': ref_features['H37Rv']['Rv3327'],
-    }
+    annomerge.ref_annotation = ref_features[ref_genome[gene_list]]
     annomerge.corrected_orf_report = []
 
     expected = {
@@ -347,6 +344,7 @@ def test_liftover_annotation():
     ['same_start_alt_stop_2', False, False],
     ['same_start_alt_stop_2_fix', True, True]
 ])
+@pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 def test_coord_check(feature_type, fix_start, fix_stop):
     #prokka for Rv2300c and Rv3181c
     source_genome = {
@@ -363,6 +361,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'same_start_alt_stop_2':'1-0006',
         'same_start_alt_stop_2_fix':'1-0006',
     }
+    ref_genome = defaultdict(lambda :'H37Rv')
 
     test_features = {
         'abinit_start_bad_minus': features[source_genome['abinit_start_bad_minus']]['Rv3181c']['abinit'],
@@ -380,19 +379,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     }
 
     feature = test_features[feature_type]
-    annomerge.ref_annotation = {
-        'Rv3181c': ref_features['H37Rv']['Rv3181c'],
-        'Rv3777': ref_features['H37Rv']['Rv3777'],
-        'PPE38': ref_features['H37Rv']['PPE38'],
-        'Rv3785': ref_features['H37Rv']['Rv3785'],
-        'Rv1877': ref_features['H37Rv']['Rv1877'],
-        'Rv3327': ref_features['H37Rv']['Rv3327'],
-        'PPE47': ref_features['H37Rv']['PPE47'],
-        'PPE34': ref_features['H37Rv']['PPE34'],
-        'PE_PGRS50': ref_features['H37Rv']['PE_PGRS50'],
-        'Rv2879c': ref_features['H37Rv']['Rv2879c'],
-        'Rv2880c': ref_features['H37Rv']['Rv2880c'],
-    }
+    annomerge.ref_annotation = ref_features[ref_genome[feature_type]]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.genetic_code = 11
@@ -529,10 +516,12 @@ def test_populate_gaps():
     'long_unbroken_pseudo',
 ])
 @pytest.mark.skipif(not os.path.isfile("data/1-0009.fasta"), reason="test genome sequence not available")
+@pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 def test_isolate_valid_ratt_annotations(case):
     source_genome = {
         'long_unbroken_pseudo':'1-0006',
     }
+    ref_genome = defaultdict(lambda :'H37Rv')
     cases = {
         'long_unbroken_pseudo': 'PE_PGRS50',
     }
@@ -550,9 +539,7 @@ def test_isolate_valid_ratt_annotations(case):
     Rv3020c = SeqFeature(FeatureLocation(ExactPosition(3371022), ExactPosition(3371217), strand=-1), type='CDS')
     Rv3020c.qualifiers = dict(locus_tag=["Rv3020c"], codon_start=['1'], transl_table='11')
 
-    annomerge.ref_annotation = {
-        'PE_PGRS50': ref_features['H37Rv']['PE_PGRS50'],
-    }
+    annomerge.ref_annotation = ref_features[ref_genome[case]]
     annomerge.genetic_code = 11
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
 
@@ -708,6 +695,7 @@ def test_find_inframe_overlaps(case):
     'overlapping_different_names_ratt_better',
     'overlapping_different_names_abinit_better',
 ])
+@pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 def test_check_inclusion_criteria(pair, tmp_path):
     source_genome = {
         'ratt_better':'1-0006',
@@ -719,6 +707,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'overlapping_different_names_ratt_better':'1-0006',
         'overlapping_different_names_abinit_better':'1-0006',
     }
+    ref_genome = defaultdict(lambda :'H37Rv')
     pairs = {
         'ratt_better': ('dnaA', 'dnaA'),
         'ratt_better_coverage': ('Rv1453', 'Rv1453'), # The RATT annotation's upstream context has no hit to the reference's despite being 100% identitical...
@@ -734,12 +723,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
 
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
-    annomerge.ref_annotation = {
-        'Rv1148c': ref_features['H37Rv']['Rv1148c'],
-        'Rv1945': ref_features['H37Rv']['Rv1945'],
-        'Rv2180c': ref_features['H37Rv']['Rv2180c'],
-        'ORF0004': ref_features['H37Rv']['ORF0004'],
-    }
+    annomerge.ref_annotation = ref_features[ref_genome[pair]]
     reference_gene_locus_dict = defaultdict(list, dict(
         dnaA=['Rv0001'],
         Rv0007=['Rv0007'],
