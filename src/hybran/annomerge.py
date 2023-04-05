@@ -969,6 +969,80 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         corrected_orf_report.append([og_feature, deepcopy(feature)])
     return good_start, good_stop
 
+def pseudoscan(feature, ref_temp_fasta_dict, seq_ident, seq_covg,
+):
+    ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
+    feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
+
+    # Check if the reference annotation was pseudo (some branches of the upcoming conditional use this information)
+    # seqret moves the reference pseudo tags to a note field beginning with *pseudo or *pseudogene
+    # Save the information and drop the note.
+    if 'note' in feature.qualifiers:
+        pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo")]
+        if pseudo_note:
+            feature.qualifiers['note'].remove(pseudo_note[0])
+
+    ref_was_pseudo = pseudo_note or designator.is_pseudo(feature.qualifiers)
+    shorter_than_ref = len(feature.location) < .95*len(ref_annotation[feature.qualifiers['gene'][0]].location)
+    bigger_than_ref = len(feature.location) > len(ref_annotation[feature.qualifiers['gene'][0]].location)
+    og_broken_stop, og_stop_note = is_broken_stop(feature)
+    og_divisible_by_three = (len(feature.location) % 3) == 0
+    ref_divisible_by_three = (len(ref_annotation[feature.qualifiers['gene'][0]].location) % 3) == 0
+    og_feature = deepcopy(feature)
+
+    if ref_was_pseudo:
+        good_start, good_stop = coord_check(feature)
+        coords_ok = [good_start, good_stop]
+        if (not all(coords_ok)) and (og_divisible_by_three and not ref_divisible_by_three) and not og_broken_stop:
+            feature.qualifiers.pop('pseudo', None)
+            feature.qualifiers.pop('pseudogene', None)
+            is_pseudo = False
+        else:
+            if og_stop_note:
+                designator.append_qualifier(feature.qualifiers, 'note', og_stop_note)
+            is_pseudo = True
+            feature.qualifiers['pseudo'] = ['']
+
+    elif shorter_than_ref or bigger_than_ref or not og_divisible_by_three:
+        fix_start = False
+        confirmed_feature = False
+        while not confirmed_feature:
+            good_start, good_stop = coord_check(feature, fix_start)
+            coords_ok = [good_start, good_stop]
+            #Re-evaluate divisibility following potential coordinaate correction
+            divisible_by_three = (len(feature.location) % 3) == 0
+            #ref_match with 'thresholds enforced'
+            valid, pseudo, blast_stats = BLAST.reference_match(
+                query=SeqRecord(feature_seq),
+                subject=ref_temp_fasta_dict[feature.qualifiers['locus_tag'][0]],
+                seq_ident=seq_ident,
+                seq_covg=seq_covg,
+            )
+            broken_stop, stop_note = is_broken_stop(feature)
+
+            if all(coords_ok) or (valid and not pseudo):
+                confirmed_feature = True
+            elif not fix_start:
+                fix_start = True
+                continue
+            else:
+                confirmed_feature = True
+                feature = og_feature
+                broken_stop, stop_note = og_broken_stop, stop_note
+                divisible_by_three = og_divisible_by_three
+
+            if confirmed_feature:
+                if ((all(coords_ok) and divisible_by_three) or (valid and not pseudo)) and not broken_stop:
+                    is_pseudo = False
+                else:
+                    is_pseudo = True
+                    feature.qualifiers['pseudo']=['']
+                    if stop_note:
+                        designator.append_qualifier(feature.qualifiers, 'note', stop_note)
+                break
+    else:
+        is_pseudo = False
+    return is_pseudo
 
 def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg, ratt_enforce_thresholds,
     nproc=1,
@@ -1022,17 +1096,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             non_cds_features.append(feature)
             continue
 
-        # Check if the reference annotation was pseudo (some branches of the upcoming conditional use this information)
-        # seqret moves the reference pseudo tags to a note field beginning with *pseudo or *pseudogene
-        # Save the information and drop the note.
-        if 'note' in feature.qualifiers:
-            pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo")]
-            if pseudo_note:
-                feature.qualifiers['note'].remove(pseudo_note[0])
-        ref_was_pseudo = pseudo_note or designator.is_pseudo(feature.qualifiers)
-
         compound_interval = isinstance(feature.location,Bio.SeqFeature.CompoundLocation)
-
         # Identify features with 'joins'
         if compound_interval and 'ribosomal_slippage' not in feature.qualifiers:
             #Need to initialize the feature without the compound location attribute.
@@ -1065,57 +1129,10 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             unbroken_cds.append(feature)
             continue
 
-        shorter_than_ref = len(feature.location) < .95*len(ref_annotation[feature.qualifiers['gene'][0]].location)
-        bigger_than_ref = len(feature.location) > len(ref_annotation[feature.qualifiers['gene'][0]].location)
-        og_broken_stop, og_stop_note = is_broken_stop(feature)
-        og_divisible_by_three = (len(feature.location) % 3) == 0
-        ref_divisible_by_three = (len(ref_annotation[feature.qualifiers['gene'][0]].location) % 3) == 0
-        og_feature = deepcopy(feature)
+        feature_is_pseudo = pseudoscan(feature, ref_temp_fasta_dict, seq_ident, seq_covg)
 
-        if ref_was_pseudo:
-            good_start, good_stop = coord_check(feature)
-            coords_ok = [good_start, good_stop]
-            if (not all(coords_ok)) and (og_divisible_by_three and not ref_divisible_by_three) and not og_broken_stop:
-                feature.qualifiers.pop('pseudo', None)
-                feature.qualifiers.pop('pseudogene', None)
-                unbroken_cds.append(feature)
-            else:
-                if og_stop_note:
-                    designator.append_qualifier(feature.qualifiers, 'note', stop_note)
-                feature.qualifiers['pseudo'] = ['']
-                valid_features.append(feature)
-        elif shorter_than_ref or bigger_than_ref or not og_divisible_by_three:
-            fix_start = fix_stop = False
-            confirmed_feature = False
-            while not confirmed_feature:
-                good_start, good_stop = coord_check(feature, fix_start, fix_stop)
-                coords_ok = [good_start, good_stop]
-                #Re-evaluate divisibility following potential coordinaate correction
-                divisible_by_three = (len(feature.location) % 3) == 0
-                #ref_match with 'thresholds enforced'
-                valid, pseudo, blast_stats, remark = refcheck(feature, seq_ident, seq_covg)
-                broken_stop, stop_note = is_broken_stop(feature)
-
-                if all(coords_ok) or (valid and not pseudo):
-                    confirmed_feature = True
-                elif not all([fix_start, fix_stop]):
-                    fix_start = fix_stop = True
-                    continue
-                else:
-                    confirmed_feature = True
-                    feature = og_feature
-                    broken_stop, stop_note = og_broken_stop, stop_note
-                    divisible_by_three = og_divisible_by_three
-
-                if confirmed_feature:
-                    if ((all(coords_ok) and divisible_by_three) or (valid and not pseudo)) and not broken_stop:
-                        unbroken_cds.append(feature)
-                    else:
-                        feature.qualifiers['pseudo']=['']
-                        if stop_note:
-                            designator.append_qualifier(feature.qualifiers, 'note', stop_note)
-                        valid_features.append(feature)
-                    break
+        if feature_is_pseudo:
+            valid_features.append(feature)
         else:
             unbroken_cds.append(feature)
 
