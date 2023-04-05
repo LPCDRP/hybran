@@ -63,6 +63,16 @@ ref_features = {
             type='CDS',
             qualifiers={'locus_tag':['Rv2180c'],'gene':['Rv2180c']}
         ),
+        'Rv2879c': SeqFeature(
+            FeatureLocation(3189582, 3190152, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv2879c'],'gene':['Rv2879c']}
+        ),
+        'Rv2880c': SeqFeature(
+            FeatureLocation(3189850, 3190678, strand=-1),
+            type='CDS',
+            qualifiers={'locus_tag':['Rv2880c'],'gene':['Rv2880c']}
+        ),
         'PPE34': SeqFeature(
             FeatureLocation(2162931, 2167311, strand=-1),
             type='CDS',
