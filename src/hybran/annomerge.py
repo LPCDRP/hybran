@@ -150,16 +150,14 @@ def load_reference_info(proteome_fasta):
     3. A dict with gene name as keys and locus tags as values
     4. A dict with locus tags as keys and gene name as values
     5. A dict with locus tags as keys and amino acid sequence as values
-    6. A dict with locus tags as keys and path to temporary FASTA (with corresponding amino acid sequence) as values
-    7. A dict with locus tags as keys and amino acid lengths as values
-    8. A dict with locus tags as keys and nucleotide lengths as values
+    6. A dict with locus tags as keys and amino acid lengths as values
+    7. A dict with locus tags as keys and nucleotide lengths as values
     """
     hybran_tmp_dir = config.hybran_tmp_dir
     reference_gene_list = []
     reference_locus_list = []
     reference_locus_gene_dict = {}
     reference_gene_locus_dict = collections.defaultdict(list)
-    ref_temp_fasta_dict = {}
     ref_protein_lengths = {}
 
     ref_fasta_records = SeqIO.parse(proteome_fasta, 'fasta')
@@ -179,18 +177,9 @@ def load_reference_info(proteome_fasta):
         reference_locus_list.append(locus)
         reference_gene_locus_dict[gene].append(locus)
         reference_locus_gene_dict[locus] = gene
-        fp = tempfile.NamedTemporaryFile(suffix='.fasta',
-                                         dir=hybran_tmp_dir,
-                                         delete=False,
-                                         mode='w')
-        ref_temp_fasta_dict[locus] = fp.name
-        header = '>' + locus + '\n'
         seq = str(record.seq)
-        fp.write(header)
-        fp.write(seq)
         ref_protein_lengths[locus] = len(seq)
-    return reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
-           ref_temp_fasta_dict, ref_protein_lengths
+    return reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, ref_protein_lengths
 
 
 def upstream_context(feature_location, source_seq, n=40, circular=True):
@@ -969,14 +958,14 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         corrected_orf_report.append([og_feature, deepcopy(feature)])
     return good_start, good_stop
 
-def pseudoscan(feature, ref_temp_fasta_dict, seq_ident, seq_covg,
+def pseudoscan(feature, seq_ident, seq_covg,
 ):
     ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
-    feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
 
     # Check if the reference annotation was pseudo (some branches of the upcoming conditional use this information)
     # seqret moves the reference pseudo tags to a note field beginning with *pseudo or *pseudogene
     # Save the information and drop the note.
+    pseudo_note = False
     if 'note' in feature.qualifiers:
         pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo")]
         if pseudo_note:
@@ -1011,10 +1000,12 @@ def pseudoscan(feature, ref_temp_fasta_dict, seq_ident, seq_covg,
             coords_ok = [good_start, good_stop]
             #Re-evaluate divisibility following potential coordinaate correction
             divisible_by_three = (len(feature.location) % 3) == 0
+            ref_seq = ref_feature.qualifiers['translation'][0]
+            feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
             #ref_match with 'thresholds enforced'
             valid, pseudo, blast_stats = BLAST.reference_match(
                 query=SeqRecord(feature_seq),
-                subject=ref_temp_fasta_dict[feature.qualifiers['locus_tag'][0]],
+                subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
                 seq_ident=seq_ident,
                 seq_covg=seq_covg,
             )
@@ -1044,7 +1035,7 @@ def pseudoscan(feature, ref_temp_fasta_dict, seq_ident, seq_covg,
         is_pseudo = False
     return is_pseudo
 
-def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg, ratt_enforce_thresholds,
+def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident, seq_covg, ratt_enforce_thresholds,
     nproc=1,
 ):
     """
@@ -1073,14 +1064,15 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
         valid = False
         remark = ''
         blast_stats = {}
+        ref_feature = ref_annotation[cds_feature.qualifiers['gene'][0]]
+        ref_seq = ref_feature.qualifiers['translation'][0]
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
-        cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
         if len(feature_sequence) == 0:
             remark = 'length of AA sequence is 0'
         else:
             ref_match, pseudo, blast_stats = BLAST.reference_match(
                 query=SeqRecord(feature_sequence),
-                subject=ref_temp_fasta_dict[cds_locus_tag],
+                subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
                 seq_ident=ratt_seq_ident,
                 seq_covg=ratt_seq_covg,
             )
@@ -1129,7 +1121,7 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
             unbroken_cds.append(feature)
             continue
 
-        feature_is_pseudo = pseudoscan(feature, ref_temp_fasta_dict, seq_ident, seq_covg)
+        feature_is_pseudo = pseudoscan(feature, seq_ident, seq_covg)
 
         if feature_is_pseudo:
             valid_features.append(feature)
@@ -1623,7 +1615,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     global reference_gene_locus_dict
     global reference_locus_gene_dict
     reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
-        ref_temp_fasta_dict, ref_protein_lengths = load_reference_info(ref_proteins_fasta)
+        ref_protein_lengths = load_reference_info(ref_proteins_fasta)
     if annotation_fp.endswith('/'):
         file_path = annotation_fp + isolate_id + '/'
     else:
@@ -1730,7 +1722,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
         ratt_contig_features, ratt_blast_results, invalid_ratt_features = \
             isolate_valid_ratt_annotations(feature_list=ratt_contig_features,
-                                           ref_temp_fasta_dict=ref_temp_fasta_dict,
                                            reference_locus_list=reference_locus_list,
                                            seq_ident=seq_ident,
                                            seq_covg=seq_covg,
