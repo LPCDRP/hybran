@@ -402,6 +402,40 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     results = annomerge.coord_check(feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]
 
+@pytest.mark.parametrize('feature_type, seq_ident, seq_covg', [
+    ['small_badstop_nofix_pseudo', 95, 95],
+    ['small_badstart_fix_nopseudo', 95, 95],
+    ['small_badstop_nofix_pseudo_frameshift', 95, 95],
+])
+def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
+    ref_genome = defaultdict(lambda :'H37Rv')
+    source_genome = {
+        'small_badstop_nofix_pseudo':'1-0006',
+        'small_badstart_fix_nopseudo':'1-0006',
+        'small_badstop_nofix_pseudo_frameshift':'1-0006',
+    }
+
+    test_features = {
+        'small_badstop_nofix_pseudo': features[source_genome['small_badstop_nofix_pseudo']]['Rv0061c']['ratt'],
+        'small_badstart_fix_nopseudo': features[source_genome['small_badstart_fix_nopseudo']]['galTb']['ratt'],
+        'small_badstop_nofix_pseudo_frameshift':features[source_genome['small_badstop_nofix_pseudo_frameshift']]['Rv1075c']['ratt'],
+    }
+
+    feature = test_features[feature_type]
+    config.hybran_tmp_dir = tmp_path
+    annomerge.ref_annotation = ref_features[ref_genome[feature_type]]
+    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
+    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
+    annomerge.genetic_code = 11
+    annomerge.corrected_orf_report = []
+    expected = {
+        'small_badstop_nofix_pseudo': [True, FeatureLocation(66831, 67032, strand=-1)],
+        'small_badstart_fix_nopseudo': [False, FeatureLocation(712762, 713308, strand=1)],
+        'small_badstop_nofix_pseudo_frameshift': [True, FeatureLocation(1202151, 1203042, strand=-1)],
+    }
+    results = annomerge.pseudoscan(feature, seq_ident, seq_covg)
+    assert [results, feature.location] == expected[feature_type]
+
 def test_populate_gaps():
     intergenic_positions = [
         (1525, 3409, '+'),

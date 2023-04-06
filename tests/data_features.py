@@ -52,6 +52,20 @@ features = {
                 qualifiers={'locus_tag':['L_00010'],'gene':['Rv0007'],'pseudo':[""]}
             ),
         },
+        'galTb': {
+	    'ratt': SeqFeature(
+		FeatureLocation(712798, 713308, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv0619'],'gene':['galTb']}
+	    ),
+	},
+        'Rv0061c': {
+            'ratt': SeqFeature(
+                FeatureLocation(66831, 67032, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv0061c'],'gene':['Rv0061c']}
+            ),
+        },
         'PPE5': {
             'ratt': SeqFeature(
                 FeatureLocation(366754, 373353, strand=-1),
@@ -80,6 +94,13 @@ features = {
                 qualifiers={'locus_tag':['L_00971'],'gene':['Rv0907']}
                 ),
         },
+        'Rv1075c': {
+	    'ratt': SeqFeature(
+		FeatureLocation(1202151, 1203042, strand=-1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv1075c'],'gene':['Rv1075c']}
+	    ),
+	},
         'PPE38': {
             'abinit': SeqFeature(
                 FeatureLocation(2636045, 2637140, strand=-1),
