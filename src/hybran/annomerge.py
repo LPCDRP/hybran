@@ -986,11 +986,11 @@ def pseudoscan(feature, seq_ident, seq_covg,
             feature.qualifiers['note'].remove(pseudo_note[0])
 
     ref_was_pseudo = pseudo_note or designator.is_pseudo(feature.qualifiers)
-    shorter_than_ref = len(feature.location) < .95*len(ref_annotation[feature.qualifiers['gene'][0]].location)
-    bigger_than_ref = len(feature.location) > len(ref_annotation[feature.qualifiers['gene'][0]].location)
+    shorter_than_ref = len(feature.location) < .95*len(ref_feature.location)
+    bigger_than_ref = len(feature.location) > len(ref_feature.location)
     og_broken_stop, og_stop_note = is_broken_stop(feature)
     og_divisible_by_three = (len(feature.location) % 3) == 0
-    ref_divisible_by_three = (len(ref_annotation[feature.qualifiers['gene'][0]].location) % 3) == 0
+    ref_divisible_by_three = (len(ref_feature.location) % 3) == 0
     og_feature = deepcopy(feature)
 
     if ref_was_pseudo:
@@ -1008,9 +1008,10 @@ def pseudoscan(feature, seq_ident, seq_covg,
 
     elif shorter_than_ref or bigger_than_ref or not og_divisible_by_three:
         fix_start = False
+        fix_stop = False
         confirmed_feature = False
         while not confirmed_feature:
-            good_start, good_stop = coord_check(feature, fix_start)
+            good_start, good_stop = coord_check(feature, fix_start, fix_stop)
             coords_ok = [good_start, good_stop]
             #Re-evaluate divisibility following potential coordinaate correction
             divisible_by_three = (len(feature.location) % 3) == 0
@@ -1029,6 +1030,8 @@ def pseudoscan(feature, seq_ident, seq_covg,
                 confirmed_feature = True
             elif not fix_start:
                 fix_start = True
+                if len(feature.location) < len(ref_feature.location):
+                    fix_stop = True
                 continue
             else:
                 confirmed_feature = True
