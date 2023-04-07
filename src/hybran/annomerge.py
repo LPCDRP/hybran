@@ -817,21 +817,35 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
             padding = True
         return found_low, found_high, target, query, alignment, padding, score
 
-    def add_padding(feature):
+    def add_padding(feature, target, query):
         #If we're looking to make corrections, add some context to help the aligner
         pad_feature = deepcopy(feature)
         feature_start = feature.location.start
         feature_end = feature.location.end
-        bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
-        x = bp_diff + ceil(0.05 * bp_diff)
+
+        #The only time padding matters is when the reference overhangs on the left or right side of
+        #the feature. All other scenarios would be where found_low/high = True and extra context is unnecessary.
+        left_ref_overhang = int(target[0][0]) > int(query[0][0])
+        right_ref_overhang = (int(query[-1][1]) == len(feature)) and (int(target[-1][1]) < len(ref_seq))
+        left_pad = right_pad = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
+        if left_ref_overhang:
+            left_pad = int(target[0][0] - query[0][0])
+        if right_ref_overhang:
+            right_pad = len(ref_seq) - int(query[-1][1])
+        right_pad = right_pad + ceil(0.04*right_pad)
+        left_pad = left_pad + ceil(0.04*left_pad)
 
         if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
-            padded_feature_start = max(0, (feature_start - x))
+            if (fix_stop and feature.strand == -1):
+                left_pad = right_pad
+            padded_feature_start = max(0, (feature_start - left_pad))
             if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
                 feature_start = padded_feature_start
 
         if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
-            padded_feature_end = min(len(record_sequence), feature_end + x)
+            if (fix_start and feature.strand == -1):
+                right_pad = left_pad
+            padded_feature_end = min(len(record_sequence), feature_end + right_pad)
             if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
                 feature_end = padded_feature_end
 
@@ -849,7 +863,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
     corrected_feature_end = corrected_feature.location.end
     if padding:
         #Align again after adding padding to the feature sequence if warranted
-        pad_feature = add_padding(feature)
+        pad_feature = add_padding(feature, target, query)
         pad_feature_seq = pad_feature.extract(record_sequence)
 
         pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score = coord_align(ref_seq, pad_feature_seq)
