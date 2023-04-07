@@ -403,22 +403,46 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     assert [results, feature.location] == expected[feature_type]
 
 @pytest.mark.parametrize('feature_type, seq_ident, seq_covg', [
-    ['small_badstop_nofix_pseudo', 95, 95],
+    ['small_badstop_fix_pseudo', 95, 95],
     ['small_badstart_fix_nopseudo', 95, 95],
-    ['small_badstop_nofix_pseudo_frameshift', 95, 95],
+    ['small_badstop_fix_pseudo_frameshift', 95, 95],
+    ['frameshift_alt_stop_pseudo', 95, 95],
+    ['good_start_stop_frameshift_pseudo', 95, 95],
+    ['bad_start_stop_nofix_pseudo', 95, 95],
+    ['fix_stop_valid_broken_stop', 95, 95],
+    ['sensitive_padding_fix_pseudo', 95, 95],
+    ['deletion_in_middle_fix_pseudo', 95, 95],
+    ['fix_start_stop_nonpseudo', 95, 95],
+    ['good_start_stop_fix_pseudo', 95, 95],
 ])
 def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
     source_genome = {
-        'small_badstop_nofix_pseudo':'1-0006',
+        'small_badstop_fix_pseudo':'1-0006',
         'small_badstart_fix_nopseudo':'1-0006',
-        'small_badstop_nofix_pseudo_frameshift':'1-0006',
+        'small_badstop_fix_pseudo_frameshift':'1-0006',
+        'frameshift_alt_stop_pseudo': '1-0006',
+        'good_start_stop_frameshift_pseudo': '1-0006',
+        'bad_start_stop_nofix_pseudo': '1-0006',
+        'fix_stop_valid_broken_stop': '1-0006',
+        'sensitive_padding_fix_pseudo': '1-0006',
+        'deletion_in_middle_fix_pseudo': '1-0006',
+        'fix_start_stop_nonpseudo': '1-0006',
+        'good_start_stop_fix_pseudo': '1-0006',
     }
 
     test_features = {
-        'small_badstop_nofix_pseudo': features[source_genome['small_badstop_nofix_pseudo']]['Rv0061c']['ratt'],
+        'small_badstop_fix_pseudo': features[source_genome['small_badstop_fix_pseudo']]['Rv0061c']['ratt'],
         'small_badstart_fix_nopseudo': features[source_genome['small_badstart_fix_nopseudo']]['galTb']['ratt'],
-        'small_badstop_nofix_pseudo_frameshift':features[source_genome['small_badstop_nofix_pseudo_frameshift']]['Rv1075c']['ratt'],
+        'small_badstop_fix_pseudo_frameshift':features[source_genome['small_badstop_fix_pseudo_frameshift']]['Rv1075c']['ratt'],
+        'frameshift_alt_stop_pseudo': features[source_genome['frameshift_alt_stop_pseudo']]['mce1R']['ratt'],
+        'good_start_stop_frameshift_pseudo': features[source_genome['good_start_stop_frameshift_pseudo']]['PPE6']['ratt'],
+        'bad_start_stop_nofix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
+        'fix_stop_valid_broken_stop': features[source_genome['fix_stop_valid_broken_stop']]['Rv2079']['ratt'],
+        'sensitive_padding_fix_pseudo': features[source_genome['sensitive_padding_fix_pseudo']]['Rv2081c']['ratt'],
+        'deletion_in_middle_fix_pseudo': features[source_genome['deletion_in_middle_fix_pseudo']]['Rv2134c']['ratt'],
+        'fix_start_stop_nonpseudo': features[source_genome['fix_start_stop_nonpseudo']]['Rv2280']['ratt'],
+        'good_start_stop_fix_pseudo': features[source_genome['good_start_stop_fix_pseudo']]['Rv2437']['ratt'],
     }
 
     feature = test_features[feature_type]
@@ -429,9 +453,17 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
     expected = {
-        'small_badstop_nofix_pseudo': [True, FeatureLocation(66831, 67032, strand=-1)],
+        'small_badstop_fix_pseudo': [True, FeatureLocation(66693, 67032, strand=-1)],
         'small_badstart_fix_nopseudo': [False, FeatureLocation(712762, 713308, strand=1)],
-        'small_badstop_nofix_pseudo_frameshift': [True, FeatureLocation(1202151, 1203042, strand=-1)],
+        'small_badstop_fix_pseudo_frameshift': [True, FeatureLocation(1202098, 1203042, strand=-1)],
+        'frameshift_alt_stop_pseudo' : [True, FeatureLocation(192566, 193259, strand=-1)],
+        'good_start_stop_frameshift_pseudo' : [True, FeatureLocation(366753, 376299, strand=-1)],
+        'bad_start_stop_nofix_pseudo': [True, FeatureLocation(1217413, 1217872, strand=1)],
+        'fix_stop_valid_broken_stop': [True, FeatureLocation(2339465, 2341436, strand=1)],
+        'sensitive_padding_fix_pseudo': [True, FeatureLocation(2342175, 2342617, strand=-1)],
+        'deletion_in_middle_fix_pseudo': [True, FeatureLocation(2397532, 2398106, strand=-1)],
+        'fix_start_stop_nonpseudo': [False, FeatureLocation(2552370, 2553750, strand=1)],
+        'good_start_stop_fix_pseudo': [True, FeatureLocation(2735891, 2736310, strand=1)],
     }
     results = annomerge.pseudoscan(feature, seq_ident, seq_covg)
     assert [results, feature.location] == expected[feature_type]

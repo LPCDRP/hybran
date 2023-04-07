@@ -75,7 +75,7 @@ features = {
         },
         'PPE6': {
             'ratt': SeqFeature(
-                FeatureLocation(366754, 376299, strand=-1),
+                FeatureLocation(366753, 376299, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['Rv0305c'],'gene':['PPE6']}
             ),
@@ -99,6 +99,13 @@ features = {
 		FeatureLocation(1202151, 1203042, strand=-1),
 		type='CDS',
 		qualifiers={'locus_tag':['Rv1075c'],'gene':['Rv1075c']}
+	    ),
+	},
+        'PE10': {
+	    'ratt': SeqFeature(
+		FeatureLocation(1217413, 1217872, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv1089'],'gene':['PE10']}
 	    ),
 	},
         'PPE38': {
@@ -127,6 +134,13 @@ features = {
                 qualifiers={'locus_tag':['L_01557'],'gene':['Rv1453']}
                 ),
         },
+        'mce1R': {
+	    'ratt': SeqFeature(
+		FeatureLocation(192566, 193259, strand=-1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv0165c'],'gene':['mce1R']}
+	    ),
+	},
         'Rv1945': {
             'ratt': SeqFeature(
                 FeatureLocation(2186568, 2187933, strand=1),
@@ -148,6 +162,27 @@ features = {
                 qualifiers={'locus_tag':['L_02335'],'gene':['ORF0004']}
                 ),
         },
+        'Rv2079': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2339465, 2341292, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2079'],'gene':['Rv2079']}
+	    ),
+	},
+        'Rv2081c': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2342287, 2342617, strand=-1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2081c'],'gene':['Rv2081c']}
+	    ),
+	},
+        'Rv2134c': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2397623, 2398106, strand=-1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2134c'],'gene':['Rv2134c']}
+	    ),
+	},
         'Rv2180c': {
             'ratt': SeqFeature(
                 FeatureLocation(2444022, 2445033, strand=-1),
@@ -162,6 +197,20 @@ features = {
                 qualifiers={'locus_tag':['Rv1877'],'gene':['Rv1877']}
             )
         },
+        'Rv2280': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2553287, 2553950, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2280'],'gene':['Rv2280']}
+	    ),
+	},
+        'Rv2437': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2735341, 2736310, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2437'],'gene':['Rv2437']}
+	    ),
+	},
         'Rv2879c': {
             'ratt': SeqFeature(
                 FeatureLocation(3182302, 3183397, strand=-1),
