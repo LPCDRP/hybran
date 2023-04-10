@@ -774,10 +774,10 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
 
         #Probability that the continuous interval used to find good start/stops
         #occurs by chance should be = (1/ref_seq*10)
-        x = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
+        interval = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
 
-        found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= x
-        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= x
+        found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
+        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= interval
 
         target_low_seq = ref_seq[target[0][0]:target[0][1]]
         target_high_seq = ref_seq[target[-1][0]:target[-1][1]]
@@ -815,9 +815,9 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
 
         if not found_low or not found_high:
             padding = True
-        return found_low, found_high, target, query, alignment, padding, score
+        return found_low, found_high, target, query, alignment, padding, score, interval
 
-    def add_padding(feature, target, query):
+    def add_padding(feature, target, query, interval):
         #If we're looking to make corrections, add some context to help the aligner
         pad_feature = deepcopy(feature)
         feature_start = feature.location.start
@@ -827,13 +827,14 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         #the feature. All other scenarios would be where found_low/high = True and extra context is unnecessary.
         left_ref_overhang = int(target[0][0]) > int(query[0][0])
         right_ref_overhang = (int(query[-1][1]) == len(feature)) and (int(target[-1][1]) < len(ref_seq))
-        left_pad = right_pad = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
+        left_pad = right_pad = abs(len(ref_seq) - len(og_feature.extract(record_sequence))) + 2*interval
+
         if left_ref_overhang:
             left_pad = int(target[0][0] - query[0][0])
+            left_pad = left_pad + 2*interval
         if right_ref_overhang:
-            right_pad = len(ref_seq) - int(query[-1][1])
-        right_pad = right_pad + ceil(0.04*right_pad)
-        left_pad = left_pad + ceil(0.04*left_pad)
+            right_pad = len(alignment[0]) - int(query[-1][1])
+            right_pad = right_pad + 2*interval
 
         if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
             if (fix_stop and feature.strand == -1):
@@ -857,16 +858,16 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         return pad_feature
 
     #First alignment
-    found_low, found_high, target, query, alignment, padding, first_score = coord_align(ref_seq, feature_seq)
+    found_low, found_high, target, query, alignment, padding, first_score, interval = coord_align(ref_seq, feature_seq)
     corrected_feature = deepcopy(feature)
     corrected_feature_start = corrected_feature.location.start
     corrected_feature_end = corrected_feature.location.end
     if padding:
         #Align again after adding padding to the feature sequence if warranted
-        pad_feature = add_padding(feature, target, query)
+        pad_feature = add_padding(feature, target, query, interval)
         pad_feature_seq = pad_feature.extract(record_sequence)
 
-        pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score = coord_align(ref_seq, pad_feature_seq)
+        pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
     else:
         second_score = -1
         pad_found_high = False
@@ -935,7 +936,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                 strand=feature.strand
             )
             corrected_feature_seq = corrected_feature.extract(record_sequence)
-            cor_low, cor_high, cor_target, cor_query, cor_alignment, cor_padding, third_score = coord_align(ref_seq, corrected_feature_seq)
+            cor_low, cor_high, cor_target, cor_query, cor_alignment, cor_padding, third_score, third_interval = coord_align(ref_seq, corrected_feature_seq)
 
             if (third_score >= first_score):
                 second_score = third_score + 1
