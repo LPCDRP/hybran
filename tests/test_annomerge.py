@@ -414,6 +414,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     ['deletion_in_middle_fix_pseudo', 95, 95],
     ['fix_start_stop_nonpseudo', 95, 95],
     ['good_start_stop_fix_pseudo', 95, 95],
+    ['inframe_deletion_in_middle', 95, 95],
 ])
 def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -429,6 +430,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
         'deletion_in_middle_fix_pseudo': '1-0006',
         'fix_start_stop_nonpseudo': '1-0006',
         'good_start_stop_fix_pseudo': '1-0006',
+        'inframe_deletion_in_middle': '1-0009',
     }
 
     test_features = {
@@ -443,6 +445,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
         'deletion_in_middle_fix_pseudo': features[source_genome['deletion_in_middle_fix_pseudo']]['Rv2134c']['ratt'],
         'fix_start_stop_nonpseudo': features[source_genome['fix_start_stop_nonpseudo']]['Rv2280']['ratt'],
         'good_start_stop_fix_pseudo': features[source_genome['good_start_stop_fix_pseudo']]['Rv2437']['ratt'],
+        'inframe_deletion_in_middle': features[source_genome['inframe_deletion_in_middle']]['PPE54']['ratt'],
     }
 
     feature = test_features[feature_type]
@@ -464,6 +467,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
         'deletion_in_middle_fix_pseudo': [True, FeatureLocation(2397532, 2398106, strand=-1)],
         'fix_start_stop_nonpseudo': [False, FeatureLocation(2552370, 2553750, strand=1)],
         'good_start_stop_fix_pseudo': [True, FeatureLocation(2735891, 2736310, strand=1)],
+        'inframe_deletion_in_middle': [False, FeatureLocation(3730264, 3741334, strand=-1)],
     }
     results = annomerge.pseudoscan(feature, seq_ident, seq_covg)
     assert [results, feature.location] == expected[feature_type]

@@ -262,6 +262,15 @@ features = {
             )
         },
     },
+    '1-0009': {
+        'PPE54': {
+            'ratt': SeqFeature(
+                FeatureLocation(3730264, 3741334, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['PPE54'],'gene':['PPE54']}
+            )
+        },
+    },
     '1-0047': {
         'PE_PGRS54': {
             'abinit': SeqFeature(
