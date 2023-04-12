@@ -765,16 +765,41 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
     og_feature_end = int(og_feature.location.end)
 
     def coord_align(ref_seq, feature_seq):
+        #Probability that the continuous interval used to find good start/stops
+        #occurs by chance should be = (1/ref_seq*10)
+        interval = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
+
         aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
-        alignment = aligner.align(ref_seq, feature_seq)[0]
+        alignment_list = []
+        for i in range(4, -1, -1):
+            try:
+                alignment = aligner.align(ref_seq, feature_seq)[i]
+                len_list = i
+                break
+            except:
+                continue
+        if len_list > 1 and any([fix_start, fix_stop]):
+            for i in range(len_list):
+                alignment = aligner.align(ref_seq, feature_seq)[i]
+                target = alignment.aligned[0]
+                query = alignment.aligned[1]
+                score = alignment.score
+                found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
+                found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= interval
+                alignment_list.append([i, len(target), len(query), found_low, found_high])
+
+            max_found = max(map(lambda x: [x[3],x[4]], alignment_list))
+            alignment_list = [i for i in alignment_list if sum([i[3], i[4]]) == sum(max_found)]
+            min_breaks = min(map(lambda x: [x[1],x[2]], alignment_list))
+            alignment_list = [i for i in alignment_list if sum([i[1], i[2]]) == sum(min_breaks)]
+            alignment = aligner.align(ref_seq, feature_seq)[alignment_list[0][0]]
+        else:
+            alignment = aligner.align(ref_seq, feature_seq)[0]
+
         target = alignment.aligned[0]
         query = alignment.aligned[1]
         score = alignment.score
         padding = False
-
-        #Probability that the continuous interval used to find good start/stops
-        #occurs by chance should be = (1/ref_seq*10)
-        interval = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
 
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
         found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= interval
