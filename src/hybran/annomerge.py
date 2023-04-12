@@ -893,6 +893,10 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         pad_feature_seq = pad_feature.extract(record_sequence)
 
         pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
+        if found_low:
+            pad_found_low = False
+        if found_high:
+            pad_found_high = False
     else:
         second_score = -1
         pad_found_high = False

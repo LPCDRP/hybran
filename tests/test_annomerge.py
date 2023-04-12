@@ -461,7 +461,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
         'small_badstop_fix_pseudo_frameshift': [True, FeatureLocation(1202098, 1203042, strand=-1)],
         'frameshift_alt_stop_pseudo' : [True, FeatureLocation(192566, 193259, strand=-1)],
         'good_start_stop_frameshift_pseudo' : [True, FeatureLocation(366753, 376299, strand=-1)],
-        'bad_start_stop_nofix_pseudo': [True, FeatureLocation(1217413, 1217872, strand=1)],
+        'bad_start_stop_nofix_pseudo': [True, FeatureLocation(1217428, 1217872, strand=1)],
         'fix_stop_valid_broken_stop': [True, FeatureLocation(2339465, 2341436, strand=1)],
         'sensitive_padding_fix_pseudo': [True, FeatureLocation(2342175, 2342617, strand=-1)],
         'deletion_in_middle_fix_pseudo': [True, FeatureLocation(2397532, 2398106, strand=-1)],
