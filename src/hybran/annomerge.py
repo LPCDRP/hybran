@@ -1016,14 +1016,13 @@ def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
 
     ref_was_pseudo = pseudo_note or designator.is_pseudo(feature.qualifiers)
     og_broken_stop, og_stop_note = is_broken_stop(feature)
-    og_divisible_by_three = (len(feature.location) % 3) == 0
-    ref_divisible_by_three = (len(ref_feature.location) % 3) == 0
+    divisible_by_three = lambda  _: len(_.location) % 3 == 0
     og_feature = deepcopy(feature)
 
     if ref_was_pseudo:
         good_start, good_stop = coord_check(feature)
         coords_ok = [good_start, good_stop]
-        if (not all(coords_ok)) and (og_divisible_by_three and not ref_divisible_by_three) and not og_broken_stop:
+        if (not all(coords_ok)) and (divisible_by_three(og_feature) and not divisible_by_three(ref_feature)) and not og_broken_stop:
             feature.qualifiers.pop('pseudo', None)
             feature.qualifiers.pop('pseudogene', None)
             is_pseudo = False
@@ -1041,8 +1040,6 @@ def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
         while not confirmed_feature:
             good_start, good_stop = coord_check(feature, fix_start, fix_stop)
             coords_ok = [good_start, good_stop]
-            #Re-evaluate divisibility following potential coordinaate correction
-            divisible_by_three = (len(feature.location) % 3) == 0
             ref_seq = translate(ref_feature.extract(ref_sequence), table=genetic_code, to_stop=True)
             feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
             #ref_match with 'thresholds enforced'
@@ -1078,12 +1075,11 @@ def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
                     feature.location = og_feature.location
                     feature.qualifiers = og_feature.qualifiers
                     broken_stop, stop_note = og_broken_stop, stop_note
-                    divisible_by_three = og_divisible_by_three
                 confirmed_feature = True
 
 
             if confirmed_feature:
-                if ((all(coords_ok) and divisible_by_three) or blast_ok) and not broken_stop:
+                if ((all(coords_ok) and divisible_by_three(feature)) or blast_ok) and not broken_stop:
                     is_pseudo = False
                 else:
                     is_pseudo = True
