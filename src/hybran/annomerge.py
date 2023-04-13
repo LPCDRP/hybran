@@ -1002,10 +1002,9 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         corrected_orf_report.append([og_feature, deepcopy(feature)])
     return good_start, good_stop
 
-def pseudoscan(feature, seq_ident, seq_covg,
+def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
 ):
     ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
-
     # Check if the reference annotation was pseudo (some branches of the upcoming conditional use this information)
     # seqret moves the reference pseudo tags to a note field beginning with *pseudo or *pseudogene
     # Save the information and drop the note.
@@ -1045,10 +1044,10 @@ def pseudoscan(feature, seq_ident, seq_covg,
             coords_ok = [good_start, good_stop]
             #Re-evaluate divisibility following potential coordinaate correction
             divisible_by_three = (len(feature.location) % 3) == 0
-            ref_seq = ref_feature.qualifiers['translation'][0]
+            ref_seq = translate(ref_feature.extract(ref_sequence), table=genetic_code, to_stop=True)
             feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
             #ref_match with 'thresholds enforced'
-            valid, pseudo, blast_stats = BLAST.reference_match(
+            top_hit, low_covg, blast_stats = BLAST.reference_match(
                 query=SeqRecord(feature_seq),
                 subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
                 seq_ident=seq_ident,
@@ -1056,9 +1055,9 @@ def pseudoscan(feature, seq_ident, seq_covg,
             )
             broken_stop, stop_note = is_broken_stop(feature)
 
-            if all(coords_ok) or (valid and not pseudo):
+            if all(coords_ok) or (top_hit and not low_covg):
                 confirmed_feature = True
-            elif not fix_start:
+            elif attempt_rescue and not fix_start:
                 fix_start = True
                 if len(feature.location) < len(ref_feature.location):
                     fix_stop = True
@@ -1070,7 +1069,7 @@ def pseudoscan(feature, seq_ident, seq_covg,
                 divisible_by_three = og_divisible_by_three
 
             if confirmed_feature:
-                if ((all(coords_ok) and divisible_by_three) or (valid and not pseudo)) and not broken_stop:
+                if ((all(coords_ok) and divisible_by_three) or (top_hit and not low_covg)) and not broken_stop:
                     is_pseudo = False
                 else:
                     is_pseudo = True
@@ -1168,7 +1167,7 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
             unbroken_cds.append(feature)
             continue
 
-        feature_is_pseudo = pseudoscan(feature, seq_ident, seq_covg)
+        feature_is_pseudo = pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=True)
 
         if feature_is_pseudo:
             valid_features.append(feature)
