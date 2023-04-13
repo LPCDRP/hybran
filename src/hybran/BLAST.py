@@ -39,7 +39,7 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
         blast_type,
     )
     result = None
-    pseudo = False
+    low_covg = False
     hit_dict = None
     # this will be replaced by actual hits later if there are any
     hit_dict = summarize(misses, identify=identify)
@@ -56,12 +56,15 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
         # Low subject coverage but passing query coverage means that the gene
         # is truncated in this sample. Tag it pseudo.
         # TODO - consider setting this to 80% instead of seq_covg
-        if stats['scov'] < seq_covg:
-            pseudo = True
+        scov_pass = stats['scov'] >= seq_covg
+        qcov_pass = stats['qcov'] >= seq_covg
+        ident_pass = stats['iden'] >= seq_ident
+        if ident_pass and any([scov_pass, qcov_pass]) and not all([scov_pass, qcov_pass]):
+            low_covg = True
         # if we found a proper hit, don't look for anything else
         break
 
-    return result, pseudo, hit_dict
+    return result, low_covg, hit_dict
 
 def top_hit(blast_summary, metric='iden'):
     """
