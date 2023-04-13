@@ -1015,8 +1015,6 @@ def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
             feature.qualifiers['note'].remove(pseudo_note[0])
 
     ref_was_pseudo = pseudo_note or designator.is_pseudo(feature.qualifiers)
-    shorter_than_ref = len(feature.location) < .95*len(ref_feature.location)
-    bigger_than_ref = len(feature.location) > len(ref_feature.location)
     og_broken_stop, og_stop_note = is_broken_stop(feature)
     og_divisible_by_three = (len(feature.location) % 3) == 0
     ref_divisible_by_three = (len(ref_feature.location) % 3) == 0
@@ -1035,10 +1033,11 @@ def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
             is_pseudo = True
             feature.qualifiers['pseudo'] = ['']
 
-    elif shorter_than_ref or bigger_than_ref or not og_divisible_by_three:
+    else:
         fix_start = False
         fix_stop = False
         confirmed_feature = False
+        og_blast_defined = False
         while not confirmed_feature:
             good_start, good_stop = coord_check(feature, fix_start, fix_stop)
             coords_ok = [good_start, good_stop]
@@ -1053,24 +1052,38 @@ def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
                 seq_ident=seq_ident,
                 seq_covg=seq_covg,
             )
+            blast_ok = top_hit and not low_covg
+            if og_blast_defined:
+                lost_match = (og_blast_ok and not blast_ok)
+
             broken_stop, stop_note = is_broken_stop(feature)
 
-            if all(coords_ok) or (top_hit and not low_covg):
-                confirmed_feature = True
-            elif attempt_rescue and not fix_start:
-                fix_start = True
-                if len(feature.location) < len(ref_feature.location):
-                    fix_stop = True
-                continue
+            if not og_blast_defined:
+                if all(coords_ok):
+                    confirmed_feature = True
+                elif attempt_rescue:
+                    fix_start = True
+                    # If a gene has lost its stop codon and extended (gene longer than reference),
+                    # it will have a "bad_stop" but we will want to keep that bad stop in order to
+                    # capture as much information as we can (how far along the gene extended).
+                    # However, if it has an early stop (gene is shorter than reference), we want to find out
+                    # where it was "supposed" to stop (according to reference) and set the stop position there
+                    # to capture as much information as we can.
+                    if len(feature.location) < len(ref_feature.location):
+                        fix_stop = True
             else:
+                # Revert coordinate correction if the blastp hit is lost.
+                # (usually due to the reference-corresponding start being affected by an early frameshift)
+                if lost_match:
+                    feature.location = og_feature.location
+                    feature.qualifiers = og_feature.qualifiers
+                    broken_stop, stop_note = og_broken_stop, stop_note
+                    divisible_by_three = og_divisible_by_three
                 confirmed_feature = True
-                feature.location = og_feature.location
-                feature.qualifiers = og_feature.qualifiers
-                broken_stop, stop_note = og_broken_stop, stop_note
-                divisible_by_three = og_divisible_by_three
+
 
             if confirmed_feature:
-                if ((all(coords_ok) and divisible_by_three) or (top_hit and not low_covg)) and not broken_stop:
+                if ((all(coords_ok) and divisible_by_three) or blast_ok) and not broken_stop:
                     is_pseudo = False
                 else:
                     is_pseudo = True
@@ -1078,8 +1091,10 @@ def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
                     if stop_note:
                         designator.append_qualifier(feature.qualifiers, 'note', stop_note)
                 break
-    else:
-        is_pseudo = False
+            else:
+                og_blast_ok = blast_ok
+                og_blast_defined = True
+
     return is_pseudo
 
 def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident, seq_covg, ratt_enforce_thresholds,

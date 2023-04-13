@@ -423,6 +423,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     ['fix_start_stop_nonpseudo', 95, 95, True],
     ['good_start_stop_fix_pseudo', 95, 95, True],
     ['inframe_deletion_in_middle', 95, 95, True],
+    ['good_blast_still_repairable', 95, 95, True],
 ])
 def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -439,6 +440,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'fix_start_stop_nonpseudo': '1-0006',
         'good_start_stop_fix_pseudo': '1-0006',
         'inframe_deletion_in_middle': '1-0009',
+        'good_blast_still_repairable': '1-0006',
     }
 
     test_features = {
@@ -454,6 +456,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'fix_start_stop_nonpseudo': features[source_genome['fix_start_stop_nonpseudo']]['Rv2280']['ratt'],
         'good_start_stop_fix_pseudo': features[source_genome['good_start_stop_fix_pseudo']]['Rv2437']['ratt'],
         'inframe_deletion_in_middle': features[source_genome['inframe_deletion_in_middle']]['PPE54']['ratt'],
+        'good_blast_still_repairable': features[source_genome['good_blast_still_repairable']]['dnaA']['abinit'],
     }
 
     feature = test_features[feature_type]
@@ -476,6 +479,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'fix_start_stop_nonpseudo': [False, FeatureLocation(2552370, 2553750, strand=1)],
         'good_start_stop_fix_pseudo': [True, FeatureLocation(2735891, 2736310, strand=1)],
         'inframe_deletion_in_middle': [False, FeatureLocation(3730264, 3741334, strand=-1)],
+        'good_blast_still_repairable': [False, FeatureLocation(0, 1524, strand=1)],
     }
     results = annomerge.pseudoscan(feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]
