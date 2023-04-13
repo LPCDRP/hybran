@@ -1894,59 +1894,40 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             n_coords_corrected = 0
             n_bad_starts = 0
             for j in range(len(prokka_contig_cdss)):
-                ref_gene, pseudo, blast_hits = blast_package[j]
+                ref_gene, low_covg, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
+
                 if ref_gene:
-                    og_feature_location = deepcopy(feature.location)
-                    og_pseudo = pseudo
-                    og_blast_hits = blast_hits
-                    match_type = 'AA'
                     feature.qualifiers['gene'] = [ref_gene]
-                    good_start = coord_check(feature, fix_start=True)[0]
-                    if good_start and (og_feature_location != feature.location):
+                    og_feature_location = deepcopy(feature.location)
+                    feature_is_pseudo = pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=True)
+
+                    if (og_feature_location != feature.location):
                         n_coords_corrected += 1
-                        # re-do the blast with the updated gene coordinates.
-                        # ref_gene should not change (since coordinates were fixed to match it better),
-                        # but pseudo may change and blast_hits will change.
-                        top_hit, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
+
+                        # re-do the blast with the updated gene coordinates to get up-to-date blast stats.
+                        # ref_gene should not change (since coordinates were fixed to match it better), but if it does, we'll ignore it and just emit a warning since it's likely spurious.
+                        top_hit, low_covg, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
+                        if top_hit != ref_gene:
+                            logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}.")
 
                         # for logging purposes
-                        if og_pseudo:
+                        if feature_is_pseudo:
                             corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-                        if ((top_hit == ref_gene) and pseudo) or (top_hit != ref_gene):
                             corrected_orf_report[-1][1].qualifiers['pseudo'] = ['']
+                        else:
+                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
 
-                        if top_hit != ref_gene:
-                            top_hit = reference_locus_gene_dict.get(
-                                refmatch(SeqRecord(Seq(feature.extract(record_sequence))),
-                                         subject=ref_fna_dict[reference_gene_locus_dict[ref_gene][0]],
-                                         identify=lambda _:_,
-                                         blast_type="n",
-                                )[0]
-                            )
-                            if top_hit != ref_gene:
-                                logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}. Rejecting {str(og_feature_location)} -> {str(feature.location)} coordinate correction.")
-                                n_coords_corrected -= 1
-                                feature.location = og_feature_location
-                                blast_hits = og_blast_hits
-                                pseudo = og_pseudo
-                            else:
-                                match_type = 'nucleotide'
-                                pseudo = True
-                    elif not good_start:
-                        n_bad_starts += 1
-                        logger.debug(f"Failed to correct start for {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}")
-                        pseudo = True
                     liftover_annotation(
                         feature,
                         ref_annotation[ref_gene],
-                        pseudo,
+                        feature_is_pseudo,
                         inference=':'.join([
-                            f"similar to {match_type} sequence",
+                            f"similar to AA sequence",
                             os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
                             ref_annotation[ref_gene].qualifiers['locus_tag'][0],
                             ref_gene,
-                            "blast",
+                            "blastp",
                         ])
                     )
                     abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
@@ -1963,8 +1944,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
 
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
-            logger.debug(f'{seqname}: Corrected start positions for {n_coords_corrected} ab initio ORFs')
-            logger.debug(f'{seqname}: Start positions for {n_bad_starts} ab initio ORFs could not be corrected')
+            logger.debug(f'{seqname}: Corrected coordinates for {n_coords_corrected} ab initio ORFs')
 
 
             # Check for in-frame conflicts/duplicates again since the ab initio gene coordinates changed
