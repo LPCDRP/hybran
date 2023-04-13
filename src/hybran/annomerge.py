@@ -1064,7 +1064,8 @@ def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
                 continue
             else:
                 confirmed_feature = True
-                feature = og_feature
+                feature.location = og_feature.location
+                feature.qualifiers = og_feature.qualifiers
                 broken_stop, stop_note = og_broken_stop, stop_note
                 divisible_by_three = og_divisible_by_three
 
