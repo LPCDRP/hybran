@@ -342,7 +342,9 @@ def test_liftover_annotation():
     ['ratt_pseudo_pgrs', True, True],
     ['same_start_alt_stop_1', False, False],
     ['same_start_alt_stop_2', False, False],
-    ['same_start_alt_stop_2_fix', True, True]
+    ['same_start_alt_stop_2_fix', True, True],
+    ['bad_start_stop_nofix_pseudo', False, False],
+    ['bad_start_stop_fix_pseudo', True, False],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 def test_coord_check(feature_type, fix_start, fix_stop):
@@ -360,6 +362,8 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'same_start_alt_stop_1':'1-0006',
         'same_start_alt_stop_2':'1-0006',
         'same_start_alt_stop_2_fix':'1-0006',
+        'bad_start_stop_nofix_pseudo':'1-0006',
+        'bad_start_stop_fix_pseudo':'1-0006',
     }
     ref_genome = defaultdict(lambda :'H37Rv')
 
@@ -376,6 +380,8 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'same_start_alt_stop_1': features[source_genome['same_start_alt_stop_1']]['Rv2879c']['ratt'],
         'same_start_alt_stop_2': features[source_genome['same_start_alt_stop_2']]['Rv2880c']['ratt'],
         'same_start_alt_stop_2_fix': features[source_genome['same_start_alt_stop_2']]['Rv2880c']['ratt'],
+        'bad_start_stop_nofix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
+        'bad_start_stop_fix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
     }
 
     feature = test_features[feature_type]
@@ -398,25 +404,27 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'same_start_alt_stop_1':[(False, True), FeatureLocation(3182302, 3183397, strand=-1)],
         'same_start_alt_stop_2':[(True, False), FeatureLocation(3182302, 3183397, strand=-1)],
         'same_start_alt_stop_2_fix':[(True, True), FeatureLocation(3182570, 3183397, strand=-1)],
+        'bad_start_stop_nofix_pseudo': [(False, False), FeatureLocation(1217413, 1217872, strand=1)],
+        'bad_start_stop_fix_pseudo': [(True, False), FeatureLocation(1217428, 1217872, strand=1)],
     }
     results = annomerge.coord_check(feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]
 
-@pytest.mark.parametrize('feature_type, seq_ident, seq_covg', [
-    ['small_badstop_fix_pseudo', 95, 95],
-    ['small_badstart_fix_nopseudo', 95, 95],
-    ['small_badstop_fix_pseudo_frameshift', 95, 95],
-    ['frameshift_alt_stop_pseudo', 95, 95],
-    ['good_start_stop_frameshift_pseudo', 95, 95],
-    ['bad_start_stop_nofix_pseudo', 95, 95],
-    ['fix_stop_valid_broken_stop', 95, 95],
-    ['sensitive_padding_fix_pseudo', 95, 95],
-    ['deletion_in_middle_fix_pseudo', 95, 95],
-    ['fix_start_stop_nonpseudo', 95, 95],
-    ['good_start_stop_fix_pseudo', 95, 95],
-    ['inframe_deletion_in_middle', 95, 95],
+@pytest.mark.parametrize('feature_type, seq_ident, seq_covg, attempt_rescue', [
+    ['small_badstop_fix_pseudo', 95, 95, True],
+    ['small_badstart_fix_nopseudo', 95, 95, True],
+    ['small_badstop_fix_pseudo_frameshift', 95, 95, True],
+    ['frameshift_alt_stop_pseudo', 95, 95, True],
+    ['good_start_stop_frameshift_pseudo', 95, 95, True],
+    ['bad_start_stop_nofix_pseudo', 95, 95, True],
+    ['fix_stop_valid_broken_stop', 95, 95, True],
+    ['sensitive_padding_fix_pseudo', 95, 95, True],
+    ['deletion_in_middle_fix_pseudo', 95, 95, True],
+    ['fix_start_stop_nonpseudo', 95, 95, True],
+    ['good_start_stop_fix_pseudo', 95, 95, True],
+    ['inframe_deletion_in_middle', 95, 95, True],
 ])
-def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
+def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
     source_genome = {
         'small_badstop_fix_pseudo':'1-0006',
@@ -469,7 +477,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, tmp_path):
         'good_start_stop_fix_pseudo': [True, FeatureLocation(2735891, 2736310, strand=1)],
         'inframe_deletion_in_middle': [False, FeatureLocation(3730264, 3741334, strand=-1)],
     }
-    results = annomerge.pseudoscan(feature, seq_ident, seq_covg)
+    results = annomerge.pseudoscan(feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]
 
 def test_populate_gaps():
