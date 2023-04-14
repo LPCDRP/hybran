@@ -1002,7 +1002,7 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         corrected_orf_report.append([og_feature, deepcopy(feature)])
     return good_start, good_stop
 
-def pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=False
+def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False
 ):
     ref_feature = ref_annotation[feature.qualifiers['gene'][0]]
     # Check if the reference annotation was pseudo (some branches of the upcoming conditional use this information)
@@ -1179,7 +1179,13 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
             unbroken_cds.append(feature)
             continue
 
-        feature_is_pseudo = pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=True)
+        feature_is_pseudo = pseudoscan(
+            feature,
+            ref_annotation[feature.qualifiers['gene'][0]],
+            seq_ident,
+            seq_covg,
+            attempt_rescue=True
+        )
 
         if feature_is_pseudo:
             valid_features.append(feature)
@@ -1912,7 +1918,13 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 if ref_gene:
                     feature.qualifiers['gene'] = [ref_gene]
                     og_feature_location = deepcopy(feature.location)
-                    feature_is_pseudo = pseudoscan(feature, seq_ident, seq_covg, attempt_rescue=True)
+                    feature_is_pseudo = pseudoscan(
+                        feature,
+                        ref_annotation[ref_gene],
+                        seq_ident,
+                        seq_covg,
+                        attempt_rescue=True
+                    )
 
                     if (og_feature_location != feature.location):
                         n_coords_corrected += 1
@@ -2033,20 +2045,39 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                                 Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
                                 id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0],
                             )
-                        ref_gene, pseudo = BLAST.reference_match(
+                        ref_gene = BLAST.reference_match(
                             query=query,
                             subject=subject,
                             blast_type=blast_type,
                             seq_ident=seq_ident,
                             seq_covg=seq_covg,
-                        )[0:2]
+                        )[0]
                         if ref_gene:
                             # reference_match's pseudo determination may not be accurate since we are here
                             # comparing annotations on the same genome, so
                             # a full-length match to an already truncated gene should not be considered
                             # a complete reference match
-                            if designator.is_pseudo(ratt_feature.qualifiers):
-                                pseudo = True
+                            og_feature_location = deepcopy(feature.location)
+                            pseudo = pseudoscan(
+                                feature,
+                                ref_feature=ratt_feature,
+                                seq_ident=seq_ident,
+                                seq_covg=seq_covg,
+                                attempt_rescue=True,
+                            )
+                            if (og_feature_location != feature.location):
+                                abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
+                                    BLAST.reference_match(
+                                        query=query,
+                                        subject=ref_annotation[ref_gene],
+                                        blast_type='p',
+                                        seq_ident=seq_ident,
+                                        seq_covg=seq_covg,
+                                    )[2]
+                            else:
+                                abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
+                                    abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
+
                             liftover_annotation(
                                 abinit_feature,
                                 ref_annotation[ref_gene],
@@ -2059,8 +2090,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                                     "RATT+blastp",
                                 ])
                             )
-                            abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
-                                abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
                     include_abinit, include_ratt, remark = check_inclusion_criteria(
                         ratt_annotation=ratt_feature,
                         abinit_annotation=abinit_feature,
