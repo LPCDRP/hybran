@@ -1000,7 +1000,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         corrected_orf_report.append([og_feature, deepcopy(feature)])
     return good_start, good_stop
 
-def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False,
+def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, blast_hit_dict=None
 ):
     """
     Determine whether a feature should have the /pseudo qualifier.
@@ -1010,6 +1010,9 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False,
     :param seq_ident:
     :param seq_covg:
     :param attempt_rescue: Boolean whether to attempt coordinate correction (feature may still be pseudo after correction)
+    :param blast_hit_dict:
+        dictionary of blast scores for the reference comparison.
+        This will be updated if the coordinates are corrected.
     """
     # Check if the reference annotation was pseudo (some branches of the upcoming conditional use this information)
     # seqret moves the reference pseudo tags to a note field beginning with *pseudo or *pseudogene
@@ -1080,10 +1083,13 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False,
                     feature.location = og_feature.location
                     feature.qualifiers = og_feature.qualifiers
                     broken_stop, stop_note = og_broken_stop, stop_note
+                    blast_stats = og_blast_stats
                 confirmed_feature = True
 
 
             if confirmed_feature:
+                if blast_hit_dict:
+                    blast_hit_dict.update(blast_stats[ref_feature.qualifiers['gene'][0]])
                 if ((all(coords_ok) and divisible_by_three(feature)) or blast_ok) and not broken_stop:
                     is_pseudo = False
                 else:
@@ -1093,7 +1099,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False,
                         designator.append_qualifier(feature.qualifiers, 'note', stop_note)
                 break
             else:
-                og_blast_ok = blast_ok
+                og_blast_ok, og_blast_stats = (blast_ok, blast_stats)
                 og_blast_defined = True
 
     return is_pseudo
@@ -1940,12 +1946,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     if (og_feature_location != feature.location):
                         n_coords_corrected += 1
 
-                        # re-do the blast with the updated gene coordinates to get up-to-date blast stats.
-                        # ref_gene should not change (since coordinates were fixed to match it better), but if it does, we'll ignore it and just emit a warning since it's likely spurious.
-                        top_hit, low_covg, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
-                        if top_hit != ref_gene:
-                            logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}.")
-
                         # for logging purposes
                         if feature_is_pseudo:
                             corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
@@ -2068,26 +2068,16 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                             # comparing annotations on the same genome, so
                             # a full-length match to an already truncated gene should not be considered
                             # a complete reference match
-                            og_feature_location = deepcopy(feature.location)
+                            abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
+                                abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
                             pseudo = pseudoscan(
                                 feature,
                                 ref_feature=ref_annotation[ref_gene],
                                 seq_ident=seq_ident,
                                 seq_covg=seq_covg,
                                 attempt_rescue=True,
+                                blast_hit_dict=abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]]
                             )
-                            if (og_feature_location != feature.location):
-                                abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
-                                    BLAST.reference_match(
-                                        query=query,
-                                        subject=ref_annotation[ref_gene],
-                                        blast_type='p',
-                                        seq_ident=seq_ident,
-                                        seq_covg=seq_covg,
-                                    )[2]
-                            else:
-                                abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
-                                    abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
 
                             liftover_annotation(
                                 abinit_feature,
