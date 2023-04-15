@@ -722,7 +722,7 @@ def add_gene_names_to_gbk(generics, gbk_dir):
             SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 
-def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_ident, seq_covg):
+def parseClustersUpdateGBKs(target_gffs, genome_seqs, clusters, genomes_to_annotate, seq_ident, seq_covg):
     """
     Executes all functions to parse the clustering file and update
     all Genbanks
@@ -734,6 +734,7 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     logger = logging.getLogger('ParseClusters')
     hybran_tmp_dir = config.hybran_tmp_dir
     global isolate_update_dictionary, isolate_sequences
+    global genome_seqs
     isolate_update_dictionary = {}
     logger.debug('Retrieving unique protein sequences from GFFs')
     # Run CD-HIT on cdss_protein-all.fasta as part of calling ref_seqs
