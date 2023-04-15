@@ -385,7 +385,9 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     }
 
     feature = test_features[feature_type]
-    annomerge.ref_annotation = ref_features[ref_genome[feature_type]]
+    ref_feature = ref_features[ref_genome[feature_type]][
+        test_features[feature_type].qualifiers['gene'][0]
+    ]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.genetic_code = 11
@@ -407,7 +409,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_start_stop_nofix_pseudo': [(False, False), FeatureLocation(1217413, 1217872, strand=1)],
         'bad_start_stop_fix_pseudo': [(True, False), FeatureLocation(1217428, 1217872, strand=1)],
     }
-    results = annomerge.coord_check(feature, fix_start=fix_start, fix_stop=fix_stop)
+    results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]
 
 @pytest.mark.parametrize('feature_type, seq_ident, seq_covg, attempt_rescue', [
@@ -461,7 +463,9 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
 
     feature = test_features[feature_type]
     config.hybran_tmp_dir = tmp_path
-    annomerge.ref_annotation = ref_features[ref_genome[feature_type]]
+    ref_feature = ref_features[ref_genome[feature_type]][
+        test_features[feature_type].qualifiers['gene'][0]
+    ]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.genetic_code = 11
@@ -481,7 +485,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'inframe_deletion_in_middle': [False, FeatureLocation(3730264, 3741334, strand=-1)],
         'good_blast_still_repairable': [False, FeatureLocation(0, 1524, strand=1)],
     }
-    results = annomerge.pseudoscan(feature, seq_ident, seq_covg, attempt_rescue)
+    results = annomerge.pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]
 
 def test_populate_gaps():
