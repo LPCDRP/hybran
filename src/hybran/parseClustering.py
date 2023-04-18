@@ -4,9 +4,11 @@ import re
 import tempfile
 import subprocess
 import logging
+
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+from Bio.SeqFeature import FeatureLocation, SeqFeature
 from collections import OrderedDict
 
 from . import BLAST
@@ -54,6 +56,9 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                             gene = ''
                             column = line.rstrip('\n').split('\t')
                             if len(column) >= 8:
+                                start = int(column[3]) - 1
+                                end = int(column[4])
+                                strand = 1 if column[6]=='+' else -1
                                 info = column[8].split(';')
                                 gene_id = ''.join([i.split('=')[1] for i in info if i.startswith('ID=')])
                                 locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('locus_tag=')])
@@ -63,6 +68,14 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                                 if not designator.is_reference(locus_tag) and not designator.is_raw_ltag(locus_tag):
                                     gene = locus_tag
                                 isolate_id_ltag[gene_id] = (locus_tag, gene)
+                                # Creating a barebones SeqFeature for pseudoscan.
+                                isolate_id_ltag[locus_tag] = SeqFeature(
+                                    FeatureLocation(start, end, strand),
+                                    qualifiers = {
+                                        'locus_tag': [locus_tag],
+                                        'gene': [gene],
+                                    },
+                                )
                         if not isolate_id in gff_dictionary.keys():
                             gff_dictionary[isolate_id] = isolate_id_ltag
                         # this is the case if the reference genome itself is being processed as a sample,
@@ -87,6 +100,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
 
     ##################################################################################################################
 
+    global gffs
     gffs = gff_dict(annotations)
     representative_fasta_list = []
     gene_cluster = OrderedDict()
@@ -184,7 +198,6 @@ def check_matches_to_known_genes(
     best_subcriticals = []
     query_gene_closest_refs = []
     assign_new_generic = True
-    pseudo = False
 
     if os.stat(generic_seqs).st_size:
         refs = [reference_seqs, generic_seqs]
@@ -192,7 +205,7 @@ def check_matches_to_known_genes(
         refs = [reference_seqs]
 
     for ref in refs:
-        top_hit, pseudo, blast_stats = BLAST.reference_match(
+        top_hit, low_covg, blast_stats = BLAST.reference_match(
             query = query_seq,
             subject = ref,
             seq_ident = seq_ident,
@@ -222,7 +235,7 @@ def check_matches_to_known_genes(
             query_gene_closest_refs = ['\t'.join([cluster_type, orf_id, hit])
                                        for hit in best_subcriticals]
 
-    return name_to_assign, pseudo, query_gene_closest_refs, orf_increment
+    return name_to_assign, query_gene_closest_refs, orf_increment
 
 def check_subcriticals(subcriticals):
     """
@@ -261,6 +274,23 @@ def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name, 
     :return: None
     """
     logger = logging.getLogger('NameGene')
+    if ':' in new_gene_name:
+        (ref_id, ref_locus, new_gene_name) = new_gene_name.split(':')
+
+        # TODO - work out something better. also, do something about multiple contigs.
+        annomerge.ref_sequence = genomes[ref_id]
+        annomerge.record_sequence = genomes[isolate_id]
+
+        pseudo = pseudoscan(
+            feature=gffs[isolate_id][isolate_locus],
+            ref_feature=gffs[ref_id][ref_locus],
+            seq_ident=seq_ident,
+            seq_covg=seq_covg,
+            attempt_rescue=True,
+        )
+    else:
+        pseudo = False
+
     if isolate_id not in isolate_update_dictionary.keys():
         isolate_update_dictionary[isolate_id] = {}
         isolate_update_dictionary[isolate_id][isolate_ltag] = dict(
@@ -400,7 +430,7 @@ def unique_seqs(annotations):
                     if eggnog_annot:
                         eggnog = True
                     record = SeqRecord(Seq(translation.rstrip('\n')),
-                                       id=gene,
+                                       id=f'{gff_name}:{locus_tag}:{gene}',
                                        description=str(eggnog) + '|' + gff_name)
                     isolate_seqs[gff_name][locus_tag] = Seq(translation.rstrip('\n'))
                     protein_cds.append(record)
@@ -463,8 +493,8 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
         out_list.append(str(single_gene))
         if designator.is_raw_ltag(gene_name) and designator.is_raw_ltag(locus_tag):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
-            name_to_assign, pseudo, query_closest_refs, orf_increment = check_matches_to_known_genes(
-                query_seq = SeqRecord(gene_sequence),
+            name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+                query_seq = SeqRecord(gene_sequence, id=f'{isolate_id}:{locus_tag}'),
                 reference_seqs = reference_fasta,
                 generic_seqs = unannotated_fasta,
                 cluster_type = 'singleton',
@@ -511,8 +541,8 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
         locus = rep_gene.split(',')[1]
         gene = rep_gene.split(',')[2]
         rep_sequence = isolate_sequences[isolate][locus]
-        rep_record = SeqRecord(rep_sequence, id='', description='')
-        name_to_assign, pseudo, query_closest_refs, orf_increment = check_matches_to_known_genes(
+        rep_record = SeqRecord(rep_sequence, id=f'{isolate}:{locus}', description='')
+        name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
             query_seq = rep_record,
             reference_seqs = reference_fasta,
             generic_seqs = unannotated_fasta,
@@ -635,8 +665,8 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                 for unannotated_gene in genes_to_annotate:
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
-                    unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus])
-                    name_to_assign, pseudo, query_closest_refs, orf_increment = check_matches_to_known_genes(
+                    unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus], id=f'{unannotated_gene_isolate}:{unannotated_gene_locus}')
+                    name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
                         query_seq = unannotated_gene_seq,
                         reference_seqs = fasta_fp_to_blast,
                         generic_seqs = unannotated_fasta,
@@ -728,13 +758,15 @@ def parseClustersUpdateGBKs(target_gffs, genome_seqs, clusters, genomes_to_annot
     all Genbanks
 
     :param gffs: str directory of GFFs
+    :param genome_seqs: dict of sample name to SeqRecord genome sequence
     :param clusters: str cluster file
     :return: None
     """
     logger = logging.getLogger('ParseClusters')
     hybran_tmp_dir = config.hybran_tmp_dir
     global isolate_update_dictionary, isolate_sequences
-    global genome_seqs
+    global genomes
+    genomes = genome_seqs
     isolate_update_dictionary = {}
     logger.debug('Retrieving unique protein sequences from GFFs')
     # Run CD-HIT on cdss_protein-all.fasta as part of calling ref_seqs
