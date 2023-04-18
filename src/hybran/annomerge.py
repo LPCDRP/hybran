@@ -93,7 +93,10 @@ def is_broken_stop(feature):
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     if len(num_stop) > 1 or translation[-1] != "*":
         internal_stop = True
-        note = f"Hybran: Internal stop detected in the following codon(s): {','.join([str(i) for i in num_stop])}"
+        if len(num_stop) == 0:
+            note = f"No stop codons detected in the translated sequence"
+        else:
+            note = f"Internal stop detected in the following codon(s): {' '.join([str(i) for i in num_stop])}"
     return internal_stop, note
 
 def log_feature_fate(feature, logfile, remark=""):
@@ -1030,15 +1033,33 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
     if ref_was_pseudo:
         good_start, good_stop = coord_check(feature, ref_feature)
         coords_ok = [good_start, good_stop]
+        new_note = []
+
+        if all(coords_ok):
+            new_note.append(f"Has reference-corresponding start and stop, but reference itself is pseudo.")
+
+        if divisible_by_three(og_feature):
+            if not divisible_by_three(ref_feature):
+                new_note.append(f"Sequence divisible by three while the reference's is not.")
+            else:
+                new_note.append(f"Both this sequence and the reference's are divisible by three.")
+        else:
+            if not divisible_by_three(ref_feature):
+                new_note.append(f"Both this sequence and the reference's have invalid reading frames -- not divisible by three.")
+            else:
+                new_note.append(f"Sequence not divisable by three while the reference sequence's is.")
+
         if (not all(coords_ok)) and (divisible_by_three(og_feature) and not divisible_by_three(ref_feature)) and not og_broken_stop:
             feature.qualifiers.pop('pseudo', None)
             feature.qualifiers.pop('pseudogene', None)
             is_pseudo = False
         else:
             if og_stop_note:
-                designator.append_qualifier(feature.qualifiers, 'note', og_stop_note)
+                new_note.append(f"{og_stop_note}")
             is_pseudo = True
             feature.qualifiers['pseudo'] = ['']
+
+        [designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan: {_}') for _ in new_note]
 
     else:
         fix_start = False
@@ -1090,13 +1111,83 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
             if confirmed_feature:
                 if blast_hit_dict:
                     blast_hit_dict.update(blast_stats[ref_feature.qualifiers['gene'][0]])
-                if ((all(coords_ok) and divisible_by_three(feature)) or blast_ok) and not broken_stop:
+                #is_pseudo = False
+                # Summarize coord_check status for notes
+                fancy_string = f"{'start' if not coords_ok[0] else ''}{' and ' if not any(coords_ok) else ''}{'stop' if not coords_ok[1] else ''}"
+                # Notes that are only interesting if we end up tagging the gene a certain way.
+                #pseudo_but_did_ya_know = []
+                #intact_but_did_ya_know = []
+                new_note = []
+
+                div_note = ('Invalid reading frame-- not divisible by three')
+                if divisible_by_three(feature):
+                    div_note = ('Valid reading frame-- divisible by three')
+
+                broke_note = ('No internal stops and ends with a valid stop codon')
+                if broken_stop:
+                    broke_note = (stop_note)
+
+                coord_note = ('Has reference-corresponding start and stop')
+                if not all(coords_ok):
+                    coord_note = (f'Non-reference-corresponding {fancy_string}')
+
+                covg_note = ""
+                if low_covg:
+                    covg_note = ('Low alignment coverage with reference')
+
+                blast_note = ""
+                if blast_ok:
+                    blast_note = (f'Strong blastp match at {seq_ident}% identity and {seq_covg}% coverage thresholds')
+
+                # if not divisible_by_three(feature):
+                #     designator.append_qualifier(feature.qualifiers, 'note', 'Hybran/Pseudoscan: Invalid reading frame-- not divisible by three.')
+                # else:
+                #     pseudo_but_did_ya_know.append('Divisible by three')
+
+                # if broken_stop:
+                #     designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan: {stop_note}')
+                # else:
+                #     pseudo_but_did_ya_know.append('No internal stops and ends with a valid stop codon')
+
+                # if blast_ok and not all(coords_ok):
+                #     intact_but_did_ya_know.append(f'Non-reference-corresponding {fancy_string}, but valid reading frame and strong blastp match at {seq_ident}% identity and {seq_covg}% coverage thresholds')
+                # elif not all(coords_ok):
+                #     designator.append_qualifier(feature.qualifiers, 'note',
+                #                                 f'Hybran/Pseudoscan: Non-reference-corresponding {fancy_string}')
+
+                # if all(coords_ok):
+                #     pseudo_but_did_ya_know.append('Has reference-corresponding start and stop codons')
+                #     if low_covg:
+                #         intact_but_did_ya_know.append('Low alignment coverage with reference, but valid reading frame and has reference-corresonding start and stop coordinates.')
+
+
+                if ((all(coords_ok) or blast_ok) and divisible_by_three(feature)) and not broken_stop:
                     is_pseudo = False
+                    #additional_notes = intact_but_did_ya_know
+
+                    if all(coords_ok):
+                        if low_covg:
+                            new_note.append(coord_note)
+                            new_note.append(covg_note)
+
+                    else:
+                        new_note.append(coord_note)
+                        if blast_ok:
+                            #Strong blast, but non-reference-corresponding start/stop
+                            new_note.append(blast_note)
                 else:
                     is_pseudo = True
                     feature.qualifiers['pseudo']=['']
-                    if stop_note:
-                        designator.append_qualifier(feature.qualifiers, 'note', stop_note)
+                    if all(coords_ok):
+                        new_note.append(coord_note)
+                    if blast_ok:
+                        new_note.append(blast_note)
+                    new_note.append(div_note)
+                    new_note.append(broke_note)
+                    #additional_notes = pseudo_but_did_ya_know
+
+                #[designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan: {_}') for _ in additional_notes]
+                [designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan: {_}') for _ in new_note]
                 break
             else:
                 og_blast_ok, og_blast_stats = (blast_ok, blast_stats)
