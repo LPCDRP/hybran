@@ -1114,19 +1114,19 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                 if blast_hit_dict:
                     blast_hit_dict.update(blast_stats[ref_feature.qualifiers['gene'][0]])
                 # Summarize coord_check status for notes
-                fancy_string = f"{'start' if not coords_ok[0] else ''}{' and ' if not any(coords_ok) else ''}{'stop' if not coords_ok[1] else ''}"
+                fancy_string = f"{'start' if not coords_ok[0] else ''}{' and ' if not any(coords_ok) else ''}{'end' if not coords_ok[1] else ''}"
                 # Notes that are only interesting if we end up tagging the gene a certain way.
                 new_note = []
 
-                div_note = ('Invalid reading frame-- not divisible by three', 0)
+                div_note = ('Locus has invalid reading frame-- not divisible by three', 0)
                 if divisible_by_three(feature):
-                    div_note = ('Valid reading frame-- divisible by three', 1)
+                    div_note = ('Locus divisible by three', 1)
 
-                broke_note = ('No internal stops and ends with a valid stop codon', 0)
+                broke_note = ('No internal stop codons and ends with a valid stop codon', 0)
                 if broken_stop:
                     broke_note = (stop_note, 1)
 
-                coord_note = ('Has reference-corresponding start and stop', list(map(int, coords_ok)))
+                coord_note = ('Locus has reference-corresponding start and end', list(map(int, coords_ok)))
                 if not all(coords_ok):
                     coord_note = (f'Non-reference-corresponding {fancy_string}', list(map(int, coords_ok)))
 
@@ -1135,15 +1135,17 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                     blast_note = (f'Strong blastp match at {seq_ident}% identity and {seq_covg}% coverage thresholds', 1)
 
                 #Note codes are categorized by a '0' or '1' and correspond to 'False' and 'True' respectively
-                #D3 = Divisible by three [0/1] - [False/True]
-                #INVS = Invalid stop [0/1] - [False/True]
-                #RCC = Reference corresponding coordinates [0/1, 0/1] - [good_start, good_stop]
-                #BOK = Blast OK [0/1] - [False/True]
-                note_codes = (f'D3-{div_note[1]} INVS-{broke_note[1]} RCC-{coord_note[1]} BOK-{0 if not blast_note else 1}')
+                #D3 = Divisible by three [0/1]
+                #VS = Valid stop [0/1]
+                #RCS = Reference corresponding start [0/1]
+                #RCE = Reference corresponding end [0/1]
+                #BOK = Blast OK [0/1]
+                note_codes = (f'D3{div_note[1]} VS{1 if broke_note[1] == 0 else 0} RCS{coord_note[1][0]} ' \
+                              f'RCE{coord_note[1][1]} BOK{0 if not blast_ok else 1}')
 
                 #This is the code for a normal non-pseudo gene, with no interesting characteristics.
                 #These codes will not be added to the feature notes.
-                if note_codes == 'D3-1 INVS-0 RCC-[1, 1] BOK-1':
+                if note_codes == 'D31 VS1 RCS1 RCE1 BOK1':
                     note_codes = None
 
                 #The order in which notes appear is important. The first note should represent the
@@ -1154,9 +1156,11 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                         if not blast_ok:
                             new_note.extend([coord_note[0], blast_note[0]])
                         if len(ref_feature) > len(feature):
-                            new_note.append("Has an in-frame deletion compared to the reference")
+                            new_note.append("Has deletion mutation(s) compared to the reference")
+                            new_note.extend([broke_note[0], div_note[0]])
                         elif len(ref_feature) < len(feature):
-                            new_note.append("Has an in-frame insertion compared to the reference")
+                            new_note.append("Has insertion mutation(s) compared to the reference")
+                            new_note.extend([broke_note[0], div_note[0]])
                     else:
                         #Strong blast, but non-reference-corresponding start/stop
                         new_note.extend([blast_note[0], coord_note[0]])
@@ -1165,20 +1169,14 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                     feature.qualifiers['pseudo']=['']
                     #Primary reason for being pseudo. Followed by interesting cases if applicable.
                     if broken_stop or not divisible_by_three(feature): #Broken Stop/Not divisible by three
-                        if broken_stop:
-                            new_note.extend([broke_note[0], div_note[0]])
-                        else:
-                            new_note.extend([div_note[0], broke_note[0]])
+                        new_note.extend([broke_note[0], div_note[0]])
 
                         if all(coords_ok):
                             if not divisible_by_three(feature):
                                 if len(ref_feature) > len(feature):
-                                    new_note.append("Has an out-of-frame deletion compared to the reference")
+                                    new_note.append("Has deletion mutation(s) compared to the reference")
                                 elif len(ref_feature) < len(feature):
-                                    new_note.append("Has an out-of-frame insertion compared to the reference")
-                            else:
-                                if len(ref_feature) == len(feature):
-                                    new_note.append("Has SNP causing early stop")
+                                    new_note.append("Has insertion mutation(s) compared to the reference")
                             new_note.append(coord_note[0])
 
                         if blast_ok:
@@ -1187,14 +1185,9 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                     #Must be pseudo because of (not all(coords_ok) AND not (blast_ok))
                     else:
                         if coords_ok == [True, False]:
-                            if len(ref_feature) > len(feature):
+                            if len(ref_feature) < len(feature):
                                 new_note.append(coord_note[0])
-                                new_note.append("Has a frameshift causing an inframe early stop")
-                            elif len(ref_feature) < len(feature):
-                                new_note.append(coord_note[0])
-                                new_note.append("Has a frameshift causing an inframe downstream alternative stop")
-                            else:
-                                new_note.append("Im not sure this can happen")
+                                new_note.append("Has a frameshift mutation leading to a delayed stop codon")
                         else:
                             new_note.append(coord_note[0])
                             new_note.append(blast_note[0])
