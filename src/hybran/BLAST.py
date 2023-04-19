@@ -25,8 +25,10 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
     :returns:
         - result (:py:class:`str`)  -
              name of the top hit (`None` if no suitable match was found)
-        - pseudo (:py:class:`bool`) -
-             whether the query is truncated with respect to the result
+        - low_covg (:py:class:`bool`) -
+             A hit that has either low subject coverage or low query coverage but meets
+             remaining thresholds. This indicates whether the query is truncated with
+             respect to the reference or vice-versa
         - stats (:py:class:`dict`)  -
              summary dict of blast results from either hits, truncation_signatures, or misses
     """
@@ -53,9 +55,6 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
             metric=metric,
         )
         stats = hit_dict[result]
-        # Low subject coverage but passing query coverage means that the gene
-        # is truncated in this sample. Tag it pseudo.
-        # TODO - consider setting this to 80% instead of seq_covg
         scov_pass = stats['scov'] >= seq_covg
         qcov_pass = stats['qcov'] >= seq_covg
         ident_pass = stats['iden'] >= seq_ident
