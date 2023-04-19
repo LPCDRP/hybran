@@ -17,11 +17,12 @@ from . import config
 # you have no network connection.
 os.environ["BLAST_USAGE_REPORT"] = "false"
 
-def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, metric='iden', blast_type = "p"):
+def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, metric='iden', blast_type = "p", strict=False):
     """
     Wrapper to blast(), summarize(), and top_hit() that tells you the bottom line.
-    See those functions for descriptions of the input parameters.
+    See those functions for descriptions of the main input parameters.
     This function checks for complete hits and, failing that, partial hits.
+    :param strict: Boolean whether to strictly enforce all thresholds or allow for low-coverage alignments.
     :returns:
         - result (:py:class:`str`)  -
              name of the top hit (`None` if no suitable match was found)
@@ -43,10 +44,16 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
     result = None
     low_covg = False
     hit_dict = None
+    if strict:
+        principal_lists = [hits]
+        scraps = truncation_signatures + misses
+    else:
+        principal_lists = [hits, truncation_signatures]
+        scraps = misses
     # this will be replaced by actual hits later if there are any
-    hit_dict = summarize(misses, identify=identify)
+    hit_dict = summarize(scraps, identify=identify)
 
-    for hit_list in [hits, truncation_signatures]:
+    for hit_list in principal_lists:
         if not hit_list:
             continue
         hit_dict = summarize(hit_list, identify=identify)
