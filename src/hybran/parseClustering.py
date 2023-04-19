@@ -263,14 +263,13 @@ def check_subcriticals(subcriticals):
     return best_subcriticals
 
 
-def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name, pseudo=False):
+def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
     """
     Updates a global dictionary with new gene name assignments
 
     :param isolate_id: str isolate ID
     :param isolate_ltag: str locus tag to update
     :param new_gene_name: str gene name to assign
-    :param pseudo: bool whether the gene is a fragment
     :return: None
     """
     logger = logging.getLogger('NameGene')
@@ -503,7 +502,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
                 seq_covg = seq_covg,
             )
             novel_genes_closest_refs += query_closest_refs
-            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign, pseudo)
+            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
         else:
             continue
     with open('./clustering/singleton_clusters.txt', 'w') as f:
@@ -558,7 +557,6 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
                 other_genes_in_cluster[0],
                 other_genes_in_cluster[1],
                 name_to_assign,
-                pseudo,
             )
     with open('./clustering/onlyltag_clusters.txt', 'w') as f:
         for line in out_list:
@@ -680,7 +678,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                         unannotated_gene_isolate,
                         unannotated_gene_locus,
                         name_to_assign,
-                        pseudo,
                     )
         else:
             if len(unassigned_l_tags) > 0:
