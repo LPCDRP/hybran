@@ -91,12 +91,13 @@ def is_broken_stop(feature):
     note = ''
     translation = str(feature.extract(record_sequence).translate(to_stop=False))
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
-    if len(num_stop) > 1 or translation[-1] != "*":
+    num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
+    if len(num_internal_stop) >= 1 or translation[-1] != "*":
         internal_stop = True
         if len(num_stop) == 0:
             note = f"No stop codons detected in the translated sequence"
         else:
-            note = f"Internal stop detected in the following codon(s): {' '.join([str(i) for i in num_stop])}"
+            note = f"Internal stop detected in the following codon(s): {' '.join([str(i) for i in num_internal_stop])}"
     return internal_stop, note
 
 def log_feature_fate(feature, logfile, remark=""):
