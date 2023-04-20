@@ -1128,7 +1128,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
 
                 coord_note = ('Locus has reference-corresponding start and end', list(map(int, coords_ok)))
                 if not all(coords_ok):
-                    coord_note = (f'Non-reference-corresponding {fancy_string}', list(map(int, coords_ok)))
+                    coord_note = (f'Locus does not have reference-corresponding {fancy_string}', list(map(int, coords_ok)))
 
                 blast_note = (f'Poor blastp match at {seq_ident}% identity and {seq_covg}% coverage thresholds', 0)
                 if blast_ok:
@@ -1252,7 +1252,7 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
                 valid = True
             else:
                 remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
-        return valid, low_covg, blast_stats, remark
+        return valid, feature_sequence, blast_stats, remark
 
     for feature in feature_list:
         if feature.type != 'CDS':
