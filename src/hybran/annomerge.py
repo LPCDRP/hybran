@@ -961,6 +961,17 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         if i == 1:
             continue
         elif any([pad_found_low, pad_found_high]) and any([fix_start, fix_stop]) and (first_score > second_score):
+
+            #Catch corner cases where we try to correct a reference corresponding start PAST the end of the feature.
+            #If the original alignment was really far off, and we found a downstream start by chance, we should
+            #just leave the gene alone.
+            if corrected_feature_start > corrected_feature_end:
+                 feature.location = FeatureLocation(
+                     int(og_feature_start),
+                     int(og_feature_end),
+                     strand=feature.strand
+                 )
+                 break
             corrected_feature.location = FeatureLocation(
                 int(corrected_feature_start),
                 int(corrected_feature_end),

@@ -345,8 +345,10 @@ def test_liftover_annotation():
     ['same_start_alt_stop_2_fix', True, True],
     ['bad_start_stop_nofix_pseudo', False, False],
     ['bad_start_stop_fix_pseudo', True, False],
+    ['inverted_join_ecoli', True, True],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
+@pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
 def test_coord_check(feature_type, fix_start, fix_stop):
     #prokka for Rv2300c and Rv3181c
     source_genome = {
@@ -364,8 +366,11 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'same_start_alt_stop_2_fix':'1-0006',
         'bad_start_stop_nofix_pseudo':'1-0006',
         'bad_start_stop_fix_pseudo':'1-0006',
+        'inverted_join_ecoli': 'AZ20',
+
     }
     ref_genome = defaultdict(lambda :'H37Rv')
+    ref_genome['inverted_join_ecoli'] = 'nissle-hybrid'
 
     test_features = {
         'abinit_start_bad_minus': features[source_genome['abinit_start_bad_minus']]['Rv3181c']['abinit'],
@@ -382,6 +387,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'same_start_alt_stop_2_fix': features[source_genome['same_start_alt_stop_2']]['Rv2880c']['ratt'],
         'bad_start_stop_nofix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
         'bad_start_stop_fix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
+        'inverted_join_ecoli': features[source_genome['inverted_join_ecoli']]['secD']['ratt'],
     }
 
     feature = test_features[feature_type]
@@ -389,7 +395,8 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         test_features[feature_type].qualifiers['gene'][0]
     ]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
-    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
+    annomerge.ref_sequence = list(SeqIO.parse(f'data/{ref_genome[feature_type]}.gbk', 'genbank'))[0].seq
+
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
 
@@ -408,6 +415,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'same_start_alt_stop_2_fix':[(True, True), FeatureLocation(3182570, 3183397, strand=-1)],
         'bad_start_stop_nofix_pseudo': [(False, False), FeatureLocation(1217413, 1217872, strand=1)],
         'bad_start_stop_fix_pseudo': [(True, False), FeatureLocation(1217428, 1217872, strand=1)],
+        'inverted_join_ecoli': [(False, False), FeatureLocation(3714209, 3716770, strand=-1)],
     }
     results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]

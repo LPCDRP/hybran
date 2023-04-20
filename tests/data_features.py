@@ -8,7 +8,7 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundL
 
 ref_features = {}
 for ref in [
-        'H37Rv',
+        'H37Rv', 'nissle-hybrid'
 ]:
     ref_file = os.path.join(pathlib.Path(__file__).parent.resolve(), 'data', f'{ref}.gbk')
     ref_features[ref] = {}
@@ -20,6 +20,15 @@ for ref in [
 
 
 features = {
+    'AZ20': {
+        'secD': {
+            'ratt': SeqFeature(
+                FeatureLocation(3714209, 3716770, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_02375'],'gene':['secD']}
+            ),
+        },
+    },
     '1-0006': {
         'dnaA': {
             'ratt': SeqFeature(
