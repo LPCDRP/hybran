@@ -638,6 +638,8 @@ def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features
             new_feature.qualifiers, 'note',
             'Fusion: ' + merged_features_string
         )
+        # TODO -- the *gene name isn't actually changed* - only the locus tag***
+        # edit: turns out this happens as part of the final feature verification loop, but it should be done here
         merged_features_addition.append(new_feature)
         merged_genes[new_feature.location.strand].remove(location)
     if len(merged_genes[-1]) > 0 or len(merged_genes[1]) > 0:
@@ -1379,6 +1381,7 @@ def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
             if ratt_start > abinit_end and ratt_end > abinit_end:
                 break
             elif (overlap_inframe(ratt_feature.location, abinit_feature.location)):
+                # TODO: add an option to check for matching gene names. We have seen a case where RATT/prokka have identical coordinates but RATT annotated it incorrectly. Actually, maybe check to see whether this is still needed since coord_check should break that equivalence
                 if len(ratt_feature.location) == len(abinit_feature.location):
                     abinit_rejects.append((abinit_features_not_in_ratt.pop((abinit_start, abinit_end, abinit_strand), None),
                                            'duplicate of ' + ratt_feature.qualifiers['locus_tag'][0]))
@@ -1726,6 +1729,7 @@ def check_inclusion_criteria(
                         abs(len(abinit_annotation.location)-len(ratt_annotation.location)) > 0:
             if not reject_abinit:
                 include_abinit = True
+                # TODO -- ratt should probably be rejected here too since the prokka gene is being kept
         else:
             remark = ("RATT annotation for "
                       + '|'.join([ratt_annotation.qualifiers['locus_tag'][0],ratt_annotation.qualifiers['gene'][0]])
@@ -1743,6 +1747,7 @@ def check_inclusion_criteria(
                         abs(len(abinit_annotation.location)-len(ratt_annotation.location)) > 0:
             if not reject_abinit:
                 include_abinit = True
+                # TODO -- ratt should probably be rejected here too since the prokka gene is being kept
         else:
             remark = ("RATT annotation for product "
                       + '"' + ratt_annotation.qualifiers['product'][0] + '" '
