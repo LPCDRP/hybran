@@ -1387,8 +1387,8 @@ def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
             if ratt_start > abinit_end and ratt_end > abinit_end:
                 break
             elif (overlap_inframe(ratt_feature.location, abinit_feature.location)):
-                # TODO: add an option to check for matching gene names. We have seen a case where RATT/prokka have identical coordinates but RATT annotated it incorrectly. Actually, maybe check to see whether this is still needed since coord_check should break that equivalence
-                if len(ratt_feature.location) == len(abinit_feature.location):
+                if (len(ratt_feature.location) == len(abinit_feature.location)
+                    and extractor.get_gene(ratt_feature) == extractor.get_gene(abinit_feature)):
                     abinit_rejects.append((abinit_features_not_in_ratt.pop((abinit_start, abinit_end, abinit_strand), None),
                                            'duplicate of ' + ratt_feature.qualifiers['locus_tag'][0]))
                     abinit_duplicate_removed = True
@@ -2018,18 +2018,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
 
             abinit_features_dict = generate_feature_dictionary(prokka_contig_features)
-            logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
-            unique_abinit_features_pre_coord_correction, inframe_conflicts_pre_coord_correction, abinit_duplicates = find_inframe_overlaps(
-                ratt_contig_features,
-                abinit_features_dict,
-            )
-            prokka_rejects += abinit_duplicates
-            logger.debug(f"{seqname}: {len(abinit_duplicates)} ab initio ORFs identical to RATT's")
-            logger.debug(f"{seqname}: {len(inframe_conflicts_pre_coord_correction)} ab initio ORFs conflicting in-frame with RATT's")
-            logger.debug(f'{seqname}: {len(unique_abinit_features_pre_coord_correction)} total ab initio ORFs remain in consideration')
-
-
-            logger.debug(f'{seqname}: Checking remaining ab initio CDS annotations for matches to reference using {nproc} process(es)')
+            logger.debug(f'{seqname}: Checking ab initio CDS annotations for matches to reference using {nproc} process(es)')
             #
             # can contain results for hits to multiple reference genes
             abinit_blast_results_complete = {}
@@ -2042,7 +2031,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 seq_covg=seq_covg,
                 identify=lambda _:_.split(':')[1],
             )
-            prokka_contig_cdss = [f for f in unique_abinit_features_pre_coord_correction.values() if f.type == 'CDS']
+            prokka_contig_cdss = [f for f in abinit_features_dict.values() if f.type == 'CDS']
             with multiprocessing.Pool(processes=nproc) as pool:
                 blast_package = pool.map(
                     refmatch,
@@ -2104,26 +2093,26 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
             logger.debug(f'{seqname}: Corrected coordinates for {n_coords_corrected} ab initio ORFs')
 
-
-            # Check for in-frame conflicts/duplicates again since the ab initio gene coordinates changed
             logger.info(f"{seqname}: Checking for fragmented ab initio annotations")
-            unique_abinit_features_post_coord_correction_list, dropped_abinit_fragments = process_split_genes(
-                unique_abinit_features_pre_coord_correction.values()
+            abinit_features_postprocessed_list, dropped_abinit_fragments = process_split_genes(
+                abinit_features_dict.values()
             )
             prokka_rejects += dropped_abinit_fragments
             logger.debug(f"{seqname}: {len(dropped_abinit_fragments)} gene fragment pairs merged")
-            unique_abinit_features_post_coord_correction = generate_feature_dictionary(
-                unique_abinit_features_post_coord_correction_list
-            )
 
-            logger.info(f"{seqname}: Checking for new in-frame overlaps with corrected ab initio gene annotations")
-            unique_abinit_features, inframe_conflicts, new_abinit_duplicates = find_inframe_overlaps(
-                ratt_contig_features,
-                unique_abinit_features_post_coord_correction,
+
+            # Check for in-frame conflicts/duplicates
+            abinit_features_postprocessed = generate_feature_dictionary(
+                abinit_features_postprocessed_list
             )
-            prokka_rejects += new_abinit_duplicates
-            logger.debug(f"{seqname}: {len(new_abinit_duplicates)} corrected ab initio ORFs now identical to RATT's")
-            logger.debug(f'{seqname}: {len(inframe_conflicts_pre_coord_correction)-len(inframe_conflicts)} corrected ab initio ORFs now conflicting in-frame with RATT')
+            logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
+            unique_abinit_features, inframe_conflicts, abinit_duplicates = find_inframe_overlaps(
+                ratt_contig_features,
+                abinit_features_postprocessed,
+            )
+            prokka_rejects += abinit_duplicates
+            logger.debug(f"{seqname}: {len(abinit_duplicates)} ab initio ORFs identical to RATT's")
+            logger.debug(f"{seqname}: {len(inframe_conflicts)} ab initio ORFs conflicting in-frame with RATT's")
             logger.debug(f'{seqname}: {len(unique_abinit_features)} total ab initio ORFs remain in consideration')
 
 
