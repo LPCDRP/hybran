@@ -665,12 +665,13 @@ def identify_conjoined_genes(ratt_features):
         if (prev_feature.location != feature.location # dealing with these is the job of identify_merged_genes()
             and have_same_stop(prev_feature.location, feature.location)
         ):
+
             if feature.strand == -1:
-                upstream = feature
-                downstream = prev_feature
+                upstream = max(feature, prev_feature, key=lambda _: _.location.end)
+                downstream = min(feature, prev_feature, key=lambda _: _.location.end)
             else:
-                upstream = prev_feature
-                downstream = feature
+                upstream = min(feature, prev_feature, key=lambda _: _.location.start)
+                downstream = max(feature, prev_feature, key=lambda _: _.location.start)
 
             designator.append_qualifier(
                 upstream.qualifiers,
