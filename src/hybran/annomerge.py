@@ -246,7 +246,10 @@ def get_nuc_seq_for_gene(feature_list, source_seq):
             continue
         locus = f.qualifiers['locus_tag'][0]
         prom_seq = upstream_context(f.location, source_seq)
-        ref_fna_dict[locus] = SeqRecord(seq=f.extract(source_seq), id=locus)
+        ref_fna_dict[locus] = SeqRecord(
+            seq=f.extract(f.references[f.ref], references=f.references),
+            id=locus
+        )
         fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
                                               dir=hybran_tmp_dir,
                                               delete=False,
@@ -758,7 +761,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     :return: True/False if the start/stop was fixed
     """
 
-    ref_seq = ref_feature.extract(ref_sequence)
+    ref_seq = ref_feature.extract(ref_feature.references[ref_feature.ref], references=ref_feature.references)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
@@ -1086,7 +1089,10 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
         while not confirmed_feature:
             good_start, good_stop = coord_check(feature, ref_feature, fix_start, fix_stop)
             coords_ok = [good_start, good_stop]
-            ref_seq = translate(ref_feature.extract(ref_sequence), table=genetic_code, to_stop=True)
+            ref_seq = translate(
+                ref_feature.extract(ref_feature.references[ref_feature.ref], references=ref_feature.references),
+                table=genetic_code, to_stop=True
+            )
             feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
             #ref_match with 'thresholds enforced'
             top_hit, low_covg, blast_stats = BLAST.reference_match(
@@ -1852,8 +1858,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     corrected_ratt_orf_logfile = os.path.join(isolate_id, 'ratt', 'hybran_coord_corrections.tsv')
     global corrected_orf_report
     corrected_orf_report = []
-    ref_contigs = []
-    ref_features = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
     global ref_annotation
     ref_annotation = {}
@@ -1862,25 +1866,25 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     global ref_fna_dict
     ref_prom_fp_dict = {}
     ref_fna_dict = {}
+    ref_id = os.path.basename(os.path.splitext(ref_gbk_fp)[0])
     for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
-        ref_contigs.append(ref_record.seq)
-        ref_features.append(ref_record.features)
-        prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
-        ref_prom_fp_dict.update(prom)
-        ref_fna_dict.update(fna)
+        ref_contig_id = '.'.join([ref_id, ref_record.name])
         for feature in ref_record.features:
             if feature.type != "CDS":
                 continue
+            feature.ref = ref_contig_id
+            feature.references = {ref_contig_id: ref_record.seq}
             # if reference paralogs have been collapsed, the last occurrence in the genome
             # will prevail.
             ref_annotation[feature.qualifiers['gene'][0]] = feature
+        prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
+        ref_prom_fp_dict.update(prom)
+        ref_fna_dict.update(fna)
 
     output_isolate_recs = []
 
     for i, contig in enumerate(contigs):
         seqname = '.'.join([isolate_id, contig])
-        global ref_sequence
-        ref_sequence = ref_contigs[i]
         ratt_contig_record = SeqIO.read(ratt_gbk_files[contig], 'genbank')
         global record_sequence
         record_sequence = ratt_contig_record.seq
@@ -2078,7 +2082,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         feature_is_pseudo,
                         inference=':'.join([
                             f"similar to AA sequence",
-                            os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
+                            ref_id,
                             ref_annotation[ref_gene].qualifiers['locus_tag'][0],
                             ref_gene,
                             "blastp",
@@ -2204,7 +2208,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                                 pseudo,
                                 inference=':'.join([
                                     "similar to AA sequence",
-                                    os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
+                                    ref_id,
                                     ref_annotation[ref_gene].qualifiers['locus_tag'][0],
                                     ref_gene,
                                     "RATT+blastp",

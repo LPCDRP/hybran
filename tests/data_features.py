@@ -8,14 +8,21 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundL
 
 ref_features = {}
 for ref in [
-        'H37Rv', 'nissle-hybrid'
+        'H37Rv',
+        'nissle-hybrid',
 ]:
     ref_file = os.path.join(pathlib.Path(__file__).parent.resolve(), 'data', f'{ref}.gbk')
     ref_features[ref] = {}
     if os.path.isfile(ref_file):
         for record in SeqIO.parse(ref_file, 'genbank'):
+            k = '.'.join([
+                os.path.splitext(os.path.basename(ref_file))[0],
+                record.name,
+            ])
             for feature in record.features:
                 if 'gene' in feature.qualifiers:
+                    feature.ref = k
+                    feature.references = {k: record.seq}
                     ref_features[ref][feature.qualifiers['gene'][0]] = feature
 
 

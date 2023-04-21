@@ -196,7 +196,6 @@ def test_process_split_genes(gene_list):
     ref_genome = defaultdict(lambda :'H37Rv')
     source_genome = source_genomes[gene_list]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
-    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.genetic_code = 11
     annomerge.ref_annotation = ref_features[ref_genome[gene_list]]
     annomerge.corrected_orf_report = []
@@ -395,8 +394,6 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         test_features[feature_type].qualifiers['gene'][0]
     ]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
-    annomerge.ref_sequence = list(SeqIO.parse(f'data/{ref_genome[feature_type]}.gbk', 'genbank'))[0].seq
-
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
 
@@ -475,7 +472,6 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         test_features[feature_type].qualifiers['gene'][0]
     ]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
-    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
     expected = {
@@ -635,7 +631,6 @@ def test_isolate_valid_ratt_annotations(case):
 
     annomerge.ref_annotation = ref_features[ref_genome[case]]
     annomerge.genetic_code = 11
-    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
 
     ref_temp_fasta_dict = dict(
         Rv0001  = 'gene-seqs/Rv0001.fasta',
@@ -816,7 +811,6 @@ def test_check_inclusion_criteria(pair, tmp_path):
     abinit = features[source_genome[pair]][pairs[pair][1]]['abinit']
 
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
-    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.ref_annotation = ref_features[ref_genome[pair]]
     reference_gene_locus_dict = defaultdict(list, dict(
         dnaA=['Rv0001'],
