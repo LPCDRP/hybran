@@ -878,7 +878,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'abinit_better': (True, False, 'Ab initio feature L_02383 has better alignment coverage with the reference.'),
         'overlapping_different_names_ratt_better': (
             False, True,
-            "Equally valid call, but conflicting name with RATT annotation Rv1945:Rv1945; RATT favored due to synteny.",
+            "RATT annotation Rv1945:Rv1945 more accurately named and delineated",
         ),
         'overlapping_different_names_abinit_better': (
             True, False,
