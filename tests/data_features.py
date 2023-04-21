@@ -1,92 +1,34 @@
+from collections import defaultdict
+import os
+import pathlib
+
+from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundLocation
 
 
-ref_features = {
-    'H37Rv': {
-        'dnaA': SeqFeature(
-            FeatureLocation(0, 1524, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv0001'],'gene':['dnaA']}
-        ),
-        'Rv0007': SeqFeature(
-            FeatureLocation(9913, 10828, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv0007'],'gene':['Rv0007']}
-        ),
-        'PPE38': SeqFeature(
-            FeatureLocation(2632922, 2634098, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv2352c'],'gene':['PPE38']}
-        ),
-        'Rv0986': SeqFeature(
-            FeatureLocation(1101802, 1102549, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv0986'],'gene':['Rv0986']}
-        ),
-        'rrf': SeqFeature(
-            FeatureLocation(1476898, 1477013, strand=1),
-            type='rRNA',
-            qualifiers={'locus_tag':['MTB000021'],'gene':['rrf']}
-        ),
-        'Rv1148c': SeqFeature(
-            FeatureLocation(1276299, 1277748, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1148c'],'gene':['Rv1148c']}
-        ),
-        'Rv1453': SeqFeature(
-            FeatureLocation(1638380, 1639646, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1453'],'gene':['Rv1453']}
-        ),
-        'Rv1718': SeqFeature(
-            FeatureLocation(1944808, 1945627, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1718'],'gene':['Rv1718']}
-        ),
-        'Rv1945': SeqFeature(
-            FeatureLocation(2195988, 2197353, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv1945'],'gene':['Rv1945']}
-        ),
-        'dosT': SeqFeature(
-            FeatureLocation(2272786, 2274508, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv2027c'],'gene':['dosT']}
-        ),
-        'Rv2180c': SeqFeature(
-            FeatureLocation(2442326, 2443214, strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv2180c'],'gene':['Rv2180c']}
-        ),
-        'Rv3181c': SeqFeature(
-            FeatureLocation(3549690,3550143 , strand=-1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3181c'],'gene':['Rv3181c']}
-        ),
-        'ORF0004': SeqFeature(
-            FeatureLocation(3891104, 3892091, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3475'],'gene':['ORF0004']}
-        ),
-        'Rv3327': SeqFeature(
-            FeatureLocation(3711748, 3713461, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3327'],'gene':['Rv3327']}
-        ),
-        'Rv3777': SeqFeature(
-            FeatureLocation(4222693, 4223680, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3777'],'gene':['Rv3777']}
-        ),
-        'Rv3785': SeqFeature(
-            FeatureLocation(4231319, 4232393, strand=1),
-            type='CDS',
-            qualifiers={'locus_tag':['Rv3785'],'gene':['Rv3785']}
-        ),
-    },
-}
+ref_features = {}
+for ref in [
+        'H37Rv', 'nissle-hybrid'
+]:
+    ref_file = os.path.join(pathlib.Path(__file__).parent.resolve(), 'data', f'{ref}.gbk')
+    ref_features[ref] = {}
+    if os.path.isfile(ref_file):
+        for record in SeqIO.parse(ref_file, 'genbank'):
+            for feature in record.features:
+                if 'gene' in feature.qualifiers:
+                    ref_features[ref][feature.qualifiers['gene'][0]] = feature
+
 
 features = {
+    'AZ20': {
+        'secD': {
+            'ratt': SeqFeature(
+                FeatureLocation(3714209, 3716770, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_02375'],'gene':['secD']}
+            ),
+        },
+    },
     '1-0006': {
         'dnaA': {
             'ratt': SeqFeature(
@@ -119,6 +61,20 @@ features = {
                 qualifiers={'locus_tag':['L_00010'],'gene':['Rv0007'],'pseudo':[""]}
             ),
         },
+        'galTb': {
+	    'ratt': SeqFeature(
+		FeatureLocation(712798, 713308, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv0619'],'gene':['galTb']}
+	    ),
+	},
+        'Rv0061c': {
+            'ratt': SeqFeature(
+                FeatureLocation(66831, 67032, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv0061c'],'gene':['Rv0061c']}
+            ),
+        },
         'PPE5': {
             'ratt': SeqFeature(
                 FeatureLocation(366754, 373353, strand=-1),
@@ -128,7 +84,7 @@ features = {
         },
         'PPE6': {
             'ratt': SeqFeature(
-                FeatureLocation(366754, 376299, strand=-1),
+                FeatureLocation(366753, 376299, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['Rv0305c'],'gene':['PPE6']}
             ),
@@ -147,11 +103,32 @@ features = {
                 qualifiers={'locus_tag':['L_00971'],'gene':['Rv0907']}
                 ),
         },
+        'Rv1075c': {
+	    'ratt': SeqFeature(
+		FeatureLocation(1202151, 1203042, strand=-1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv1075c'],'gene':['Rv1075c']}
+	    ),
+	},
+        'PE10': {
+	    'ratt': SeqFeature(
+		FeatureLocation(1217413, 1217872, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv1089'],'gene':['PE10']}
+	    ),
+	},
         'PPE38': {
             'abinit': SeqFeature(
                 FeatureLocation(2636045, 2637140, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['L_02521'],'gene':['PPE38']}
+            ),
+        },
+        'PPE47': {
+            'abinit': SeqFeature(
+                FeatureLocation(3374234, 3375542, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_03201'],'gene':['PPE47']}
             ),
         },
         'Rv1453': {
@@ -166,6 +143,13 @@ features = {
                 qualifiers={'locus_tag':['L_01557'],'gene':['Rv1453']}
                 ),
         },
+        'mce1R': {
+	    'ratt': SeqFeature(
+		FeatureLocation(192566, 193259, strand=-1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv0165c'],'gene':['mce1R']}
+	    ),
+	},
         'Rv1945': {
             'ratt': SeqFeature(
                 FeatureLocation(2186568, 2187933, strand=1),
@@ -187,6 +171,27 @@ features = {
                 qualifiers={'locus_tag':['L_02335'],'gene':['ORF0004']}
                 ),
         },
+        'Rv2079': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2339465, 2341292, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2079'],'gene':['Rv2079']}
+	    ),
+	},
+        'Rv2081c': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2342287, 2342617, strand=-1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2081c'],'gene':['Rv2081c']}
+	    ),
+	},
+        'Rv2134c': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2397623, 2398106, strand=-1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2134c'],'gene':['Rv2134c']}
+	    ),
+	},
         'Rv2180c': {
             'ratt': SeqFeature(
                 FeatureLocation(2444022, 2445033, strand=-1),
@@ -194,6 +199,27 @@ features = {
                 qualifiers={'locus_tag':['Rv2180c'],'gene':['Rv2180c']}
                 ),
         },
+        'Rv1877': {
+            'ratt': SeqFeature(
+                FeatureLocation(2112334, 2114834, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv1877'],'gene':['Rv1877']}
+            )
+        },
+        'Rv2280': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2553287, 2553950, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2280'],'gene':['Rv2280']}
+	    ),
+	},
+        'Rv2437': {
+	    'ratt': SeqFeature(
+		FeatureLocation(2735341, 2736310, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv2437'],'gene':['Rv2437']}
+	    ),
+	},
         'Rv2879c': {
             'ratt': SeqFeature(
                 FeatureLocation(3182302, 3183397, strand=-1),
@@ -216,6 +242,20 @@ features = {
                             'pseudo':['']}
             )
         },
+        'Rv3327': {
+            'ratt': SeqFeature(
+                FeatureLocation(3707086, 3709176, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3327'], 'gene':['Rv3327']}
+            )
+        },
+        'PE_PGRS50': {
+            'ratt_raw': SeqFeature(
+                FeatureLocation(3741108, 3746955, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3345c'],'gene':['PE_PGRS50']}
+            )
+        },
         'Rv3777': {
             'abinit': SeqFeature(
                 FeatureLocation(4230776, 4231754, strand=1),
@@ -231,6 +271,15 @@ features = {
             )
         },
     },
+    '1-0009': {
+        'PPE54': {
+            'ratt': SeqFeature(
+                FeatureLocation(3730264, 3741334, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['PPE54'],'gene':['PPE54']}
+            )
+        },
+    },
     '1-0047': {
         'PE_PGRS54': {
             'abinit': SeqFeature(
@@ -241,6 +290,15 @@ features = {
                     'translation':['MASEGGAGGQGGDGGDGGEGGGAGFGSGVAGAAGAGGNGGKGGDGGTGGTGGTNFAGGQGGAGGRGGAGGNGANGVGDNAAGGDGGNGGAGGLGGGGGTGGTNGNGGLGGGGGNGGAGGAGGTPTGSGTEGTGGDGGDAGAGGNGGSATGVGNGGNGGDGGNGGDGGNGAPGGFGGGAGAGGLGGSGAGGGTDGDDGNGGSPGTDGS'],
                 }
             ),
+        },
+    },
+    '2-0031': {
+        'PPE34': {
+            'abinit': SeqFeature(
+                FeatureLocation(1927378, 1927894, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_01804'],'gene':['PPE34']}
+            )
         },
     },
     '4-0041': {

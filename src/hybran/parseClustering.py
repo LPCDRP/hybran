@@ -4,6 +4,7 @@ import re
 import tempfile
 import subprocess
 import logging
+
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -184,7 +185,6 @@ def check_matches_to_known_genes(
     best_subcriticals = []
     query_gene_closest_refs = []
     assign_new_generic = True
-    pseudo = False
 
     if os.stat(generic_seqs).st_size:
         refs = [reference_seqs, generic_seqs]
@@ -192,12 +192,13 @@ def check_matches_to_known_genes(
         refs = [reference_seqs]
 
     for ref in refs:
-        top_hit, pseudo, blast_stats = BLAST.reference_match(
+        top_hit, low_covg, blast_stats = BLAST.reference_match(
             query = query_seq,
             subject = ref,
             seq_ident = seq_ident,
             seq_covg = seq_covg,
             identify=get_gene_name,
+            strict=True,
         )
         if top_hit:
             name_to_assign = top_hit
@@ -222,7 +223,7 @@ def check_matches_to_known_genes(
             query_gene_closest_refs = ['\t'.join([cluster_type, orf_id, hit])
                                        for hit in best_subcriticals]
 
-    return name_to_assign, pseudo, query_gene_closest_refs, orf_increment
+    return name_to_assign, query_gene_closest_refs, orf_increment
 
 def check_subcriticals(subcriticals):
     """
@@ -250,17 +251,22 @@ def check_subcriticals(subcriticals):
     return best_subcriticals
 
 
-def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name, pseudo=False):
+def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
     """
     Updates a global dictionary with new gene name assignments
 
     :param isolate_id: str isolate ID
     :param isolate_ltag: str locus tag to update
     :param new_gene_name: str gene name to assign
-    :param pseudo: bool whether the gene is a fragment
     :return: None
     """
     logger = logging.getLogger('NameGene')
+    # TODO: not doing pseudogene calling on name assignments from clustering.
+    #       Instead, we're requiring full-coverage matches at this point until
+    #       we can work out a way to take care of the fallout of a pseudo name
+    #       assignment (checking neighboring genes, potentially reevaluating conflicting annotations...)
+    pseudo = False
+
     if isolate_id not in isolate_update_dictionary.keys():
         isolate_update_dictionary[isolate_id] = {}
         isolate_update_dictionary[isolate_id][isolate_ltag] = dict(
@@ -463,7 +469,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
         out_list.append(str(single_gene))
         if designator.is_raw_ltag(gene_name) and designator.is_raw_ltag(locus_tag):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
-            name_to_assign, pseudo, query_closest_refs, orf_increment = check_matches_to_known_genes(
+            name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
                 query_seq = SeqRecord(gene_sequence),
                 reference_seqs = reference_fasta,
                 generic_seqs = unannotated_fasta,
@@ -473,7 +479,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
                 seq_covg = seq_covg,
             )
             novel_genes_closest_refs += query_closest_refs
-            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign, pseudo)
+            update_dictionary_ltag_assignments(isolate_id, locus_tag, name_to_assign)
         else:
             continue
     with open('./clustering/singleton_clusters.txt', 'w') as f:
@@ -512,7 +518,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
         gene = rep_gene.split(',')[2]
         rep_sequence = isolate_sequences[isolate][locus]
         rep_record = SeqRecord(rep_sequence, id='', description='')
-        name_to_assign, pseudo, query_closest_refs, orf_increment = check_matches_to_known_genes(
+        name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
             query_seq = rep_record,
             reference_seqs = reference_fasta,
             generic_seqs = unannotated_fasta,
@@ -528,7 +534,6 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
                 other_genes_in_cluster[0],
                 other_genes_in_cluster[1],
                 name_to_assign,
-                pseudo,
             )
     with open('./clustering/onlyltag_clusters.txt', 'w') as f:
         for line in out_list:
@@ -636,7 +641,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
                     unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus])
-                    name_to_assign, pseudo, query_closest_refs, orf_increment = check_matches_to_known_genes(
+                    name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
                         query_seq = unannotated_gene_seq,
                         reference_seqs = fasta_fp_to_blast,
                         generic_seqs = unannotated_fasta,
@@ -650,7 +655,6 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                         unannotated_gene_isolate,
                         unannotated_gene_locus,
                         name_to_assign,
-                        pseudo,
                     )
         else:
             if len(unassigned_l_tags) > 0:
@@ -728,6 +732,7 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     all Genbanks
 
     :param gffs: str directory of GFFs
+    :param genome_seqs: dict of sample name to SeqRecord genome sequence
     :param clusters: str cluster file
     :return: None
     """

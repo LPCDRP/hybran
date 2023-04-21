@@ -10,12 +10,21 @@ __status__ = "Development"
 # predominantly from RATT and the intergenic regions annotated by RATT are filled with Prokka. This script also
 # generates a log file to indicate characteristics of the transferred features from Prokka.
 
-from copy import deepcopy
 import sys
 import functools
+import collections
+import os
+import tempfile
+import pickle
+import logging
+import time
+import re
+import subprocess
+from copy import deepcopy
+from math import log, ceil
+
 # standard multiprocessing can't pickle lambda
 import multiprocess as multiprocessing
-
 import Bio
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -24,16 +33,6 @@ from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
 from Bio import Align
-from Bio.Align import substitution_matrices
-import collections
-from numpy import median
-import os
-import tempfile
-import pickle
-import logging
-import time
-import re
-import subprocess
 
 from . import BLAST
 from . import converter
@@ -82,6 +81,24 @@ def have_same_stop(loc1, loc2):
             (loc1.strand == -1 and loc1.start == loc2.start)
         )
     return False
+
+def is_broken_stop(feature):
+    """
+    Finds the amount and location of internal stops.
+    :param feature: A SeqFeature object
+    """
+    internal_stop = False
+    note = ''
+    translation = str(feature.extract(record_sequence).translate(to_stop=False))
+    num_stop = [i for i,e in enumerate(translation) if e == "*"]
+    num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
+    if len(num_internal_stop) >= 1 or translation[-1] != "*":
+        internal_stop = True
+        if len(num_stop) == 0:
+            note = f"No stop codons detected in the translated sequence"
+        else:
+            note = f"Internal stop detected in the following codon(s): {' '.join([str(i) for i in num_internal_stop])}"
+    return internal_stop, note
 
 def log_feature_fate(feature, logfile, remark=""):
     """
@@ -137,16 +154,14 @@ def load_reference_info(proteome_fasta):
     3. A dict with gene name as keys and locus tags as values
     4. A dict with locus tags as keys and gene name as values
     5. A dict with locus tags as keys and amino acid sequence as values
-    6. A dict with locus tags as keys and path to temporary FASTA (with corresponding amino acid sequence) as values
-    7. A dict with locus tags as keys and amino acid lengths as values
-    8. A dict with locus tags as keys and nucleotide lengths as values
+    6. A dict with locus tags as keys and amino acid lengths as values
+    7. A dict with locus tags as keys and nucleotide lengths as values
     """
     hybran_tmp_dir = config.hybran_tmp_dir
     reference_gene_list = []
     reference_locus_list = []
     reference_locus_gene_dict = {}
     reference_gene_locus_dict = collections.defaultdict(list)
-    ref_temp_fasta_dict = {}
     ref_protein_lengths = {}
 
     ref_fasta_records = SeqIO.parse(proteome_fasta, 'fasta')
@@ -166,18 +181,9 @@ def load_reference_info(proteome_fasta):
         reference_locus_list.append(locus)
         reference_gene_locus_dict[gene].append(locus)
         reference_locus_gene_dict[locus] = gene
-        fp = tempfile.NamedTemporaryFile(suffix='.fasta',
-                                         dir=hybran_tmp_dir,
-                                         delete=False,
-                                         mode='w')
-        ref_temp_fasta_dict[locus] = fp.name
-        header = '>' + locus + '\n'
         seq = str(record.seq)
-        fp.write(header)
-        fp.write(seq)
         ref_protein_lengths[locus] = len(seq)
-    return reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
-           ref_temp_fasta_dict, ref_protein_lengths
+    return reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, ref_protein_lengths
 
 
 def upstream_context(feature_location, source_seq, n=40, circular=True):
@@ -455,11 +461,11 @@ def process_split_genes(flist):
 
             lg_status = coord_check(
                 last_gene,
-                ref_gene_name=ref_gene,
+                ref_annotation[ref_gene],
             )
             cg_status = coord_check(
                 feature,
-                ref_gene_name=ref_gene,
+                ref_annotation[ref_gene],
             )
             if ((any(lg_status) and any(cg_status))
                 and (int(lg_status[0])+int(cg_status[0]), int(lg_status[1])+int(cg_status[1]))==(1,1)):
@@ -484,7 +490,7 @@ def process_split_genes(flist):
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
             new_feature.qualifiers['pseudo'] = ['']
 
-            if all(coord_check(new_feature, fix_start=True, fix_stop=True)) or reason == 'overlapping_inframe':
+            if all(coord_check(new_feature, ref_annotation[new_feature.qualifiers['gene'][0]], fix_start=True, fix_stop=True)) or reason == 'overlapping_inframe':
                 dropped_ltag_features.append(
                     (dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}")
                 )
@@ -659,12 +665,13 @@ def identify_conjoined_genes(ratt_features):
         if (prev_feature.location != feature.location # dealing with these is the job of identify_merged_genes()
             and have_same_stop(prev_feature.location, feature.location)
         ):
+
             if feature.strand == -1:
-                upstream = feature
-                downstream = prev_feature
+                upstream = max(feature, prev_feature, key=lambda _: _.location.end)
+                downstream = min(feature, prev_feature, key=lambda _: _.location.end)
             else:
-                upstream = prev_feature
-                downstream = feature
+                upstream = min(feature, prev_feature, key=lambda _: _.location.start)
+                downstream = max(feature, prev_feature, key=lambda _: _.location.start)
 
             designator.append_qualifier(
                 upstream.qualifiers,
@@ -734,7 +741,7 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
         feature.qualifiers.pop('pseudo', None)
         feature.qualifiers.pop('pseudogene', None)
 
-def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
+def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_name=None
 ):
     """
     This function takes a feature as an input and aligns it to the corresponding reference gene.
@@ -748,40 +755,70 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         If not defined, the reference gene matching `feature`'s gene qualifier is used instead.
     :return: True/False if the start/stop was fixed
     """
-    if not ref_gene_name:
-        ref_gene_name = feature.qualifiers['gene'][0]
-    ref_feature = ref_annotation[ref_gene_name]
+
     ref_seq = ref_feature.extract(ref_sequence)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
+    feature_seq = feature.extract(record_sequence)
     og_feature = deepcopy(feature)
     if 'gene' not in og_feature.qualifiers:
         og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
 
-    def coord_align(ref_seq, feature_seq, mismatch_check=False):
+    def coord_align(ref_seq, feature_seq):
+        #Probability that the continuous interval used to find good start/stops
+        #occurs by chance should be = 1/(ref_seq*10)
+        interval = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
+
+        #The pairwise aligner returns an iterable list of alignments all with the
+        #highest score it could possibly produce. Take the first 5 alignments from this list.
         aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
-        alignment = aligner.align(ref_seq, feature_seq)[0]
+        alignment = aligner.align(ref_seq, feature_seq)
+        alignment_list = []
+        while len(alignment_list) < 5:
+            i = len(alignment_list)
+            try:
+                target = alignment[i].aligned[0]
+                query = alignment[i].aligned[1]
+                found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
+                found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= interval
+                alignment_list.append([i, len(target), len(query), found_low, found_high])
+                continue
+            except IndexError:
+                break
+
+        #If possible, filter to find the best fitting alignment rather than the first one available.
+        if len(alignment_list) > 1:
+            max_found = max(map(lambda x: [x[3],x[4]], alignment_list))
+            alignment_list = [i for i in alignment_list if sum([i[3], i[4]]) == sum(max_found)]
+            min_breaks = min(map(lambda x: [x[1],x[2]], alignment_list))
+            alignment_list = [i for i in alignment_list if sum([i[1], i[2]]) == sum(min_breaks)]
+            alignment = alignment[alignment_list[0][0]]
+        else:
+            alignment = alignment[0]
+
         target = alignment.aligned[0]
         query = alignment.aligned[1]
-        target_low_seq = alignment[0][(query[0][0]):(query[0][1])]
-        query_low_seq  = alignment[1][(query[0][0]):(query[0][1])]
+        score = alignment.score
+        padding = False
 
-        target_high_seq = alignment[0][(query[-1][0]):(query[-1][1])]
-        query_high_seq = alignment[1][(query[-1][0]):(query[-1][1])]
+        found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
+        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= interval
 
-        found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= 4
-        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= 4
+        target_low_seq = ref_seq[target[0][0]:target[0][1]]
+        target_high_seq = ref_seq[target[-1][0]:target[-1][1]]
+        query_low_seq = feature_seq[query[0][0]:query[0][1]]
+        query_high_seq = feature_seq[query[-1][0]:query[-1][1]]
 
         #make sure there aren't too many mismatches causing falsely assigned found_low/high values
-        if not mismatch_check:
-            return found_low, found_high, target, query, alignment
-        if found_low and target[0][1] < (len(ref_seq)/3):
+        if (target_low_seq[:3] != query_low_seq[:3]):
+            found_low = False
+        elif found_low and target[0][1] < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
             for i in range(len(target_low_seq)):
-                if target_low_seq[i] == '-' or query_low_seq[i] == "-":
+                if target_low_seq[i] == '-' or query_low_seq[i] == '-':
                     gaps += 1
                 elif target_low_seq[i] == query_low_seq[i]:
                     ident += 1
@@ -790,10 +827,12 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
             if (gaps + mismatch) > (len(target_low_seq)/3):
                 found_low = False
 
-        if found_high and abs(target[-1][1] - target[-1][0]) < (len(ref_seq)/3):
+        if (target_high_seq[-3:] != query_high_seq[-3:]):
+            found_high = False
+        elif found_high and abs(target[-1][1] - target[-1][0]) < (len(ref_seq)/3):
             gaps = ident = mismatch = 0
             for i in range(len(target_high_seq)):
-                if target_high_seq[i] == '-' or query_high_seq[i] == "-":
+                if target_high_seq[i] == '-' or query_high_seq[i] == '-':
                     gaps += 1
                 elif target_high_seq[i] == query_high_seq[i]:
                     ident += 1
@@ -801,90 +840,166 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
                     mismatch += 1
             if (gaps + mismatch) > (len(target_high_seq)/3):
                 found_high = False
-        return found_low, found_high, target, query, alignment
 
+        if not found_low or not found_high:
+            padding = True
+        return found_low, found_high, target, query, alignment, padding, score, interval
 
-    feature_seq = feature.extract(record_sequence)
-    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq)
+    def add_padding(feature, target, query, interval):
+        #If we're looking to make corrections, add some context to help the aligner
+        pad_feature = deepcopy(feature)
+        feature_start = feature.location.start
+        feature_end = feature.location.end
 
-    #If we're looking to make corrections, add some context to help the aligner
-    bp_diff = abs(len(ref_seq) - len(og_feature.extract(record_sequence)))
-    n = bp_diff + round(.2 * bp_diff)
+        #The only time padding matters is when the reference overhangs on the left or right side of
+        #the feature. All other scenarios would be where found_low/high = True and extra context is unnecessary.
+        left_ref_overhang = int(target[0][0]) > int(query[0][0])
+        right_ref_overhang = (int(query[-1][1]) == len(feature)) and (int(target[-1][1]) < len(ref_seq))
+        left_pad = right_pad = abs(len(ref_seq) - len(og_feature.extract(record_sequence))) + 2*interval
 
-    if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
-        padded_feature_start = max(0, (feature_start - n))
-        if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
-            feature_start = padded_feature_start
+        if left_ref_overhang:
+            left_pad = int(target[0][0] - query[0][0])
+            left_pad = left_pad + 2*interval
+        if right_ref_overhang:
+            right_pad = len(alignment[0]) - int(query[-1][1])
+            right_pad = right_pad + 2*interval
 
-    if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
-        padded_feature_end = min(len(record_sequence), feature_end + n)
-        if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
-            feature_end = padded_feature_end
+        if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
+            if (fix_stop and feature.strand == -1):
+                left_pad = right_pad
+            padded_feature_start = max(0, (feature_start - left_pad))
+            if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
+                feature_start = padded_feature_start
 
-    feature.location = FeatureLocation(
-        feature_start,
-        feature_end,
-        strand=feature.strand
-    )
-    feature_seq = feature.extract(record_sequence)
-    feature_start = feature.location.start
-    feature_end = feature.location.end
+        if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
+            if (fix_start and feature.strand == -1):
+                right_pad = left_pad
+            padded_feature_end = min(len(record_sequence), feature_end + right_pad)
+            if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
+                feature_end = padded_feature_end
 
-    #Align again after adding padding to the feature sequence
-    found_low, found_high, target, query, alignment = coord_align(ref_seq, feature_seq, mismatch_check=True)
+        pad_feature.location = FeatureLocation(
+            feature_start,
+            feature_end,
+            strand=feature.strand
+        )
+        return pad_feature
 
-    if feature.strand == 1:
-        if found_high:
-            new_feature_end = (feature_start + query[-1][1])
-            if fix_stop:
-                feature_end = new_feature_end
-                good_stop = True
-            else:
-                good_stop = (og_feature_end == new_feature_end)
-        else:
-            feature_end = og_feature_end
-            good_stop = False
+    #First alignment
+    found_low, found_high, target, query, alignment, padding, first_score, interval = coord_align(ref_seq, feature_seq)
+    corrected_feature = deepcopy(feature)
+    corrected_feature_start = corrected_feature.location.start
+    corrected_feature_end = corrected_feature.location.end
+    if padding:
+        #Align again after adding padding to the feature sequence if warranted
+        pad_feature = add_padding(feature, target, query, interval)
+        pad_feature_seq = pad_feature.extract(record_sequence)
 
+        pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
         if found_low:
-            new_feature_start = (feature_start + query[0][0])
-            if fix_start:
-                feature_start = new_feature_start
-                good_start = True
-            else:
-                good_start = (og_feature_start == new_feature_start)
-        else:
-            feature_start = og_feature_start
-            good_start = False
-
-    elif feature.strand == -1:
-        if found_low:
-            new_feature_end = (feature_end - query[0][0])
-            if fix_start:
-                feature_end = new_feature_end
-                good_start = True
-            else:
-                good_start = (og_feature_end == new_feature_end)
-        else:
-            feature_end = og_feature_end
-            good_start = False
-
+            pad_found_low = False
         if found_high:
-            new_feature_start = (feature_start + (len(feature) - query[-1][1]))
-            if fix_stop:
-                feature_start = new_feature_start
-                good_stop = True
+            pad_found_high = False
+    else:
+        second_score = -1
+        pad_found_high = False
+        pad_found_low = False
+
+    for i in range(2):
+        if feature.strand == 1:
+            good_stop = found_high
+            if pad_found_high and fix_stop:
+                corrected_feature_end = (pad_feature.location.start + pad_query[-1][1])
+                if (second_score > first_score):
+                    feature_end = corrected_feature_end
+                    good_stop = True
+            elif found_high:
+                corrected_feature_end = feature_start + query[-1][1]
+                if fix_stop:
+                    feature_end = corrected_feature_end
+
+            good_start = found_low
+            if pad_found_low and fix_start:
+                corrected_feature_start = (pad_feature.location.start + (pad_query[0][0]))
+                if (second_score > first_score):
+                    feature_start = corrected_feature_start
+                    good_start = True
+            elif found_low:
+                corrected_feature_start = feature_start + query[0][0]
+                if fix_start:
+                    feature_start = corrected_feature_start
+
+        elif feature.strand == -1:
+            good_stop = found_high
+            if pad_found_high and fix_stop:
+                corrected_feature_start = (pad_feature.location.end - pad_query[-1][1])
+                if (second_score > first_score):
+                    feature_start = corrected_feature_start
+                    good_stop = True
+            elif found_high:
+                corrected_feature_start = feature_end - query[-1][1]
+                if fix_stop:
+                    feature_start = corrected_feature_start
+
+            good_start = found_low
+            if pad_found_low and fix_start:
+                corrected_feature_end = (pad_feature.location.end - pad_query[0][0])
+                if (second_score > first_score):
+                    feature_end = corrected_feature_end
+                    good_start = True
+            elif found_low:
+                corrected_feature_end = feature_end - query[0][0]
+                if fix_start:
+                    feature_end = corrected_feature_end
+
+        feature.location = FeatureLocation(
+            int(feature_start),
+            int(feature_end),
+            strand=feature.strand
+        )
+        feature_seq = feature.extract(record_sequence)
+
+        if i == 1:
+            continue
+        elif any([pad_found_low, pad_found_high]) and any([fix_start, fix_stop]) and (first_score > second_score):
+
+            #Catch corner cases where we try to correct a reference corresponding start PAST the end of the feature.
+            #If the original alignment was really far off, and we found a downstream start by chance, we should
+            #just leave the gene alone.
+            if corrected_feature_start > corrected_feature_end:
+                 feature.location = FeatureLocation(
+                     int(og_feature_start),
+                     int(og_feature_end),
+                     strand=feature.strand
+                 )
+                 break
+            corrected_feature.location = FeatureLocation(
+                int(corrected_feature_start),
+                int(corrected_feature_end),
+                strand=feature.strand
+            )
+            corrected_feature_seq = corrected_feature.extract(record_sequence)
+            cor_low, cor_high, cor_target, cor_query, cor_alignment, cor_padding, third_score, third_interval = coord_align(ref_seq, corrected_feature_seq)
+
+            if (third_score >= first_score):
+                second_score = third_score + 1
+                continue
             else:
-                good_stop = (og_feature_start == new_feature_start)
+                break
         else:
-            feature_start = og_feature_start
+            break
+
+    #For cases where we DON'T want to fix coords, good_start/stop should only be true if positionally
+    #identical to the start/stop in the reference. This is opposed to the normal definition of
+    #good_start/stop as CONTAINING a reference corresponding start/stop site.
+    if good_start and not fix_start:
+        if ((feature.strand == 1 and feature.location.start != corrected_feature_start) or
+            (feature.strand == -1 and feature.location.end != corrected_feature_end)):
+            good_start = False
+    if good_stop and not fix_stop:
+        if ((feature.strand == 1 and feature.location.end != corrected_feature_end) or
+            (feature.strand == -1 and feature.location.start != corrected_feature_start)):
             good_stop = False
-
-
-    feature.location = FeatureLocation(
-        int(feature_start),
-        int(feature_end),
-        strand=feature.strand
-    )
 
     if og_feature.location != feature.location:
         feature.qualifiers['translation'] = [
@@ -901,8 +1016,209 @@ def coord_check(feature, fix_start=False, fix_stop=False, ref_gene_name=None
         corrected_orf_report.append([og_feature, deepcopy(feature)])
     return good_start, good_stop
 
+def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, blast_hit_dict=None
+):
+    """
+    Determine whether a feature should have the /pseudo qualifier.
 
-def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_locus_list, seq_ident, seq_covg,
+    :param feature: SeqFeature object of the one to test for pseudo
+    :param ref_feature: SeqFeature object of the reference feature to compare to
+    :param seq_ident:
+    :param seq_covg:
+    :param attempt_rescue: Boolean whether to attempt coordinate correction (feature may still be pseudo after correction)
+    :param blast_hit_dict:
+        dictionary of blast scores for the reference comparison.
+        This will be updated if the coordinates are corrected.
+    """
+    # Check if the reference annotation was pseudo (some branches of the upcoming conditional use this information)
+    # seqret moves the reference pseudo tags to a note field beginning with *pseudo or *pseudogene
+    # Save the information and drop the note.
+    pseudo_note = False
+    if 'note' in feature.qualifiers:
+        pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo")]
+        if pseudo_note:
+            feature.qualifiers['note'].remove(pseudo_note[0])
+
+    ref_was_pseudo = pseudo_note or designator.is_pseudo(feature.qualifiers)
+    og_broken_stop, og_stop_note = is_broken_stop(feature)
+    divisible_by_three = lambda  _: len(_.location) % 3 == 0
+    og_feature = deepcopy(feature)
+    if ref_was_pseudo:
+        good_start, good_stop = coord_check(feature, ref_feature)
+        coords_ok = [good_start, good_stop]
+        new_note = []
+        new_note.append(f"Reference gene is pseudo")
+
+        if all(coords_ok):
+            new_note.append(f"Has reference-corresponding start and stop")
+
+        if divisible_by_three(og_feature):
+            if not divisible_by_three(ref_feature):
+                new_note.append(f"Sequence divisible by three while the reference's is not.")
+            else:
+                new_note.append(f"Both this sequence and the reference's are divisible by three.")
+        else:
+            if not divisible_by_three(ref_feature):
+                new_note.append(f"Both this sequence and the reference's have invalid reading frames -- not divisible by three.")
+            else:
+                new_note.append(f"Sequence not divisable by three while the reference sequence's is.")
+
+        if (not all(coords_ok)) and (divisible_by_three(og_feature) and not divisible_by_three(ref_feature)) and not og_broken_stop:
+            feature.qualifiers.pop('pseudo', None)
+            feature.qualifiers.pop('pseudogene', None)
+            is_pseudo = False
+        else:
+            if og_stop_note:
+                new_note.append(f"{og_stop_note}")
+            is_pseudo = True
+            feature.qualifiers['pseudo'] = ['']
+
+        new_note = ' | '.join(new_note)
+        designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan: {new_note}')
+
+    else:
+        fix_start = False
+        fix_stop = False
+        confirmed_feature = False
+        og_blast_defined = False
+        while not confirmed_feature:
+            good_start, good_stop = coord_check(feature, ref_feature, fix_start, fix_stop)
+            coords_ok = [good_start, good_stop]
+            ref_seq = translate(ref_feature.extract(ref_sequence), table=genetic_code, to_stop=True)
+            feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
+            #ref_match with 'thresholds enforced'
+            top_hit, low_covg, blast_stats = BLAST.reference_match(
+                query=SeqRecord(feature_seq),
+                subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
+                seq_ident=seq_ident,
+                seq_covg=seq_covg,
+            )
+            blast_ok = top_hit and not low_covg
+            if og_blast_defined:
+                lost_match = (og_blast_ok and not blast_ok)
+
+            broken_stop, stop_note = is_broken_stop(feature)
+
+            if not og_blast_defined:
+                if all(coords_ok):
+                    confirmed_feature = True
+                elif attempt_rescue:
+                    fix_start = True
+                    # If a gene has lost its stop codon and extended (gene longer than reference),
+                    # it will have a "bad_stop" but we will want to keep that bad stop in order to
+                    # capture as much information as we can (how far along the gene extended).
+                    # However, if it has an early stop (gene is shorter than reference), we want to find out
+                    # where it was "supposed" to stop (according to reference) and set the stop position there
+                    # to capture as much information as we can.
+                    if len(feature.location) < len(ref_feature.location):
+                        fix_stop = True
+            else:
+                # Revert coordinate correction if the blastp hit is lost.
+                # (usually due to the reference-corresponding start being affected by an early frameshift)
+                if lost_match:
+                    feature.location = og_feature.location
+                    feature.qualifiers = og_feature.qualifiers
+                    broken_stop, stop_note = og_broken_stop, stop_note
+                    blast_stats = og_blast_stats
+                confirmed_feature = True
+
+            if confirmed_feature:
+                if blast_hit_dict:
+                    blast_hit_dict.update(blast_stats[ref_feature.qualifiers['gene'][0]])
+                # Summarize coord_check status for notes
+                fancy_string = f"{'start' if not coords_ok[0] else ''}{' and ' if not any(coords_ok) else ''}{'end' if not coords_ok[1] else ''}"
+                # Notes that are only interesting if we end up tagging the gene a certain way.
+                new_note = []
+
+                div_note = ('Locus has invalid reading frame-- not divisible by three', 0)
+                if divisible_by_three(feature):
+                    div_note = ('Locus divisible by three', 1)
+
+                broke_note = ('No internal stop codons and ends with a valid stop codon', 0)
+                if broken_stop:
+                    broke_note = (stop_note, 1)
+
+                coord_note = ('Locus has reference-corresponding start and end', list(map(int, coords_ok)))
+                if not all(coords_ok):
+                    coord_note = (f'Locus does not have reference-corresponding {fancy_string}', list(map(int, coords_ok)))
+
+                blast_note = (f'Poor blastp match at {seq_ident}% identity and {seq_covg}% coverage thresholds', 0)
+                if blast_ok:
+                    blast_note = (f'Strong blastp match at {seq_ident}% identity and {seq_covg}% coverage thresholds', 1)
+
+                #Note codes are categorized by a '0' or '1' and correspond to 'False' and 'True' respectively
+                #D3 = Divisible by three [0/1]
+                #VS = Valid stop [0/1]
+                #RCS = Reference corresponding start [0/1]
+                #RCE = Reference corresponding end [0/1]
+                #BOK = Blast OK [0/1]
+                note_codes = (f'D3{div_note[1]} VS{1 if broke_note[1] == 0 else 0} RCS{coord_note[1][0]} ' \
+                              f'RCE{coord_note[1][1]} BOK{0 if not blast_ok else 1}')
+
+                #This is the code for a normal non-pseudo gene, with no interesting characteristics.
+                #These codes will not be added to the feature notes.
+                if note_codes == 'D31 VS1 RCS1 RCE1 BOK1':
+                    note_codes = None
+
+                #The order in which notes appear is important. The first note should represent the
+                #main reason for why a gene is marked pseudo or not.
+                if ((all(coords_ok) or blast_ok) and divisible_by_three(feature)) and not broken_stop:
+                    is_pseudo = False
+                    if all(coords_ok):
+                        if not blast_ok:
+                            new_note.extend([coord_note[0], blast_note[0]])
+                        if len(ref_feature) > len(feature):
+                            new_note.append("Has deletion mutation(s) compared to the reference")
+                            new_note.extend([broke_note[0], div_note[0]])
+                        elif len(ref_feature) < len(feature):
+                            new_note.append("Has insertion mutation(s) compared to the reference")
+                            new_note.extend([broke_note[0], div_note[0]])
+                    else:
+                        #Strong blast, but non-reference-corresponding start/stop
+                        new_note.extend([blast_note[0], coord_note[0]])
+                else:
+                    is_pseudo = True
+                    feature.qualifiers['pseudo']=['']
+                    #Primary reason for being pseudo. Followed by interesting cases if applicable.
+                    if broken_stop or not divisible_by_three(feature): #Broken Stop/Not divisible by three
+                        new_note.extend([broke_note[0], div_note[0]])
+
+                        if all(coords_ok):
+                            if not divisible_by_three(feature):
+                                if len(ref_feature) > len(feature):
+                                    new_note.append("Has deletion mutation(s) compared to the reference")
+                                elif len(ref_feature) < len(feature):
+                                    new_note.append("Has insertion mutation(s) compared to the reference")
+                            new_note.append(coord_note[0])
+
+                        if blast_ok:
+                            new_note.append(blast_note[0])
+                    #Valid reading frame AND not a broken stop.
+                    #Must be pseudo because of (not all(coords_ok) AND not (blast_ok))
+                    else:
+                        if coords_ok == [True, False]:
+                            if len(ref_feature) < len(feature):
+                                new_note.append(coord_note[0])
+                                new_note.append("Has a frameshift mutation leading to a delayed stop codon")
+                        else:
+                            new_note.append(coord_note[0])
+                            new_note.append(blast_note[0])
+                            new_note.append(broke_note[0])
+                            new_note.append(div_note[0])
+
+                if new_note:
+                    new_note = ' | '.join(new_note)
+                    designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan: {new_note}')
+                if note_codes:
+                    designator.append_qualifier(feature.qualifiers, 'note', note_codes)
+                break
+            else:
+                og_blast_ok, og_blast_stats = (blast_ok, blast_stats)
+                og_blast_defined = True
+
+    return is_pseudo
+
+def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident, seq_covg, ratt_enforce_thresholds,
     nproc=1,
 ):
     """
@@ -921,88 +1237,93 @@ def isolate_valid_ratt_annotations(feature_list, ref_temp_fasta_dict, reference_
     rejects = []
     valid_features = []
 
-    for feature in feature_list:
-        # Identify features with 'joins'
-        if feature.type == 'CDS' and 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
-            if 'ribosomal_slippage' in feature.qualifiers:
-                continue
-            #Need to initialize the feature without the compound location attribute.
-            #The earliest start and the latest end of the joined feature will be bridged together
-            feature_start = feature.location.parts[0].start
-            feature_end = feature.location.parts[1].end
-            feature_strand = feature.strand
-            if feature_strand == -1:
-                feature.location = (FeatureLocation(feature_end, feature_start, strand=feature_strand))
-            else:
-                feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
-            #Check if feature has an internal stop codon.
-            #
-            # If it doesn't, we will assign pseduo and accept it.
+    if ratt_enforce_thresholds:
+        ratt_seq_ident = seq_ident
+        ratt_seq_covg = seq_covg
+    else:
+        ratt_seq_ident = ratt_seq_covg = 0
 
-            # The gff conversion of a gbk entry with joins is not meaningful,
-            # and causes some problems, as the entire sequence gets labeled
-            # "biological region" and two basically empty CDS records are created.
-
-            num_stops = feature.extract(record_sequence).translate().count("*")
-
-            if num_stops > 1:
-                changed_start, changed_stop = coord_check(feature, fix_start=True, fix_stop=True)
-                if not changed_stop:
-                    rejects.append((feature, "RATT-introduced compound interval did not include reference stop position."))
-                    continue
-
-                corrected_feature_seq = feature.extract(record_sequence)
-                num_stops = feature.extract(record_sequence).translate().count("*")
-                if num_stops > 1:
-                    feature.qualifiers['pseudo']=['']
-                    designator.append_qualifier(
-                        feature.qualifiers, 'note',
-                        'Pseudo: Ratt annotation encountered a Compound Interval (early stop), but also aligned ' +
-                        'with the reference stop position. After updating the coordinates, the gene ' +
-                        'still had at least one early stop.')
-                    valid_features.append(feature)
-                else:
-                    unbroken_cds.append(feature)
-
-        elif feature.type == 'CDS' and feature.location is None:
-            logger.warning('Invalid CDS: Location of CDS is missing')
-            logger.warning(feature)
-            rejects.append((feature, "location of CDS is missing"))
-        elif feature.type == 'CDS' and (len(feature.location) % 3) != 0:
-            logger.warning('Nucleotide sequence is not divisible by 3')
-            logger.warning(feature)
-            rejects.append((feature, "nucleotide sequence is not divisible by 3"))
-        elif feature.type == 'CDS':
-            unbroken_cds.append(feature)
-        else:
-            non_cds_features.append(feature)
-
-    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features)))
-    logger.debug(f"Checking similarity to reference CDSs using {nproc} process(es)")
-
-
-    def refcheck(cds_feature, record_sequence=record_sequence):
+    def refcheck(cds_feature, ratt_seq_ident=ratt_seq_ident, ratt_seq_covg=ratt_seq_covg, record_sequence=record_sequence):
         valid = False
         remark = ''
         blast_stats = {}
+        ref_feature = ref_annotation[cds_feature.qualifiers['gene'][0]]
+        ref_seq = ref_feature.qualifiers['translation'][0]
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
-        cds_locus_tag = cds_feature.qualifiers['locus_tag'][0]
         if len(feature_sequence) == 0:
             remark = 'length of AA sequence is 0'
         else:
-            ref_match, pseudo, blast_stats = BLAST.reference_match(
+            top_hit, low_covg, blast_stats = BLAST.reference_match(
                 query=SeqRecord(feature_sequence),
-                subject=ref_temp_fasta_dict[cds_locus_tag],
-                seq_ident=seq_ident,
-                seq_covg=seq_covg,
+                subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
+                seq_ident=ratt_seq_ident,
+                seq_covg=ratt_seq_covg,
             )
 
-            if ref_match:
+            if top_hit:
                 valid = True
             else:
                 remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
         return valid, feature_sequence, blast_stats, remark
 
+    for feature in feature_list:
+        if feature.type != 'CDS':
+            non_cds_features.append(feature)
+            continue
+
+        compound_interval = isinstance(feature.location,Bio.SeqFeature.CompoundLocation)
+        # Identify features with 'joins'
+        if compound_interval and 'ribosomal_slippage' not in feature.qualifiers:
+            #Need to initialize the feature without the compound location attribute.
+            #The earliest start and the latest end of the joined feature will be bridged together
+            feature_start = feature.location.start
+            feature_end = feature.location.end
+            feature_strand = feature.strand
+            feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
+            #Check if feature has an internal stop codon.
+            #
+            # If it doesn't, we will assign pseudo and accept it.
+
+            # The gff conversion of a gbk entry with joins is not meaningful,
+            # and causes some problems, as the entire sequence gets labeled
+            # "biological region" and two basically empty CDS records are created.
+
+            broken_stop, stop_note = is_broken_stop(feature)
+            if broken_stop:
+                good_start, good_stop = coord_check(
+                    feature,
+                    ref_annotation[feature.qualifiers['gene'][0]],
+                    fix_start=True,
+                    fix_stop=True,
+                )
+                if not good_stop:
+                    rejects.append((feature, "RATT-introduced compound interval did not include reference " +
+                                    "stop position."))
+                    continue
+                broken_stop, stop_note = is_broken_stop(feature)
+                if broken_stop:
+                    feature.qualifiers['pseudo']=['']
+                    designator.append_qualifier(feature.qualifiers, 'note', stop_note)
+                    valid_features.append(feature)
+                    continue
+            unbroken_cds.append(feature)
+            continue
+
+        feature_is_pseudo = pseudoscan(
+            feature,
+            ref_annotation[feature.qualifiers['gene'][0]],
+            seq_ident,
+            seq_covg,
+            attempt_rescue=True
+        )
+
+        if feature_is_pseudo:
+            valid_features.append(feature)
+        else:
+            unbroken_cds.append(feature)
+
+    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features)))
+    logger.debug(f"Checking similarity to reference CDSs using {nproc} process(es)")
 
     with multiprocessing.Pool(processes=nproc) as pool:
          results = pool.map(
@@ -1273,11 +1594,11 @@ def check_inclusion_criteria(
             and not designator.is_pseudo(abinit_annotation.qualifiers)
             and not designator.is_pseudo(ratt_annotation.qualifiers)
             ):
-            ratt_coord_status = coord_check(ratt_annotation)
+            ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
             (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
             ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
 
-            abinit_coord_status = coord_check(abinit_annotation)
+            abinit_coord_status = coord_check(abinit_annotation, ref_annotation[abinit_annotation.qualifiers['gene'][0]])
             (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
             abinit_coord_score = sum([int(_) for _ in ratt_coord_status])
 
@@ -1319,21 +1640,21 @@ def check_inclusion_criteria(
 
             if (locus_tag not in ratt_blast_results.keys()
             ):
-                abinit_ref_match, abinit_pseudo, blast_stats = BLAST.reference_match(
+                blast_stats = BLAST.reference_match(
                     query=SeqRecord(abinit_annotation.extract(record_sequence)),
                     subject=ref_fna_dict[locus_tag],
                     seq_ident=0,
                     seq_covg=0,
                     blast_type="n"
-                )
+                )[2]
                 blast_stats = blast_stats[locus_tag]
-                ratt_ref_match, ratt_pseudo, ratt_blast_results = BLAST.reference_match(
+                ratt_blast_results = BLAST.reference_match(
                     query=SeqRecord(ratt_annotation.extract(record_sequence)),
                     subject=ref_fna_dict[locus_tag],
                     seq_ident=0,
                     seq_covg=0,
                     blast_type="n"
-                )
+                )[2]
             ratt_start = int(ratt_annotation.location.start)
             ratt_stop = int(ratt_annotation.location.end)
             ratt_strand = int(ratt_annotation.location.strand)
@@ -1488,7 +1809,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     global reference_gene_locus_dict
     global reference_locus_gene_dict
     reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
-        ref_temp_fasta_dict, ref_protein_lengths = load_reference_info(ref_proteins_fasta)
+        ref_protein_lengths = load_reference_info(ref_proteins_fasta)
     if annotation_fp.endswith('/'):
         file_path = annotation_fp + isolate_id + '/'
     else:
@@ -1549,12 +1870,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             # will prevail.
             ref_annotation[feature.qualifiers['gene'][0]] = feature
 
-    if ratt_enforce_thresholds:
-        ratt_seq_ident = seq_ident
-        ratt_seq_covg = seq_covg
-    else:
-        ratt_seq_ident = ratt_seq_covg = 0
-
     output_isolate_recs = []
 
     for i, contig in enumerate(contigs):
@@ -1601,10 +1916,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
         ratt_contig_features, ratt_blast_results, invalid_ratt_features = \
             isolate_valid_ratt_annotations(feature_list=ratt_contig_features,
-                                           ref_temp_fasta_dict=ref_temp_fasta_dict,
                                            reference_locus_list=reference_locus_list,
-                                           seq_ident=ratt_seq_ident,
-                                           seq_covg=ratt_seq_covg,
+                                           seq_ident=seq_ident,
+                                           seq_covg=seq_covg,
+                                           ratt_enforce_thresholds=ratt_enforce_thresholds,
                                            nproc=nproc,
             )
 
@@ -1727,59 +2042,41 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             n_coords_corrected = 0
             n_bad_starts = 0
             for j in range(len(prokka_contig_cdss)):
-                ref_gene, pseudo, blast_hits = blast_package[j]
+                ref_gene, low_covg, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
+
                 if ref_gene:
-                    og_feature_location = deepcopy(feature.location)
-                    og_pseudo = pseudo
-                    og_blast_hits = blast_hits
-                    match_type = 'AA'
                     feature.qualifiers['gene'] = [ref_gene]
-                    good_start = coord_check(feature, fix_start=True)[0]
-                    if good_start and (og_feature_location != feature.location):
+                    og_feature_location = deepcopy(feature.location)
+                    feature_is_pseudo = pseudoscan(
+                        feature,
+                        ref_annotation[ref_gene],
+                        seq_ident,
+                        seq_covg,
+                        attempt_rescue=True,
+                        blast_hit_dict=blast_hits[ref_gene]
+                    )
+
+                    if (og_feature_location != feature.location):
                         n_coords_corrected += 1
-                        # re-do the blast with the updated gene coordinates.
-                        # ref_gene should not change (since coordinates were fixed to match it better),
-                        # but pseudo may change and blast_hits will change.
-                        top_hit, pseudo, blast_hits = refmatch(SeqRecord(Seq(feature.qualifiers['translation'][0])))
 
                         # for logging purposes
-                        if og_pseudo:
+                        if feature_is_pseudo:
                             corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-                        if ((top_hit == ref_gene) and pseudo) or (top_hit != ref_gene):
                             corrected_orf_report[-1][1].qualifiers['pseudo'] = ['']
+                        else:
+                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
 
-                        if top_hit != ref_gene:
-                            top_hit = reference_locus_gene_dict.get(
-                                refmatch(SeqRecord(Seq(feature.extract(record_sequence))),
-                                         subject=ref_fna_dict[reference_gene_locus_dict[ref_gene][0]],
-                                         identify=lambda _:_,
-                                         blast_type="n",
-                                )[0]
-                            )
-                            if top_hit != ref_gene:
-                                logger.warning(f"coordinate correction for {feature.qualifiers['locus_tag'][0]} now matches {top_hit} instead of {ref_gene}. Rejecting {str(og_feature_location)} -> {str(feature.location)} coordinate correction.")
-                                n_coords_corrected -= 1
-                                feature.location = og_feature_location
-                                blast_hits = og_blast_hits
-                                pseudo = og_pseudo
-                            else:
-                                match_type = 'nucleotide'
-                                pseudo = True
-                    elif not good_start:
-                        n_bad_starts += 1
-                        logger.debug(f"Failed to correct start for {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}")
-                        pseudo = True
                     liftover_annotation(
                         feature,
                         ref_annotation[ref_gene],
-                        pseudo,
+                        feature_is_pseudo,
                         inference=':'.join([
-                            f"similar to {match_type} sequence",
+                            f"similar to AA sequence",
                             os.path.basename(os.path.splitext(ref_gbk_fp)[0]),
                             ref_annotation[ref_gene].qualifiers['locus_tag'][0],
                             ref_gene,
-                            "blast",
+                            "blastp",
                         ])
                     )
                     abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
@@ -1796,8 +2093,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
 
             logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
-            logger.debug(f'{seqname}: Corrected start positions for {n_coords_corrected} ab initio ORFs')
-            logger.debug(f'{seqname}: Start positions for {n_bad_starts} ab initio ORFs could not be corrected')
+            logger.debug(f'{seqname}: Corrected coordinates for {n_coords_corrected} ab initio ORFs')
 
 
             # Check for in-frame conflicts/duplicates again since the ab initio gene coordinates changed
@@ -1874,20 +2170,29 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                                 Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
                                 id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0],
                             )
-                        ref_gene, pseudo = BLAST.reference_match(
+                        ref_gene = BLAST.reference_match(
                             query=query,
                             subject=subject,
                             blast_type=blast_type,
                             seq_ident=seq_ident,
                             seq_covg=seq_covg,
-                        )[0:2]
+                        )[0]
                         if ref_gene:
                             # reference_match's pseudo determination may not be accurate since we are here
                             # comparing annotations on the same genome, so
                             # a full-length match to an already truncated gene should not be considered
                             # a complete reference match
-                            if designator.is_pseudo(ratt_feature.qualifiers):
-                                pseudo = True
+                            abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
+                                abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
+                            pseudo = pseudoscan(
+                                feature,
+                                ref_feature=ref_annotation[ref_gene],
+                                seq_ident=seq_ident,
+                                seq_covg=seq_covg,
+                                attempt_rescue=True,
+                                blast_hit_dict=abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]]
+                            )
+
                             liftover_annotation(
                                 abinit_feature,
                                 ref_annotation[ref_gene],
@@ -1900,8 +2205,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                                     "RATT+blastp",
                                 ])
                             )
-                            abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
-                                abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
                     include_abinit, include_ratt, remark = check_inclusion_criteria(
                         ratt_annotation=ratt_feature,
                         abinit_annotation=abinit_feature,

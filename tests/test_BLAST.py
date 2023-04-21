@@ -66,11 +66,11 @@ def test_reference_match(feature):
             },
         ),
         'rplB': (
-            'rplB', False,
+            'rplB', True,
             {'rplB': {'iden': 100.0, 'qcov': 71.06598984771574, 'scov': 100.0}},
         ),
         'mamB': (
-            'mamB', False,
+            'mamB', True,
             {'mamB': {'iden': 99.605, 'qcov': 29.418604651162788, 'scov': 98.25242718446601}},
         ),
         'no_hit': (
@@ -83,14 +83,14 @@ def test_reference_match(feature):
         ),
     }
 
-    (result, pseudo, hits) = BLAST.reference_match(
+    (result, low_covg, hits) = BLAST.reference_match(
         query=SeqRecord(inputs[feature]),
         subject="data/H37Rv.faa",
         seq_ident=95,
         seq_covg=95,
     )
     hits = dict(hits)
-    assert (result, pseudo, hits) == expected[feature]
+    assert (result, low_covg, hits) == expected[feature]
 
 def test_summarize():
     blast_results = \

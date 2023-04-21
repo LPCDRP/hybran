@@ -17,16 +17,19 @@ from . import config
 # you have no network connection.
 os.environ["BLAST_USAGE_REPORT"] = "false"
 
-def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, metric='iden', blast_type = "p"):
+def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, metric='iden', blast_type = "p", strict=False):
     """
     Wrapper to blast(), summarize(), and top_hit() that tells you the bottom line.
-    See those functions for descriptions of the input parameters.
+    See those functions for descriptions of the main input parameters.
     This function checks for complete hits and, failing that, partial hits.
+    :param strict: Boolean whether to strictly enforce all thresholds or allow for low-coverage alignments.
     :returns:
         - result (:py:class:`str`)  -
              name of the top hit (`None` if no suitable match was found)
-        - pseudo (:py:class:`bool`) -
-             whether the query is truncated with respect to the result
+        - low_covg (:py:class:`bool`) -
+             A hit that has either low subject coverage or low query coverage but meets
+             remaining thresholds. This indicates whether the query is truncated with
+             respect to the reference or vice-versa
         - stats (:py:class:`dict`)  -
              summary dict of blast results from either hits, truncation_signatures, or misses
     """
@@ -39,12 +42,18 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
         blast_type,
     )
     result = None
-    pseudo = False
+    low_covg = False
     hit_dict = None
+    if strict:
+        principal_lists = [hits]
+        scraps = truncation_signatures + misses
+    else:
+        principal_lists = [hits, truncation_signatures]
+        scraps = misses
     # this will be replaced by actual hits later if there are any
-    hit_dict = summarize(misses, identify=identify)
+    hit_dict = summarize(scraps, identify=identify)
 
-    for hit_list in [hits, truncation_signatures]:
+    for hit_list in principal_lists:
         if not hit_list:
             continue
         hit_dict = summarize(hit_list, identify=identify)
@@ -53,15 +62,15 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
             metric=metric,
         )
         stats = hit_dict[result]
-        # Low subject coverage but passing query coverage means that the gene
-        # is truncated in this sample. Tag it pseudo.
-        # TODO - consider setting this to 80% instead of seq_covg
-        if stats['scov'] < seq_covg:
-            pseudo = True
+        scov_pass = stats['scov'] >= seq_covg
+        qcov_pass = stats['qcov'] >= seq_covg
+        ident_pass = stats['iden'] >= seq_ident
+        if ident_pass and any([scov_pass, qcov_pass]) and not all([scov_pass, qcov_pass]):
+            low_covg = True
         # if we found a proper hit, don't look for anything else
         break
 
-    return result, pseudo, hit_dict
+    return result, low_covg, hit_dict
 
 def top_hit(blast_summary, metric='iden'):
     """

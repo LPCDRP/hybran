@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 import subprocess
 
 from . import extractor, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
@@ -82,6 +83,7 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
         pass
     os.chdir(hybran_tmp_dir + '/clustering')
     fasta = 'cds_seqs.fasta'
+    gbk_filenames = [re.sub(r"\.gff$", ".gbk", _) for _ in all_genomes]
     if 'clustered_proteins' not in os.listdir(os.getcwd()):
         gff_gene_dict = {}
         gff_gene_dict.update(extractor.fastaFromGffList(gffs=all_genomes, out_cds=fasta))

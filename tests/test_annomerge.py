@@ -1,4 +1,5 @@
 from collections import defaultdict, OrderedDict
+from copy import deepcopy
 import os
 
 from Bio import SeqIO
@@ -192,15 +193,12 @@ def test_process_split_genes(gene_list):
         'complementary_fragments_one_unnamed':'1-0006',
         'fails_final_coord_check_inframe_overlap':'2-0031',
     }
+    ref_genome = defaultdict(lambda :'H37Rv')
     source_genome = source_genomes[gene_list]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.genetic_code = 11
-    annomerge.ref_annotation = {
-        'dosT': ref_features['H37Rv']['dosT'],
-        'Rv0986': ref_features['H37Rv']['Rv0986'],
-        'Rv3327': ref_features['H37Rv']['Rv3327'],
-    }
+    annomerge.ref_annotation = ref_features[ref_genome[gene_list]]
     annomerge.corrected_orf_report = []
 
     expected = {
@@ -332,31 +330,73 @@ def test_liftover_annotation():
     annomerge.liftover_annotation(abinit, ref, False, inference='alignment:blastp')
     assert abinit.qualifiers == expected
 
-@pytest.mark.parametrize('feature_type', [
-    'abinit_start_bad_minus',
-    'bad_translation',
-    'tricky_found_low',
-    'good_start_stop_deletion',
+@pytest.mark.parametrize('feature_type,fix_start,fix_stop', [
+    ['abinit_start_bad_minus', True, False],
+    ['bad_translation', True, False],
+    ['tricky_found_low', True, False],
+    ['good_start_stop_deletion', True, False],
+    ['bad_mismatch_check', True, True],
+    ['bad_mismatch_check2', True, True],
+    ['ref_start_frameshift', True, False],
+    ['bad_start_good_padding', True, False],
+    ['ratt_pseudo_pgrs', True, True],
+    ['same_start_alt_stop_1', False, False],
+    ['same_start_alt_stop_2', False, False],
+    ['same_start_alt_stop_2_fix', True, True],
+    ['bad_start_stop_nofix_pseudo', False, False],
+    ['bad_start_stop_fix_pseudo', True, False],
+    ['inverted_join_ecoli', True, True],
 ])
-def test_coord_check(feature_type):
+@pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
+@pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
+def test_coord_check(feature_type, fix_start, fix_stop):
     #prokka for Rv2300c and Rv3181c
-    source_genome = '1-0006'
+    source_genome = {
+        'abinit_start_bad_minus':'1-0006',
+        'bad_translation':'1-0006',
+        'tricky_found_low':'1-0006',
+        'good_start_stop_deletion':'1-0006',
+        'bad_mismatch_check':'1-0006',
+        'bad_mismatch_check2':'1-0006',
+        'ref_start_frameshift':'1-0006',
+        'bad_start_good_padding':'2-0031',
+        'ratt_pseudo_pgrs':'1-0006',
+        'same_start_alt_stop_1':'1-0006',
+        'same_start_alt_stop_2':'1-0006',
+        'same_start_alt_stop_2_fix':'1-0006',
+        'bad_start_stop_nofix_pseudo':'1-0006',
+        'bad_start_stop_fix_pseudo':'1-0006',
+        'inverted_join_ecoli': 'AZ20',
+
+    }
+    ref_genome = defaultdict(lambda :'H37Rv')
+    ref_genome['inverted_join_ecoli'] = 'nissle-hybrid'
+
     test_features = {
-        'abinit_start_bad_minus': features[source_genome]['Rv3181c']['abinit'],
-        'bad_translation': features[source_genome]['Rv3777']['abinit'],
-        'tricky_found_low': features[source_genome]['PPE38']['abinit'],
-        'good_start_stop_deletion': features[source_genome]['Rv3785']['abinit'],
+        'abinit_start_bad_minus': features[source_genome['abinit_start_bad_minus']]['Rv3181c']['abinit'],
+        'bad_translation': features[source_genome['bad_translation']]['Rv3777']['abinit'],
+        'tricky_found_low': features[source_genome['tricky_found_low']]['PPE38']['abinit'],
+        'good_start_stop_deletion': features[source_genome['good_start_stop_deletion']]['Rv3785']['abinit'],
+        'bad_mismatch_check': features[source_genome['bad_mismatch_check']]['Rv1877']['ratt'],
+        'bad_mismatch_check2': features[source_genome['bad_mismatch_check2']]['Rv3327']['ratt'],
+        'ref_start_frameshift' : features[source_genome['ref_start_frameshift']]['PPE47']['abinit'],
+        'bad_start_good_padding' : features[source_genome['bad_start_good_padding']]['PPE34']['abinit'],
+        'ratt_pseudo_pgrs': features[source_genome['ratt_pseudo_pgrs']]['PE_PGRS50']['ratt_raw'],
+        'same_start_alt_stop_1': features[source_genome['same_start_alt_stop_1']]['Rv2879c']['ratt'],
+        'same_start_alt_stop_2': features[source_genome['same_start_alt_stop_2']]['Rv2880c']['ratt'],
+        'same_start_alt_stop_2_fix': features[source_genome['same_start_alt_stop_2']]['Rv2880c']['ratt'],
+        'bad_start_stop_nofix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
+        'bad_start_stop_fix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
+        'inverted_join_ecoli': features[source_genome['inverted_join_ecoli']]['secD']['ratt'],
     }
 
     feature = test_features[feature_type]
-    annomerge.ref_annotation = {
-        'Rv3181c': ref_features['H37Rv']['Rv3181c'],
-        'Rv3777': ref_features['H37Rv']['Rv3777'],
-        'PPE38': ref_features['H37Rv']['PPE38'],
-        'Rv3785': ref_features['H37Rv']['Rv3785'],
-    }
-    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
-    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
+    ref_feature = ref_features[ref_genome[feature_type]][
+        test_features[feature_type].qualifiers['gene'][0]
+    ]
+    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
+    annomerge.ref_sequence = list(SeqIO.parse(f'data/{ref_genome[feature_type]}.gbk', 'genbank'))[0].seq
+
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
 
@@ -365,8 +405,95 @@ def test_coord_check(feature_type):
         'bad_translation':[(True, True), FeatureLocation(4230767, 4231754, strand=1)],
         'tricky_found_low':[(False, True), FeatureLocation(2636045, 2637140, strand=-1)],
         'good_start_stop_deletion':[(True, True), FeatureLocation(4239393, 4240378, strand=1)],
+        'bad_mismatch_check':[(True, False), FeatureLocation(2112334, 2114834, strand=1)],
+        'bad_mismatch_check2':[(False, False), FeatureLocation(3707086, 3709176, strand =1)],
+        'ref_start_frameshift':[(True, True), FeatureLocation(3374234, 3375312, strand=-1)],
+        'bad_start_good_padding':[(False, True), FeatureLocation(1927378, 1927894, strand=-1)],
+        'ratt_pseudo_pgrs':[(True,False), FeatureLocation(3741108, 3746955, strand=-1)],
+        'same_start_alt_stop_1':[(False, True), FeatureLocation(3182302, 3183397, strand=-1)],
+        'same_start_alt_stop_2':[(True, False), FeatureLocation(3182302, 3183397, strand=-1)],
+        'same_start_alt_stop_2_fix':[(True, True), FeatureLocation(3182570, 3183397, strand=-1)],
+        'bad_start_stop_nofix_pseudo': [(False, False), FeatureLocation(1217413, 1217872, strand=1)],
+        'bad_start_stop_fix_pseudo': [(True, False), FeatureLocation(1217428, 1217872, strand=1)],
+        'inverted_join_ecoli': [(False, False), FeatureLocation(3714209, 3716770, strand=-1)],
     }
-    results = annomerge.coord_check(feature, fix_start=True)
+    results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop)
+    assert [results, feature.location] == expected[feature_type]
+
+@pytest.mark.parametrize('feature_type, seq_ident, seq_covg, attempt_rescue', [
+    ['small_badstop_fix_pseudo', 95, 95, True],
+    ['small_badstart_fix_nopseudo', 95, 95, True],
+    ['small_badstop_fix_pseudo_frameshift', 95, 95, True],
+    ['frameshift_alt_stop_pseudo', 95, 95, True],
+    ['good_start_stop_frameshift_pseudo', 95, 95, True],
+    ['bad_start_stop_nofix_pseudo', 95, 95, True],
+    ['fix_stop_valid_broken_stop', 95, 95, True],
+    ['sensitive_padding_fix_pseudo', 95, 95, True],
+    ['deletion_in_middle_fix_pseudo', 95, 95, True],
+    ['fix_start_stop_nonpseudo', 95, 95, True],
+    ['good_start_stop_fix_pseudo', 95, 95, True],
+    ['inframe_deletion_in_middle', 95, 95, True],
+    ['good_blast_still_repairable', 95, 95, True],
+])
+def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path):
+    ref_genome = defaultdict(lambda :'H37Rv')
+    source_genome = {
+        'small_badstop_fix_pseudo':'1-0006',
+        'small_badstart_fix_nopseudo':'1-0006',
+        'small_badstop_fix_pseudo_frameshift':'1-0006',
+        'frameshift_alt_stop_pseudo': '1-0006',
+        'good_start_stop_frameshift_pseudo': '1-0006',
+        'bad_start_stop_nofix_pseudo': '1-0006',
+        'fix_stop_valid_broken_stop': '1-0006',
+        'sensitive_padding_fix_pseudo': '1-0006',
+        'deletion_in_middle_fix_pseudo': '1-0006',
+        'fix_start_stop_nonpseudo': '1-0006',
+        'good_start_stop_fix_pseudo': '1-0006',
+        'inframe_deletion_in_middle': '1-0009',
+        'good_blast_still_repairable': '1-0006',
+    }
+
+    test_features = {
+        'small_badstop_fix_pseudo': features[source_genome['small_badstop_fix_pseudo']]['Rv0061c']['ratt'],
+        'small_badstart_fix_nopseudo': features[source_genome['small_badstart_fix_nopseudo']]['galTb']['ratt'],
+        'small_badstop_fix_pseudo_frameshift':features[source_genome['small_badstop_fix_pseudo_frameshift']]['Rv1075c']['ratt'],
+        'frameshift_alt_stop_pseudo': features[source_genome['frameshift_alt_stop_pseudo']]['mce1R']['ratt'],
+        'good_start_stop_frameshift_pseudo': features[source_genome['good_start_stop_frameshift_pseudo']]['PPE6']['ratt'],
+        'bad_start_stop_nofix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
+        'fix_stop_valid_broken_stop': features[source_genome['fix_stop_valid_broken_stop']]['Rv2079']['ratt'],
+        'sensitive_padding_fix_pseudo': features[source_genome['sensitive_padding_fix_pseudo']]['Rv2081c']['ratt'],
+        'deletion_in_middle_fix_pseudo': features[source_genome['deletion_in_middle_fix_pseudo']]['Rv2134c']['ratt'],
+        'fix_start_stop_nonpseudo': features[source_genome['fix_start_stop_nonpseudo']]['Rv2280']['ratt'],
+        'good_start_stop_fix_pseudo': features[source_genome['good_start_stop_fix_pseudo']]['Rv2437']['ratt'],
+        'inframe_deletion_in_middle': features[source_genome['inframe_deletion_in_middle']]['PPE54']['ratt'],
+        'good_blast_still_repairable': features[source_genome['good_blast_still_repairable']]['dnaA']['abinit'],
+    }
+
+    feature = test_features[feature_type]
+    config.hybran_tmp_dir = tmp_path
+    ref_feature = ref_features[ref_genome[feature_type]][
+        test_features[feature_type].qualifiers['gene'][0]
+    ]
+    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
+    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
+    annomerge.genetic_code = 11
+    annomerge.corrected_orf_report = []
+    expected = {
+        'small_badstop_fix_pseudo': [True, FeatureLocation(66693, 67032, strand=-1)],
+        'small_badstart_fix_nopseudo': [False, FeatureLocation(712762, 713308, strand=1)],
+        'small_badstop_fix_pseudo_frameshift': [True, FeatureLocation(1202098, 1203042, strand=-1)],
+        'frameshift_alt_stop_pseudo' : [True, FeatureLocation(192566, 193259, strand=-1)],
+        'good_start_stop_frameshift_pseudo' : [True, FeatureLocation(366753, 376299, strand=-1)],
+        'bad_start_stop_nofix_pseudo': [True, FeatureLocation(1217428, 1217872, strand=1)],
+        'fix_stop_valid_broken_stop': [True, FeatureLocation(2339465, 2341436, strand=1)],
+        'sensitive_padding_fix_pseudo': [True, FeatureLocation(2342175, 2342617, strand=-1)],
+        'deletion_in_middle_fix_pseudo': [True, FeatureLocation(2397532, 2398106, strand=-1)],
+        'fix_start_stop_nonpseudo': [False, FeatureLocation(2552370, 2553750, strand=1)],
+        'good_start_stop_fix_pseudo': [True, FeatureLocation(2735891, 2736310, strand=1)],
+        'inframe_deletion_in_middle': [False, FeatureLocation(3730264, 3741334, strand=-1)],
+        'good_blast_still_repairable': [False, FeatureLocation(0, 1524, strand=1)],
+    }
+    results = annomerge.pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]
 
 def test_populate_gaps():
@@ -479,9 +606,21 @@ def test_populate_gaps():
     assert (([_.location for _ in keepers], conflicts)
             == ([_.location for _ in expected_keepers], expected_conflicts))
 
-@pytest.mark.skip(reason="needs update")
-@pytest.mark.parametrize("filter",[True, False])
-def test_isolate_valid_ratt_annotations(filter):
+@pytest.mark.parametrize("case",[
+    'long_unbroken_pseudo',
+])
+@pytest.mark.skipif(not os.path.isfile("data/1-0009.fasta"), reason="test genome sequence not available")
+@pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
+def test_isolate_valid_ratt_annotations(case):
+    source_genome = {
+        'long_unbroken_pseudo':'1-0006',
+    }
+    ref_genome = defaultdict(lambda :'H37Rv')
+    cases = {
+        'long_unbroken_pseudo': 'PE_PGRS50',
+    }
+    feature_list = [ features[source_genome[case]][cases[case]]['ratt_raw'] ]
+
     Rv0001 = SeqFeature(FeatureLocation(ExactPosition(0), ExactPosition(1524), strand=1), type='CDS')
     Rv0001.qualifiers = dict(locus_tag=["Rv0001"], codon_start=['1'], transl_table='11')
     Rv0071 = SeqFeature(FeatureLocation(ExactPosition(81037), ExactPosition(82096), strand=1), type='CDS')
@@ -493,10 +632,10 @@ def test_isolate_valid_ratt_annotations(filter):
     Rv0739.qualifiers = dict(locus_tag=["Rv0739"], codon_start=['1'], transl_table='11')
     Rv3020c = SeqFeature(FeatureLocation(ExactPosition(3371022), ExactPosition(3371217), strand=-1), type='CDS')
     Rv3020c.qualifiers = dict(locus_tag=["Rv3020c"], codon_start=['1'], transl_table='11')
-    feature_list = [Rv0001, Rv0071, Rv0739, Rv2434c, Rv3020c]
 
-
+    annomerge.ref_annotation = ref_features[ref_genome[case]]
     annomerge.genetic_code = 11
+    annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
 
     ref_temp_fasta_dict = dict(
         Rv0001  = 'gene-seqs/Rv0001.fasta',
@@ -506,13 +645,19 @@ def test_isolate_valid_ratt_annotations(filter):
         )
 
     reference_locus_list = ['Rv0001','Rv0071','Rv2434c','Rv3020c']
+    filter = False
     if filter:
         seq_ident = seq_covg = 95
     else:
         seq_ident = seq_covg = 0
 
     annomerge.record_sequence = SeqIO.read("/grp/valafar/data/genomes/1-0009.fasta",format="fasta").seq
-    expected = {
+    if case == 'long_unbroken_pseudo':
+        out_list = deepcopy(feature_list)
+        out_list[0].qualifiers['pseudo'] = ['']
+        expected = (out_list, {}, [])
+
+    last_expected = {
         True : (
             [Rv2434c, Rv0001],
             {
@@ -556,9 +701,8 @@ def test_isolate_valid_ratt_annotations(filter):
     assert annomerge.isolate_valid_ratt_annotations(feature_list,
                                              ref_temp_fasta_dict,
                                              reference_locus_list,
-                                             seq_ident, seq_covg) == expected[filter] \
-                                             and \
-                                             'pseudo' in feature_list[3].qualifiers.keys() and feature_list[3].qualifiers['pseudo'] == [''] # Rv2434c
+                                             seq_ident, seq_covg) == expected
+#                                             'pseudo' in feature_list[3].qualifiers.keys() and feature_list[3].qualifiers['pseudo'] == [''] # Rv2434c
 
 
 @pytest.mark.parametrize(
@@ -645,6 +789,7 @@ def test_find_inframe_overlaps(case):
     'overlapping_different_names_ratt_better',
     'overlapping_different_names_abinit_better',
 ])
+@pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 def test_check_inclusion_criteria(pair, tmp_path):
     source_genome = {
         'ratt_better':'1-0006',
@@ -656,6 +801,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'overlapping_different_names_ratt_better':'1-0006',
         'overlapping_different_names_abinit_better':'1-0006',
     }
+    ref_genome = defaultdict(lambda :'H37Rv')
     pairs = {
         'ratt_better': ('dnaA', 'dnaA'),
         'ratt_better_coverage': ('Rv1453', 'Rv1453'), # The RATT annotation's upstream context has no hit to the reference's despite being 100% identitical...
@@ -671,12 +817,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
 
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
     annomerge.ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
-    annomerge.ref_annotation = {
-        'Rv1148c': ref_features['H37Rv']['Rv1148c'],
-        'Rv1945': ref_features['H37Rv']['Rv1945'],
-        'Rv2180c': ref_features['H37Rv']['Rv2180c'],
-        'ORF0004': ref_features['H37Rv']['ORF0004'],
-    }
+    annomerge.ref_annotation = ref_features[ref_genome[pair]]
     reference_gene_locus_dict = defaultdict(list, dict(
         dnaA=['Rv0001'],
         Rv0007=['Rv0007'],
