@@ -2008,14 +2008,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 logger.error('Contains features with fuzzy locations')
                 logger.error(ratt_contig_record)
             ratt_contig_record_mod.features = ratt_contig_features
-            added_from_ratt = []
-            non_cds_ratt = []
-            for feat in ratt_contig_record_mod.features:
-                if feat.type == 'CDS':
-                    added_from_ratt.append(feat.qualifiers['locus_tag'][0])
-                else:
-                    non_cds_ratt.append(feat)
-
 
             abinit_features_dict = generate_feature_dictionary(prokka_contig_features)
             logger.debug(f'{seqname}: Checking ab initio CDS annotations for matches to reference using {nproc} process(es)')
@@ -2220,9 +2212,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 if include_abinit:
                     add_prokka_contig_record.features.append(abinit_feature)
 
-            if len(merged_features) > 0:
-                for feature_1 in merged_features:
-                    add_prokka_contig_record.features.append(feature_1)
             for ratt_feature_append in ratt_contig_features_dict.values():
                 add_prokka_contig_record.features.append(ratt_feature_append)
             for non_cds in ratt_contig_non_cds:
