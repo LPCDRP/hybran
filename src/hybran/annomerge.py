@@ -326,26 +326,6 @@ def generate_feature_dictionary(feature_list):
     return sorted_feature_dict
 
 
-def get_ratt_corrected_genes(ratt_report_fp, reference_gene_list):
-    """
-    This function parses through the RATT results and gets the gene for which the start/stop coordinates
-    were corrected by RATT
-    :param ratt_report_fp: Correction Report from RATT
-    :return: returns list of genes whose start/stop has been corrected by RATT
-    """
-    corrected_genes_list = []
-    report_raw = open(ratt_report_fp).readlines()
-    for line in report_raw:
-        if len(line) <= 1:
-            continue
-        gene = line.strip().split()[0]
-        if gene not in reference_gene_list:
-            continue
-        if gene not in corrected_genes_list:
-            corrected_genes_list.append(gene)
-    return corrected_genes_list
-
-
 def rename_locus(gene, strand, reference_locus_list):
     """
     This function checks names of existing locus tags in the reference and names the newly merged gene
@@ -1908,15 +1888,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             if 'gene' in f.qualifiers.keys():
                 f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
 
-        global ratt_corrected_genes
-        if len(ratt_correction_files) == 1:
-            error_correction_fp = ratt_correction_files[0]
-        else:
-            try:
-                error_correction_fp = ratt_correction_files[i]
-                ratt_corrected_genes = get_ratt_corrected_genes(error_correction_fp, reference_gene_list)
-            except IndexError:
-                ratt_corrected_genes = []
         ratt_contig_non_cds = []
         for feature in ratt_contig_features:
             # maybe RATT should be adding this inference tag itself
@@ -2000,18 +1971,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             # features from RATT
             add_prokka_contig_record = prokka_contig_record[:]
             add_prokka_contig_record.features = []
-            num_feat = 0
-            ratt_annotation_mapping = {}  # Used for resolving annotations of overlapping features between RATT and
-            # Prokka
-            for index, feature in enumerate(ratt_contig_record.features):
-                try:
-                    start = int(feature.location.start)
-                    end = int(feature.location.end)
-                    ratt_annotation_mapping[(start, end)] = index
-                except AttributeError:
-                    logger.error('Attribute Error')
-                    logger.error(feature)
-                    logger.error(index)
+
             try:
                 ratt_contig_record_mod = ratt_contig_record[:]
             except AttributeError:
