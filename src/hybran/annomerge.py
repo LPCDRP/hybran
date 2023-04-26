@@ -352,10 +352,9 @@ def merge_qualifiers(f1quals, f2quals):
             )
     return final_qualifiers
 
-def process_split_genes(flist, seq_ident, seq_covg, abinit_blast_results):
+def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
     """
-    Given a list of features ordered by genomic position, assign the same
-    locus tag to consecutive fragments of the same gene.
+    Given a list of features ordered by genomic position, identify adjacent gene fragments and combine them into a single feature.
     :param flist: list of SeqFeature objects
     :param seq_ident: sequence identity threshold for BLAST (for pseudo-calling)
     :param seq_covg: alignment coverage threshold for BLAST (for pseudo-calling)
@@ -364,7 +363,7 @@ def process_split_genes(flist, seq_ident, seq_covg, abinit_blast_results):
         list of SeqFeature objects to keep (some modified from the original)
         list of annotations that have been merged into their neighbor.
     """
-    logger = logging.getLogger('ProcessSplitGenes')
+    logger = logging.getLogger('FissionFuser')
     outlist = []
     dropped_ltag_features = []
     last_gene_by_strand = {}
@@ -473,10 +472,9 @@ def process_split_genes(flist, seq_ident, seq_covg, abinit_blast_results):
     return outlist, dropped_ltag_features
 
 
-def fusionscan(feature_list):
+def fusionfisher(feature_list):
     """
     This function parses through a list of CDSs and returns a unique list of CDSs, cleaning up annotation artifacts due to gene fusion events, as well as renaming such genes and those that have conjoined with their neighbor.
-    It is intended for postprocessing RATT annotations.
 
     :param feature_list: list of sorted SeqFeature objects.
     :return:
@@ -487,7 +485,7 @@ def fusionscan(feature_list):
              'conjoined': list of annotations that were detected as conjoined with their neighbor
              'misannotation': putative misannotations that should be rejected
     """
-    logger = logging.getLogger('Fusionscan')
+    logger = logging.getLogger('FusionFisher')
     outlist = []
     last_feature_by_strand = {}
     remarkable = {
@@ -511,12 +509,12 @@ def fusionscan(feature_list):
 
         if prev_feature.location == feature.location:
             #
-            # RATT artifact
+            # Artifact
             #
             if extractor.get_ltag(prev_feature) == extractor.get_ltag(feature):
                 remarkable['redundant'].append(outlist.pop())
             #
-            # RATT artifact due to a gene fusion hybrid
+            # Artifact due to a gene fusion hybrid
             #
             else:
                 (pf_goodstart, pf_goodstop) = coord_check(
@@ -1961,7 +1959,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             logger.debug(f'{seqname}: Corrected coordinates for {n_coords_corrected} ab initio ORFs')
 
             logger.info(f"{seqname}: Checking for fragmented ab initio annotations")
-            abinit_features_postprocessed_list, dropped_abinit_fragments = process_split_genes(
+            abinit_features_postprocessed_list, dropped_abinit_fragments = fissionfuser(
                 abinit_features_dict.values(),
                 seq_ident=seq_ident,
                 seq_covg=seq_covg,

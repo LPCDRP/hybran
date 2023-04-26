@@ -133,7 +133,7 @@ def test_overlap_inframe(pair):
 @pytest.mark.skipif(not os.path.isfile("data/1-0006.fasta"), reason="test genome sequence not available")
 @pytest.mark.skipif(not os.path.isfile("data/2-0031.fasta"), reason="test genome sequence not available")
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.fasta"), reason="test reference genome sequence not available")
-def test_process_split_genes(gene_list):
+def test_fissionfuser(gene_list):
     inputs = {
         # post coordinate correction, so they both have the same start position
         'complementary_fragments' : [
@@ -233,7 +233,11 @@ def test_process_split_genes(gene_list):
         ),
     }
 
-    assert annomerge.process_split_genes(inputs[gene_list]) == expected[gene_list]
+    assert annomerge.fissionfuser(
+        inputs[gene_list],
+        seq_ident=95,
+        seq_covg=95,
+    ) == expected[gene_list]
 
 
 def test_identify_conjoined_genes():
