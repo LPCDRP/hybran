@@ -396,11 +396,14 @@ def merge_qualifiers(f1quals, f2quals):
             )
     return final_qualifiers
 
-def process_split_genes(flist):
+def process_split_genes(flist, seq_ident, seq_covg, abinit_blast_results):
     """
     Given a list of features ordered by genomic position, assign the same
     locus tag to consecutive fragments of the same gene.
     :param flist: list of SeqFeature objects
+    :param seq_ident: sequence identity threshold for BLAST (for pseudo-calling)
+    :param seq_covg: alignment coverage threshold for BLAST (for pseudo-calling)
+    :param abinit_blast_results: dictionary of ab initio annotation locus tag to top blast hit stats (for pseudo-calling)
     :returns:
         list of SeqFeature objects to keep (some modified from the original)
         list of annotations that have been merged into their neighbor.
@@ -491,11 +494,18 @@ def process_split_genes(flist):
             new_feature_name = f"{extractor.get_ltag(new_feature)}:{extractor.get_gene(new_feature)}"
             new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
-            new_feature.qualifiers['pseudo'] = ['']
 
             if all(coord_check(new_feature, ref_annotation[new_feature.qualifiers['gene'][0]], fix_start=True, fix_stop=True)) or reason == 'overlapping_inframe':
                 dropped_ltag_features.append(
                     (dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}")
+                )
+                # Re-call pseudoscan for updated notes and blast
+                pseudoscan(
+                    new_feature,
+                    ref_annotation[new_feature.qualifiers['gene'][0]],
+                    seq_ident=seq_ident,
+                    seq_covg=seq_covg,
+                    blast_hit_dict=abinit_blast_results[new_feature.qualifiers['locus_tag'][0]],
                 )
                 last_gene_by_strand[feature.location.strand] = new_feature
                 outlist.remove(last_gene)
@@ -1040,11 +1050,22 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
     # Save the information and drop the note.
     pseudo_note = False
     if 'note' in feature.qualifiers:
-        pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo")]
+        pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo") or "Reference gene is pseudo" in _]
         if pseudo_note:
             feature.qualifiers['note'].remove(pseudo_note[0])
+        previous_run_notes = [i for i in feature.qualifiers['note'] if 'Hybran/Pseudoscan' in i]
+        # We're about to decide for ourselves whether the gene is pseudo in this current run
+        # and we don't want the existence of the qualifier from the previous run
+        # confounding the ref_was_pseudo determination.
+        if previous_run_notes:
+            feature.qualifiers['note'] = [i for i in feature.qualifiers['note'] if 'Hybran/Pseudoscan' not in i]
+            feature.qualifiers.pop('pseudo', None)
+            feature.qualifiers.pop('pseudogene', None)
 
-    ref_was_pseudo = pseudo_note or designator.is_pseudo(feature.qualifiers)
+    # checking the feature's pseudo attribute to decide whether the reference is pseudo
+    # is only possible with RATT annotations since liftover from the reference may bring
+    # the reference's pseudo tag attribute along with it. Our liftover doesn't do that.
+    ref_was_pseudo = pseudo_note
     og_broken_stop, og_stop_note = is_broken_stop(feature)
     divisible_by_three = lambda  _: len(_.location) % 3 == 0
     og_feature = deepcopy(feature)
@@ -2087,7 +2108,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
             logger.info(f"{seqname}: Checking for fragmented ab initio annotations")
             abinit_features_postprocessed_list, dropped_abinit_fragments = process_split_genes(
-                abinit_features_dict.values()
+                abinit_features_dict.values(),
+                seq_ident=seq_ident,
+                seq_covg=seq_covg,
+                abinit_blast_results=abinit_blast_results,
             )
             prokka_rejects += dropped_abinit_fragments
             logger.debug(f"{seqname}: {len(dropped_abinit_fragments)} gene fragment pairs merged")
