@@ -701,14 +701,13 @@ def identify_conjoined_genes(ratt_features):
     return conjoined_features
 
 
-def liftover_annotation(feature, ref_feature, pseudo, inference):
+def liftover_annotation(feature, ref_feature, inference):
     """
     Add ref_feature's functional annotation to feature.
 
     :param feature: SeqFeature ab initio annotation.
                     This argument is modified by this function.
     :param ref_feature: SeqFeature reference annotation
-    :param pseudo: bool whether feature should have the `pseudo` qualifier
     :param inference: str /inference annotation justifying the liftover
     """
 
@@ -735,6 +734,8 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
         'locus_tag',
         'old_locus_tag',
         'translation',
+        'pseudo',
+        'pseudogene',
     ]
     for qual in ref_specific:
         ref_feature_qualifiers_copy.pop(qual, None)
@@ -743,18 +744,6 @@ def liftover_annotation(feature, ref_feature, pseudo, inference):
         feature.qualifiers,
         ref_feature_qualifiers_copy,
     )
-
-    # avoid inheriting a pseudo tag from the reference if
-    # it's not warranted
-    if pseudo:
-        feature.qualifiers['pseudo'] = ['']
-        feature.qualifiers.pop('translation', None)
-        designator.append_qualifier(
-            feature.qualifiers, 'note',
-            'Pseudo: Low subject coverage, but passing query coverage.')
-    else:
-        feature.qualifiers.pop('pseudo', None)
-        feature.qualifiers.pop('pseudogene', None)
 
 def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_name=None
 ):
@@ -2081,7 +2070,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     liftover_annotation(
                         feature,
                         ref_annotation[ref_gene],
-                        feature_is_pseudo,
                         inference=':'.join([
                             f"similar to AA sequence",
                             ref_id,
@@ -2210,7 +2198,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                             liftover_annotation(
                                 abinit_feature,
                                 ref_annotation[ref_gene],
-                                pseudo,
                                 inference=':'.join([
                                     "similar to AA sequence",
                                     ref_id,
