@@ -286,30 +286,6 @@ def get_ordered_features(feature_list):
     return ordered_features
 
 
-def remove_duplicate_cds(feature_list):
-    """
-    This function parses through a list of CDSs and returns a unique list of CDSs i.e. removes duplicate
-    annotations which are in the same location in the genome with same locus tag
-    :param feature_list: list of type SeqFeature (Biopython feature) formats
-    :return: list of type SeqFeature (Biopython feature) formats after removing duplicate CDSs i.e. annotation of same
-    gene in same position
-    """
-    unique_feature_list = []
-    added_cds = []
-    for feature in feature_list:
-        if feature.type != 'CDS':
-            unique_feature_list.append(feature)
-        else:
-            feature_key = feature.qualifiers['locus_tag'][0] + ':' + str(int(feature.location.start)) + ':' + \
-                          str(int(feature.location.end)) + ':' + str(int(feature.location.strand))
-            if feature_key in added_cds:
-                continue
-            else:
-                added_cds.append(feature_key)
-                unique_feature_list.append(feature)
-    return unique_feature_list
-
-
 def generate_feature_dictionary(feature_list):
     """
     This function takes as input a list of features and returns a dictionary with the key as a tuple of
@@ -496,189 +472,134 @@ def process_split_genes(flist, seq_ident, seq_covg, abinit_blast_results):
 
     return outlist, dropped_ltag_features
 
-def identify_merged_genes(ratt_features):
-    """
-    This function takes as input a list features annotated in RATT and identifies instances of merged CDS
-    annotations. The function returns a Boolean value (True if such instances are identified) and a dictionary with
-    the strand as the key and locations of the merged genes as values.
-    :param ratt_features: List of features from RATT (SeqFeature objects)
-    :return:
-    Dictionary of merged genes with keys as strand (-1 or 1),
-    list of gene location tuples (gene start, gene end) as values and boolean to indicate if merged genes are identified
-        from RATT annotation.
-    """
-    logger = logging.getLogger('FindMergedGenes')
-    ratt_annotations = {}   # This dictionary holds 2 keys '-1' and '+1' denoting the strand and locations of all CDS
-    # annotations in RATT for each strand
-    ratt_unmerged_genes = {}
-    ratt_merged_genes = {-1: [], 1: []}
-    merged_genes = False
-    if len(ratt_features) == 0:
-        return [], merged_genes
-    for feature in ratt_features:
-        # These are the features with 'joins'
-        if 'Bio.SeqFeature.CompoundLocation' in str(type(feature.location)):
-            continue
-        # Getting all locations of CDS annotations and storing them in ratt_annotations
-        if feature.location.strand not in ratt_annotations.keys() and feature.type == 'CDS':
-            ratt_annotations[feature.location.strand] = [(int(feature.location.start), int(feature.location.end))]
-            ratt_merged_genes[feature.location.strand] = []
-            ratt_unmerged_genes[feature.location.strand] = []
-        elif feature.type == 'CDS':
-            ratt_annotations[feature.location.strand].append((int(feature.location.start), int(feature.location.end)))
-    for strand in ratt_annotations.keys():
-        for gene_location in ratt_annotations[strand]:
-            if gene_location not in ratt_unmerged_genes[strand] and gene_location not in ratt_merged_genes[strand]:
-                # First instance of the CDS location
-                ratt_unmerged_genes[strand].append(gene_location)
-            elif gene_location in ratt_unmerged_genes[strand] and gene_location not in ratt_merged_genes[strand]:
-                # Identified duplicate CDS location annotation
-                ratt_merged_genes[strand].append(gene_location)
-                ratt_unmerged_genes[strand].remove(gene_location)
-                merged_genes = True
-            elif gene_location not in ratt_unmerged_genes[strand] and gene_location in ratt_merged_genes[strand]:
-                # To account for instances where more than 1 gene is merged
-                merged_genes = True
-                continue
-            else:
-                logger.warning('UNACCOUNTED CASE')
-                logger.warning(gene_location)
-    return ratt_merged_genes, merged_genes
 
+def fusionscan(feature_list):
+    """
+    This function parses through a list of CDSs and returns a unique list of CDSs, cleaning up annotation artifacts due to gene fusion events, as well as renaming such genes and those that have conjoined with their neighbor.
+    It is intended for postprocessing RATT annotations.
 
-def get_annotation_for_merged_genes(merged_genes, prokka_features, ratt_features, reference_locus_list):
-    """
-    This function takes as input the dictionary of merged genes from the identify_merged_genes function,
-    a list of Prokka features and a list of RATT features and returns annotation for the merged genes from,
-    Prokka: If the genes are annotated as merged in both RATT and Prokka
-    RATT: If Prokka does not annotate these genes as merged
-    :param merged_genes: Dictionary of merged genes by strand (output from identify_merged_genes)
-    :param prokka_features: List of features form Prokka (SeqFeature objects)
-    :param ratt_features: List of features from RATT (SeqFeature objects)
+    :param feature_list: list of sorted SeqFeature objects.
     :return:
+       - list of the SeqFeature objects that were identified and tagged.
+       - dictionary of four classes of remarkable annotations.
+             'redundant': list of annotations that had another copy with the same coordinates and name
+             'hybrid': list of fusion artifacts: annotations that had another copy with the same coordinates but a different name.
+             'conjoined': list of annotations that were detected as conjoined with their neighbor
+             'misannotation': putative misannotations that should be rejected
     """
-    logger = logging.getLogger('AnnotateMergedGenes')
-    check_positions_for_annotation = dict(merged_genes)
-    merged_gene_locus = collections.defaultdict(list)
-    merged_features_addition = []
-    features_from_ratt = collections.defaultdict(list)
-    genes_from_ratt = collections.defaultdict(list)
-    final_ratt_features = []
-    final_prokka_features = []
-    locus_to_remove_gene_tags = []
-    for feature in ratt_features:
-        # Identify CDS tags that should not be included in final_ratt_features
+    logger = logging.getLogger('Fusionscan')
+    outlist = []
+    last_feature_by_strand = {}
+    remarkable = {
+        'redundant': [],
+        'hybrid': [],
+        'conjoined': [],
+        'misannotation': [],
+    }
+
+    for feature in feature_list:
+        outlist.append(feature)
         if feature.type != 'CDS':
             continue
-        ratt_feature_location = (int(feature.location.start), int(feature.location.end))
-        if ratt_feature_location not in check_positions_for_annotation[feature.strand]:
-            final_ratt_features.append(feature)
-        elif ratt_feature_location in check_positions_for_annotation[feature.strand]:
-            merged_gene_locus[ratt_feature_location].append('|'.join([extractor.get_ltag(feature), extractor.get_gene(feature)]))
-            locus_to_remove_gene_tags.append(feature.qualifiers['locus_tag'][0])
-    for other_features in ratt_features:
-        # Identifies 'gene' tags which corresponds to merged CDSs and does not include them in the final annotation
-        if other_features.type == 'CDS':
-            continue
-        elif other_features.type == 'gene':
-            if 'locus_tag' in other_features.qualifiers.keys():
-                if other_features.qualifiers['locus_tag'][0] not in locus_to_remove_gene_tags:
-                    final_ratt_features.append(other_features)
+        if feature.location.strand in last_feature_by_strand:
+            prev_feature = last_feature_by_strand[feature.location.strand]
+            last_feature_by_strand[feature.location.strand] = feature
         else:
-            final_ratt_features.append(other_features)
-    if len(prokka_features) == 0:
-        for feature in ratt_features:
-            if len(merged_genes[feature.location.strand]) == 0:
-                continue
-            merged_genes_in_strand = merged_genes[feature.location.strand]
-            feature_location = (int(feature.location.start), int(feature.location.end))
-            if feature_location in merged_genes_in_strand and feature.type == 'CDS':
-                features_from_ratt[feature_location].append(feature)
-                genes_from_ratt[feature_location].append(feature.qualifiers['locus_tag'][0])
-    else:
-        for feature in prokka_features:
-            if len(merged_genes[feature.location.strand]) == 0:
-                final_prokka_features.append(feature)
-                continue
-            merged_genes_in_strand = merged_genes[feature.location.strand]
-            feature_location = (int(feature.location.start), int(feature.location.end))
-            if feature_location in merged_genes_in_strand and feature.type == 'CDS':
-                merged_features_string = ",".join(merged_gene_locus[feature_location])
-                designator.append_qualifier(
-                    feature.qualifiers, 'note',
-                    'Fusion: ' + merged_features_string
-                )
-                merged_genes[feature.location.strand].remove(feature_location)
-                merged_features_addition.append(feature)
-            else:
-                final_prokka_features.append(feature)
-        for feature in ratt_features:
-            if len(merged_genes[feature.location.strand]) == 0:
-                continue
-            merged_genes_in_strand = merged_genes[feature.location.strand]
-            feature_location = (int(feature.location.start), int(feature.location.end))
-            if feature_location in merged_genes_in_strand and feature.type == 'CDS':
-                features_from_ratt[feature_location].append(feature)
-                genes_from_ratt[feature_location].append('|'.join([extractor.get_ltag(feature), extractor.get_gene(feature)]))
-    for location in features_from_ratt.keys():
-        new_feature = features_from_ratt[location][0]
-        merged_features_string = ",".join(genes_from_ratt[location])
-        new_gene_name = rename_locus(new_feature.qualifiers['locus_tag'][0],
-                                     new_feature.location.strand,
-                                     reference_locus_list)
-        new_feature.qualifiers['locus_tag'] = [new_gene_name]
-        designator.append_qualifier(
-            new_feature.qualifiers, 'note',
-            'Fusion: ' + merged_features_string
-        )
-        # TODO -- the *gene name isn't actually changed* - only the locus tag***
-        # edit: turns out this happens as part of the final feature verification loop, but it should be done here
-        merged_features_addition.append(new_feature)
-        merged_genes[new_feature.location.strand].remove(location)
-    if len(merged_genes[-1]) > 0 or len(merged_genes[1]) > 0:
-        corner_cases = True
-    else:
-        corner_cases = False
-    return merged_features_addition, corner_cases, merged_genes, final_ratt_features, final_prokka_features
-
-
-def identify_conjoined_genes(ratt_features):
-    """
-    This function identifies RATT annotations for genes that had a nonstop mutation and combined with the following gene, adds a note and tags the feature 'pseudo'.
-    It differs from identify_merged_genes() in that the latter looks for RATT artifacts where the result is two annotations with the same coordinates, while this function does not mark any annotations for removal.
-
-    :param ratt_features: list of sorted SeqFeature objects. This object will be modified.
-    :return: list of the SeqFeature objects that were identified and tagged.
-    """
-    prev_feature = None
-    conjoined_features = []
-    for feature in ratt_features:
-        if not prev_feature:
-            prev_feature = feature
+            last_feature_by_strand[feature.location.strand] = feature
             continue
 
-        if (prev_feature.location != feature.location # dealing with these is the job of identify_merged_genes()
-            and have_same_stop(prev_feature.location, feature.location)
-        ):
 
-            if feature.strand == -1:
-                upstream = max(feature, prev_feature, key=lambda _: _.location.end)
-                downstream = min(feature, prev_feature, key=lambda _: _.location.end)
+        if prev_feature.location == feature.location:
+            #
+            # RATT artifact
+            #
+            if extractor.get_ltag(prev_feature) == extractor.get_ltag(feature):
+                remarkable['redundant'].append(outlist.pop())
+            #
+            # RATT artifact due to a gene fusion hybrid
+            #
             else:
-                upstream = min(feature, prev_feature, key=lambda _: _.location.start)
-                downstream = max(feature, prev_feature, key=lambda _: _.location.start)
+                (pf_goodstart, pf_goodstop) = coord_check(
+                    prev_feature,
+                    ref_annotation[extractor.get_gene(prev_feature)],
+                )
+                (cf_goodstart, cf_goodstop) = coord_check(
+                    feature,
+                    ref_annotation[extractor.get_gene(feature)],
+                )
+                if (pf_goodstart and not cf_goodstart) or (not pf_goodstop and cf_goodstop):
+                    upstream = prev_feature
+                    downstream = feature
+                elif (not pf_goodstart and cf_goodstart) or (pf_goodstop and not cf_goodstop):
+                    upstream = feature
+                    downstream = prev_feature
+                else:
+                    logger.warning(f"Could not determine which gene is first in fusion for {extractor.get_gene(prev_feature)} and {extractor.get_gene(feature)}. Using this order.")
+                    upstream = prev_feature
+                    downstream = feature
 
-            designator.append_qualifier(
-                upstream.qualifiers,
-                'note',
-                f"Nonstop mutation in this gene causes an in-frame fusion with {'|'.join([extractor.get_ltag(downstream),extractor.get_gene(downstream)])}"
-            )
-            upstream.qualifiers['pseudo'] = ['']
-            conjoined_features.append(upstream)
+                prev_feature.qualifiers['gene'][0] = '::'.join([extractor.get_gene(_) for _ in [upstream, downstream]])
+                prev_feature.qualifiers['product'] = [' / '.join([_.qualifiers['product'][0] for _ in [upstream, downstream] if 'product' in _.qualifiers])]
 
-        prev_feature = feature
+                outlist.pop()
+                remarkable['hybrid'].append(prev_feature)
 
-    return conjoined_features
+        elif have_same_stop(prev_feature.location, feature.location):
+            #
+            # Conjoined genes
+            #
+            if any(has_delayed_stop(prev_feature), has_delayed_stop(feature)):
+                if feature.strand == -1:
+                    upstream = max(feature, prev_feature, key=lambda _: _.location.end)
+                    downstream = min(feature, prev_feature, key=lambda _: _.location.end)
+                else:
+                    upstream = min(feature, prev_feature, key=lambda _: _.location.start)
+                    downstream = max(feature, prev_feature, key=lambda _: _.location.start)
+
+                designator.append_qualifier(
+                    downstream.qualifiers,
+                    'note',
+                    f"Upstream gene {'|'.join([extractor.get_ltag(upstream),extractor.get_gene(upstream)])} conjoins with this one."
+                )
+
+                upstream.qualifiers['gene'][0] = '::'.join([extractor.get_gene(_) for _ in [upstream, downstream]])
+                upstream.qualifiers['product'] = [' / '.join([_.qualifiers['product'][0] for _ in [upstream, downstream] if 'product' in _.qualifiers])]
+
+                remarkable['conjoined'].append(upstream)
+            #
+            # potential RATT misannotation, similar to the one in issue #51
+            #
+            else:
+                (pf_goodstart, pf_goodstop) = coord_check(
+                    prev_feature,
+                    ref_annotation[extractor.get_gene(prev_feature)],
+                )
+                (cf_goodstart, cf_goodstop) = coord_check(
+                    feature,
+                    ref_annotation[extractor.get_gene(feature)],
+                )
+                if pf_goodstop and not cf_goodstop:
+                    remarkable['misannotation'].append(outlist.pop())
+                elif not pf_goodstop and cf_goodstop:
+                    remarkable['misannotation'].append(prev_feature)
+                    outlist.remove(prev_feature)
+                # likely scenario in the case of a misannotation coinciding with a truncated gene
+                elif not any(pf_goodstop, cf_goodstop) and any(pf_goodstart, cf_goodstart):
+                    if not pf_goodstart:
+                        remarkable['misannotation'].append(prev_feature)
+                        outlist.remove(prev_feature)
+                    else:
+                        remarkable['misannotation'].append(outlist.pop())
+                # unhandled scenarios:
+                # - both sets of coords are all good.
+                #      I would expect this to be the same situation as identical location, same gene name.
+                #      That is handled earlier.
+                # - both sets of coords are all bad.
+                #      We could make a case for rejecting both, but that would seem to be creating a general RATT rejection criterion which might not be warranted.
+                #      I want to allow for the possibility of a double-truncation.
+
+
+    return outlist, remarkable
 
 
 def liftover_annotation(feature, ref_feature, inference):
@@ -1918,22 +1839,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
         ratt_contig_features = get_ordered_features(ratt_contig_features)
         merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
-        if check_prokka:
-            merged_features, corner_cases, corner_cases_explicit, ratt_contig_features_mod, \
-                prokka_contig_features_mod = get_annotation_for_merged_genes(merged_genes,
-                                                                             prokka_contig_features,
-                                                                             ratt_contig_features,
-                                                                             reference_locus_list=reference_locus_list)
-            ratt_contig_features = ratt_contig_features_mod
-            prokka_contig_features = prokka_contig_features_mod
-            if corner_cases:
-                logger.debug('MERGED GENES: Corner cases')
-                for strand in corner_cases_explicit.keys():
-                    if len(corner_cases_explicit[strand]) > 0:
-                        logger.debug(seqname + ' '.join(corner_cases_explicit[strand]))
-        else:
-            merged_features = []
-        merged_features += identify_conjoined_genes(ratt_contig_features)
+        merged_features = identify_conjoined_genes(ratt_contig_features)
         if merged_features and i == 0:
             merged_features_record = prokka_contig_record[:]
             merged_features_record.features = merged_features
