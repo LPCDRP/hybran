@@ -546,7 +546,8 @@ def fusionfisher(feature_list):
             #
             # Conjoined genes
             #
-            if any(has_delayed_stop(prev_feature), has_delayed_stop(feature)):
+            if (((len(prev_feature.location) > len(feature.location)) and has_delayed_stop(prev_feature))
+                or ((len(feature.location) > len(prev_feature.location)) and has_delayed_stop(feature))):
                 if feature.strand == -1:
                     upstream = max(feature, prev_feature, key=lambda _: _.location.end)
                     downstream = min(feature, prev_feature, key=lambda _: _.location.end)
