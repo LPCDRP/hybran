@@ -239,6 +239,36 @@ def test_fissionfuser(gene_list):
         seq_covg=95,
     ) == expected[gene_list]
 
+@pytest.mark.parametrize('gene_list', [
+    'misannotation_false_delayed_stop',
+])
+def test_fusionfisher(gene_list):
+    source_genomes = {
+        'misannotation_false_delayed_stop':'1-0006',
+    }
+    source_features = features[source_genomes[gene_list]]
+    inputs = {
+        'misannotation_false_delayed_stop': [
+            source_features['Rv0074']['ratt'],
+            source_features['Rv0071']['ratt'],
+        ],
+    }
+    expected = {
+        'misannotation_false_delayed_stop': (
+            [ source_features['Rv0074']['ratt'] ],
+            [ ],
+            [ (source_features['Rv0071']['ratt'], "putative misannotation: no reference-corresponding coordinates and shares stop position with Rv0074:Rv0074") ]
+        ),
+    }
+    ref_genome = defaultdict(lambda :'H37Rv')
+    source_genome = source_genomes[gene_list]
+    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
+    annomerge.genetic_code = 11
+    annomerge.ref_annotation = ref_features[ref_genome[gene_list]]
+
+    assert annomerge.fusionfisher(
+        inputs[gene_list],
+    ) == expected[gene_list]
 
 def test_identify_conjoined_genes():
     ratt_features = [
