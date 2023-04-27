@@ -1526,7 +1526,7 @@ def check_inclusion_criteria(
     """
     logger = logging.getLogger('CheckInclusionCriteria')
     include_ratt = True
-    reject_abinit = False
+    include_abinit = False
     remark = ''
     loc_key = (int(abinit_annotation.location.start), int(abinit_annotation.location.end), int(abinit_annotation.location.strand))
     if(abinit_annotation.type != 'CDS'
@@ -1543,170 +1543,96 @@ def check_inclusion_criteria(
         locus_tag = ratt_annotation.qualifiers['locus_tag'][0]
         blast_stats = abinit_blast_results[abinit_annotation.qualifiers['locus_tag'][0]]
         same_gene_name = locus_tag in locus_tag_list
-        if (not same_gene_name
-            and overlap_inframe(abinit_annotation.location, ratt_annotation.location)
-            and not designator.is_pseudo(abinit_annotation.qualifiers)
-            and not designator.is_pseudo(ratt_annotation.qualifiers)
-            ):
-            ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
-            (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
-            ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
 
-            abinit_coord_status = coord_check(abinit_annotation, ref_annotation[abinit_annotation.qualifiers['gene'][0]])
-            (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
-            abinit_coord_score = sum([int(_) for _ in ratt_coord_status])
+        abinit_is_pseudo = designator.is_pseudo(abinit_annotation.qualifiers)
+        ratt_is_pseudo = designator.is_pseudo(ratt_annotation.qualifiers)
+        pseudo_status = [abinit_is_pseudo, ratt_is_pseudo]
 
-            # Both annotations being intact according to their respective reference names
-            # suggests that the reference genes are highly similar.
-            # RATT's assignment is furthermore based on synteny, so it wins out
-            if ((all(ratt_coord_status) and all(abinit_coord_status))
-                or ratt_coord_status == abinit_coord_status
-                ):
-                reject_abinit = True
-                remark = f"Equally valid call, but conflicting name with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
-            elif (all(ratt_coord_status)
-                  or ratt_coord_score > abinit_coord_score
-                  or (ratt_stop_ok and not abinit_stop_ok)
-                  ):
-                reject_abinit = True
-                remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated"
-            # This is the only other possibility:
-            #elif (all(abinit_coord_status)
-            #      or abinit_coord_score > ratt_coord_score
-            #      or (abinit_stop_ok and not ratt_stop_ok)
-            #      ):
-            else:
-                include_ratt = False
-                remark = f"ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated"
+        same_stop = (abinit_annotation.location.end == ratt_annotation.location.end)
+        same_start = (abinit_annotation.location.start == ratt_annotation.location.start)
+        abinit_longer = len(abinit_annotation.location) > len(ratt_annotation.location)
 
+        # Check if feature types are the same. If not add feature to EMBL record
+        if ratt_annotation.type != abinit_annotation.type:
+            include_abinit = True
+            include_ratt = True
+            return include_abinit, include_ratt, remark
+
+        ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
+        (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
+        ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
+
+        abinit_coord_status = coord_check(abinit_annotation, ref_annotation[abinit_annotation.qualifiers['gene'][0]])
+        (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
+        abinit_coord_score = sum([int(_) for _ in ratt_coord_status])
+
+
+        if not same_gene_name and overlap_inframe(abinit_annotation.location, ratt_annotation.location):
+            #keepers, remarkables = fusionscan([ratt_annotation, abinit_annotation])
+            #if len(keepers) < 2:
+            #    rejects = remarkables['misannotation']
+            #fusion_fisher function should be called here. Below is a stand in (to be removed later) with similar criteria.
+            if (has_delayed_stop(abinit_annotation) or has_delayed_stop(ratt_annotation)) and same_stop and not same_start:
+                if has_delayed_stop(abinit_annotation) and abinit_start_ok and abinit_longer:
+                    abinit_annotation.qualifiers['gene'][0] == (f"{abinit_annotation.qualifiers['gene'][0]}::{ratt_annotation.qualifiers['gene'][0]}")
+                    include_abinit = True
+                    include_ratt = True
+                    return include_abinit, include_ratt, remark
+
+                elif has_delayed_stop(ratt_annotation) and ratt_start_ok and not abinit_longer:
+                    ratt_annotation.qualifiers['gene'][0] == (f"{ratt_annotation.qualifiers['gene'][0]}::{abinit_annotation.qualifiers['gene'][0]}")
+                    include_abinit = True
+                    include_ratt = True
+                    return include_abinit, include_ratt, remark
         elif same_gene_name:
-            #Always take the non-pseudo annotation if possible
-            if designator.is_pseudo(ratt_annotation.qualifiers) and (not designator.is_pseudo(abinit_annotation.qualifiers)):
-                include_abinit = True
-                include_ratt = False
-                remark = "Non-pseudo ab initio annotation takes precedence."
-                return include_abinit, include_ratt, remark
-            elif (not designator.is_pseudo(ratt_annotation.qualifiers)) and designator.is_pseudo(abinit_annotation.qualifiers):
-                include_abinit = False
-                include_ratt = True
-                remark = "Non-pseudo ratt annotation takes precedence."
-                return include_abinit, include_ratt, remark
-
-            if (locus_tag not in ratt_blast_results.keys()
-            ):
-                blast_stats = BLAST.reference_match(
-                    query=SeqRecord(abinit_annotation.extract(record_sequence)),
-                    subject=ref_fna_dict[locus_tag],
-                    seq_ident=0,
-                    seq_covg=0,
-                    blast_type="n"
-                )[2]
-                blast_stats = blast_stats[locus_tag]
-                ratt_blast_results = BLAST.reference_match(
-                    query=SeqRecord(ratt_annotation.extract(record_sequence)),
-                    subject=ref_fna_dict[locus_tag],
-                    seq_ident=0,
-                    seq_covg=0,
-                    blast_type="n"
-                )[2]
-            ratt_start = int(ratt_annotation.location.start)
-            ratt_stop = int(ratt_annotation.location.end)
-            ratt_strand = int(ratt_annotation.location.strand)
-            prom_mutation = True
-            ratt_prom_seq = upstream_context(ratt_annotation.location, record_sequence)
-            blast_to_rv_prom = NcbiblastnCommandline(subject=ref_prom_fp_dict[locus_tag],
-                                                     outfmt='"7 qseqid sseqid pident length mismatch '
-                                                            'gapopen qstart qend sstart send evalue '
-                                                            'bitscore gaps"')
-            stdout, stderr = blast_to_rv_prom(stdin=str(ratt_prom_seq))
-            prom_blast_elements = stdout.split('\n')
-            for line in prom_blast_elements:
-                if line.startswith('#') or len(line) <= 1:
-                    continue
-                blast_results = line.strip().split('\t')
-                if float(blast_results[2]) == 100.0 and int(blast_results[3]) == 40:
-                    prom_mutation = False
-                    reject_abinit = True
-                    remark = "start position of RATT's " + locus_tag + " corresponds to the reference annotation's"
-            if prom_mutation is True:
-                ratt_coverage_measure = abs(int(ratt_blast_results[locus_tag]['scov']) -
-                                            int(ratt_blast_results[locus_tag]['qcov']))
-                prokka_coverage_measure = abs(int(blast_stats['scov']) - int(blast_stats['qcov']))
-                if ratt_coverage_measure < prokka_coverage_measure:
-                    reject_abinit = True
-                    remark = 'RATT annotation for ' + locus_tag + ' has better alignment coverage with the reference'
-                elif prokka_coverage_measure < ratt_coverage_measure:
-                    logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                    remark = (
-                        'Ab initio feature '
-                        + abinit_annotation.qualifiers['locus_tag'][0]
-                        + ' has better alignment coverage with the reference.'
-                    )
-                    reject_abinit = False
-                    include_ratt = False
-                elif ratt_coverage_measure == prokka_coverage_measure:
-                    # Checking for identity if coverage is the same
-                    if int(ratt_blast_results[locus_tag]['iden']) > int(blast_stats['iden']):
-                        reject_abinit = True
-                        remark = 'RATT annotation for ' + locus_tag + 'has higher identity with the reference and the same alignment coverage'
-                    elif int(blast_stats['iden']) > int(ratt_blast_results[locus_tag]['iden']):
-                        logger.debug('Prokka annotation more accurate than RATT for ' + locus_tag)
-                        remark = (
-                            'Ab initio feature '
-                            + abinit_annotation.qualifiers['locus_tag'][0]
-                            + ' has higher identity with the reference and the same alignment coverage.'
-                        )
-                        reject_abinit = False
-                        include_ratt = False
-                    else:
-                        # If RATT and Prokka annotations are same, choose RATT
-                        reject_abinit = True
-                        remark = 'identical to RATT for ' + locus_tag
+            if abinit_is_pseudo == ratt_is_pseudo:
+                # Both annotations being intact according to their respective reference names
+                # suggests that the reference genes are highly similar.
+                # RATT's assignment is furthermore based on synteny, so it wins out
+                if ((all(ratt_coord_status) and all(abinit_coord_status))
+                    or ratt_coord_status == abinit_coord_status
+                    ):
+                    include_abinit = False
+                    include_ratt = True
+                    remark = f"Equally valid call, but conflicting name with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
+                elif (all(ratt_coord_status)
+                      or ratt_coord_score > abinit_coord_score
+                      or (ratt_stop_ok and not abinit_stop_ok)
+                      ):
+                    include_abinit = False
+                    include_ratt = True
+                    remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated"
+                # This is the only other possibility:
+                #elif (all(abinit_coord_status)
+                #      or abinit_coord_score > ratt_coord_score
+                #      or (abinit_stop_ok and not ratt_stop_ok)
+                #      ):
                 else:
-                    reject_abinit = False
+                    include_abinit = True
+                    include_ratt = False
+                    remark = f"ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated"
+            else:
+                #Always take the non-pseudo annotation if possible
+                if not abinit_is_pseudo and ratt_is_pseudo:
+                    include_abinit = True
+                    include_ratt = False
+                    remark = "Non-pseudo ab initio annotation takes precedence."
+                    return include_abinit, include_ratt, remark
 
-    include_abinit = False
-    # Check if feature types are the same. If not add feature to EMBL record
-    if ratt_annotation.type != abinit_annotation.type:
-        include_abinit = True
-    # Check if gene names match and if they don't or if gene names are missing, keep both
-    elif 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in abinit_annotation.qualifiers.keys():
-        if ratt_annotation.qualifiers['gene'] != abinit_annotation.qualifiers['gene']:
-            if not reject_abinit:
-                include_abinit = True
-        # If gene names are the same and the lengths of the genes are comparable between RATT and Prokka annotation
-        # (difference in length of less than/equal to 10 bps), the RATT annotation is preferred
-        elif ratt_annotation.qualifiers['gene'] == abinit_annotation.qualifiers['gene'] and \
-                        abs(len(abinit_annotation.location)-len(ratt_annotation.location)) > 0:
-            if not reject_abinit:
-                include_abinit = True
-                # TODO -- ratt should probably be rejected here too since the prokka gene is being kept
+                elif not ratt_is_pseudo and abinit_is_pseudo:
+                    include_abinit = False
+                    include_ratt = True
+                    remark = "Non-pseudo ratt annotation takes precedence."
+                    return include_abinit, include_ratt, remark
         else:
-            remark = ("RATT annotation for "
-                      + '|'.join([ratt_annotation.qualifiers['locus_tag'][0],ratt_annotation.qualifiers['gene'][0]])
-                      + " preferred based on gene length similarity.")
-    # If gene tag is missing and the product is not a hypothetical protein, check to see if the products are the
-    # same between RATT and Prokka and if they are and if the lengths of the protein coding genes are comparable
-    # preferred
-    elif ('gene' not in ratt_annotation.qualifiers.keys() or 'gene' not in abinit_annotation.qualifiers.keys()) and \
-            ('product' in ratt_annotation.qualifiers.keys() and 'product' in abinit_annotation.qualifiers.keys()):
-        if ratt_annotation.qualifiers['product'][0] == 'hypothetical protein' or \
-                        abinit_annotation.qualifiers['product'][0] == 'hypothetical protein':
-            if not reject_abinit:
+            #include everything if different names and not overlapping in frame?
+            include_abinit = True
+            include_ratt = True
+
+        #Check if gene names match and if they don't or if gene names are missing, keep both
+        if 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in abinit_annotation.qualifiers.keys():
+            if ratt_annotation.qualifiers['gene'] != abinit_annotation.qualifiers['gene']:
                 include_abinit = True
-        elif ratt_annotation.qualifiers['product'] == abinit_annotation.qualifiers['product'] and \
-                        abs(len(abinit_annotation.location)-len(ratt_annotation.location)) > 0:
-            if not reject_abinit:
-                include_abinit = True
-                # TODO -- ratt should probably be rejected here too since the prokka gene is being kept
-        else:
-            remark = ("RATT annotation for product "
-                      + '"' + ratt_annotation.qualifiers['product'][0] + '" '
-                      + "(" + '|'.join([ratt_annotation.qualifiers['locus_tag'][0],ratt_annotation.qualifiers['gene'][0]]) + ") "
-                      + "preferred based on gene length similarity or mismatching product name.")
-    else:
-        logger.warning('CORNER CASE in check_inclusion_criteria')
-        remark = 'corner case: unhandled by inclusion criteria'
     return include_abinit, include_ratt, remark
 
 def fix_embl_id_line(embl_file):
