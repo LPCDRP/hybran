@@ -94,7 +94,9 @@ def has_delayed_stop(feature):
     :param feature: A SeqFeature object
     :return: True if the feature has a "delayed stop"
     """
-    delayed_stop = [_ for _ in feature.qualifiers['note'] if "delayed stop" in _]
+    delayed_stop = []
+    if 'note' in feature.qualifiers:
+        delayed_stop = [_ for _ in feature.qualifiers['note'] if "delayed stop" in _]
     return bool(delayed_stop)
 
 def has_valid_start(feature):
@@ -106,8 +108,8 @@ def has_valid_start(feature):
     """
     start_codons = CodonTable.generic_by_id[genetic_code].start_codons
     feature_seq = str(feature.extract(record_sequence))[:3]
-    valid_start = [_ for _ in start_codons if feature_seq in _]
-    return bool(valid_start)
+
+    return feature_seq in start_codons
 
 def has_broken_stop(feature):
     """
@@ -116,7 +118,7 @@ def has_broken_stop(feature):
     """
     internal_stop = False
     note = ''
-    translation = str(feature.extract(record_sequence).translate(to_stop=False), table=genetic_code)
+    translation = str(feature.extract(record_sequence).translate(to_stop=False, table=genetic_code))
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
