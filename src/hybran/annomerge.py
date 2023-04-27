@@ -479,21 +479,17 @@ def fusionfisher(feature_list):
     :param feature_list: list of sorted SeqFeature objects.
     :return:
        - list of the SeqFeature objects that were identified and tagged.
-       - dictionary of four classes of remarkable annotations.
-             'redundant': list of annotations that had another copy with the same coordinates and name
-             'hybrid': list of fusion artifacts: annotations that had another copy with the same coordinates but a different name.
-             'conjoined': list of annotations that were detected as conjoined with their neighbor
-             'misannotation': putative misannotations that should be rejected
+       - list of fusion genes
+       - list of tuples of rejected SeqFeatures and a string describing why
     """
     logger = logging.getLogger('FusionFisher')
     outlist = []
     last_feature_by_strand = {}
     remarkable = {
-        'redundant': [],
         'hybrid': [],
         'conjoined': [],
-        'misannotation': [],
     }
+    rejects = []
 
     for feature in feature_list:
         outlist.append(feature)
@@ -512,7 +508,7 @@ def fusionfisher(feature_list):
             # Artifact
             #
             if extractor.get_ltag(prev_feature) == extractor.get_ltag(feature):
-                remarkable['redundant'].append(outlist.pop())
+                rejects.append((outlist.pop(), 'Redundant annotation with another from RATT'))
             #
             # Artifact due to a gene fusion hybrid
             #
@@ -585,10 +581,16 @@ def fusionfisher(feature_list):
                 # likely scenario in the case of a misannotation coinciding with a truncated gene
                 elif not any(pf_goodstop, cf_goodstop) and any(pf_goodstart, cf_goodstart):
                     if not pf_goodstart:
-                        remarkable['misannotation'].append(prev_feature)
+                        rejects.append((
+                            prev_feature,
+                            "putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}"
+                        ))
                         outlist.remove(prev_feature)
                     else:
-                        remarkable['misannotation'].append(outlist.pop())
+                        rejects.append((
+                            outlist.pop(),
+                            "putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}"
+                        ))
                 # unhandled scenarios:
                 # - both sets of coords are all good.
                 #      I would expect this to be the same situation as identical location, same gene name.
@@ -598,7 +600,7 @@ def fusionfisher(feature_list):
                 #      I want to allow for the possibility of a double-truncation.
 
 
-    return outlist, remarkable
+    return outlist, remarkable['hybrid'] + remarkable['conjoined'], rejects
 
 
 def liftover_annotation(feature, ref_feature, inference):
@@ -1834,11 +1836,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             )
 
         ratt_rejects += invalid_ratt_features
-        ratt_contig_features = remove_duplicate_cds(ratt_contig_features)
 
         ratt_contig_features = get_ordered_features(ratt_contig_features)
-        merged_genes, check_prokka = identify_merged_genes(ratt_contig_features)
-        merged_features = identify_conjoined_genes(ratt_contig_features)
+        ratt_contig_features, merged_features, invalid_ratt_features = fusionfisher(ratt_contig_features)
+
         if merged_features and i == 0:
             merged_features_record = prokka_contig_record[:]
             merged_features_record.features = merged_features
