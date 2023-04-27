@@ -601,22 +601,28 @@ def fusionfisher(feature_list):
                     ref_annotation[extractor.get_gene(feature)],
                 )
                 if pf_goodstop and not cf_goodstop:
-                    remarkable['misannotation'].append(outlist.pop())
+                    rejects.append((
+                        outlist.pop(),
+                        f"putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}"
+                    ))
                 elif not pf_goodstop and cf_goodstop:
-                    remarkable['misannotation'].append(prev_feature)
+                    rejects.append((
+                        prev_feature,
+                        f"putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}"
+                    ))
                     outlist.remove(prev_feature)
                 # likely scenario in the case of a misannotation coinciding with a truncated gene
                 elif not any(pf_goodstop, cf_goodstop) and any(pf_goodstart, cf_goodstart):
                     if not pf_goodstart:
                         rejects.append((
                             prev_feature,
-                            "putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}"
+                            f"putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}"
                         ))
                         outlist.remove(prev_feature)
                     else:
                         rejects.append((
                             outlist.pop(),
-                            "putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}"
+                            f"putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}"
                         ))
                 # unhandled scenarios:
                 # - both sets of coords are all good.
@@ -1794,10 +1800,11 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                                            nproc=nproc,
             )
 
-        ratt_rejects += invalid_ratt_features
-
         ratt_contig_features = get_ordered_features(ratt_contig_features)
-        ratt_contig_features, merged_features, invalid_ratt_features = fusionfisher(ratt_contig_features)
+
+        ratt_contig_features, merged_features, inconsistent_ratt_features = fusionfisher(ratt_contig_features)
+
+        ratt_rejects += invalid_ratt_features + inconsistent_ratt_features
 
         if merged_features and i == 0:
             merged_features_record = prokka_contig_record[:]

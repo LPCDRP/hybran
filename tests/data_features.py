@@ -82,6 +82,34 @@ features = {
                 qualifiers={'locus_tag':['Rv0061c'],'gene':['Rv0061c']}
             ),
         },
+        'Rv0074': {
+            'ratt': SeqFeature(
+                FeatureLocation(80866, 82276, strand=1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['Rv0074'],'gene':['Rv0074'],
+                    'note': [
+                        "Internal stop detected in the following codon(s): 119",
+                    ],
+                    'pseudo': [''],
+                }
+            ),
+        },
+        'Rv0071': {
+            'ratt': SeqFeature(
+                FeatureLocation(81235, 82276, strand=1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['Rv0071'],'gene':['Rv0071'],
+                    'note': [
+                        ("Hybran/Pseudoscan: Locus does not have reference-corresponding end | "
+                         "Has a frameshift mutation leading to a delayed stop codon"),
+                        "D31 VS1 RCS1 RCE0 BOK0",
+                    ],
+                    'pseudo': [''],
+                }
+            ),
+        },
         'PPE5': {
             'ratt': SeqFeature(
                 FeatureLocation(366754, 373353, strand=-1),
