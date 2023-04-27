@@ -613,19 +613,20 @@ def fusionfisher(feature_list):
                         f"putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}"
                     ))
                     outlist.remove(prev_feature)
-                # likely scenario in the case of a misannotation coinciding with a truncated gene
-                elif not any(pf_goodstop, cf_goodstop) and any(pf_goodstart, cf_goodstart):
-                    if not pf_goodstart:
-                        rejects.append((
-                            prev_feature,
-                            f"putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}"
-                        ))
-                        outlist.remove(prev_feature)
-                    else:
-                        rejects.append((
-                            outlist.pop(),
-                            f"putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}"
-                        ))
+                #
+                # likely scenarios in the case of a misannotation coinciding with a truncated gene
+                #
+                elif not pf_goodstart and cf_goodstart:
+                    rejects.append((
+                        prev_feature,
+                        f"putative misannotation: has no reference-corresponding coordinates, while {extractor.get_ltag(feature)}:{extractor.get_gene(feature)} has a reference-corresponding start, and both share the same stop position."
+                    ))
+                    outlist.remove(prev_feature)
+                elif pf_goodstart and not cf_goodstart:
+                    rejects.append((
+                        outlist.pop(),
+                        f"putative misannotation: has no reference-corresponding coordinates, while {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)} has a reference-corresponding start, and  both share the same stop position."
+                    ))
                 # unhandled scenarios:
                 # - both sets of coords are all good.
                 #      I would expect this to be the same situation as identical location, same gene name.
@@ -633,6 +634,9 @@ def fusionfisher(feature_list):
                 # - both sets of coords are all bad.
                 #      We could make a case for rejecting both, but that would seem to be creating a general RATT rejection criterion which might not be warranted.
                 #      I want to allow for the possibility of a double-truncation.
+                # - both have good stops and bad starts
+                # - both have bad stops and good starts
+                #
 
 
     return outlist, remarkable['hybrid'] + remarkable['conjoined'], rejects
