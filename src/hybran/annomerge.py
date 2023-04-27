@@ -26,6 +26,7 @@ from math import log, ceil
 # standard multiprocessing can't pickle lambda
 import multiprocess as multiprocessing
 import Bio
+from Bio.Data import CodonTable
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
@@ -82,14 +83,40 @@ def have_same_stop(loc1, loc2):
         )
     return False
 
-def is_broken_stop(feature):
+def has_delayed_stop(feature):
+    """
+    A SeqFeature with a "delayed stop" is determined by pseudoscan.
+    The criteria required for having a delayed stop include the following:
+    1) Divisible by three
+    2) No internal/missing stops (is_broken_stop() = False)
+    3) Good start and bad stop (coord_check() = True, False)
+    4) Length of feature is longer than the reference gene
+    :param feature: A SeqFeature object
+    :return: True if the feature has a "delayed stop"
+    """
+    delayed_stop = [_ for _ in feature.qualifiers['note'] if "delayed stop" in _]
+    return bool(delayed_stop)
+
+def has_valid_start(feature):
+    """
+    Finds the first three base pairs in a SeqFeaure and determines if it
+    has a valid start codon according to its corresponding codon table.
+    :param feature: A SeqFeature object
+    :return: True if valid start codon exists
+    """
+    start_codons = CodonTable.generic_by_id[genetic_code].start_codons
+    feature_seq = str(feature.extract(record_sequence))[:3]
+    valid_start = [_ for _ in start_codons if feature_seq in _]
+    return bool(valid_start)
+
+def has_broken_stop(feature):
     """
     Finds the amount and location of internal stops.
     :param feature: A SeqFeature object
     """
     internal_stop = False
     note = ''
-    translation = str(feature.extract(record_sequence).translate(to_stop=False))
+    translation = str(feature.extract(record_sequence).translate(to_stop=False), table=genetic_code)
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
@@ -957,7 +984,8 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
     # is only possible with RATT annotations since liftover from the reference may bring
     # the reference's pseudo tag attribute along with it. Our liftover doesn't do that.
     ref_was_pseudo = pseudo_note
-    og_broken_stop, og_stop_note = is_broken_stop(feature)
+    valid_start = has_valid_start(feature)
+    og_broken_stop, og_stop_note = has_broken_stop(feature)
     divisible_by_three = lambda  _: len(_.location) % 3 == 0
     og_feature = deepcopy(feature)
     if ref_was_pseudo:
@@ -1017,7 +1045,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
             if og_blast_defined:
                 lost_match = (og_blast_ok and not blast_ok)
 
-            broken_stop, stop_note = is_broken_stop(feature)
+            broken_stop, stop_note = has_broken_stop(feature)
 
             if not og_blast_defined:
                 if all(coords_ok):
@@ -1058,6 +1086,10 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                 if broken_stop:
                     broke_note = (stop_note, 1)
 
+                start_note = ('Locus has invalid start codon', 0)
+                if valid_start:
+                    start_note = ('Locus has valid start codon', 1)
+
                 coord_note = ('Locus has reference-corresponding start and end', list(map(int, coords_ok)))
                 if not all(coords_ok):
                     coord_note = (f'Locus does not have reference-corresponding {fancy_string}', list(map(int, coords_ok)))
@@ -1068,16 +1100,17 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
 
                 #Note codes are categorized by a '0' or '1' and correspond to 'False' and 'True' respectively
                 #D3 = Divisible by three [0/1]
-                #VS = Valid stop [0/1]
+                #VS = Valid start [0/1]
+                #VE = Valid end [0/1]
                 #RCS = Reference corresponding start [0/1]
                 #RCE = Reference corresponding end [0/1]
                 #BOK = Blast OK [0/1]
-                note_codes = (f'D3{div_note[1]} VS{1 if broke_note[1] == 0 else 0} RCS{coord_note[1][0]} ' \
+                note_codes = (f'D3{div_note[1]} VS{start_note[1]} VE{1 if broke_note[1] == 0 else 0} RCS{coord_note[1][0]} ' \
                               f'RCE{coord_note[1][1]} BOK{0 if not blast_ok else 1}')
 
                 #This is the code for a normal non-pseudo gene, with no interesting characteristics.
                 #These codes will not be added to the feature notes.
-                if note_codes == 'D31 VS1 RCS1 RCE1 BOK1':
+                if note_codes == 'D31 VS1 VE1 RCS1 RCE1 BOK1':
                     note_codes = None
 
                 #The order in which notes appear is important. The first note should represent the
@@ -1208,7 +1241,7 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
             # and causes some problems, as the entire sequence gets labeled
             # "biological region" and two basically empty CDS records are created.
 
-            broken_stop, stop_note = is_broken_stop(feature)
+            broken_stop, stop_note = has_broken_stop(feature)
             if broken_stop:
                 good_start, good_stop = coord_check(
                     feature,
@@ -1220,7 +1253,7 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
                     rejects.append((feature, "RATT-introduced compound interval did not include reference " +
                                     "stop position."))
                     continue
-                broken_stop, stop_note = is_broken_stop(feature)
+                broken_stop, stop_note = has_broken_stop(feature)
                 if broken_stop:
                     feature.qualifiers['pseudo']=['']
                     designator.append_qualifier(feature.qualifiers, 'note', stop_note)
