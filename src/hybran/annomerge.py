@@ -1799,10 +1799,13 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                                            ratt_enforce_thresholds=ratt_enforce_thresholds,
                                            nproc=nproc,
             )
-
+        logger.info(f"{seqname}: {len(invalid_ratt_features)} RATT features failed validation.")
         ratt_contig_features = get_ordered_features(ratt_contig_features)
 
+        logger.info(f"{seqname}: Checking for gene fusion signatures in RATT annotations...")
         ratt_contig_features, merged_features, inconsistent_ratt_features = fusionfisher(ratt_contig_features)
+        logger.info(f"{seqname}: {len(merged_features)} RATT fusion genes detected.")
+        logger.info(f"{seqname}: {len(inconsistent_ratt_features)} RATT annotations found to be inconsistent.")
 
         ratt_rejects += invalid_ratt_features + inconsistent_ratt_features
 
