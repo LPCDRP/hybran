@@ -257,7 +257,7 @@ def test_fusionfisher(gene_list):
         'misannotation_false_delayed_stop': (
             [ source_features['Rv0074']['ratt'] ],
             [ ],
-            [ (source_features['Rv0071']['ratt'], "putative misannotation: no reference-corresponding coordinates and shares stop position with Rv0074:Rv0074") ]
+            [ (source_features['Rv0071']['ratt'], "putative misannotation: has no reference-corresponding stop, while Rv0074:Rv0074 does, and both share the same stop position.") ]
         ),
     }
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -846,6 +846,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
 
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
     annomerge.ref_annotation = ref_features[ref_genome[pair]]
+    annomerge.genetic_code = 11
     reference_gene_locus_dict = defaultdict(list, dict(
         dnaA=['Rv0001'],
         Rv0007=['Rv0007'],
@@ -898,25 +899,25 @@ def test_check_inclusion_criteria(pair, tmp_path):
     expected = {
         'ratt_better': (
             False, True,
-            "start position of RATT's Rv0001 corresponds to the reference annotation's",
+            "RATT annotation Rv0001:dnaA more accurately named and delineated.",
         ),
         'ratt_better_coverage': (
             False, True,
-            "RATT annotation for Rv1453 has better alignment coverage with the reference",
+            "RATT annotation Rv1453:Rv1453 more accurately named and delineated.",
         ),
         'pseudo_vs_nonpseudo': (
             False, True,
             "Non-pseudo ratt annotation takes precedence.",
         ),
         'different': (True, True, ''),
-        'abinit_better': (True, False, 'Ab initio feature L_02383 has better alignment coverage with the reference.'),
+        'abinit_better': (True, False, 'Ab initio annotation L_02383:Rv1718 more accurately named and delineated.'),
         'overlapping_different_names_ratt_better': (
             False, True,
-            "RATT annotation Rv1945:Rv1945 more accurately named and delineated",
+            "putative misannotation: has no reference-corresponding coordinates, while Rv1945:Rv1945 has a reference-corresponding start, and  both share the same stop position.",
         ),
         'overlapping_different_names_abinit_better': (
             True, False,
-            "ab initio annotation L_02335:ORF0004 more accurately named and delineated"
+            "putative misannotation: has no reference-corresponding stop, while L_02335:ORF0004 does, and both share the same stop position."
         )
     }
 

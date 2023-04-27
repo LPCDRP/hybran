@@ -605,12 +605,12 @@ def fusionfisher(feature_list):
                 if pf_goodstop and not cf_goodstop:
                     rejects.append((
                         outlist.pop(),
-                        f"putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}"
+                        f"putative misannotation: has no reference-corresponding stop, while {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)} does, and both share the same stop position."
                     ))
                 elif not pf_goodstop and cf_goodstop:
                     rejects.append((
                         prev_feature,
-                        f"putative misannotation: no reference-corresponding coordinates and shares stop position with {extractor.get_ltag(feature)}:{extractor.get_gene(feature)}"
+                        f"putative misannotation: has no reference-corresponding stop, while {extractor.get_ltag(feature)}:{extractor.get_gene(feature)} does, and both share the same stop position."
                     ))
                     outlist.remove(prev_feature)
                 #
@@ -1538,13 +1538,20 @@ def check_inclusion_criteria(
     """
     logger = logging.getLogger('CheckInclusionCriteria')
     include_ratt = True
-    include_abinit = False
+    include_abinit = True
     remark = ''
-    loc_key = (int(abinit_annotation.location.start), int(abinit_annotation.location.end), int(abinit_annotation.location.strand))
-    if(abinit_annotation.type != 'CDS'
-       or 'gene' not in abinit_annotation.qualifiers.keys()
-    ):
+
+    if abinit_annotation.type != ratt_annotation.type:
         pass
+    elif abinit_annotation.type != 'CDS':
+        # TODO: we should come up with criteria for non-CDS genes
+        if abinit_annotation.location == ratt_annotation.location:
+            include_abinit = False
+            remark = f'Has same location as {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}.'
+    elif 'gene' not in abinit_annotation.qualifiers:
+        if overlap_inframe(abinit_annotation.location, ratt_annotation.location):
+            include_abinit = False
+            remark = f"Hypothetical gene and conflicts (overlapping in-frame) with RATT's {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
     elif(abinit_annotation.qualifiers['gene'][0] in reference_locus_gene_dict.keys()
          or abinit_annotation.qualifiers['gene'][0] in reference_gene_locus_dict.keys()
     ):
@@ -1562,41 +1569,27 @@ def check_inclusion_criteria(
 
         same_stop = (abinit_annotation.location.end == ratt_annotation.location.end)
         same_start = (abinit_annotation.location.start == ratt_annotation.location.start)
-        abinit_longer = len(abinit_annotation.location) > len(ratt_annotation.location)
-
-        # Check if feature types are the same. If not add feature to EMBL record
-        if ratt_annotation.type != abinit_annotation.type:
-            include_abinit = True
-            include_ratt = True
-            return include_abinit, include_ratt, remark
-
-        ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
-        (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
-        ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
-
-        abinit_coord_status = coord_check(abinit_annotation, ref_annotation[abinit_annotation.qualifiers['gene'][0]])
-        (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
-        abinit_coord_score = sum([int(_) for _ in ratt_coord_status])
 
 
         if not same_gene_name and overlap_inframe(abinit_annotation.location, ratt_annotation.location):
-            #keepers, remarkables = fusionscan([ratt_annotation, abinit_annotation])
-            #if len(keepers) < 2:
-            #    rejects = remarkables['misannotation']
-            #fusion_fisher function should be called here. Below is a stand in (to be removed later) with similar criteria.
-            if (has_delayed_stop(abinit_annotation) or has_delayed_stop(ratt_annotation)) and same_stop and not same_start:
-                if has_delayed_stop(abinit_annotation) and abinit_start_ok and abinit_longer:
-                    abinit_annotation.qualifiers['gene'][0] == (f"{abinit_annotation.qualifiers['gene'][0]}::{ratt_annotation.qualifiers['gene'][0]}")
-                    include_abinit = True
-                    include_ratt = True
-                    return include_abinit, include_ratt, remark
-
-                elif has_delayed_stop(ratt_annotation) and ratt_start_ok and not abinit_longer:
-                    ratt_annotation.qualifiers['gene'][0] == (f"{ratt_annotation.qualifiers['gene'][0]}::{abinit_annotation.qualifiers['gene'][0]}")
-                    include_abinit = True
-                    include_ratt = True
-                    return include_abinit, include_ratt, remark
+            keepers, fusions, rejects = fusionfisher([ratt_annotation, abinit_annotation])
+            for (reject, reason) in rejects:
+                if reject == ratt_annotation:
+                    include_ratt = False
+                    remark = reason
+                elif reject == abinit_annotation:
+                    include_abinit = False
+                    remark = reason
         elif same_gene_name:
+            ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
+            (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
+            ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
+
+            abinit_coord_status = coord_check(abinit_annotation, ref_annotation[abinit_annotation.qualifiers['gene'][0]])
+            (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
+            abinit_coord_score = sum([int(_) for _ in ratt_coord_status])
+
+
             if abinit_is_pseudo == ratt_is_pseudo:
                 # Both annotations being intact according to their respective reference names
                 # suggests that the reference genes are highly similar.
@@ -1613,7 +1606,7 @@ def check_inclusion_criteria(
                       ):
                     include_abinit = False
                     include_ratt = True
-                    remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated"
+                    remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated."
                 # This is the only other possibility:
                 #elif (all(abinit_coord_status)
                 #      or abinit_coord_score > ratt_coord_score
@@ -1622,29 +1615,23 @@ def check_inclusion_criteria(
                 else:
                     include_abinit = True
                     include_ratt = False
-                    remark = f"ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated"
+                    remark = f"Ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated."
             else:
                 #Always take the non-pseudo annotation if possible
                 if not abinit_is_pseudo and ratt_is_pseudo:
                     include_abinit = True
                     include_ratt = False
                     remark = "Non-pseudo ab initio annotation takes precedence."
-                    return include_abinit, include_ratt, remark
-
                 elif not ratt_is_pseudo and abinit_is_pseudo:
                     include_abinit = False
                     include_ratt = True
                     remark = "Non-pseudo ratt annotation takes precedence."
-                    return include_abinit, include_ratt, remark
-        else:
-            #include everything if different names and not overlapping in frame?
+        elif not overlap_inframe(abinit_annotation.location, ratt_annotation.location):
+            #include everything if different names and not overlapping in frame
             include_abinit = True
             include_ratt = True
 
-        #Check if gene names match and if they don't or if gene names are missing, keep both
-        if 'gene' in ratt_annotation.qualifiers.keys() and 'gene' in abinit_annotation.qualifiers.keys():
-            if ratt_annotation.qualifiers['gene'] != abinit_annotation.qualifiers['gene']:
-                include_abinit = True
+
     return include_abinit, include_ratt, remark
 
 def fix_embl_id_line(embl_file):
