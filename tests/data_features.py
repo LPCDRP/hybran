@@ -21,7 +21,7 @@ for ref in [
             ])
             for feature in record.features:
                 if 'gene' in feature.qualifiers:
-                    feature.ref = k
+                    feature.hybranref = k
                     feature.references = {k: record.seq}
                     ref_features[ref][feature.qualifiers['gene'][0]] = feature
 

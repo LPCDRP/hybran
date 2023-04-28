@@ -13,6 +13,18 @@ from hybran import config
 from .data_features import *
 
 
+
+def test_ref_fuse():
+    annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation.update(ref_features['H37Rv'])
+    annomerge.ref_annotation = ref_features['H37Rv']
+
+    assert annomerge.ref_annotation['PE_PGRS50::PE_PGRS49'] == CompoundLocation([
+        SimpleLocation(ExactPosition(3738157), ExactPosition(3742774), strand=-1),
+        SimpleLocation(ExactPosition(3736983), ExactPosition(3738000), strand=-1)
+    ], 'order')
+
+
 @pytest.mark.parametrize('location', [
     'internal',
     'internal_minus',

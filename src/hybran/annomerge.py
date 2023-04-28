@@ -215,6 +215,49 @@ def load_reference_info(proteome_fasta):
     return reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, ref_protein_lengths
 
 
+# Thanks to Jochen Ritzel
+# https://stackoverflow.com/a/2912455
+class keydefaultdict(collections.defaultdict):
+    def __missing__(self, key):
+        if self.default_factory is None:
+            raise KeyError( key )
+        else:
+            ret = self[key] = self.default_factory(key)
+            return ret
+
+def ref_fuse(fusion_gene_name):
+    """
+    Create a dummy SeqFeature to use as a reference for fusion gene coordinate checking/correction.
+    Throws a KeyError if one of the constituent names is not in the ref_annotation dictionary or if the fusion gene name is not valid.
+    This is intended to be used as a callable for defaultdict for reference annotations.
+
+    :param fusion_gene_name: A string, expected to be ::-delimited, corresponding to the fusion gene name.
+    :return: SeqFeature with concatenated coordinates
+    """
+
+    constituents = fusion_gene_name.split('::')
+    # Not a fusion gene; defaultdict lookup should fail
+    if len(constituents) <= 1:
+        raise KeyError()
+    location_parts = []
+    location_sequences = {}
+    for member in constituents:
+        location_sequences.update(ref_annotation[member].references)
+        if isinstance(ref_annotation[member].location, Bio.SeqFeature.CompoundLocation):
+            location_parts += list(ref_annotation[member].location.parts)
+        else:
+            location_parts.append(ref_annotation[member].location)
+    ref_fusion = SeqFeature(
+        Bio.SeqFeature.CompoundLocation(location_parts, operator='order'),
+        qualifiers={'locus_tag':fusion_gene_name, 'gene':fusion_gene_name},
+    )
+    # TODO: We're forced to set a single ref for all the parts.
+    #       This would pose a problem for fusions of translocated genes.
+    # TODO: We can't use the native .ref attribute since it isn't allowed for CompoundLocations
+    ref_fusion.hybranref = ref_annotation[member].hybranref
+    ref_fusion.references = location_sequences
+    return ref_fusion
+
 def upstream_context(feature_location, source_seq, n=40, circular=True):
     """
     Get the n bases upstream of a genomic feature.
@@ -276,7 +319,7 @@ def get_nuc_seq_for_gene(feature_list, source_seq):
         locus = f.qualifiers['locus_tag'][0]
         prom_seq = upstream_context(f.location, source_seq)
         ref_fna_dict[locus] = SeqRecord(
-            seq=f.extract(f.references[f.ref], references=f.references),
+            seq=f.extract(f.references[f.hybranref], references=f.references),
             id=locus
         )
         fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
@@ -701,7 +744,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     :return: True/False if the start/stop was fixed
     """
 
-    ref_seq = ref_feature.extract(ref_feature.references[ref_feature.ref], references=ref_feature.references)
+    ref_seq = ref_feature.extract(ref_feature.references[ref_feature.hybranref], references=ref_feature.references)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
@@ -1042,7 +1085,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
             good_start, good_stop = coord_check(feature, ref_feature, fix_start, fix_stop)
             coords_ok = [good_start, good_stop]
             ref_seq = translate(
-                ref_feature.extract(ref_feature.references[ref_feature.ref], references=ref_feature.references),
+                ref_feature.extract(ref_feature.references[ref_feature.hybranref], references=ref_feature.references),
                 table=genetic_code, to_stop=True
             )
             feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
@@ -1730,7 +1773,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     corrected_orf_report = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
     global ref_annotation
-    ref_annotation = {}
+    ref_annotation = keydefaultdict(ref_fuse)
     # upstream sequence contexts for reference genes. used in multiple places
     global ref_prom_fp_dict
     global ref_fna_dict
@@ -1742,7 +1785,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
         for feature in ref_record.features:
             if feature.type != "CDS":
                 continue
-            feature.ref = ref_contig_id
+            # setting feature.ref doesn't work for CompoundLocations
+            # but we can set random attributes.
+            feature.hybranref = ref_contig_id
             feature.references = {ref_contig_id: ref_record.seq}
             # if reference paralogs have been collapsed, the last occurrence in the genome
             # will prevail.
