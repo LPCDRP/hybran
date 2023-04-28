@@ -1564,6 +1564,74 @@ def populate_gaps(
 
     return abinit_keepers, abinit_conflicts
 
+def thunderdome(abinit_annotation, ratt_annotation):
+    """
+    Two genes enter... one gene leaves.
+    This function performs a 'standardized' comparison between RATT and Prokka
+    annotations based on reference-correspondence and pseudo status. Will be used
+    in check_inclusion_criteria for the cases dealing with conflicting annotations.
+    :param abinit_annotation:
+    :param ratt_annotation:
+    :returns:
+        - include_abinit (:py:class:`bool`) - whether the ab initio annotation should be kept
+        - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
+        - remark (:py:class:`str`) - explanation for why the rejected annotation, if any, was not included
+    """
+    abinit_coord_status = coord_check(abinit_annotation, ref_annotation[abinit_annotation.qualifiers['gene'][0]])
+    (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
+    abinit_coord_score = sum([int(_) for _ in abinit_coord_status])
+
+    ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
+    (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
+    ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
+
+    abinit_is_pseudo = designator.is_pseudo(abinit_annotation.qualifiers)
+    ratt_is_pseudo = designator.is_pseudo(ratt_annotation.qualifiers)
+    abinit_longer = (len(abinit_annotation.location) > len(ratt_annotation.location))
+
+    if abinit_is_pseudo == ratt_is_pseudo:
+        # Both annotations being intact according to their respective reference names
+        # suggests that the reference genes are highly similar.
+        # RATT's assignment is furthermore based on synteny, so it wins out
+
+        if ((all(ratt_coord_status) and all(abinit_coord_status)) or ratt_coord_status == abinit_coord_status):
+            #Both non-pseudo and perfect coord_status, use the more complete annotation.
+            if not abinit_is_pseudo:
+                if abinit_longer:
+                    include_abinit = True
+                    include_ratt = False
+                    remark = f"Equally valid call, but the more complete ab initio annotation is favored."
+                else:
+                    include_abinit = False
+                    include_ratt = True
+                    remark = f"Equally valid call, but the more complete RATT annotation is favored."
+            else:
+                include_abinit = False
+                include_ratt = True
+                remark = f"Equally valid call, but conflicts with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
+        elif (all(ratt_coord_status) or ratt_coord_score > abinit_coord_score or (ratt_stop_ok and not abinit_stop_ok)):
+            include_abinit = False
+            include_ratt = True
+            remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated."
+        else:
+        # This is the only other possibility:
+        #elif (all(abinit_coord_status or abinit_coord_score > ratt_coord_score or (abinit_stop_ok and not ratt_stop_ok)):
+            include_abinit = True
+            include_ratt = False
+            remark = f"Ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated."
+    else:
+        #Always take the non-pseudo annotation if possible
+        if not abinit_is_pseudo and ratt_is_pseudo:
+            include_abinit = True
+            include_ratt = False
+            remark = "Non-pseudo ab initio annotation takes precedence."
+        else:
+            include_abinit = False
+            include_ratt = True
+            remark = "Non-pseudo RATT annotation takes precedence."
+    return include_abinit, include_ratt, remark
+
+
 def check_inclusion_criteria(
         ratt_annotation,
         abinit_annotation,
@@ -1573,8 +1641,9 @@ def check_inclusion_criteria(
         ratt_blast_results,
 ):
     """
-    This function compares RATT and Prokka annotations and resolves conflicting annotations.
+    This function compares RATT and Prokka annotations and checks for conflicts.
     Either one feature or both will be accepted.
+    If there is no conflict, both are kept. Otherwise, they are sent to the thunderdome().
 
     :param embl_file:
     :param ratt_annotation:
@@ -1609,18 +1678,13 @@ def check_inclusion_criteria(
         except KeyError:
             locus_tag_list = abinit_annotation.qualifiers['gene']
         locus_tag = ratt_annotation.qualifiers['locus_tag'][0]
-        blast_stats = abinit_blast_results[abinit_annotation.qualifiers['locus_tag'][0]]
         same_gene_name = locus_tag in locus_tag_list
+        same_loc = (abinit_annotation.location == ratt_annotation.location)
 
-        abinit_is_pseudo = designator.is_pseudo(abinit_annotation.qualifiers)
-        ratt_is_pseudo = designator.is_pseudo(ratt_annotation.qualifiers)
-        pseudo_status = [abinit_is_pseudo, ratt_is_pseudo]
+        if same_loc or same_gene_name:
+            include_abinit, include_ratt, remark = thunderdome(abinit_annotation, ratt_annotation)
 
-        same_stop = (abinit_annotation.location.end == ratt_annotation.location.end)
-        same_start = (abinit_annotation.location.start == ratt_annotation.location.start)
-
-
-        if not same_gene_name and overlap_inframe(abinit_annotation.location, ratt_annotation.location):
+        elif not same_gene_name and overlap_inframe(abinit_annotation.location, ratt_annotation.location):
             keepers, fusions, rejects = fusionfisher([ratt_annotation, abinit_annotation])
             for (reject, reason) in rejects:
                 if reject == ratt_annotation:
@@ -1629,57 +1693,15 @@ def check_inclusion_criteria(
                 elif reject == abinit_annotation:
                     include_abinit = False
                     remark = reason
-        elif same_gene_name:
-            ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
-            (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
-            ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
+            # fusionfisher didn't detect a misannotation, but it didn't detect a fusion either.
+            # welcome to the thunderdome!
+            if not fusions and not rejects:
+                include_abinit, include_ratt, remark = thunderdome(abinit_annotation, ratt_annotation)
 
-            abinit_coord_status = coord_check(abinit_annotation, ref_annotation[abinit_annotation.qualifiers['gene'][0]])
-            (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
-            abinit_coord_score = sum([int(_) for _ in ratt_coord_status])
-
-
-            if abinit_is_pseudo == ratt_is_pseudo:
-                # Both annotations being intact according to their respective reference names
-                # suggests that the reference genes are highly similar.
-                # RATT's assignment is furthermore based on synteny, so it wins out
-                if ((all(ratt_coord_status) and all(abinit_coord_status))
-                    or ratt_coord_status == abinit_coord_status
-                    ):
-                    include_abinit = False
-                    include_ratt = True
-                    remark = f"Equally valid call, but conflicting name with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
-                elif (all(ratt_coord_status)
-                      or ratt_coord_score > abinit_coord_score
-                      or (ratt_stop_ok and not abinit_stop_ok)
-                      ):
-                    include_abinit = False
-                    include_ratt = True
-                    remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated."
-                # This is the only other possibility:
-                #elif (all(abinit_coord_status)
-                #      or abinit_coord_score > ratt_coord_score
-                #      or (abinit_stop_ok and not ratt_stop_ok)
-                #      ):
-                else:
-                    include_abinit = True
-                    include_ratt = False
-                    remark = f"Ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated."
-            else:
-                #Always take the non-pseudo annotation if possible
-                if not abinit_is_pseudo and ratt_is_pseudo:
-                    include_abinit = True
-                    include_ratt = False
-                    remark = "Non-pseudo ab initio annotation takes precedence."
-                elif not ratt_is_pseudo and abinit_is_pseudo:
-                    include_abinit = False
-                    include_ratt = True
-                    remark = "Non-pseudo ratt annotation takes precedence."
         elif not overlap_inframe(abinit_annotation.location, ratt_annotation.location):
             #include everything if different names and not overlapping in frame
             include_abinit = True
             include_ratt = True
-
 
     return include_abinit, include_ratt, remark
 
