@@ -152,6 +152,23 @@ features = {
 		qualifiers={'locus_tag':['Rv1089'],'gene':['PE10']}
 	    ),
 	},
+        'Rv1150': {
+            'ratt': SeqFeature(
+                FeatureLocation(1280928, 1281480, strand=1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['L_01235'], 'gene':['Rv1150'], 'pseudo':[''],
+                    'note': [
+                        "Hybran/Pseudoscan: Reference gene is pseudo | Has reference-corresponding start and stop | Both this sequence and the reference's are divisible by three.",
+                    ],
+                }
+            ),
+            'prokka': SeqFeature(
+                FeatureLocation(1280616, 1281480, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_01235'], 'gene':['Rv1041c']}
+            ),
+        },
         'PPE38': {
             'abinit': SeqFeature(
                 FeatureLocation(2636045, 2637140, strand=-1),
