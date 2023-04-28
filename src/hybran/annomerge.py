@@ -579,8 +579,11 @@ def fusionfisher(feature_list):
             #
             # Artifact
             #
-            if extractor.get_ltag(prev_feature) == extractor.get_ltag(feature):
-                rejects.append((outlist.pop(), 'Redundant annotation with another from RATT'))
+            if extractor.get_gene(prev_feature) == extractor.get_gene(feature):
+                rejects.append((
+                    outlist.pop(),
+                    f'Redundant annotation with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}'
+                ))
             #
             # Artifact due to a gene fusion hybrid
             #
