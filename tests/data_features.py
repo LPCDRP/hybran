@@ -295,7 +295,12 @@ features = {
                 FeatureLocation(3741108, 3746955, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['Rv3345c'],'gene':['PE_PGRS50']}
-            )
+            ),
+            'final': SeqFeature(
+                FeatureLocation(3741108, 3746955, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3345c'],'gene':['PE_PGRS50::PE_PGRS49']}
+            ),
         },
         'Rv3777': {
             'abinit': SeqFeature(
