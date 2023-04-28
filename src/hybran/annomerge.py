@@ -610,7 +610,10 @@ def fusionfisher(feature_list):
                 prev_feature.qualifiers['gene'][0] = '::'.join([extractor.get_gene(_) for _ in [upstream, downstream]])
                 prev_feature.qualifiers['product'] = [' / '.join([_.qualifiers['product'][0] for _ in [upstream, downstream] if 'product' in _.qualifiers])]
 
-                outlist.pop()
+                rejects.append((
+                    outlist.pop(),
+                    f"Apparent hybrid fusion gene. Removed due to redundant location with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}.",
+                ))
                 remarkable['hybrid'].append(prev_feature)
 
         elif have_same_stop(prev_feature.location, feature.location):
