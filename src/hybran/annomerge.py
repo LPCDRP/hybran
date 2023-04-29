@@ -2054,63 +2054,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         include_abinit = True
                         continue
                     ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
-                    # When the ab initio feature is in-frame with a RATT transferred gene
-                    # but didn't itself get a reference gene name assigned via direct comparison,
-                    # we check whether it has a match to the reference-transferred gene itself
-                    # and assign the name if it does. If the name is established, the conflict resolution
-                    # is better informed.
-                    if(abinit_feature.type == 'CDS'
-                       and 'gene' not in abinit_feature.qualifiers.keys()
-                       and overlap_inframe(ratt_feature.location, abinit_feature.location)
-                       ):
-                        if 'translation' not in ratt_contig_features_dict[ratt_conflict_loc].qualifiers.keys():
-                            blast_type = "n"
-                            query = SeqRecord(abinit_feature.extract(record_sequence))
-                            subject = SeqRecord(
-                                ratt_contig_features_dict[ratt_conflict_loc].extract(record_sequence),
-                                id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0],
-                            )
-                        else:
-                            blast_type = "p"
-                            query=SeqRecord(Seq(abinit_feature.qualifiers['translation'][0]))
-                            subject=SeqRecord(
-                                Seq(ratt_contig_features_dict[ratt_conflict_loc].qualifiers['translation'][0]),
-                                id=ratt_contig_features_dict[ratt_conflict_loc].qualifiers['gene'][0],
-                            )
-                        ref_gene = BLAST.reference_match(
-                            query=query,
-                            subject=subject,
-                            blast_type=blast_type,
-                            seq_ident=seq_ident,
-                            seq_covg=seq_covg,
-                        )[0]
-                        if ref_gene:
-                            # reference_match's pseudo determination may not be accurate since we are here
-                            # comparing annotations on the same genome, so
-                            # a full-length match to an already truncated gene should not be considered
-                            # a complete reference match
-                            abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]] = \
-                                abinit_blast_results_complete[abinit_feature.qualifiers['locus_tag'][0]][ref_gene]
-                            pseudo = pseudoscan(
-                                feature,
-                                ref_feature=ref_annotation[ref_gene],
-                                seq_ident=seq_ident,
-                                seq_covg=seq_covg,
-                                attempt_rescue=True,
-                                blast_hit_dict=abinit_blast_results[abinit_feature.qualifiers['locus_tag'][0]]
-                            )
-
-                            liftover_annotation(
-                                abinit_feature,
-                                ref_annotation[ref_gene],
-                                inference=':'.join([
-                                    "similar to AA sequence",
-                                    ref_id,
-                                    ref_annotation[ref_gene].qualifiers['locus_tag'][0],
-                                    ref_gene,
-                                    "RATT+blastp",
-                                ])
-                            )
                     include_abinit, include_ratt, remark = check_inclusion_criteria(
                         ratt_annotation=ratt_feature,
                         abinit_annotation=abinit_feature,
