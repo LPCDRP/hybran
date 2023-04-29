@@ -2080,43 +2080,23 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         raw_features.append(sub_feature)
             else:
                 continue
-        prokka_rec.features = []
-        added_cds = {}
-        checked_features = 0
-        for feature in raw_features:
-            checked_features += 1
-            if feature.type != 'CDS':
-                prokka_rec.features.append(feature)
-            elif feature.type == 'CDS' and 'note' in feature.qualifiers.keys():
-                if 'Fusion' in feature.qualifiers['note'][0]:
-                    if 'gene' in feature.qualifiers.keys():
-                        feature.qualifiers.pop('gene')
-                    loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-                    added_cds[loc_key] = feature
-                    prokka_rec.features.append(feature)
-            if feature.type == 'CDS':
-                loc_key = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-                if loc_key not in added_cds.keys():
-                    added_cds[loc_key] = feature
-                    prokka_rec.features.append(feature)
-                elif added_cds[loc_key].qualifiers['locus_tag'] == feature.qualifiers['locus_tag']:
-                    continue
-                else:
-                    prokka_rec.features.append(feature)
-        # Adding translated sequence to RATT annotations
-        for feature in prokka_rec.features:
-            if feature.type == 'CDS' and 'translation' not in feature.qualifiers.keys():
-                feature_sequence = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
-                feature.qualifiers['translation'] = [feature_sequence]
-
+        prokka_rec.features = raw_features
         logger.debug(f'{seqname}: final feature annotation verification')
-        added_ltags = []
-        for feature_final in prokka_rec.features:
-            if feature_final.type != 'CDS':
-                continue
-            if 'gene' not in feature_final.qualifiers.keys():
-                feature_final.qualifiers['gene'] = feature_final.qualifiers['locus_tag']
-            added_ltags.append(feature_final.qualifiers['locus_tag'][0])
+        for feature in prokka_rec.features:
+            if feature.type == 'CDS':
+                # Adding translated sequences where missing
+                if 'translation' not in feature.qualifiers and not designator.is_pseudo(feature.qualifiers):
+                    feature_sequence = translate(
+                        feature.extract(record_sequence),
+                        table=genetic_code,
+                        cds=True,
+                    )
+                    feature.qualifiers['translation'] = [feature_sequence]
+                elif designator.is_pseudo(feature.qualifiers):
+                    feature.qualifiers.pop('translation', None)
+                if 'gene' not in feature.qualifiers.keys():
+                    feature.qualifiers['gene'] = feature.qualifiers['locus_tag']
+
         sorted_final = get_ordered_features(prokka_rec.features)
         prokka_rec.features = sorted_final
         output_isolate_recs.append(prokka_rec)
@@ -2190,10 +2170,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             else:
                 prokka_rejects.append((prokka_annotation, remark))
         ordered_feats = get_ordered_features(output_isolate_recs[i].features)
-        # Remove AA translation from pseudos
-        for feature in ordered_feats:
-            if designator.is_pseudo(feature.qualifiers):
-                feature.qualifiers.pop('translation', None)
 
         output_isolate_recs[i].features = ordered_feats[:]
         final_cdss = [f for f in ordered_feats if f.type == 'CDS']
