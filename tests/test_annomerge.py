@@ -831,7 +831,7 @@ def test_find_inframe_overlaps(case):
     'ratt_better',
     'ratt_better_coverage',
     'pseudo_vs_nonpseudo',
-    'different',
+    'overlapping_unnamed',
     'abinit_better',
     # https://gitlab.com/LPCDRP/hybran/-/issues/57
     'overlapping_different_names_ratt_better',
@@ -843,7 +843,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'ratt_better':'1-0006',
         'ratt_better_coverage':'1-0006',
         'pseudo_vs_nonpseudo':'1-0006',
-        'different':'1-0006',
+        'overlapping_unnamed':'1-0006',
         'abinit_better':'4-0041',
         'corresponding_non_cds':'4-0041',
         'overlapping_different_names_ratt_better':'1-0006',
@@ -854,7 +854,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'ratt_better': ('dnaA', 'dnaA'),
         'ratt_better_coverage': ('Rv1453', 'Rv1453'), # The RATT annotation's upstream context has no hit to the reference's despite being 100% identitical...
         'pseudo_vs_nonpseudo': ('Rv0007','Rv0007'),
-        'different': ('dnaA', 'gyrB'),
+        'overlapping_unnamed': ('dnaA', 'gyrB'),
         'corresponding_non_cds': ('rrf', 'rrf'),
         'abinit_better': ('Rv1718', 'Rv1718'),
         'overlapping_different_names_ratt_better': ('Rv1945', 'Rv1945'),
@@ -866,46 +866,6 @@ def test_check_inclusion_criteria(pair, tmp_path):
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
     annomerge.ref_annotation = ref_features[ref_genome[pair]]
     annomerge.genetic_code = 11
-    reference_gene_locus_dict = defaultdict(list, dict(
-        dnaA=['Rv0001'],
-        Rv0007=['Rv0007'],
-        Rv0205=['Rv0205'],
-        rplB=['Rv0704'],
-        Rv1148c=['Rv1148c'],
-        Rv1453=['Rv1453'],
-        Rv1718=['Rv1718'],
-        Rv1945=['Rv1945'],
-        mamB=['Rv2024c'],
-        ORF0004=[
-            'Rv0796',
-            'Rv1369c',
-            'Rv1756c',
-            'Rv1764',
-            'Rv2106',
-            'Rv2167c',
-            'Rv2279',
-            'Rv2355',
-            'Rv2479c',
-            'Rv2649',
-            'Rv2814c',
-            'Rv3185',
-            'Rv3187',
-            'Rv3326',
-            'Rv3380c',
-            'Rv3475',
-        ],
-    ))
-    reference_locus_gene_dict = dict(
-        Rv0001='dnaA',
-        Rv0007='Rv0007',
-        Rv0205='Rv0205',
-        Rv0704='rplB',
-        Rv1148c='Rv1148c',
-        Rv1453='Rv1453',
-        Rv1718='Rv1718',
-        Rv1945='Rv1945',
-        Rv2024c='mamB',
-    )
 
     config.hybran_tmp_dir = tmp_path
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
@@ -926,9 +886,9 @@ def test_check_inclusion_criteria(pair, tmp_path):
         ),
         'pseudo_vs_nonpseudo': (
             False, True,
-            "Non-pseudo ratt annotation takes precedence.",
+            "Non-pseudo RATT annotation takes precedence.",
         ),
-        'different': (True, True, ''),
+        'overlapping_unnamed': (False, True, "Hypothetical gene and conflicts (overlapping in-frame) with RATT's Rv0001:dnaA."),
         'abinit_better': (True, False, 'Ab initio annotation L_02383:Rv1718 more accurately named and delineated.'),
         'overlapping_different_names_ratt_better': (
             False, True,
@@ -944,8 +904,4 @@ def test_check_inclusion_criteria(pair, tmp_path):
     assert annomerge.check_inclusion_criteria(
         ratt_annotation=ratt,
         abinit_annotation=abinit,
-        reference_gene_locus_dict=reference_gene_locus_dict,
-        reference_locus_gene_dict=reference_locus_gene_dict,
-        abinit_blast_results=abinit_blast_results[source_genome[pair]],
-        ratt_blast_results=ratt_blast_results[source_genome[pair]],
     ) == expected[pair]

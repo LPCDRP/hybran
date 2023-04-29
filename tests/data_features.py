@@ -53,7 +53,7 @@ features = {
             'abinit': SeqFeature(
                 FeatureLocation(33, 1524, strand=1),
                 type='CDS',
-                qualifiers={'locus_tag':['L_00007'],'gene':['gyrB1']}
+                qualifiers={'locus_tag':['L_00007'],'gene_synonym':['gyrB1']}
             ),
         },
         'Rv0007': {

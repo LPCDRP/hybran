@@ -1635,20 +1635,14 @@ def thunderdome(abinit_annotation, ratt_annotation):
 def check_inclusion_criteria(
         ratt_annotation,
         abinit_annotation,
-        reference_gene_locus_dict,
-        reference_locus_gene_dict,
-        abinit_blast_results,
-        ratt_blast_results,
 ):
     """
     This function compares RATT and Prokka annotations and checks for conflicts.
     Either one feature or both will be accepted.
     If there is no conflict, both are kept. Otherwise, they are sent to the thunderdome().
 
-    :param embl_file:
     :param ratt_annotation:
     :param abinit_annotation:
-    :param ratt_gene_location:
     :returns:
         - include_abinit (:py:class:`bool`) - whether the ab initio annotation should be kept
         - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
@@ -1670,17 +1664,9 @@ def check_inclusion_criteria(
         if overlap_inframe(abinit_annotation.location, ratt_annotation.location):
             include_abinit = False
             remark = f"Hypothetical gene and conflicts (overlapping in-frame) with RATT's {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
-    elif(abinit_annotation.qualifiers['gene'][0] in reference_locus_gene_dict.keys()
-         or abinit_annotation.qualifiers['gene'][0] in reference_gene_locus_dict.keys()
-    ):
-        try:
-            locus_tag_list = reference_gene_locus_dict[abinit_annotation.qualifiers['gene'][0]]
-        except KeyError:
-            locus_tag_list = abinit_annotation.qualifiers['gene']
-        locus_tag = ratt_annotation.qualifiers['locus_tag'][0]
-        same_gene_name = locus_tag in locus_tag_list
+    else:
+        same_gene_name = extractor.get_gene(ratt_annotation) == extractor.get_gene(abinit_annotation)
         same_loc = (abinit_annotation.location == ratt_annotation.location)
-
         if same_loc or same_gene_name:
             include_abinit, include_ratt, remark = thunderdome(abinit_annotation, ratt_annotation)
 
@@ -1698,7 +1684,7 @@ def check_inclusion_criteria(
             if not fusions and not rejects:
                 include_abinit, include_ratt, remark = thunderdome(abinit_annotation, ratt_annotation)
 
-        elif not overlap_inframe(abinit_annotation.location, ratt_annotation.location):
+        else:
             #include everything if different names and not overlapping in frame
             include_abinit = True
             include_ratt = True
@@ -2057,10 +2043,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                     include_abinit, include_ratt, remark = check_inclusion_criteria(
                         ratt_annotation=ratt_feature,
                         abinit_annotation=abinit_feature,
-                        reference_gene_locus_dict=reference_gene_locus_dict,
-                        reference_locus_gene_dict=reference_locus_gene_dict,
-                        abinit_blast_results=abinit_blast_results,
-                        ratt_blast_results=ratt_blast_results,
                     )
                     if not include_abinit:
                         prokka_rejects.append((abinit_feature,remark))
@@ -2198,10 +2180,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
             take_abinit, take_ratt, remark = check_inclusion_criteria(
                 ratt_annotation=ratt_annotation,
                 abinit_annotation=prokka_annotation,
-                reference_gene_locus_dict=reference_gene_locus_dict,
-                reference_locus_gene_dict=reference_locus_gene_dict,
-                abinit_blast_results=abinit_blast_results,
-                ratt_blast_results=ratt_blast_results,
             )
             if take_ratt:
                 output_isolate_recs[i].features.append(ratt_annotation)
