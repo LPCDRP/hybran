@@ -19,7 +19,6 @@ import pickle
 import logging
 import time
 import re
-import subprocess
 from copy import deepcopy
 from math import log, ceil
 
@@ -30,7 +29,6 @@ from Bio.Data import CodonTable
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
-from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
 from Bio import Align
@@ -177,21 +175,13 @@ def log_coord_correction(og_feature, feature, logfile):
 
 def load_reference_info(proteome_fasta):
     """
-    This function gets all the global variables for annomerge.
+    This function gets some reference data for annomerge.
     1. A list of genes from the reference protein fasta
     2. A list of locus tags from the reference protein fasta
-    3. A dict with gene name as keys and locus tags as values
-    4. A dict with locus tags as keys and gene name as values
-    5. A dict with locus tags as keys and amino acid sequence as values
-    6. A dict with locus tags as keys and amino acid lengths as values
-    7. A dict with locus tags as keys and nucleotide lengths as values
     """
     hybran_tmp_dir = config.hybran_tmp_dir
     reference_gene_list = []
     reference_locus_list = []
-    reference_locus_gene_dict = {}
-    reference_gene_locus_dict = collections.defaultdict(list)
-    ref_protein_lengths = {}
 
     ref_fasta_records = SeqIO.parse(proteome_fasta, 'fasta')
     for record in ref_fasta_records:
@@ -208,11 +198,7 @@ def load_reference_info(proteome_fasta):
             gene = gene_locus[1]
         reference_gene_list.append(gene)
         reference_locus_list.append(locus)
-        reference_gene_locus_dict[gene].append(locus)
-        reference_locus_gene_dict[locus] = gene
-        seq = str(record.seq)
-        ref_protein_lengths[locus] = len(seq)
-    return reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, ref_protein_lengths
+    return reference_gene_list, reference_locus_list
 
 
 # Thanks to Jochen Ritzel
@@ -372,34 +358,6 @@ def generate_feature_dictionary(feature_list):
         feature_dict[feature_key] = feature
     sorted_feature_dict = collections.OrderedDict(sorted(feature_dict.items()))
     return sorted_feature_dict
-
-
-def rename_locus(gene, strand, reference_locus_list):
-    """
-    This function checks names of existing locus tags in the reference and names the newly merged gene
-    ensuring that the new name does not conflict with existing locus tags
-    :param gene: gene name to be modified
-    :param strand: strand information to check if gene is present in complementary strand (- or '-1' or -1)
-    :return: new gene name for merged gene
-    """
-
-    char_start = 65  # ASCII conversion of 'A'
-    # CAUTION!!!
-    # ASSUMTION: Format of the gene name/ locus tag from RATT
-    gene_name = gene[:6]
-    if strand == '-1' or strand == '-' or strand == -1:
-        # Adding in 'c' to denote gene is located in the complementary strand
-        new_gene_name = gene_name + chr(char_start) + 'c'
-    else:
-        new_gene_name = gene_name + chr(char_start)
-    while new_gene_name in reference_locus_list:
-        # If the assigned new gene name is in the reference, increment the alphabet suffix
-        char_start += 1
-        if strand == '-1' or strand == '-' or strand == -1:
-            new_gene_name = gene_name + chr(char_start) + 'c'
-        else:
-            new_gene_name = gene_name + chr(char_start)
-    return new_gene_name
 
 def merge_qualifiers(f1quals, f2quals):
     """
@@ -1744,10 +1702,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     logger.debug('Running Annomerge on ' + isolate_id)
     start_time = time.time()
 
-    global reference_gene_locus_dict
-    global reference_locus_gene_dict
-    reference_gene_list, reference_locus_list, reference_gene_locus_dict, reference_locus_gene_dict, \
-        ref_protein_lengths = load_reference_info(ref_proteins_fasta)
+    reference_gene_list, reference_locus_list  = load_reference_info(ref_proteins_fasta)
     if annotation_fp.endswith('/'):
         file_path = annotation_fp + isolate_id + '/'
     else:
@@ -2060,8 +2015,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
 
             annomerge_records.append(add_prokka_contig_record)
 
-        # Post-processing of genbank file to remove duplicates and rename locus_tag for
-        # Prokka annotations
+        # Finalize annotation records for this contig
         seqname = '.'.join([isolate_id, contig])
         annomerge_records[i].name = seqname
         # TODO - replace version variable with importlib.version call (and probably url too) in python 3.8+
@@ -2082,8 +2036,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 continue
         prokka_rec.features = raw_features
         logger.debug(f'{seqname}: final feature annotation verification')
+        n_final_cdss = 0
         for feature in prokka_rec.features:
             if feature.type == 'CDS':
+                n_final_cdss += 1
                 # Adding translated sequences where missing
                 if 'translation' not in feature.qualifiers and not designator.is_pseudo(feature.qualifiers):
                     feature_sequence = translate(
@@ -2101,79 +2057,8 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
         prokka_rec.features = sorted_final
         output_isolate_recs.append(prokka_rec)
         isolate_features = prokka_rec.features
-        output_isolate_recs[i].features = []
-        prev_feature_list = []
-        num_overlaps = 0
-        positions_to_be_resolved = []
-        resolve_pairs = []
-        for feature in isolate_features:
-            if feature.type != 'CDS':
-                continue
-            if designator.is_raw_ltag(feature.qualifiers['locus_tag'][0]):
-                feature.hybran_supplier = 'abinit'
-            else:
-                feature.hybran_supplier = 'ratt'
-            if len(prev_feature_list) == 0:
-                prev_feature_list = [int(feature.location.start), int(feature.location.end),
-                                     int(feature.location.strand), str(feature.qualifiers['gene'][0])]
-                prev_feature = feature
-                continue
-            if (feature.hybran_supplier != prev_feature.hybran_supplier
-                and ((int(feature.location.start) <= prev_feature_list[1]
-                      and int(feature.location.start) >= prev_feature_list[0]
-                      and (int(feature.location.start) == prev_feature_list[0] or
-                           int(feature.location.end) == prev_feature_list[1])
-                      )
-                     or
-                    (int(feature.location.end) <= prev_feature_list[1]
-                     and int(feature.location.end) >= prev_feature_list[0]
-                     and (int(feature.location.start) == prev_feature_list[0] or
-                          int(feature.location.end) == prev_feature_list[1])
-                    ))
-                ):
-                num_overlaps += 1
-                positions_to_be_resolved.append((prev_feature_list[0], prev_feature_list[1], prev_feature_list[2]))
-                prev_feature_list = [int(feature.location.start), int(feature.location.end),
-                                     int(feature.location.strand), str(feature.qualifiers['gene'][0])]
-                positions_to_be_resolved.append(
-                    (int(feature.location.start), int(feature.location.end), int(feature.location.strand)))
-                resolve_pairs.append([prev_feature, feature])
-                prev_feature = feature
-            else:
-                prev_feature_list = [int(feature.location.start), int(feature.location.end),
-                                     int(feature.location.strand), str(feature.qualifiers['gene'][0])]
-                prev_feature = feature
-        for feature in isolate_features:
-            if feature.type != 'CDS':
-                output_isolate_recs[i].features.append(feature)
-            else:
-                position = (int(feature.location.start), int(feature.location.end), int(feature.location.strand))
-                if position not in positions_to_be_resolved:
-                    output_isolate_recs[i].features.append(feature)
-        for feat_pair in resolve_pairs:
-            if designator.is_raw_ltag(feat_pair[0].qualifiers['locus_tag'][0]):
-                prokka_annotation = feat_pair[0]
-                ratt_annotation = feat_pair[1]
-            else:
-                prokka_annotation = feat_pair[1]
-                ratt_annotation = feat_pair[0]
-            take_abinit, take_ratt, remark = check_inclusion_criteria(
-                ratt_annotation=ratt_annotation,
-                abinit_annotation=prokka_annotation,
-            )
-            if take_ratt:
-                output_isolate_recs[i].features.append(ratt_annotation)
-            else:
-                ratt_rejects.append((ratt_annotation, remark))
-            if take_abinit:
-                output_isolate_recs[i].features.append(prokka_annotation)
-            else:
-                prokka_rejects.append((prokka_annotation, remark))
-        ordered_feats = get_ordered_features(output_isolate_recs[i].features)
 
-        output_isolate_recs[i].features = ordered_feats[:]
-        final_cdss = [f for f in ordered_feats if f.type == 'CDS']
-        logger.debug(f'{seqname}: {len(final_cdss)} CDSs annomerge')
+        logger.info(f'{seqname}: {n_final_cdss} CDSs annomerge')
 
     with open(ratt_rejects_logfile, 'w') as ratt_rejects_log:
         [log_feature_fate(_[0], ratt_rejects_log, _[1]) for _ in ratt_rejects]
