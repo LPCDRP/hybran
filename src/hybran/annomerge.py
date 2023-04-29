@@ -644,6 +644,8 @@ def fusionfisher(feature_list):
                 # - both have good stops and bad starts
                 # - both have bad stops and good starts
                 #
+        if outlist[-1] != feature:
+            last_feature_by_strand[feature.location.strand] = prev_feature
 
 
     return outlist, remarkable['hybrid'] + remarkable['conjoined'], rejects
