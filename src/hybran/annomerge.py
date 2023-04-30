@@ -58,9 +58,12 @@ def overlap_inframe(loc1, loc2):
         # pseudogenes may occupy multiple reading frames, so
         # check both the start-defined and stop-defined frames,
         # as well as the actual overlapping part.
-        if (((loc1.start - loc2.start) % 3 == 0
-             or (loc1.end - loc2.end) % 3 == 0)
-            and (overlap % 3 == 0)
+        if (loc1.start == loc2.start
+            or loc1.end == loc2.end
+            or (
+                ((loc1.start - loc2.start) % 3 == 0
+                 or (loc1.end - loc2.end) % 3 == 0)
+                and (overlap % 3 == 0))
         ):
             return True
     return False

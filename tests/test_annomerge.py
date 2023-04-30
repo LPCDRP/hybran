@@ -72,6 +72,7 @@ def test_upstream_context(location):
     ) == expected[location]
 
 @pytest.mark.parametrize('pair', [
+    'two_pseudos_same_start',
     'same_stop',
     'inframe_pseudo_same_start_different_stop',
     'inframe_pseudo_different_start_different_stop',
@@ -83,6 +84,11 @@ def test_upstream_context(location):
 ])
 def test_overlap_inframe(pair):
     pairs = {
+        'two_pseudos_same_start': (
+            # ECOLIN_05405 and ECOLIN_01620 in AZ20
+            FeatureLocation(ExactPosition(3888888), ExactPosition(3889127), strand=-1),
+            FeatureLocation(ExactPosition(3888919), ExactPosition(3889127), strand=-1),
+        ),
         'same_stop': (
             features['1-0006']['Rv2879c']['ratt'].location,
             features['1-0006']['Rv2880c']['ratt'].location,
@@ -123,6 +129,7 @@ def test_overlap_inframe(pair):
         ),
     }
     expected = {
+        'two_pseudos_same_start': True,
         'same_stop': True,
         'inframe_pseudo_same_start_different_stop': True,
         'inframe_pseudo_different_start_different_stop': True,
