@@ -646,16 +646,47 @@ def fusionfisher(feature_list):
                         outlist.pop(),
                         f"putative misannotation: has no reference-corresponding coordinates, while {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)} has a reference-corresponding start, and  both share the same stop position."
                     ))
-                # unhandled scenarios:
+                # remaining scenarios:
                 # - both sets of coords are all good.
-                #      I would expect this to be the same situation as identical location, same gene name.
-                #      That is handled earlier.
                 # - both sets of coords are all bad.
-                #      We could make a case for rejecting both, but that would seem to be creating a general RATT rejection criterion which might not be warranted.
+                #      We could make a case for rejecting both, but that would seem to be creating a general rejection criterion which might not be warranted.
                 #      I want to allow for the possibility of a double-truncation.
                 # - both have good stops and bad starts
                 # - both have bad stops and good starts
                 #
+                #
+                # We will keep the longer feature unless only one of the two is pseudo, in which case we take the non-pseudo.
+                else:
+                    both_good_starts = pf_goodstart and cf_goodstart
+                    both_good_stops = pf_goodstop and cf_goodstop
+                    word_choice = lambda _: 'have' if _ else 'lack'
+                    coord_status_report = (
+                        f"Both {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)} and "
+                        f"{extractor.get_ltag(feature)}:{extractor.get_gene(feature)} {word_choice(both_good_starts)} "
+                        f"reference-corresponding start codons and {word_choice(both_good_stops)} "
+                        f"reference-corresponding stop codons.")
+                    reason = 'Longer'
+                    if designator.is_pseudo(prev_feature.qualifiers) != designator.is_pseudo(feature.qualifiers):
+                        if designator.is_pseudo(prev_feature.qualifiers):
+                            goner = prev_feature
+                            keeper = feature
+                            outlist.remove(prev_feature)
+                        else:
+                            goner = outlist.pop()
+                            keeper = prev_feature
+                        reason = "Non-pseudo"
+                    elif len(prev_feature) > len(feature):
+                        goner = outlist.pop()
+                        keeper = prev_feature
+                    else:
+                        goner = prev_feature
+                        keeper = feature
+                        outlist.remove(prev_feature)
+                    rejects.append((
+                        goner,
+                        f'{coord_status_report} {reason} feature {extractor.get_ltag(keeper)}:{extractor.get_gene(keeper)} favored.'
+                    ))
+
         if outlist[-1] != feature:
             last_feature_by_strand[feature.location.strand] = prev_feature
 

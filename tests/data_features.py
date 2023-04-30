@@ -50,6 +50,41 @@ features = {
                 qualifiers={'locus_tag':['L_03835'], 'gene':['ORF0033']},
             ),
         },
+        'ECOLIN_18975': {
+            'ratt': SeqFeature(
+                FeatureLocation(333781, 336229, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_18975'], 'gene':['ECOLIN_18975']},
+            ),
+        },
+        'ECOLIN_18965': {
+            'ratt': SeqFeature(
+                FeatureLocation(334825, 336229, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_18965'], 'gene':['ECOLIN_18965']},
+            ),
+        },
+        'ECOLIN_25305': {
+            'ratt': SeqFeature(
+                FeatureLocation(622418, 623135, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_25305'], 'gene':['ECOLIN_25305']},
+            ),
+        },
+        'garD': {
+            'ratt': SeqFeature(
+                FeatureLocation(622418, 623990, strand=-1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['ECOLIN_17355'], 'gene':['garD'],
+                    'note': [
+                        "Hybran/Pseudoscan: Locus does not have reference-corresponding start | Poor blastp match at 95% identity and 95% coverage thresholds | No internal stop codons and ends with a valid stop codon | Locus divisible by three",
+                        "D31 VS1 VE1 RCS0 RCE1 BOK0",
+                    ],
+                    'pseudo': [],
+                },
+            ),
+        },
     },
     '1-0006': {
         'dnaA': {

@@ -261,11 +261,15 @@ def test_fissionfuser(gene_list):
 @pytest.mark.parametrize('gene_list', [
     'misannotation_false_delayed_stop',
     'redundant_double_hybrid_fusion',
+    'misannotation_both_nonpseudo',
+    'misannotation_one_pseudo',
 ])
 def test_fusionfisher(gene_list):
     source_genomes = {
         'misannotation_false_delayed_stop':'1-0006',
         'redundant_double_hybrid_fusion':'AZ20',
+        'misannotation_both_nonpseudo': 'AZ20',
+        'misannotation_one_pseudo': 'AZ20',
     }
     # create a dummy feature dictionary for the test case that is not in focus in the current invocation to avoid a KeyError when loading all expected inputs and results
     source_features = defaultdict(lambda :defaultdict(dict))
@@ -279,6 +283,14 @@ def test_fusionfisher(gene_list):
             source_features['AZ20_03933']['ratt'],
             source_features['AZ20_03933']['prokka'],
         ],
+        'misannotation_both_nonpseudo': [
+            source_features['ECOLIN_18975']['ratt'],
+            source_features['ECOLIN_18965']['ratt'],
+        ],
+        'misannotation_one_pseudo': [
+            source_features['ECOLIN_25305']['ratt'],
+            source_features['garD']['ratt'],
+        ],
     }
     expected = {
         'misannotation_false_delayed_stop': (
@@ -291,9 +303,23 @@ def test_fusionfisher(gene_list):
             [ ],
             [ (source_features['AZ20_03933']['prokka'], "Redundant annotation with ECOLIN_01320:ORF0033::ECOLIN_01320") ],
         ),
+        'misannotation_both_nonpseudo': (
+            [ source_features['ECOLIN_18975']['ratt'] ],
+            [ ],
+            [ (source_features['ECOLIN_18965']['ratt'] , "Both ECOLIN_18975:ECOLIN_18975 and ECOLIN_18965:ECOLIN_18965 have reference-corresponding start codons and have reference-corresponding stop codons. Longer feature ECOLIN_18975:ECOLIN_18975 favored.") ],
+        ),
+        'misannotation_one_pseudo': (
+            [source_features['ECOLIN_25305']['ratt']],
+            [ ],
+            [(source_features['garD']['ratt'], "putative misannotation: has no reference-corresponding coordinates, while ECOLIN_25305:ECOLIN_25305 has a reference-corresponding start, and  both share the same stop position.")],
+        ),
     }
     ref_genome = defaultdict(lambda :'H37Rv')
-    ref_genome['redundant_double_hybrid_fusion'] = 'nissle-hybrid'
+    ref_genome.update({
+        'redundant_double_hybrid_fusion': 'nissle-hybrid',
+        'misannotation_both_nonpseudo': 'nissle-hybrid',
+        'misannotation_one_pseudo': 'nissle-hybrid',
+    })
     source_genome = source_genomes[gene_list]
 
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
