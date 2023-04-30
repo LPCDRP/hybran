@@ -260,16 +260,24 @@ def test_fissionfuser(gene_list):
 
 @pytest.mark.parametrize('gene_list', [
     'misannotation_false_delayed_stop',
+    'redundant_double_hybrid_fusion',
 ])
 def test_fusionfisher(gene_list):
     source_genomes = {
         'misannotation_false_delayed_stop':'1-0006',
+        'redundant_double_hybrid_fusion':'AZ20',
     }
-    source_features = features[source_genomes[gene_list]]
+    # create a dummy feature dictionary for the test case that is not in focus in the current invocation to avoid a KeyError when loading all expected inputs and results
+    source_features = defaultdict(lambda :defaultdict(dict))
+    source_features.update(features[source_genomes[gene_list]])
     inputs = {
         'misannotation_false_delayed_stop': [
             source_features['Rv0074']['ratt'],
             source_features['Rv0071']['ratt'],
+        ],
+        'redundant_double_hybrid_fusion': [
+            source_features['AZ20_03933']['ratt'],
+            source_features['AZ20_03933']['prokka'],
         ],
     }
     expected = {
@@ -278,12 +286,20 @@ def test_fusionfisher(gene_list):
             [ ],
             [ (source_features['Rv0071']['ratt'], "putative misannotation: has no reference-corresponding stop, while Rv0074:Rv0074 does, and both share the same stop position.") ]
         ),
+        'redundant_double_hybrid_fusion': (
+            [ source_features['AZ20_03933']['ratt'] ],
+            [ ],
+            [ (source_features['AZ20_03933']['prokka'], "Redundant annotation with ECOLIN_01320:ORF0033::ECOLIN_01320") ],
+        ),
     }
     ref_genome = defaultdict(lambda :'H37Rv')
+    ref_genome['redundant_double_hybrid_fusion'] = 'nissle-hybrid'
     source_genome = source_genomes[gene_list]
+
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
     annomerge.genetic_code = 11
-    annomerge.ref_annotation = ref_features[ref_genome[gene_list]]
+    annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
 
     assert annomerge.fusionfisher(
         inputs[gene_list],

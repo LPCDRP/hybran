@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import deepcopy
 import os
 import pathlib
 
@@ -20,6 +21,8 @@ for ref in [
                 record.name,
             ])
             for feature in record.features:
+                if 'locus_tag' in feature.qualifiers and 'gene' not in feature.qualifiers:
+                    feature.qualifiers['gene'] = deepcopy(feature.qualifiers['locus_tag'])
                 if 'gene' in feature.qualifiers:
                     feature.hybranref = k
                     feature.references = {k: record.seq}
@@ -33,6 +36,18 @@ features = {
                 FeatureLocation(3714209, 3716770, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['ECOLIN_02375'],'gene':['secD']}
+            ),
+        },
+        'AZ20_03933': {
+            'ratt': SeqFeature(
+                FeatureLocation(3950866, 3951688, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_01320'], 'gene':['ORF0033::ECOLIN_01320']},
+            ),
+            'prokka': SeqFeature(
+                FeatureLocation(3950866, 3951688, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_03835'], 'gene':['ORF0033']},
             ),
         },
     },

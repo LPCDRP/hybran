@@ -538,12 +538,21 @@ def fusionfisher(feature_list):
 
         if prev_feature.location == feature.location:
             #
-            # Artifact
+            # Artifact: same gene name or gene name already included in fusion name string
+            #           (i.e.,  geneA::geneB vs. geneA. We don't need want to make it geneA::geneB::geneA.)
             #
-            if extractor.get_gene(prev_feature) == extractor.get_gene(feature):
+            if set(extractor.get_gene(prev_feature).split('::')).intersection(
+                    set(extractor.get_gene(feature).split('::'))):
+                if len(extractor.get_gene(feature)) > len(extractor.get_gene(prev_feature)):
+                    goner = prev_feature
+                    keeper = feature
+                    outlist.remove(prev_feature)
+                else:
+                    goner = outlist.pop()
+                    keeper = prev_feature
                 rejects.append((
-                    outlist.pop(),
-                    f'Redundant annotation with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}'
+                    goner,
+                    f'Redundant annotation with {extractor.get_ltag(keeper)}:{extractor.get_gene(keeper)}'
                 ))
             #
             # Artifact due to a gene fusion hybrid
