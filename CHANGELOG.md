@@ -2,31 +2,28 @@
 
 ## Development
 
+## [Version 1.6](https://gitlab.com/LPCDRP/hybran/-/tags/1.6)
+
+### Enhancements
+* Massive streamlining of the pipeline. Reworked components into new subsystems:
+  - `pseudoscan`: identification of anomalous copies of reference genes using new criteria independent of alignment coverage. (#50, #56, and #59)
+  - `fissionfuser` (formerly `process_split_genes()`): improved detection and combining of gene fragments (that ab initio annotations tend to produce) into a single record.
+  - `fusionfisher`: detection of gene fusion events and putative misannotations.
+  - `thunderdome`: more aggressive conflict resolution between RATT and ab initio annotations.
+* Output GFF files no longer include the genome sequence.
+
 ### Bugs fixed
 * Fixed handling of conflicting annotations that are differently named (#57).
-* Reimplemented coordinate correction and applied to ab initio ORFs.
+* Reimplemented coordinate correction and applied to ab initio ORFs as part of `pseudoscan`.
   This resolves many instances of false `pseudo` CDSs ab initio that were due simply to
   incorrect start coordinate predictions spuriously shortening the genes.
-* All-new pseudogene calling criteria implemented and applied during postprocessing (#50, #56, and #59)
-* Improved detection and handling of gene fragments among ab initio CDSs.
 * Fixed handling of compound intervals in reference annotations (#46, #47)
-* Fixed issue with retrieving upstream context for minus strand genes near contig ends
 * Resolved issues involving reference annotations with multiple contigs/chromosomes (#48)
 * Fixed issue with some gene name assignments being dropped later in the pipeline due to some obsolete code (#43).
 * More comprehensive tracking of RATT/ab initio overlaps and conflicts (#49).
 * Checking in-frame overlaps with pseudo ORFs containing internal stop codons
 * Revamped postprocessing of RATT-introduced compound intervals (#44, #45)
 * Updated inclusion criteria for special handling of pseudo ORFs (#42)
-* Propagate `pseudo` tags to ab initio genes that were assigned names due to a complete match to RATT pseudo.
-
-### Enhancements
-* Output GFF files no longer include the genome sequence.
-
-### Housekeeping
-* fused genes notes:
-  - removed redundant note text indicating the annotation source
-  - include both locus tag and gene name of affected genes
-  - always make sure the word "fusion" is included in the note for consistency
 
 ## [Version 1.5.2](https://gitlab.com/LPCDRP/hybran/-/tags/1.5.2)
 
