@@ -13,6 +13,18 @@ from hybran import config
 from .data_features import *
 
 
+
+def test_ref_fuse():
+    annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation.update(ref_features['H37Rv'])
+    annomerge.ref_annotation = ref_features['H37Rv']
+
+    assert annomerge.ref_annotation['PE_PGRS50::PE_PGRS49'] == CompoundLocation([
+        SimpleLocation(ExactPosition(3738157), ExactPosition(3742774), strand=-1),
+        SimpleLocation(ExactPosition(3736983), ExactPosition(3738000), strand=-1)
+    ], 'order')
+
+
 @pytest.mark.parametrize('location', [
     'internal',
     'internal_minus',
@@ -60,6 +72,7 @@ def test_upstream_context(location):
     ) == expected[location]
 
 @pytest.mark.parametrize('pair', [
+    'two_pseudos_same_start',
     'same_stop',
     'inframe_pseudo_same_start_different_stop',
     'inframe_pseudo_different_start_different_stop',
@@ -71,6 +84,11 @@ def test_upstream_context(location):
 ])
 def test_overlap_inframe(pair):
     pairs = {
+        'two_pseudos_same_start': (
+            # ECOLIN_05405 and ECOLIN_01620 in AZ20
+            FeatureLocation(ExactPosition(3888888), ExactPosition(3889127), strand=-1),
+            FeatureLocation(ExactPosition(3888919), ExactPosition(3889127), strand=-1),
+        ),
         'same_stop': (
             features['1-0006']['Rv2879c']['ratt'].location,
             features['1-0006']['Rv2880c']['ratt'].location,
@@ -111,6 +129,7 @@ def test_overlap_inframe(pair):
         ),
     }
     expected = {
+        'two_pseudos_same_start': True,
         'same_stop': True,
         'inframe_pseudo_same_start_different_stop': True,
         'inframe_pseudo_different_start_different_stop': True,
@@ -133,7 +152,7 @@ def test_overlap_inframe(pair):
 @pytest.mark.skipif(not os.path.isfile("data/1-0006.fasta"), reason="test genome sequence not available")
 @pytest.mark.skipif(not os.path.isfile("data/2-0031.fasta"), reason="test genome sequence not available")
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.fasta"), reason="test reference genome sequence not available")
-def test_process_split_genes(gene_list):
+def test_fissionfuser(gene_list):
     inputs = {
         # post coordinate correction, so they both have the same start position
         'complementary_fragments' : [
@@ -233,8 +252,84 @@ def test_process_split_genes(gene_list):
         ),
     }
 
-    assert annomerge.process_split_genes(inputs[gene_list]) == expected[gene_list]
+    assert annomerge.fissionfuser(
+        inputs[gene_list],
+        seq_ident=95,
+        seq_covg=95,
+    ) == expected[gene_list]
 
+@pytest.mark.parametrize('gene_list', [
+    'misannotation_false_delayed_stop',
+    'redundant_double_hybrid_fusion',
+    'misannotation_both_nonpseudo',
+    'misannotation_one_pseudo',
+])
+def test_fusionfisher(gene_list):
+    source_genomes = {
+        'misannotation_false_delayed_stop':'1-0006',
+        'redundant_double_hybrid_fusion':'AZ20',
+        'misannotation_both_nonpseudo': 'AZ20',
+        'misannotation_one_pseudo': 'AZ20',
+    }
+    # create a dummy feature dictionary for the test case that is not in focus in the current invocation to avoid a KeyError when loading all expected inputs and results
+    source_features = defaultdict(lambda :defaultdict(dict))
+    source_features.update(features[source_genomes[gene_list]])
+    inputs = {
+        'misannotation_false_delayed_stop': [
+            source_features['Rv0074']['ratt'],
+            source_features['Rv0071']['ratt'],
+        ],
+        'redundant_double_hybrid_fusion': [
+            source_features['AZ20_03933']['ratt'],
+            source_features['AZ20_03933']['prokka'],
+        ],
+        'misannotation_both_nonpseudo': [
+            source_features['ECOLIN_18975']['ratt'],
+            source_features['ECOLIN_18965']['ratt'],
+        ],
+        'misannotation_one_pseudo': [
+            source_features['ECOLIN_25305']['ratt'],
+            source_features['garD']['ratt'],
+        ],
+    }
+    expected = {
+        'misannotation_false_delayed_stop': (
+            [ source_features['Rv0074']['ratt'] ],
+            [ ],
+            [ (source_features['Rv0071']['ratt'], "putative misannotation: has no reference-corresponding stop, while Rv0074:Rv0074 does, and both share the same stop position.") ]
+        ),
+        'redundant_double_hybrid_fusion': (
+            [ source_features['AZ20_03933']['ratt'] ],
+            [ ],
+            [ (source_features['AZ20_03933']['prokka'], "Redundant annotation with ECOLIN_01320:ORF0033::ECOLIN_01320") ],
+        ),
+        'misannotation_both_nonpseudo': (
+            [ source_features['ECOLIN_18975']['ratt'] ],
+            [ ],
+            [ (source_features['ECOLIN_18965']['ratt'] , "Both ECOLIN_18975:ECOLIN_18975 and ECOLIN_18965:ECOLIN_18965 have reference-corresponding start codons and have reference-corresponding stop codons. Longer feature ECOLIN_18975:ECOLIN_18975 favored.") ],
+        ),
+        'misannotation_one_pseudo': (
+            [source_features['ECOLIN_25305']['ratt']],
+            [ ],
+            [(source_features['garD']['ratt'], "putative misannotation: has no reference-corresponding coordinates, while ECOLIN_25305:ECOLIN_25305 has a reference-corresponding start, and  both share the same stop position.")],
+        ),
+    }
+    ref_genome = defaultdict(lambda :'H37Rv')
+    ref_genome.update({
+        'redundant_double_hybrid_fusion': 'nissle-hybrid',
+        'misannotation_both_nonpseudo': 'nissle-hybrid',
+        'misannotation_one_pseudo': 'nissle-hybrid',
+    })
+    source_genome = source_genomes[gene_list]
+
+    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
+    annomerge.genetic_code = 11
+    annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
+
+    assert annomerge.fusionfisher(
+        inputs[gene_list],
+    ) == expected[gene_list]
 
 def test_identify_conjoined_genes():
     ratt_features = [
@@ -345,6 +440,7 @@ def test_liftover_annotation():
     ['bad_start_stop_nofix_pseudo', False, False],
     ['bad_start_stop_fix_pseudo', True, False],
     ['inverted_join_ecoli', True, True],
+    ['gene_fusion', True, True],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 @pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
@@ -366,6 +462,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_start_stop_nofix_pseudo':'1-0006',
         'bad_start_stop_fix_pseudo':'1-0006',
         'inverted_join_ecoli': 'AZ20',
+        'gene_fusion': '1-0006',
 
     }
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -387,15 +484,19 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_start_stop_nofix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
         'bad_start_stop_fix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
         'inverted_join_ecoli': features[source_genome['inverted_join_ecoli']]['secD']['ratt'],
+        'gene_fusion': features[source_genome['gene_fusion']]['PE_PGRS50']['final'],
     }
 
-    feature = test_features[feature_type]
-    ref_feature = ref_features[ref_genome[feature_type]][
-        test_features[feature_type].qualifiers['gene'][0]
-    ]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
+    annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation.update(ref_features[ref_genome[feature_type]])
+
+    feature = test_features[feature_type]
+    ref_feature = annomerge.ref_annotation[
+        test_features[feature_type].qualifiers['gene'][0]
+    ]
 
     expected = {
         'abinit_start_bad_minus': [(True, True), FeatureLocation(3548089, 3548542, strand=-1)],
@@ -413,6 +514,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_start_stop_nofix_pseudo': [(False, False), FeatureLocation(1217413, 1217872, strand=1)],
         'bad_start_stop_fix_pseudo': [(True, False), FeatureLocation(1217428, 1217872, strand=1)],
         'inverted_join_ecoli': [(False, False), FeatureLocation(3714209, 3716770, strand=-1)],
+        'gene_fusion': [(True, True), FeatureLocation(3741108, 3746955, strand=-1)],
     }
     results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]
@@ -778,7 +880,7 @@ def test_find_inframe_overlaps(case):
     'ratt_better',
     'ratt_better_coverage',
     'pseudo_vs_nonpseudo',
-    'different',
+    'overlapping_unnamed',
     'abinit_better',
     # https://gitlab.com/LPCDRP/hybran/-/issues/57
     'overlapping_different_names_ratt_better',
@@ -790,7 +892,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'ratt_better':'1-0006',
         'ratt_better_coverage':'1-0006',
         'pseudo_vs_nonpseudo':'1-0006',
-        'different':'1-0006',
+        'overlapping_unnamed':'1-0006',
         'abinit_better':'4-0041',
         'corresponding_non_cds':'4-0041',
         'overlapping_different_names_ratt_better':'1-0006',
@@ -801,7 +903,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'ratt_better': ('dnaA', 'dnaA'),
         'ratt_better_coverage': ('Rv1453', 'Rv1453'), # The RATT annotation's upstream context has no hit to the reference's despite being 100% identitical...
         'pseudo_vs_nonpseudo': ('Rv0007','Rv0007'),
-        'different': ('dnaA', 'gyrB'),
+        'overlapping_unnamed': ('dnaA', 'gyrB'),
         'corresponding_non_cds': ('rrf', 'rrf'),
         'abinit_better': ('Rv1718', 'Rv1718'),
         'overlapping_different_names_ratt_better': ('Rv1945', 'Rv1945'),
@@ -812,46 +914,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
 
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
     annomerge.ref_annotation = ref_features[ref_genome[pair]]
-    reference_gene_locus_dict = defaultdict(list, dict(
-        dnaA=['Rv0001'],
-        Rv0007=['Rv0007'],
-        Rv0205=['Rv0205'],
-        rplB=['Rv0704'],
-        Rv1148c=['Rv1148c'],
-        Rv1453=['Rv1453'],
-        Rv1718=['Rv1718'],
-        Rv1945=['Rv1945'],
-        mamB=['Rv2024c'],
-        ORF0004=[
-            'Rv0796',
-            'Rv1369c',
-            'Rv1756c',
-            'Rv1764',
-            'Rv2106',
-            'Rv2167c',
-            'Rv2279',
-            'Rv2355',
-            'Rv2479c',
-            'Rv2649',
-            'Rv2814c',
-            'Rv3185',
-            'Rv3187',
-            'Rv3326',
-            'Rv3380c',
-            'Rv3475',
-        ],
-    ))
-    reference_locus_gene_dict = dict(
-        Rv0001='dnaA',
-        Rv0007='Rv0007',
-        Rv0205='Rv0205',
-        Rv0704='rplB',
-        Rv1148c='Rv1148c',
-        Rv1453='Rv1453',
-        Rv1718='Rv1718',
-        Rv1945='Rv1945',
-        Rv2024c='mamB',
-    )
+    annomerge.genetic_code = 11
 
     config.hybran_tmp_dir = tmp_path
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
@@ -864,25 +927,25 @@ def test_check_inclusion_criteria(pair, tmp_path):
     expected = {
         'ratt_better': (
             False, True,
-            "start position of RATT's Rv0001 corresponds to the reference annotation's",
+            "RATT annotation Rv0001:dnaA more accurately named and delineated.",
         ),
         'ratt_better_coverage': (
             False, True,
-            "RATT annotation for Rv1453 has better alignment coverage with the reference",
+            "RATT annotation Rv1453:Rv1453 more accurately named and delineated.",
         ),
         'pseudo_vs_nonpseudo': (
             False, True,
-            "Non-pseudo ratt annotation takes precedence.",
+            "Non-pseudo RATT annotation takes precedence.",
         ),
-        'different': (True, True, ''),
-        'abinit_better': (True, False, 'Ab initio feature L_02383 has better alignment coverage with the reference.'),
+        'overlapping_unnamed': (False, True, "Hypothetical gene and conflicts (overlapping in-frame) with RATT's Rv0001:dnaA."),
+        'abinit_better': (True, False, 'Ab initio annotation L_02383:Rv1718 more accurately named and delineated.'),
         'overlapping_different_names_ratt_better': (
             False, True,
-            "RATT annotation Rv1945:Rv1945 more accurately named and delineated",
+            "putative misannotation: has no reference-corresponding coordinates, while Rv1945:Rv1945 has a reference-corresponding start, and  both share the same stop position.",
         ),
         'overlapping_different_names_abinit_better': (
             True, False,
-            "ab initio annotation L_02335:ORF0004 more accurately named and delineated"
+            "putative misannotation: has no reference-corresponding stop, while L_02335:ORF0004 does, and both share the same stop position."
         )
     }
 
@@ -890,8 +953,4 @@ def test_check_inclusion_criteria(pair, tmp_path):
     assert annomerge.check_inclusion_criteria(
         ratt_annotation=ratt,
         abinit_annotation=abinit,
-        reference_gene_locus_dict=reference_gene_locus_dict,
-        reference_locus_gene_dict=reference_locus_gene_dict,
-        abinit_blast_results=abinit_blast_results[source_genome[pair]],
-        ratt_blast_results=ratt_blast_results[source_genome[pair]],
     ) == expected[pair]

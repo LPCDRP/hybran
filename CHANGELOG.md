@@ -21,7 +21,6 @@
 
 ### Enhancements
 * Output GFF files no longer include the genome sequence.
-* Substantially sped up the pipeline by not performing reference matches for redundant ab initio annotations.
 
 ### Housekeeping
 * fused genes notes:

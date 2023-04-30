@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import deepcopy
 import os
 import pathlib
 
@@ -20,8 +21,10 @@ for ref in [
                 record.name,
             ])
             for feature in record.features:
+                if 'locus_tag' in feature.qualifiers and 'gene' not in feature.qualifiers:
+                    feature.qualifiers['gene'] = deepcopy(feature.qualifiers['locus_tag'])
                 if 'gene' in feature.qualifiers:
-                    feature.ref = k
+                    feature.hybranref = k
                     feature.references = {k: record.seq}
                     ref_features[ref][feature.qualifiers['gene'][0]] = feature
 
@@ -33,6 +36,53 @@ features = {
                 FeatureLocation(3714209, 3716770, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['ECOLIN_02375'],'gene':['secD']}
+            ),
+        },
+        'AZ20_03933': {
+            'ratt': SeqFeature(
+                FeatureLocation(3950866, 3951688, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_01320'], 'gene':['ORF0033::ECOLIN_01320']},
+            ),
+            'prokka': SeqFeature(
+                FeatureLocation(3950866, 3951688, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_03835'], 'gene':['ORF0033']},
+            ),
+        },
+        'ECOLIN_18975': {
+            'ratt': SeqFeature(
+                FeatureLocation(333781, 336229, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_18975'], 'gene':['ECOLIN_18975']},
+            ),
+        },
+        'ECOLIN_18965': {
+            'ratt': SeqFeature(
+                FeatureLocation(334825, 336229, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_18965'], 'gene':['ECOLIN_18965']},
+            ),
+        },
+        'ECOLIN_25305': {
+            'ratt': SeqFeature(
+                FeatureLocation(622418, 623135, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['ECOLIN_25305'], 'gene':['ECOLIN_25305']},
+            ),
+        },
+        'garD': {
+            'ratt': SeqFeature(
+                FeatureLocation(622418, 623990, strand=-1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['ECOLIN_17355'], 'gene':['garD'],
+                    'note': [
+                        "Hybran/Pseudoscan: Locus does not have reference-corresponding start | Poor blastp match at 95% identity and 95% coverage thresholds | No internal stop codons and ends with a valid stop codon | Locus divisible by three",
+                        "D31 VS1 VE1 RCS0 RCE1 BOK0",
+                    ],
+                    'pseudo': [],
+                },
             ),
         },
     },
@@ -53,7 +103,7 @@ features = {
             'abinit': SeqFeature(
                 FeatureLocation(33, 1524, strand=1),
                 type='CDS',
-                qualifiers={'locus_tag':['L_00007'],'gene':['gyrB1']}
+                qualifiers={'locus_tag':['L_00007'],'gene_synonym':['gyrB1']}
             ),
         },
         'Rv0007': {
@@ -80,6 +130,34 @@ features = {
                 FeatureLocation(66831, 67032, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['Rv0061c'],'gene':['Rv0061c']}
+            ),
+        },
+        'Rv0074': {
+            'ratt': SeqFeature(
+                FeatureLocation(80866, 82276, strand=1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['Rv0074'],'gene':['Rv0074'],
+                    'note': [
+                        "Internal stop detected in the following codon(s): 119",
+                    ],
+                    'pseudo': [''],
+                }
+            ),
+        },
+        'Rv0071': {
+            'ratt': SeqFeature(
+                FeatureLocation(81235, 82276, strand=1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['Rv0071'],'gene':['Rv0071'],
+                    'note': [
+                        ("Hybran/Pseudoscan: Locus does not have reference-corresponding end | "
+                         "Has a frameshift mutation leading to a delayed stop codon"),
+                        "D31 VE1 RCS1 RCE0 BOK0",
+                    ],
+                    'pseudo': [''],
+                }
             ),
         },
         'PPE5': {
@@ -124,6 +202,23 @@ features = {
 		qualifiers={'locus_tag':['Rv1089'],'gene':['PE10']}
 	    ),
 	},
+        'Rv1150': {
+            'ratt': SeqFeature(
+                FeatureLocation(1280928, 1281480, strand=1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['L_01235'], 'gene':['Rv1150'], 'pseudo':[''],
+                    'note': [
+                        "Hybran/Pseudoscan: Reference gene is pseudo | Has reference-corresponding start and stop | Both this sequence and the reference's are divisible by three.",
+                    ],
+                }
+            ),
+            'prokka': SeqFeature(
+                FeatureLocation(1280616, 1281480, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_01235'], 'gene':['Rv1041c']}
+            ),
+        },
         'PPE38': {
             'abinit': SeqFeature(
                 FeatureLocation(2636045, 2637140, strand=-1),
@@ -166,7 +261,13 @@ features = {
             'abinit': SeqFeature(
                 FeatureLocation(2186484, 2187933, strand=1),
                 type='CDS',
-                qualifiers={'locus_tag':['L_02063'],'gene':['Rv1148c']}
+                qualifiers={
+                    'locus_tag':['L_02063'],'gene':['Rv1148c'],
+                    'note': [
+                        'Hybran/Pseudoscan: Strong blastp match at 95% identity and 95% coverage thresholds | Locus does not have reference-corresponding start',
+                        'D31 VS1 VE1 RCS0 RCE1 BOK1',
+                    ]
+                }
                 ),
         },
         'ORF0004': {
@@ -261,7 +362,12 @@ features = {
                 FeatureLocation(3741108, 3746955, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['Rv3345c'],'gene':['PE_PGRS50']}
-            )
+            ),
+            'final': SeqFeature(
+                FeatureLocation(3741108, 3746955, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3345c'],'gene':['PE_PGRS50::PE_PGRS49']}
+            ),
         },
         'Rv3777': {
             'abinit': SeqFeature(
