@@ -6,7 +6,7 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     zip_safe=False,
-    entry_points=dict(console_scripts=['hybran = hybran.main:main', ]),
+    entry_points=dict(console_scripts=['hybran = hybran.main:cmds', ]),
     package_data={'hybran': [
         '*.sh',
     ]},

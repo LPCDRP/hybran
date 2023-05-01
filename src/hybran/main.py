@@ -19,23 +19,50 @@ from . import \
     designator, \
     __version__
 
+from .argparse import DefaultSubcommandArgumentParser
+
 
 def cmds():
     """
-    argparse parse input provided by the user
-
-    :return: argparse.parse_args() object
+    argparse parse input provided by the user and call appropriate command
     """
-    parser = argparse.ArgumentParser(description='Hybran: hybrid reference-based and ab initio prokaryotic genomic annotation. '
-                                                 'Mixing different species within a single annotation run is NOT recommended.',
-                                     epilog=
-                                     """
-                                     Elghraoui, A.; Gunasekaran, D.; Ramirez-Busby, S. M.; Bishop, E.; Valafar, F.
-                                     Hybran: Hybrid Reference Transfer and Ab Initio Prokaryotic Genome Annotation.
-                                     bioRxiv November 10, 2022, p 2022.11.09.515824.
-                                     <https://doi.org/10.1101/2022.11.09.515824>
-                                     """,
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    citation = (
+        "Elghraoui, A.; Gunasekaran, D.; Ramirez-Busby, S. M.; Bishop, E.; Valafar, F. "
+        "Hybran: Hybrid Reference Transfer and Ab Initio Prokaryotic Genome Annotation. "
+        "bioRxiv November 10, 2022, p 2022.11.09.515824. "
+        "<https://doi.org/10.1101/2022.11.09.515824>"
+    )
+
+    head_parser = DefaultSubcommandArgumentParser(
+        description='Hybran: hybrid reference-based and ab initio prokaryotic genomic annotation.',
+        epilog=citation,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    subparsers = head_parser.add_subparsers(
+        dest='subparser_name',
+    )
+    # We want the main annotation command to run as default, but also provide alternative commands.
+    #
+    # Standard argparse seems to handle this, with this `required` option to `add_subparsers`,
+    # but it's not actually what we want.
+    #  > required - Whether or not a subcommand must be provided, by default False (added in 3.7)
+    # subparsers = parser.add_subparsers(
+    #     title="Alternative subcommands",
+    #     required=False,
+    # )
+
+    # main command "annotate"
+    parser = subparsers.add_parser(
+        'annotate',
+        help='Run the Hybran annotation pipeline. (default)',
+    )
+    head_parser.set_default_subparser('annotate')
+
+
+    #
+    # hybran annotate
+    #
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
     ratt_params = parser.add_argument_group('RATT Options.\n(See http://ratt.sourceforge.net/documentation.html and\n https://github.com/ThomasDOtto/ratt/blob/master/ratt.1.md for more details)')
@@ -155,7 +182,12 @@ def cmds():
                                default=1e-9,
                                help='Similarity e-value cut-off')
 
-    arguments = parser.parse_args()
+    arguments = head_parser.parse_args()
+
+    if arguments.subparser_name != 'annotate':
+        arguments.func(arguments)
+        return
+
     # Turn Prokka arguments back into an option string that we can pass directly to Prokka,
     # rather than having to repopulate --kingdom args.kingdom --gram args.gram ...
     #
@@ -166,10 +198,10 @@ def cmds():
          for g in parser._action_groups[-1]._group_actions if vars(arguments)[g.dest]]
     ).replace("True","")
 
-    return arguments, prokka_passthrough
+    main(arguments, prokka_passthrough)
 
 
-def main():
+def main(args, prokka_args):
     """
     Hybran: a pipeline to annotate Mycobacterium
     tuberculosis de novo assembled genomes. Annotation of other species
@@ -177,8 +209,6 @@ def main():
 
     :return: None
     """
-    global args
-    args, prokka_args = cmds()
     # Obtaining the absolute path to all scripts
     script_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -363,4 +393,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    cmds()
