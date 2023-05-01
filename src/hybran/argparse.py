@@ -22,39 +22,31 @@ import argparse
 #
 # https://sourceforge.net/p/ruamel-std-argparse/code/ci/tip/tree/__init__.py#l512
 # https://stackoverflow.com/a/26379693
-def set_default_subparser(self, name, args=None):
-    """default subparser selection. Call after setup, just before parse_args()
-    name: is the name of the subparser to call by default
-    args: if set is the argument list handed to parse_args()
+#
+#
+# This is the subclass implementation by Thomas Grainger:
+# https://stackoverflow.com/a/37593636
+class DefaultSubcommandArgumentParser(argparse.ArgumentParser):
+    __default_subparser = None
 
-    , tested with 2.7, 3.2, 3.3, 3.4
-    it works with 2.6 assuming argparse is installed
-    """
-    subparser_found = False
-    for arg in sys.argv[1:]:
-        if arg in ['-h', '--help']:  # global help if no subparser
-            break
-    else:
-        for x in self._subparsers._actions:
-            if not isinstance(x, argparse._SubParsersAction):
-                continue
-            for sp_name in x._name_parser_map.keys():
-                if sp_name in sys.argv[1:]:
-                    subparser_found = True
-        if not subparser_found:
-            # insert default in first position, this implies no
-            # global options without a sub_parsers specified
-            if args is None:
-                sys.argv.insert(1, name)
+    def set_default_subparser(self, name):
+        self.__default_subparser = name
+
+    def _parse_known_args(self, arg_strings, *args, **kwargs):
+        in_args = set(arg_strings)
+        d_sp = self.__default_subparser
+        if d_sp is not None and not {'-h', '--help'}.intersection(in_args):
+            for x in self._subparsers._actions:
+                subparser_found = (
+                    isinstance(x, argparse._SubParsersAction) and
+                    in_args.intersection(x._name_parser_map.keys())
+                )
+                if subparser_found:
+                    break
             else:
-                args.insert(0, name)
-
-
-# This would need to go where used
-# argparse.ArgumentParser.set_default_subparser = set_default_subparser
-#
-# a.set_default_subparser('hi')
-# parsed_args = a.parse_args()
-#
-#
-#
+                # insert default in first position, this implies no
+                # global options without a sub_parsers specified
+                arg_strings = [d_sp] + arg_strings
+        return super(DefaultSubcommandArgumentParser, self)._parse_known_args(
+            arg_strings, *args, **kwargs
+        )
