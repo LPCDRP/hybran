@@ -6,7 +6,7 @@ Hybran comes with associated functionality that can be run independently:
 : Remove generic gene names.
 
 
-# `hybran standardize`
+## `hybran standardize`
 
 `hybran` leaves no gene without a name and only assigns names from genes in your provided references.
 Genes that only had *ab initio*-predicted gene names have them relegated to the `gene_synonym` field to avoid propagation during the hybran pipeline.
