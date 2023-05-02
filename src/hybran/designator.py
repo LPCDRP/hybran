@@ -164,6 +164,9 @@ def is_pseudo(qualifiers):
 def is_unannotated(name):
     return name.startswith(generic_orf_prefix[0])
 
+def has_unannotated_component(name):
+    return bool(re.search(r'(::|^)' + generic_orf_prefix[0] + r'\d+(::|$)', name))
+
 def is_reference(name):
     return not name.startswith((generic_orf_prefix[0],'L_','L2_'))
 

@@ -88,6 +88,11 @@ def cmds():
         help='Directory to output all new annotation files.',
         default='.',
     )
+    stdize.add_argument(
+        '-d', '--duplicates-file',
+        help="duplicates.tsv file produced during Hybran's reference deduplication step.",
+        required=True,
+    )
 
     #
     # hybran annotate
