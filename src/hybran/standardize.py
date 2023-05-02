@@ -46,15 +46,10 @@ def standardize(feature, duplicates):
 
     :param feature: SeqFeature object
     """
-    if ('gene' in feature.qualifiers
-        and designator.is_unannotated(feature.qualifiers['gene'][0])
-        ):
+    if 'gene' in feature.qualifiers:
         gene = feature.qualifiers['gene'][0]
-        if 'gene_synonym' in feature.qualifiers and '::' not in gene:
-            feature.qualifiers['gene'][0] = feature.qualifiers['gene_synonym'].pop()
-        elif designator.is_unannotated(gene) and gene in duplicates:
-            feature.qualifiers['gene'][0] = duplicates[gene]
-        elif '::' in gene and designator.has_unannotated_component(gene):
+        fusion = '::' in gene
+        if fusion and designator.has_unannotated_component(gene):
             components = gene.split('::')
             for i in range(len(components)):
                 if designator.is_unannotated(components[i]):
@@ -64,8 +59,15 @@ def standardize(feature, duplicates):
                         # HGNC nomenclature for fusion with an unknown gene
                         components[i] = '?'
             feature.qualifiers['gene'][0] = '::'.join(components)
-        else:
-            del feature.qualifiers['gene']
+        elif not fusion and designator.is_unannotated(feature.qualifiers['gene'][0]):
+            if 'gene_synonym' in feature.qualifiers:
+                feature.qualifiers['gene'][0] = feature.qualifiers['gene_synonym'].pop()
+                if len(feature.qualifiers['gene_synonym']) == 0:
+                    del feature.qualifiers['gene_synonym']
+            elif gene in duplicates:
+                feature.qualifiers['gene'][0] = duplicates[gene]
+            else:
+                del feature.qualifiers['gene']
 
 
 def load_reference_duplicates(infile):
