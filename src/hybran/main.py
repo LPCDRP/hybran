@@ -99,7 +99,7 @@ def cmds():
     #
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
-    ratt_params = parser.add_argument_group('RATT Options.\n(See http://ratt.sourceforge.net/documentation.html and\n https://github.com/ThomasDOtto/ratt/blob/master/ratt.1.md for more details)')
+    ratt_params = parser.add_argument_group('RATT Options.\n(See http://ratt.sourceforge.net/documentation.html and\n https://github.com/ThomasDOtto/ratt for more details)')
     prokka_params = parser.add_argument_group('Prokka Options.\n(See https://github.com/tseemann/prokka for more details)')
     required.add_argument('-g', '--genomes', help='Directory, a space-separated list of FASTAs, or a FOFN '
                                                       'containing all genomes desired to be annotated. '
