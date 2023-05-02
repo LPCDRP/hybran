@@ -44,7 +44,7 @@ outdir/
 ├── <i>sampleN</i>/
 │   └── ...
 │
-├──deduped-refs/ (if run with <i>--dedupe-references</i>)
+├──deduped-refs/
 │   ├── duplicates.tsv
 │   ├── <i>reference1</i>.gbk
 │   ├── ...
@@ -67,7 +67,7 @@ outdir/
 
 ##### `deduped-refs/duplicates.tsv`
 
-If `hybran` was called with `--dedupe-references`, revised reference annotations will be generated in the `deduped-refs` directory.
+`hybran` generates revised reference annotations in the `deduped-refs` directory.
 These annotations differ from the original in that each set of duplicate genes is assigned a single name used for all instances.
 The original name is retained as a `gene_synonym` qualifier in the annotation file.
 The file `duplicates.tsv` will list duplicate genes found in the reference annotations and the name they were assigned.

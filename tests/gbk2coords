@@ -18,13 +18,17 @@ for record in SeqIO.parse(infile,"genbank"):
                     inference = "Prokka"
                 elif any(['RATT' in inf for inf in f.qualifiers['inference']]):
                     inference = "RATT"
+            if 'gene' in f.qualifiers:
+                gene = f.qualifiers['gene'][0]
+            else:
+                gene = ''
 
             print('\t'.join([
                 os.path.basename(os.path.splitext(infile)[0]),
                 str(f.location.start+1),
                 str(f.location.end),
                 str(f.location.strand),
-                f.qualifiers['gene'][0],
+                gene,
                 inference,
                 pseudo,
             ]))

@@ -2,6 +2,10 @@
 
 ## Development
 
+### Enhancements
+* New subcommand `hybran standardize` to remove generic gene names in the final annotations.
+  The `--dedupe-references` option is now removed, being made a core part of the pipeline since the generic names that it introduces to collapse reference paralogs can be undone by `hybran standardize` if desired afterwards.
+
 ## [Version 1.6](https://gitlab.com/LPCDRP/hybran/-/tags/1.6)
 
 ### Enhancements
