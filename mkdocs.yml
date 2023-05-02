@@ -5,6 +5,7 @@ repo_url: https://gitlab.com/LPCDRP/hybran
 site_dir: public
 nav:
     - Getting Started: index.md
+    - Auxiliary Programs: aux.md
     - Release Notes: release.md
     - Installation: install.md
     - Special Considerations: faq.md
