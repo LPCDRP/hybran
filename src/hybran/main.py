@@ -17,6 +17,7 @@ from . import \
     converter, \
     config, \
     designator, \
+    standardize, \
     __version__
 
 from .argparse import DefaultSubcommandArgumentParser
@@ -59,6 +60,34 @@ def cmds():
     )
     head_parser.set_default_subparser('annotate')
 
+
+    # alternative commands
+    stdize = subparsers.add_parser(
+        'standardize',
+        help='Apply standard naming conventions to Hybran output.'
+    )
+    stdize.set_defaults(func=standardize.main)
+
+
+    #
+    # hybran standardize
+    #
+    stdize.add_argument(
+        'annotations',
+        help="Directory, space-separated list of GBKs, or a FOFN containing all annotated genomes.",
+        nargs='+'
+    )
+    stdize.add_argument(
+        '-p', '--orf-prefix',
+        type=str,
+        help='prefix for generic gene names (*not* locus tags)',
+        default='ORF',
+    )
+    stdize.add_argument(
+        '-o', '--output',
+        help='Directory to output all new annotation files.',
+        default='.',
+    )
 
     #
     # hybran annotate
