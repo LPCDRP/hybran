@@ -1,10 +1,40 @@
+import atexit
 from collections import defaultdict
 import os
+import shutil
+import sys
 
 from Bio import SeqIO
 
+from . import config, fileManager
 from . import CDHIT, designator, extractor, parseClustering
 
+
+def main(args):
+    config.init()
+    atexit.register(shutil.rmtree, path=config.hybran_tmp_dir)
+
+    if not os.path.isdir(args.output):
+        try:
+            os.mkdir(args.output)
+        except:
+            sys.exit("Could not create directory " + args.output)
+
+    # Check that the identity threshold is valid
+    if not (args.identity_threshold <= 100 and args.identity_threshold >= 0):
+        sys.exit("error: invalid value for --identity-threshold. Must be between 0 and 100.")
+
+    # Check that the coverage threshold is valid
+    if not (args.coverage_threshold <= 100 and args.coverage_threshold >= 0):
+        sys.exit("error: invalid value for --coverage-threshold. Must be between 0 and 100.")
+
+    dedupe(
+        annotations=fileManager.file_list(args.annotations, file_type="genbank"),
+        outdir=args.output,
+        tmpdir=config.hybran_tmp_dir,
+        seq_ident=args.identity_threshold,
+        seq_covg=args.coverage_threshold,
+    )
 
 def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
     """"

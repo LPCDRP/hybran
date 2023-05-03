@@ -11,7 +11,7 @@ from . import \
     verifyInstallations, \
     fileManager, \
     extractor, \
-    refManager, \
+    onegene, \
     run, \
     annomerge, \
     converter, \
@@ -67,6 +67,12 @@ def cmds():
         help='Apply standard naming conventions to Hybran output.'
     )
     stdize.set_defaults(func=standardize.main)
+    onegenecmd = subparsers.add_parser(
+        'onegene',
+        help='Unify names of gene duplicates.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    onegenecmd.set_defaults(func=onegene.main)
 
 
     #
@@ -90,9 +96,47 @@ def cmds():
     )
     stdize.add_argument(
         '-d', '--duplicates-file',
-        help="duplicates.tsv file produced during Hybran's reference deduplication step.",
+        help="reference annotation's duplicates.tsv file produced by hybran onegene.",
         required=True,
     )
+
+    #
+    # hybran onegene
+    #
+    onegenecmd.add_argument(
+        'annotations',
+        help="Directory, space-separated list of GBKs, or a FOFN containing all annotated genomes.",
+        nargs='+'
+    )
+    onegenecmd.add_argument(
+        '-p', '--orf-prefix',
+        type=str,
+        help=(
+            "prefix for generic gene names (*not* locus tags). "
+            "Such names will be applied to all instances of duplicates if they don't already share a common name"
+        ),
+        default='ORF',
+    )
+    onegenecmd.add_argument(
+        '-o', '--output',
+        help='Directory to output all new annotation files.',
+        default='.',
+    )
+    onegenecmd.add_argument(
+        '-i', '--identity-threshold',
+        required=False,
+        type=int,
+        help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP to call duplications',
+        default=99,
+    )
+    onegenecmd.add_argument(
+        '-c', '--coverage-threshold',
+        required=False,
+        type=int,
+        help='Percent alignment coverage threshold to use during CD-HIT clustering and BLASTP to call duplications',
+        default=99,
+    )
+
 
     #
     # hybran annotate
@@ -303,7 +347,7 @@ def main(args, prokka_args):
             os.mkdir('deduped-refs')
         except:
             sys.exit("Could not create directory: deduped-refs ")
-    args.references = refManager.dedupe(args.references, outdir='deduped-refs', tmpdir=hybran_tmp_dir)
+    args.references = onegene.dedupe(args.references, outdir='deduped-refs', tmpdir=hybran_tmp_dir)
     refdir, embl_dir, embls = fileManager.prepare_references(args.references)
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]
