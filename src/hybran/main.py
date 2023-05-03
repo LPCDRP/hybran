@@ -57,6 +57,7 @@ def cmds():
     parser = subparsers.add_parser(
         'annotate',
         help='Run the Hybran annotation pipeline. (default)',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     head_parser.set_default_subparser('annotate')
 
@@ -64,7 +65,8 @@ def cmds():
     # alternative commands
     stdize = subparsers.add_parser(
         'standardize',
-        help='Apply standard naming conventions to Hybran output.'
+        help='Apply standard naming conventions to Hybran output.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     stdize.set_defaults(func=standardize.main)
 
