@@ -441,6 +441,7 @@ def test_liftover_annotation():
     ['bad_start_stop_fix_pseudo', True, False],
     ['inverted_join_ecoli', True, True],
     ['gene_fusion', True, True],
+    ['end_greater_than_start', True, True],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 @pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
@@ -463,6 +464,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_start_stop_fix_pseudo':'1-0006',
         'inverted_join_ecoli': 'AZ20',
         'gene_fusion': '1-0006',
+        'end_greater_than_start': 'SEA08151',
 
     }
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -485,6 +487,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_start_stop_fix_pseudo': features[source_genome['bad_start_stop_nofix_pseudo']]['PE10']['ratt'],
         'inverted_join_ecoli': features[source_genome['inverted_join_ecoli']]['secD']['ratt'],
         'gene_fusion': features[source_genome['gene_fusion']]['PE_PGRS50']['final'],
+        'end_greater_than_start': features[source_genome['end_greater_than_start']]['lpqG']['ratt'],
     }
 
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
@@ -515,6 +518,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'bad_start_stop_fix_pseudo': [(True, False), FeatureLocation(1217428, 1217872, strand=1)],
         'inverted_join_ecoli': [(False, False), FeatureLocation(3714209, 3716770, strand=-1)],
         'gene_fusion': [(True, True), FeatureLocation(3741108, 3746955, strand=-1)],
+        'end_greater_than_start': [(False, False), FeatureLocation(4064133, 4064322, strand=1)],
     }
     results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]

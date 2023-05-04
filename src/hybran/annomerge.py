@@ -753,6 +753,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     :return: True/False if the start/stop was fixed
     """
 
+    logger = logging.getLogger('CoordCheck')
     ref_seq = ref_feature.extract(ref_feature.references[ref_feature.hybranref], references=ref_feature.references)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
@@ -949,11 +950,23 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
                 if fix_start:
                     feature_end = corrected_feature_end
 
-        feature.location = FeatureLocation(
-            int(feature_start),
-            int(feature_end),
-            strand=feature.strand
-        )
+        #Catch corner cases where we try to correct a reference corresponding start PAST the end of the feature.
+        #or where we try to correct a reference corresponding stop BEFORE the start of a feature.
+        #If the original alignment was really far off, and we found a downstream start/upstream stop
+        #simply by chance from the addition of extra padding, we should just leave the gene alone.
+        if feature_start > feature_end:
+            feature.location = FeatureLocation(
+                int(og_feature_start),
+                int(og_feature_end),
+                strand=feature.strand
+            )
+            logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
+        else:
+            feature.location = FeatureLocation(
+                int(feature_start),
+                int(feature_end),
+                strand=feature.strand
+            )
         feature_seq = feature.extract(record_sequence)
 
         if i == 1:
@@ -961,14 +974,16 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         elif any([pad_found_low, pad_found_high]) and any([fix_start, fix_stop]) and (first_score > second_score):
 
             #Catch corner cases where we try to correct a reference corresponding start PAST the end of the feature.
-            #If the original alignment was really far off, and we found a downstream start by chance, we should
-            #just leave the gene alone.
+            #or where we try to correct a reference corresponding stop BEFORE the start of a feature.
+            #If the original alignment was really far off, and we found a downstream start/upstream stop
+            #simply by chance from the addition of extra padding, we should just leave the gene alone.
             if corrected_feature_start > corrected_feature_end:
                  feature.location = FeatureLocation(
                      int(og_feature_start),
                      int(og_feature_end),
                      strand=feature.strand
                  )
+                 logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
                  break
             corrected_feature.location = FeatureLocation(
                 int(corrected_feature_start),

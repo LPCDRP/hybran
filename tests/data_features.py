@@ -440,6 +440,15 @@ features = {
             ),
         },
     },
+    'SEA08151':{
+        'lpqG': {
+            'ratt': SeqFeature(
+                FeatureLocation(4064133, 4064322, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3623'],'gene':['Rv1718']}
+            ),
+        },
+    },
 }
 
 abinit_blast_results = {
