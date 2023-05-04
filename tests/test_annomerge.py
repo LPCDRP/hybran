@@ -889,6 +889,8 @@ def test_find_inframe_overlaps(case):
     # https://gitlab.com/LPCDRP/hybran/-/issues/57
     'overlapping_different_names_ratt_better',
     'overlapping_different_names_abinit_better',
+    'ratt_join_vs_prokka_bad_start',
+    'prokka_gene_fusion',
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 def test_check_inclusion_criteria(pair, tmp_path):
@@ -901,6 +903,8 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'corresponding_non_cds':'4-0041',
         'overlapping_different_names_ratt_better':'1-0006',
         'overlapping_different_names_abinit_better':'1-0006',
+        'ratt_join_vs_prokka_bad_start':'1-0006',
+        'prokka_gene_fusion':'1-0006',
     }
     ref_genome = defaultdict(lambda :'H37Rv')
     pairs = {
@@ -912,6 +916,8 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'abinit_better': ('Rv1718', 'Rv1718'),
         'overlapping_different_names_ratt_better': ('Rv1945', 'Rv1945'),
         'overlapping_different_names_abinit_better': ('Rv2180c', 'ORF0004'),
+        'ratt_join_vs_prokka_bad_start':('pip', 'pip'),
+        'prokka_gene_fusion':('PE21', 'PE21'),
     }
     ratt = features[source_genome[pair]][pairs[pair][0]]['ratt']
     abinit = features[source_genome[pair]][pairs[pair][1]]['abinit']
@@ -950,7 +956,15 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'overlapping_different_names_abinit_better': (
             True, False,
             "putative misannotation: has no reference-corresponding stop, while L_02335:ORF0004 does, and both share the same stop position."
-        )
+        ),
+        'ratt_join_vs_prokka_bad_start': (
+            False, True,
+            "Equally valid call, but the more complete RATT annotation is favored."
+        ),
+        'prokka_gene_fusion': (
+            True, False,
+            "The ab initio annotation is favored due to having a valid delayed stop."
+        ),
     }
 
 
