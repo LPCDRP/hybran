@@ -7,6 +7,8 @@ from hybran import designator, onegene
 @pytest.mark.parametrize("situation", [
     'singleref_multiple_nonames',
     'singleref_one_named',
+    'multiref_single_orthologs',
+    'multiref_mixed_bag',
 ])
 def test_name_cluster(situation):
 
@@ -18,6 +20,17 @@ def test_name_cluster(situation):
         ],
         'singleref_one_named': [
             'H37Rv:Rv1454c:qor',
+        ],
+        'multiref_single_orthologs': [
+            'Ref1:R1_01234:R1_01234',
+            'Ref2:R2_01234:R2_01234',
+        ],
+        'multiref_mixed_bag': [
+            'Ref1:R1_01234:R1_01234',
+            'Ref1:R1_05678:',
+            'Ref2:R2_01234:R2_01234',
+            'Ref3:R3_01234:genA',
+            'Ref3:R3_06789:R3_06789',
         ],
     }
 
@@ -39,6 +52,28 @@ def test_name_cluster(situation):
             {},
             "",
             1,
+        ],
+        'multiref_single_orthologs': [
+            {},
+            "",
+            1,
+        ],
+        'multiref_mixed_bag': [
+            {'Ref1': {
+                'R1_01234':'ORF0001',
+                'R1_05678':'ORF0001',
+            },
+             'Ref3': {
+                 'R3_01234':'genA',
+                 'R3_06789':'genA',
+             },
+             },
+            ("Ref1\tR1_01234\tR1_01234\tORF0001\n"
+             "Ref1\tR1_05678\t\tORF0001\n"
+             "Ref3\tR3_01234\tgenA\tgenA\n"
+             "Ref3\tR3_06789\tR3_06789\tgenA\n"
+             ),
+            2,
         ],
     }
     expected_subs.update(expected[situation][0])

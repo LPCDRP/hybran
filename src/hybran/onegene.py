@@ -153,27 +153,28 @@ def name_cluster(cluster, increment, subs, subs_report):
                         Reference  locus_tag  original_gene_name  new_generic_name
     :returns: updated increment, subs, and subs_report
     """
-    ref_names, ltags, gene_names = list(zip(*(_.split(':') for _ in cluster)))
 
-    if len(cluster) == 1:
-        name = gene_names[0]
-    else:
-        # see how many actual names we have
-        actual_gene_names = [gene_names[i] for i in range(len(gene_names)) if gene_names[i] != ltags[i]]
-        unnamed_genes = [gene_names[i] for i in range(len(gene_names)) if gene_names[i] == ltags[i]]
+    cluster_dict = defaultdict(list)
+    for element in cluster:
+        ref, ltag, gene_name = element.split(':')
+        cluster_dict[ref].append((ltag, gene_name))
 
-        if len(set(actual_gene_names)) == 1:
-            name = actual_gene_names[0]
-        else:
-            (name, increment) = designator.assign_orf_id(increment)
+    for ref in cluster_dict:
+        if len(cluster_dict[ref]) > 1:
+            # see how many actual names we have
+            actual_gene_names = [gene for ltag, gene in cluster_dict[ref] if gene and gene != ltag]
 
-        for i in range(len(cluster)):
-            if gene_names[i] != name:
-                subs[ref_names[i]][ltags[i]] = name
+            if len(set(actual_gene_names)) == 1:
+                name = actual_gene_names[0]
+            else:
+                (name, increment) = designator.assign_orf_id(increment)
+
+            for ltag, gene in cluster_dict[ref]:
+                subs[ref][ltag] = name
                 subs_report += '\t'.join(
-                    [ref_names[i],
-                     ltags[i],
-                     gene_names[i],
+                    [ref,
+                     ltag,
+                     gene,
                      name]) + '\n'
 
     return subs, subs_report, increment
