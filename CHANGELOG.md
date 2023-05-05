@@ -2,6 +2,12 @@
 
 ## Development
 
+## [Version 1.6.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.6.1)
+
+### Bugs fixed
+* Fixed scenario where hybran crashes when coordinate correction matches to an adjacent locus and attempts correction (#61).
+* Added a temporary measure to inclusion criteria to penalize CDSs lacking stop codons (inadequately postprocessed) (#60).
+
 ## [Version 1.6](https://gitlab.com/LPCDRP/hybran/-/tags/1.6)
 
 ### Enhancements
