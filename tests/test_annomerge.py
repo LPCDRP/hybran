@@ -537,6 +537,8 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     ['good_start_stop_fix_pseudo', 95, 95, True],
     ['inframe_deletion_in_middle', 95, 95, True],
     ['good_blast_still_repairable', 95, 95, True],
+    ['start_correction_induces_delayed_stop', 95, 95, True],
+    ['start_correction_induces_delayed_stop2', 95, 95, True],
 ])
 def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -554,6 +556,8 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'good_start_stop_fix_pseudo': '1-0006',
         'inframe_deletion_in_middle': '1-0009',
         'good_blast_still_repairable': '1-0006',
+        'start_correction_induces_delayed_stop': '1-0006',
+        'start_correction_induces_delayed_stop2': '1-0006',
     }
 
     test_features = {
@@ -570,6 +574,8 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'good_start_stop_fix_pseudo': features[source_genome['good_start_stop_fix_pseudo']]['Rv2437']['ratt'],
         'inframe_deletion_in_middle': features[source_genome['inframe_deletion_in_middle']]['PPE54']['ratt'],
         'good_blast_still_repairable': features[source_genome['good_blast_still_repairable']]['dnaA']['abinit'],
+        'start_correction_induces_delayed_stop': features[source_genome['start_correction_induces_delayed_stop']]['Rv1225c']['abinit_raw'],
+        'start_correction_induces_delayed_stop2': features[source_genome['start_correction_induces_delayed_stop2']]['Rv2561']['ratt_raw'],
     }
 
     feature = test_features[feature_type]
@@ -594,6 +600,8 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'good_start_stop_fix_pseudo': [True, FeatureLocation(2735891, 2736310, strand=1)],
         'inframe_deletion_in_middle': [False, FeatureLocation(3730264, 3741334, strand=-1)],
         'good_blast_still_repairable': [False, FeatureLocation(0, 1524, strand=1)],
+        'start_correction_induces_delayed_stop': [False, FeatureLocation(1370377, 1371385, strand=-1)],
+        'start_correction_induces_delayed_stop2': [False, FeatureLocation(0, 1, strand=-1)],
     }
     results = annomerge.pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]

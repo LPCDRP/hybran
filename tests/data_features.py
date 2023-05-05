@@ -231,6 +231,18 @@ features = {
                 qualifiers={'locus_tag':['L_01235'], 'gene':['Rv1041c']}
             ),
         },
+        'Rv1225c': {
+            'ratt_raw': SeqFeature(
+                FeatureLocation(1370377, 1371385, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv1225c'],'gene':['Rv1225c']}
+            ),
+            'abinit_raw': SeqFeature(
+                FeatureLocation(1370553, 1370940, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_01314'],'gene':['Rv1225c']}
+            ),
+        },
         'PPE38': {
             'abinit': SeqFeature(
                 FeatureLocation(2636045, 2637140, strand=-1),
@@ -356,6 +368,13 @@ features = {
 		qualifiers={'locus_tag':['Rv2437'],'gene':['Rv2437']}
 	    ),
 	},
+        'Rv2561': {
+            'ratt_raw': SeqFeature(
+                FeatureLocation(2881603, 2881852, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv2561'],'gene':['Rv2561']}
+            )
+        },
         'Rv2879c': {
             'ratt': SeqFeature(
                 FeatureLocation(3182302, 3183397, strand=-1),
