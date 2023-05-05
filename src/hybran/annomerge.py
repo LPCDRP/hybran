@@ -753,6 +753,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     :return: True/False if the start/stop was fixed
     """
 
+    logger = logging.getLogger('CoordCheck')
     ref_seq = ref_feature.extract(ref_feature.references[ref_feature.hybranref], references=ref_feature.references)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
@@ -949,11 +950,23 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
                 if fix_start:
                     feature_end = corrected_feature_end
 
-        feature.location = FeatureLocation(
-            int(feature_start),
-            int(feature_end),
-            strand=feature.strand
-        )
+        #Catch corner cases where we try to correct a reference corresponding start PAST the end of the feature.
+        #or where we try to correct a reference corresponding stop BEFORE the start of a feature.
+        #If the original alignment was really far off, and we found a downstream start/upstream stop
+        #simply by chance from the addition of extra padding, we should just leave the gene alone.
+        if feature_start > feature_end:
+            feature.location = FeatureLocation(
+                int(og_feature_start),
+                int(og_feature_end),
+                strand=feature.strand
+            )
+            logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
+        else:
+            feature.location = FeatureLocation(
+                int(feature_start),
+                int(feature_end),
+                strand=feature.strand
+            )
         feature_seq = feature.extract(record_sequence)
 
         if i == 1:
@@ -961,14 +974,16 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         elif any([pad_found_low, pad_found_high]) and any([fix_start, fix_stop]) and (first_score > second_score):
 
             #Catch corner cases where we try to correct a reference corresponding start PAST the end of the feature.
-            #If the original alignment was really far off, and we found a downstream start by chance, we should
-            #just leave the gene alone.
+            #or where we try to correct a reference corresponding stop BEFORE the start of a feature.
+            #If the original alignment was really far off, and we found a downstream start/upstream stop
+            #simply by chance from the addition of extra padding, we should just leave the gene alone.
             if corrected_feature_start > corrected_feature_end:
                  feature.location = FeatureLocation(
                      int(og_feature_start),
                      int(og_feature_end),
                      strand=feature.strand
                  )
+                 logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
                  break
             corrected_feature.location = FeatureLocation(
                 int(corrected_feature_start),
@@ -1580,16 +1595,34 @@ def thunderdome(abinit_annotation, ratt_annotation):
         - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
         - remark (:py:class:`str`) - explanation for why the rejected annotation, if any, was not included
     """
+    logger = logging.getLogger('Thunderdome')
+    abinit_delayed_stop = has_delayed_stop(abinit_annotation)
+    ratt_delayed_stop = has_delayed_stop(ratt_annotation)
+
+    abinit_broken_stop = has_broken_stop(abinit_annotation)[0]
+    ratt_broken_stop = has_broken_stop(ratt_annotation)[0]
+
     abinit_coord_status = coord_check(abinit_annotation, ref_annotation[abinit_annotation.qualifiers['gene'][0]])
+    ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
+
+    #If an annotation has a delayed stop, (indicating a potential gene fusion event), we want to consider it a good stop
+    #because it could correspond to the downstream gene's stop position. Gene fusions should take precedence over
+    #alternative annotations if warranted.
+    if abinit_delayed_stop:
+        abinit_coord_status = (abinit_coord_status[0], True)
+    if ratt_delayed_stop:
+        ratt_coord_status = (ratt_coord_status[0], True)
+
     (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
     abinit_coord_score = sum([int(_) for _ in abinit_coord_status])
 
-    ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
     (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
     ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
 
     abinit_is_pseudo = designator.is_pseudo(abinit_annotation.qualifiers)
     ratt_is_pseudo = designator.is_pseudo(ratt_annotation.qualifiers)
+
+    ratt_longer = (len(abinit_annotation.location) < len(ratt_annotation.location))
     abinit_longer = (len(abinit_annotation.location) > len(ratt_annotation.location))
 
     if abinit_is_pseudo == ratt_is_pseudo:
@@ -1598,27 +1631,53 @@ def thunderdome(abinit_annotation, ratt_annotation):
         # RATT's assignment is furthermore based on synteny, so it wins out
 
         if ((all(ratt_coord_status) and all(abinit_coord_status)) or ratt_coord_status == abinit_coord_status):
-            #Both non-pseudo and perfect coord_status, use the more complete annotation.
+            #Both non-pseudo and equal coord_status, use the more complete annotation.
             if not abinit_is_pseudo:
                 if abinit_longer:
                     include_abinit = True
                     include_ratt = False
                     remark = f"Equally valid call, but the more complete ab initio annotation is favored."
-                else:
+                elif ratt_longer:
                     include_abinit = False
                     include_ratt = True
                     remark = f"Equally valid call, but the more complete RATT annotation is favored."
+                else:
+                    include_abinit = False
+                    include_ratt = True
+                    remark = f"Equally valid call, but conflicts with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
+            #Both pseudo
             else:
-                include_abinit = False
-                include_ratt = True
-                remark = f"Equally valid call, but conflicts with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
+                if abinit_longer and abinit_delayed_stop and not ratt_delayed_stop:
+                    include_abinit = True
+                    include_ratt = False
+                    remark = f"The ab initio annotation is favored due to having a valid delayed stop."
+                elif ratt_longer and ratt_delayed_stop and not abinit_delayed_stop:
+                    include_abinit = False
+                    include_ratt = True
+                    remark = f"The ratt annotation is favored due to having a valid delayed stop."
+                #Same location or equivalent delayed stop status
+                else:
+                    if abinit_broken_stop and not ratt_broken_stop:
+                         include_abinit = False
+                         include_ratt = True
+                         remark = f"The ratt annotation is favored due to having a valid stop."
+                    elif ratt_broken_stop and not abinit_broken_stop:
+                        include_abinit = True
+                        include_ratt = False
+                        remark = f"The ab initio annotation is favored due to having a valid stop."
+                    else:
+                        include_abinit = False
+                        include_ratt = True
+                        remark = f"Equally valid call, but conflicts with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
+
         elif (all(ratt_coord_status) or ratt_coord_score > abinit_coord_score or (ratt_stop_ok and not abinit_stop_ok)):
             include_abinit = False
             include_ratt = True
             remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated."
         else:
-        # This is the only other possibility:
-        #elif (all(abinit_coord_status or abinit_coord_score > ratt_coord_score or (abinit_stop_ok and not ratt_stop_ok)):
+        #This is the only other possibility:
+        #elif (all(abinit_coord_status or abinit_coord_score > ratt_coord_score
+        #or (abinit_stop_ok and not ratt_stop_ok)):
             include_abinit = True
             include_ratt = False
             remark = f"Ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated."
@@ -1632,6 +1691,13 @@ def thunderdome(abinit_annotation, ratt_annotation):
             include_abinit = False
             include_ratt = True
             remark = "Non-pseudo RATT annotation takes precedence."
+
+    if include_abinit == include_ratt:
+        logger.warning(f"Both annotations were marked for {'inclusion' if include_ratt else 'exclusion'} and one annotation is expected to be excluded:\nRATT Feature\n{ratt_annotation}\n\nab initio Feature\n{abinit_annotation}\n\nUnhandled scenario--RATT favored due to synteny"
+        )
+        include_abinit = False
+        include_ratt = True
+        remark = "Conflicting annotations, RATT favored due to synteny"
     return include_abinit, include_ratt, remark
 
 

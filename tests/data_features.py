@@ -174,6 +174,18 @@ features = {
                 qualifiers={'locus_tag':['Rv0305c'],'gene':['PPE6']}
             ),
         },
+        'pip': {
+            'ratt': SeqFeature(
+                FeatureLocation(936376, 937360, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv0840c'],'gene':['pip']}
+            ),
+            'abinit': SeqFeature(
+                FeatureLocation(936376, 937021, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_00896'],'gene':['pip']}
+            ),
+        },
         'Rv0907': {
             'ratt': SeqFeature(
                 # Actually join(1012633..1012764,1012769..1014232)
@@ -244,6 +256,22 @@ features = {
                 type='CDS',
                 qualifiers={'locus_tag':['L_01557'],'gene':['Rv1453']}
                 ),
+        },
+        'PE21': {
+            'ratt': SeqFeature(
+                FeatureLocation(2362218, 2362392, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv1548c'],'gene':['PE21'],'pseudo':['']}
+            ),
+            'abinit': SeqFeature(
+                FeatureLocation(2360919, 2362392, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_02249'],'gene':['PE21'],'pseudo':[''],
+                            'note': [
+                                "Has a frameshift mutation leading to a delayed stop codon",
+                            ],
+                }
+            ),
         },
         'mce1R': {
 	    'ratt': SeqFeature(
@@ -437,6 +465,15 @@ features = {
                 FeatureLocation(2476948, 2477767, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['L_02383'],'gene':['Rv1718']}
+            ),
+        },
+    },
+    'SEA08151':{
+        'lpqG': {
+            'ratt': SeqFeature(
+                FeatureLocation(4064133, 4064322, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3623'],'gene':['Rv1718']}
             ),
         },
     },

@@ -3,4 +3,4 @@ from . import CDHIT
 from . import MCL
 from . import addEggnogAnnotation
 
-__version__ = "1.6"
+__version__ = "1.6.1"
