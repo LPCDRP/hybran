@@ -20,9 +20,9 @@ def main(args):
         except:
             sys.exit("Could not create output directory " + args.output)
 
-    if not os.path.isfile(args.duplicates_file):
-        sys.exit(f"Invalid duplicates file {args.duplicates_file}")
-    duplicates = load_reference_duplicates(args.duplicates_file)
+    if not os.path.isfile(args.unifications_file):
+        sys.exit(f"Invalid unifications file {args.unifications_file}")
+    generics = load_reference_generics(args.unifications_file)
 
     for annotation in annotations:
         outfile = os.path.join(
@@ -32,12 +32,12 @@ def main(args):
         records = list(SeqIO.parse(annotation, 'genbank'))
         for record in records:
             for feature in record.features:
-                standardize(feature, duplicates)
+                standardize(feature, generics)
         with open(outfile, 'w') as outfile_handle:
             SeqIO.write(records, outfile_handle, 'genbank')
 
 
-def standardize(feature, duplicates):
+def standardize(feature, generics):
     """
     remove generic gene names.
     If a gene_synonym is available (as from an ab initio call or
@@ -53,8 +53,8 @@ def standardize(feature, duplicates):
             components = gene.split('::')
             for i in range(len(components)):
                 if designator.is_unannotated(components[i]):
-                    if components[i] in duplicates:
-                        components[i] = duplicates[components[i]]
+                    if components[i] in generics:
+                        components[i] = generics[components[i]]
                     else:
                         # HGNC nomenclature for fusion with an unknown gene
                         components[i] = '?'
@@ -64,19 +64,19 @@ def standardize(feature, duplicates):
                 feature.qualifiers['gene'][0] = feature.qualifiers['gene_synonym'].pop()
                 if len(feature.qualifiers['gene_synonym']) == 0:
                     del feature.qualifiers['gene_synonym']
-            elif gene in duplicates:
-                feature.qualifiers['gene'][0] = duplicates[gene]
+            elif gene in generics:
+                feature.qualifiers['gene'][0] = generics[gene]
             else:
                 del feature.qualifiers['gene']
 
 
-def load_reference_duplicates(infile):
+def load_reference_generics(infile):
     """
-    Load the deduped-refs/duplicates.tsv file into a dictionary.
+    Load the unified-refs/unifications.tsv file into a dictionary.
     """
-    duplicates = {}
-    with open(infile, 'r') as dupe_table:
-        for line in dupe_table:
+    generics = {}
+    with open(infile, 'r') as unitable:
+        for line in unitable:
             [ref, ltag, gene, generic_name] = line.strip().split('\t')
-            duplicates[generic_name] = gene
-    return duplicates
+            generics[generic_name] = gene
+    return generics

@@ -28,18 +28,32 @@ def main(args):
     if not (args.coverage_threshold <= 100 and args.coverage_threshold >= 0):
         sys.exit("error: invalid value for --coverage-threshold. Must be between 0 and 100.")
 
-    dedupe(
-        annotations=fileManager.file_list(args.annotations, file_type="genbank"),
+
+    annotations = fileManager.file_list(args.annotations, file_type="genbank")
+    main_ref = args.first_gbk
+    if main_ref is None or main_ref in [os.path.basename(os.path.splitext(_)[0]) for _ in annotations]:
+        pass
+    elif os.path.isfile(os.path.abspath(main_ref)):
+        main_ref_file = os.path.abspath(main_ref)
+        if main_ref_file not in annotations:
+            annotations.append(main_ref_file)
+            main_ref = os.path.splitext(os.path.basename(main_ref))[0]
+    else:
+        sys.exit(f"error: could not find primary reference annotation {main_ref}")
+
+    unify(
+        annotations=annotations,
         outdir=args.output,
         tmpdir=config.hybran_tmp_dir,
         seq_ident=args.identity_threshold,
         seq_covg=args.coverage_threshold,
+        main_ref=main_ref,
     )
 
-def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
+def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None):
     """"
-    Identify duplicate genes among the reference annotation and assign all instances a
-    single name. If dupicates had different actual gene names, these original names are
+    Identify conserved/duplicated genes among the reference annotation and assign all instances a
+    single name. If instances had different actual gene names, these original names are
     stored in the gene_synonym field.
 
     :param annotations: list of annotation file names
@@ -50,7 +64,7 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
     :return: list of paths to deduplicated annotation files
     """
 
-    dedupe_tmp = os.path.join(tmpdir,'ref-dedupe')
+    dedupe_tmp = os.path.join(tmpdir,'onegene')
     try:
         os.mkdir(dedupe_tmp)
     except:
@@ -60,11 +74,12 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
     ref_cdss_unique_fp = os.path.join(dedupe_tmp,'ref_cdss_unique.faa')
 
     ann_sources = dict()
+    ref_named_cds_count = {}
     with open(ref_cdss_all_fp,'w') as ref_cdss:
         for ref in annotations:
             ref_name = os.path.basename(os.path.splitext(ref)[0])
             ann_sources[ref_name] = ref
-            extractor.fastaFromGbk(
+            ref_named_cds_count[ref_name] = extractor.fastaFromGbk(
                 ref,
                 out_cds = ref_cdss,
                 out_genome = os.devnull,
@@ -74,7 +89,9 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
                     extractor.get_gene(f)
                     ])
             )
-    
+    if main_ref is None:
+        main_ref = max(ref_named_cds_count, key=lambda _:ref_named_cds_count[_])
+
     rep_dict = CDHIT.run(
         nproc = 1,
         fasta = ref_cdss_all_fp,
@@ -102,13 +119,14 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
     subs_report = ''
     for rep in rep_dict.keys():
         subs, subs_report, increment = name_cluster(
+            main_ref,
             [rep] + rep_dict[rep],
             increment,
             subs,
             subs_report
         )
 
-    with open(os.path.join(outdir,'duplicates.tsv'),'w') as report:
+    with open(os.path.join(outdir,'unifications.tsv'),'w') as report:
         report.write(subs_report)
 
     for ref in subs.keys():
@@ -135,7 +153,7 @@ def dedupe(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99):
 
     return list(ann_sources.values())
 
-def name_cluster(cluster, increment, subs, subs_report):
+def name_cluster(main_ref, cluster, increment, subs, subs_report):
     """
     choose a single gene name to apply to all members of a cluster.
     If there is one unique name and the rest of the cluster members are unnamed
@@ -143,6 +161,7 @@ def name_cluster(cluster, increment, subs, subs_report):
     used. If there are multiple unique names, or all members are unnamed, then a
     generic gene name is issued and incremented.
 
+    :param main_ref: str name of reference for which to propagate locus tags as gene names
     :param cluster: list of strings representing cluster members,
                     in the form Ref:locus_tag:gene_name
     :param increment: last used number from the generic genes counter
@@ -177,10 +196,26 @@ def name_cluster(cluster, increment, subs, subs_report):
         else:
             cluster_list = []
     #
+    # no names exist
+    # => use the primary reference's locus tag as the name for all genes
+    #    (so long as the primary reference only has a single copy; otherwise, assign generic)
+    #
+    elif not ref_gene_names:
+        # Make sure there is more than one gene in this case
+        if len(cluster) > 1:
+            primaries = [(ref, gene) for ref, ltag, gene in cluster_list if ref==main_ref]
+            if len(primaries) == 1:
+                name = primaries[0][1]
+            else:
+                (name, increment) = designator.assign_orf_id(increment)
+        # We won't assign a generic name for just a single gene.
+        else:
+            cluster_list = []
+    #
     # no names exist or multiple unique names exist, but they all come from the same reference annotation
     # => assign a generic name and use it for all genes in all refs
     #
-    elif all([ref==ref_gene_names[0][0] for ref, gene in ref_gene_names]) or not ref_gene_names:
+    elif all([ref==ref_gene_names[0][0] for ref, gene in ref_gene_names]):
         # Make sure there is more than one gene in this case
         if len(cluster) > 1:
             (name, increment) = designator.assign_orf_id(increment)
@@ -194,6 +229,7 @@ def name_cluster(cluster, increment, subs, subs_report):
     else:
         for ref in cluster_dict:
             subs, subs_report, increment = name_cluster(
+                main_ref,
                 [_ for _ in cluster if _.startswith(f"{ref}:")],
                 increment,
                 subs,

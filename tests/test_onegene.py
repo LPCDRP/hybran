@@ -14,12 +14,12 @@ def test_name_cluster(situation):
 
     inputs = {
         'singleref_multiple_nonames': [
-            'H37Rv:Rv1369c:Rv1369c',
-            'H37Rv:Rv1756c:Rv1756c',
-            'H37Rv:Rv1764:Rv1764',
+            'Ref1:Rv1369c:Rv1369c',
+            'Ref1:Rv1756c:Rv1756c',
+            'Ref1:Rv1764:Rv1764',
         ],
         'singleref_one_named': [
-            'H37Rv:Rv1454c:qor',
+            'Ref1:Rv1454c:qor',
         ],
         'multiref_single_orthologs': [
             'Ref1:R1_01234:R1_01234',
@@ -38,14 +38,14 @@ def test_name_cluster(situation):
     expected_subs = defaultdict(dict)
     expected = {
         'singleref_multiple_nonames': [
-            {'H37Rv': {
+            {'Ref1': {
                 'Rv1369c':'ORF0001',
                 'Rv1756c':'ORF0001',
                 'Rv1764':'ORF0001',
             }},
-            ("H37Rv\tRv1369c\tRv1369c\tORF0001\n"
-             "H37Rv\tRv1756c\tRv1756c\tORF0001\n"
-             "H37Rv\tRv1764\tRv1764\tORF0001\n"),
+            ("Ref1\tRv1369c\tRv1369c\tORF0001\n"
+             "Ref1\tRv1756c\tRv1756c\tORF0001\n"
+             "Ref1\tRv1764\tRv1764\tORF0001\n"),
             2,
         ],
         'singleref_one_named': [
@@ -54,31 +54,43 @@ def test_name_cluster(situation):
             1,
         ],
         'multiref_single_orthologs': [
-            {},
-            "",
+            {'Ref1': {
+                'R1_01234':'R1_01234',
+            },
+             'Ref2': {
+                'R2_01234':'R1_01234',
+            },
+            },
+            ("Ref1\tR1_01234\tR1_01234\tR1_01234\n"
+             "Ref2\tR2_01234\tR2_01234\tR1_01234\n"),
             1,
         ],
         'multiref_mixed_bag': [
             {'Ref1': {
-                'R1_01234':'ORF0001',
-                'R1_05678':'ORF0001',
+                'R1_01234':'genA',
+                'R1_05678':'genA',
             },
+             'Ref2': {
+                 'R2_01234': 'genA',
+             },
              'Ref3': {
                  'R3_01234':'genA',
                  'R3_06789':'genA',
              },
              },
-            ("Ref1\tR1_01234\tR1_01234\tORF0001\n"
-             "Ref1\tR1_05678\t\tORF0001\n"
+            ("Ref1\tR1_01234\tR1_01234\tgenA\n"
+             "Ref1\tR1_05678\t\tgenA\n"
+             "Ref2\tR2_01234\tR2_01234\tgenA\n"
              "Ref3\tR3_01234\tgenA\tgenA\n"
              "Ref3\tR3_06789\tR3_06789\tgenA\n"
              ),
-            2,
+            1,
         ],
     }
     expected_subs.update(expected[situation][0])
     expected[situation][0] = expected_subs
     assert onegene.name_cluster(
+        main_ref="Ref1",
         cluster=inputs[situation],
         increment=1,
         subs=defaultdict(dict),

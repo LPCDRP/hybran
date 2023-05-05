@@ -95,8 +95,8 @@ def cmds():
         default='.',
     )
     stdize.add_argument(
-        '-d', '--duplicates-file',
-        help="reference annotation's duplicates.tsv file produced by hybran onegene.",
+        '-u', '--unifications-file',
+        help="reference annotation's unifications.tsv file produced by hybran onegene.",
         required=True,
     )
 
@@ -136,6 +136,14 @@ def cmds():
         help='Percent alignment coverage threshold to use during CD-HIT clustering and BLASTP to call duplications',
         default=99,
     )
+    onegenecmd.add_argument(
+        '-t', '--first-reference',
+        required=False,
+        dest='first_gbk',
+        help="Reference name or file name whose locus tags should be used as unified names for conserved copies in the others."
+        " Default is the annotation with the most named CDSs. If you specify a file here that is not in your input list, it will be added."
+    )
+
 
 
     #
@@ -342,14 +350,14 @@ def main(args, prokka_args):
     os.chdir(args.output)
 
     # Setting up references for RATT, as well as versions in GFF format used later
-    if not os.path.isdir('deduped-refs'):
+    if not os.path.isdir('unified-refs'):
         try:
-            os.mkdir('deduped-refs')
+            os.mkdir('unified-refs')
         except:
-            sys.exit("Could not create directory: deduped-refs ")
-    deduped_refs = [os.path.abspath(os.path.join('deduped-refs',os.path.basename(_))) for _ in args.references]
+            sys.exit("Could not create directory: unified-refs ")
+    deduped_refs = [os.path.abspath(os.path.join('unified-refs',os.path.basename(_))) for _ in args.references]
     if not all([os.path.isfile(_) for _ in deduped_refs]):
-        args.references = onegene.dedupe(args.references, outdir='deduped-refs', tmpdir=hybran_tmp_dir)
+        args.references = onegene.unify(args.references, outdir='unified-refs', tmpdir=hybran_tmp_dir)
     else:
         args.references = deduped_refs
     refdir, embl_dir, embls = fileManager.prepare_references(args.references)
