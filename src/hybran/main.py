@@ -347,7 +347,11 @@ def main(args, prokka_args):
             os.mkdir('deduped-refs')
         except:
             sys.exit("Could not create directory: deduped-refs ")
-    args.references = onegene.dedupe(args.references, outdir='deduped-refs', tmpdir=hybran_tmp_dir)
+    deduped_refs = [os.path.abspath(os.path.join('deduped-refs',os.path.basename(_))) for _ in args.references]
+    if not all([os.path.isfile(_) for _ in deduped_refs]):
+        args.references = onegene.dedupe(args.references, outdir='deduped-refs', tmpdir=hybran_tmp_dir)
+    else:
+        args.references = deduped_refs
     refdir, embl_dir, embls = fileManager.prepare_references(args.references)
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]
