@@ -155,26 +155,59 @@ def name_cluster(cluster, increment, subs, subs_report):
     """
 
     cluster_dict = defaultdict(list)
+    cluster_list = []
+    ref_gene_names = []
     for element in cluster:
         ref, ltag, gene_name = element.split(':')
         cluster_dict[ref].append((ltag, gene_name))
+        cluster_list.append((ref, ltag, gene_name))
+        if gene_name and gene_name != ltag:
+            ref_gene_names.append((ref, gene_name))
 
-    for ref in cluster_dict:
-        if len(cluster_dict[ref]) > 1:
-            # see how many actual names we have
-            actual_gene_names = [gene for ltag, gene in cluster_dict[ref] if gene and gene != ltag]
 
-            if len(set(actual_gene_names)) == 1:
-                name = actual_gene_names[0]
-            else:
-                (name, increment) = designator.assign_orf_id(increment)
+    #
+    # only one unique name exists in the cluster
+    # => use it for all genes in all refs
+    #
+    if len(ref_gene_names) >= 1 and all([gene==ref_gene_names[0][1] for ref, gene in ref_gene_names]):
+        # Make sure there are at least some unnamed genes here
+        if len(ref_gene_names) != len(cluster):
+            name = ref_gene_names[0][1]
+        # Nothing to do; all genes uniformly named
+        else:
+            cluster_list = []
+    #
+    # no names exist or multiple unique names exist, but they all come from the same reference annotation
+    # => assign a generic name and use it for all genes in all refs
+    #
+    elif all([ref==ref_gene_names[0][0] for ref, gene in ref_gene_names]) or not ref_gene_names:
+        # Make sure there is more than one gene in this case
+        if len(cluster) > 1:
+            (name, increment) = designator.assign_orf_id(increment)
+        # We won't assign a generic name for just a single gene.
+        else:
+            cluster_list = []
+    #
+    # multiple unique names exist across references
+    # => process individually
+    #
+    else:
+        for ref in cluster_dict:
+            subs, subs_report, increment = name_cluster(
+                [_ for _ in cluster if _.startswith(f"{ref}:")],
+                increment,
+                subs,
+                subs_report,
+            )
+        cluster_list = []
 
-            for ltag, gene in cluster_dict[ref]:
-                subs[ref][ltag] = name
-                subs_report += '\t'.join(
-                    [ref,
-                     ltag,
-                     gene,
-                     name]) + '\n'
+
+    for ref, ltag, og_gene_name in cluster_list:
+        subs[ref][ltag] = name
+        subs_report += '\t'.join([
+            ref,
+            ltag,
+            og_gene_name,
+            name]) + '\n'
 
     return subs, subs_report, increment
