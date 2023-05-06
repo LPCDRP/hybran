@@ -141,45 +141,42 @@ def stopseeker(feature, og_feature):
     :param og_feature: A SeqFeature object
     :return: SeqFeature object that contains a valid stop codon
     """
-    broken_stop, stop_note = has_broken_stop(feature)
-    if (feature.location != og_feature.location) and "No stop codons detected" in stop_note:
-        feature_seq = feature.extract(record_sequence).translate(to_stop=True, table=genetic_code)
-        extended_feature = deepcopy(feature)
-        if extended_feature.strand == 1:
-            extended_feature_start = feature.location.start
-            extended_feature_end = len(record_sequence) - 1
-        else:
-            extended_feature_start = 0
-            extended_feature_end = feature.location.end
+    feature_seq = feature.extract(record_sequence).translate(to_stop=True, table=genetic_code)
+    extended_feature = deepcopy(feature)
+    if extended_feature.strand == 1:
+        extended_feature_start = feature.location.start
+        extended_feature_end = len(record_sequence) - 1
+    else:
+        extended_feature_start = 0
+        extended_feature_end = feature.location.end
 
-        extended_feature.location = FeatureLocation(
-            int(extended_feature_start),
-            int(extended_feature_end),
-            strand=extended_feature.strand
+    extended_feature.location = FeatureLocation(
+        int(extended_feature_start),
+        int(extended_feature_end),
+        strand=extended_feature.strand
+    )
+    extended_seq = extended_feature.extract(record_sequence).translate(to_stop=True, table=genetic_code)
+    bp_diff = (3*len(extended_seq)) - (len(feature))
+    if bp_diff > 0:
+        if feature.strand == 1:
+            #Translation extends up to, but not including the stop codon, so we need to add 3 to the end
+            feature_start = feature.location.start
+            feature_end = feature.location.end + bp_diff + 3
+        else:
+            feature_start = feature.location.start - bp_diff - 3
+            feature_end = feature.location.end
+
+        feature.location = FeatureLocation(
+            int(feature_start),
+            int(feature_end),
+            strand=feature.strand
         )
-        extended_seq = extended_feature.extract(record_sequence).translate(to_stop=True, table=genetic_code)
-        bp_diff = (3*len(extended_seq)) - (3*len(feature_seq))
-        if bp_diff > 0:
-            if feature.strand == 1:
-                #Translation extends up to, but not including the stop codon, so we need to add 3 to the end
-                feature_start = feature.location.start
-                feature_end = feature.location.end + bp_diff + 3
-            else:
-                #Start locations are zero based, so we need to add 1
-                feature_start = feature.location.start - bp_diff - 3 + 1
-                feature_end = feature.location.end
-
-            feature.location = FeatureLocation(
-                int(feature_start),
-                int(feature_end),
-                strand=feature.strand
-            )
-        else:
-            feature.location = FeatureLocation(
-                int(og_feature.location.start),
-                int(og_feature.location.end),
-                strand=feature.strand
-            )
+    else:
+        feature.location = FeatureLocation(
+            int(og_feature.location.start),
+            int(og_feature.location.end),
+            strand=feature.strand
+        )
     feature_seq = feature.extract(record_sequence).translate(to_stop=True, table=genetic_code)
     #If modified, this new feature will have the same coord_status from before extending its stop position. Is that ok?
     return feature
@@ -1162,7 +1159,14 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
         while not confirmed_feature:
             good_start, good_stop = coord_check(feature, ref_feature, fix_start, fix_stop)
             coords_ok = [good_start, good_stop]
-            feature = stopseeker(feature, og_feature)
+            broken_stop, stop_note = has_broken_stop(feature)
+
+            if (feature.location != og_feature.location) and "No stop codons detected" in stop_note:
+                feature = stopseeker(feature, og_feature)
+                good_start, good_stop = coord_check(feature, ref_feature)
+                coords_ok = [good_start, good_stop]
+                broken_stop, stop_note = has_broken_stop(feature)
+
             ref_seq = translate(
                 ref_feature.extract(ref_feature.references[ref_feature.hybranref], references=ref_feature.references),
                 table=genetic_code, to_stop=True
