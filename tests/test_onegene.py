@@ -46,13 +46,13 @@ def test_name_cluster(situation):
     expected = {
         'singleref_multiple_nonames': [
             {'Ref1': {
-                'Rv1369c':'ORF0001',
-                'Rv1756c':'ORF0001',
-                'Rv1764':'ORF0001',
+                'Rv1369c':'REFORFX0001',
+                'Rv1756c':'REFORFX0001',
+                'Rv1764':'REFORFX0001',
             }},
-            ("Ref1\tRv1369c\tRv1369c\tORF0001\n"
-             "Ref1\tRv1756c\tRv1756c\tORF0001\n"
-             "Ref1\tRv1764\tRv1764\tORF0001\n"),
+            ("Ref1\tRv1369c\tRv1369c\tREFORFX0001\n"
+             "Ref1\tRv1756c\tRv1756c\tREFORFX0001\n"
+             "Ref1\tRv1764\tRv1764\tREFORFX0001\n"),
             2,
         ],
         'singleref_one_named': [
@@ -95,18 +95,18 @@ def test_name_cluster(situation):
         ],
         'multiref_orthologous_named_duplicates': [
             {'Ref1': {
-                'R1_01234':'ORF0001',
-                'R1_01235':'ORF0001',
+                'R1_01234':'REFORFX0001',
+                'R1_01235':'REFORFX0001',
             },
              'Ref2': {
-                'R2_01234':'ORF0001',
-                'R2_01235':'ORF0001',
+                'R2_01234':'REFORFX0001',
+                'R2_01235':'REFORFX0001',
              },
              },
-            ("Ref1\tR1_01234\tgenA\tORF0001\n"
-             "Ref1\tR1_01235\tgenB\tORF0001\n"
-             "Ref2\tR2_01234\tgenA\tORF0001\n"
-             "Ref2\tR2_01235\tgenB\tORF0001\n"
+            ("Ref1\tR1_01234\tgenA\tREFORFX0001\n"
+             "Ref1\tR1_01235\tgenB\tREFORFX0001\n"
+             "Ref2\tR2_01234\tgenA\tREFORFX0001\n"
+             "Ref2\tR2_01235\tgenB\tREFORFX0001\n"
              ),
             2,
         ],

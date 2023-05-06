@@ -28,6 +28,7 @@ def main(args):
     if not (args.coverage_threshold <= 100 and args.coverage_threshold >= 0):
         sys.exit("error: invalid value for --coverage-threshold. Must be between 0 and 100.")
 
+    designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"
 
     annotations = fileManager.file_list(args.annotations, file_type="genbank")
     main_ref = args.first_gbk
@@ -109,7 +110,7 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
     extractor.subset_fasta(
         ref_cdss_all_fp,
         outseq = existing_generigenes_fasta,
-        match = designator.is_unannotated,
+        match = designator.is_uniref,
         identify = lambda _: _.split(':')[2]
     )
     increment = designator.find_next_increment(existing_generigenes_fasta)
@@ -208,7 +209,7 @@ def name_cluster(main_ref, cluster, increment, subs, subs_report):
             if len(primaries) == 1:
                 name = primaries[0][1]
             else:
-                (name, increment) = designator.assign_orf_id(increment)
+                (name, increment) = designator.assign_orf_id(increment, reference=True)
         # We won't assign a generic name for just a single gene.
         else:
             cluster_list = []
@@ -217,7 +218,7 @@ def name_cluster(main_ref, cluster, increment, subs, subs_report):
     # => assign a generic name and use it for all genes in all refs.
     #
     else:
-        (name, increment) = designator.assign_orf_id(increment)
+        (name, increment) = designator.assign_orf_id(increment, reference=True)
 
 
     for ref, ltag, og_gene_name in cluster_list:

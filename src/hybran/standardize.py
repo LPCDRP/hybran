@@ -49,17 +49,22 @@ def standardize(feature, generics):
     if 'gene' in feature.qualifiers:
         gene = feature.qualifiers['gene'][0]
         fusion = '::' in gene
-        if fusion and designator.has_unannotated_component(gene):
+        if fusion and (
+                designator.has_unannotated_component(gene)
+                or designator.has_uniref_component(gene)
+        ):
             components = gene.split('::')
             for i in range(len(components)):
-                if designator.is_unannotated(components[i]):
-                    if components[i] in generics:
-                        components[i] = generics[components[i]]
-                    else:
-                        # HGNC nomenclature for fusion with an unknown gene
-                        components[i] = '?'
+                if components[i] in generics:
+                    components[i] = generics[components[i]]
+                elif designator.is_unannotated(components[i]):
+                    # HGNC nomenclature for fusion with an unknown gene
+                    components[i] = '?'
             feature.qualifiers['gene'][0] = '::'.join(components)
-        elif not fusion and designator.is_unannotated(feature.qualifiers['gene'][0]):
+        elif not fusion and (
+                designator.is_unannotated(feature.qualifiers['gene'][0])
+                or designator.is_uniref(feature.qualifiers['gene'][0])
+        ):
             if 'gene_synonym' in feature.qualifiers:
                 feature.qualifiers['gene'][0] = feature.qualifiers['gene_synonym'].pop()
                 if len(feature.qualifiers['gene_synonym']) == 0:

@@ -112,8 +112,9 @@ def cmds():
         '-p', '--orf-prefix',
         type=str,
         help=(
-            "prefix for generic gene names (*not* locus tags). "
-            "Such names will be applied to all instances of duplicates if they don't already share a common name"
+            "prefix for unifying gene names (*not* locus tags). "
+            "Such names will be applied to all sets of highly conserved genes if they don't already have a name or if they have discrepant names. "
+            "Whatever you pass here will be sandwiched by REF and X. (i.e., the default ORF will be transformed into REFORFX and then used)."
         ),
         default='ORF',
     )
@@ -300,6 +301,7 @@ def main(args, prokka_args):
     hybran_tmp_dir = config.hybran_tmp_dir
 
     designator.generic_orf_prefix[0]=args.orf_prefix
+    designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"
 
     # Cleanup the temporary files directory and its contents at exit unless
     # --debug is set

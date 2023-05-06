@@ -13,6 +13,10 @@ from . import extractor
 # because of a long story that involves
 # a "from" import. See https://stackoverflow.com/a/43855120
 generic_orf_prefix = ['ORF']
+# to distinguish reference CDS unification from unnamed genes.
+# changing it from ORF -> REFORFX prevents potential errors in lookups for
+# people searching for ORF* and thinking they'll only match unnamed genes.
+ref_orf_prefix = ['REFORFX']
 
 
 def append_qualifier(qualifiers, qual_name, qual_value):
@@ -75,16 +79,22 @@ def assign_locus_tags(gbk, prefix):
 
     SeqIO.write(output_records, gbk, "genbank")
 
-def assign_orf_id(increment):
+def assign_orf_id(increment, reference=False):
     """
     Format an ID string for a feature at the given count.
 
     :param increment: int count
+    :param reference: bool whether ORF is a unified reference name or just generic/unknown.
     :returns:
        - str ID string
        - incremented counter
     """
-    orf_id = generic_orf_prefix[0] + "%04g" % (increment)
+    if not reference:
+        prefix = generic_orf_prefix[0]
+    else:
+        prefix = ref_orf_prefix[0]
+
+    orf_id = prefix + "%04g" % (increment)
     increment += 1
     return orf_id, increment
 
@@ -160,6 +170,11 @@ def is_pseudo(qualifiers):
 #
 # These can be applied to sequence record IDs to match the designated property
 #
+def is_uniref(name):
+    return name.startswith(ref_orf_prefix[0])
+
+def has_uniref_component(name):
+    return bool(re.search(r'(::|^)' + ref_orf_prefix[0] + r'\d+(::|$)', name))
 
 def is_unannotated(name):
     return name.startswith(generic_orf_prefix[0])
