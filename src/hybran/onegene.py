@@ -184,11 +184,12 @@ def name_cluster(main_ref, cluster, increment, subs, subs_report):
             ref_gene_names.append((ref, gene_name))
 
 
+    n_unique_names = len(set([gene_name for ref, gene_name in ref_gene_names]))
     #
     # only one unique name exists in the cluster
     # => use it for all genes in all refs
     #
-    if len(ref_gene_names) >= 1 and all([gene==ref_gene_names[0][1] for ref, gene in ref_gene_names]):
+    if n_unique_names == 1:
         # Make sure there are at least some unnamed genes here
         if len(ref_gene_names) != len(cluster):
             name = ref_gene_names[0][1]
@@ -200,7 +201,7 @@ def name_cluster(main_ref, cluster, increment, subs, subs_report):
     # => use the primary reference's locus tag as the name for all genes
     #    (so long as the primary reference only has a single copy; otherwise, assign generic)
     #
-    elif not ref_gene_names:
+    elif n_unique_names == 0:
         # Make sure there is more than one gene in this case
         if len(cluster) > 1:
             primaries = [(ref, gene) for ref, ltag, gene in cluster_list if ref==main_ref]
@@ -212,30 +213,11 @@ def name_cluster(main_ref, cluster, increment, subs, subs_report):
         else:
             cluster_list = []
     #
-    # no names exist or multiple unique names exist, but they all come from the same reference annotation
-    # => assign a generic name and use it for all genes in all refs
-    #
-    elif all([ref==ref_gene_names[0][0] for ref, gene in ref_gene_names]):
-        # Make sure there is more than one gene in this case
-        if len(cluster) > 1:
-            (name, increment) = designator.assign_orf_id(increment)
-        # We won't assign a generic name for just a single gene.
-        else:
-            cluster_list = []
-    #
-    # multiple unique names exist across references
-    # => process individually
+    # multiple unique names exist
+    # => assign a generic name and use it for all genes in all refs.
     #
     else:
-        for ref in cluster_dict:
-            subs, subs_report, increment = name_cluster(
-                main_ref,
-                [_ for _ in cluster if _.startswith(f"{ref}:")],
-                increment,
-                subs,
-                subs_report,
-            )
-        cluster_list = []
+        (name, increment) = designator.assign_orf_id(increment)
 
 
     for ref, ltag, og_gene_name in cluster_list:

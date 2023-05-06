@@ -9,6 +9,7 @@ from hybran import designator, onegene
     'singleref_one_named',
     'multiref_single_orthologs',
     'multiref_mixed_bag',
+    'multiref_orthologous_named_duplicates',
 ])
 def test_name_cluster(situation):
 
@@ -31,6 +32,12 @@ def test_name_cluster(situation):
             'Ref2:R2_01234:R2_01234',
             'Ref3:R3_01234:genA',
             'Ref3:R3_06789:R3_06789',
+        ],
+        'multiref_orthologous_named_duplicates': [
+            'Ref1:R1_01234:genA',
+            'Ref1:R1_01235:genB',
+            'Ref2:R2_01234:genA',
+            'Ref2:R2_01235:genB',
         ],
     }
 
@@ -85,6 +92,23 @@ def test_name_cluster(situation):
              "Ref3\tR3_06789\tR3_06789\tgenA\n"
              ),
             1,
+        ],
+        'multiref_orthologous_named_duplicates': [
+            {'Ref1': {
+                'R1_01234':'ORF0001',
+                'R1_01235':'ORF0001',
+            },
+             'Ref2': {
+                'R2_01234':'ORF0001',
+                'R2_01235':'ORF0001',
+             },
+             },
+            ("Ref1\tR1_01234\tgenA\tORF0001\n"
+             "Ref1\tR1_01235\tgenB\tORF0001\n"
+             "Ref2\tR2_01234\tgenA\tORF0001\n"
+             "Ref2\tR2_01235\tgenB\tORF0001\n"
+             ),
+            2,
         ],
     }
     expected_subs.update(expected[situation][0])
