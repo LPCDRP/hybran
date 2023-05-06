@@ -600,8 +600,8 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'good_start_stop_fix_pseudo': [True, FeatureLocation(2735891, 2736310, strand=1)],
         'inframe_deletion_in_middle': [False, FeatureLocation(3730264, 3741334, strand=-1)],
         'good_blast_still_repairable': [False, FeatureLocation(0, 1524, strand=1)],
-        'start_correction_induces_delayed_stop': [False, FeatureLocation(1370377, 1371385, strand=-1)],
-        'start_correction_induces_delayed_stop2': [False, FeatureLocation(0, 1, strand=-1)],
+        'start_correction_induces_delayed_stop': [True, FeatureLocation(1370377, 1371385, strand=-1)],
+        'start_correction_induces_delayed_stop2': [True, FeatureLocation(2881559, 2882297, strand=1)],
     }
     results = annomerge.pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]
