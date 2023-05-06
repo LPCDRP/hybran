@@ -11,7 +11,7 @@ from . import \
     verifyInstallations, \
     fileManager, \
     extractor, \
-    refManager, \
+    onegene, \
     run, \
     annomerge, \
     converter, \
@@ -69,6 +69,12 @@ def cmds():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     stdize.set_defaults(func=standardize.main)
+    onegenecmd = subparsers.add_parser(
+        'onegene',
+        help='Unify names of gene duplicates.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    onegenecmd.set_defaults(func=onegene.main)
 
 
     #
@@ -91,10 +97,57 @@ def cmds():
         default='.',
     )
     stdize.add_argument(
-        '-d', '--duplicates-file',
-        help="duplicates.tsv file produced during Hybran's reference deduplication step.",
+        '-u', '--unifications-file',
+        help="reference annotation's unifications.tsv file produced by hybran onegene.",
         required=True,
     )
+
+    #
+    # hybran onegene
+    #
+    onegenecmd.add_argument(
+        'annotations',
+        help="Directory, space-separated list of GBKs, or a FOFN containing all annotated genomes.",
+        nargs='+'
+    )
+    onegenecmd.add_argument(
+        '-p', '--orf-prefix',
+        type=str,
+        help=(
+            "prefix for unifying gene names (*not* locus tags). "
+            "Such names will be applied to all sets of highly conserved genes if they don't already have a name or if they have discrepant names. "
+            "Whatever you pass here will be sandwiched by REF and X. (i.e., the default ORF will be transformed into REFORFX and then used)."
+        ),
+        default='ORF',
+    )
+    onegenecmd.add_argument(
+        '-o', '--output',
+        help='Directory to output all new annotation files.',
+        default='.',
+    )
+    onegenecmd.add_argument(
+        '-i', '--identity-threshold',
+        required=False,
+        type=int,
+        help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP to call duplications',
+        default=99,
+    )
+    onegenecmd.add_argument(
+        '-c', '--coverage-threshold',
+        required=False,
+        type=int,
+        help='Percent alignment coverage threshold to use during CD-HIT clustering and BLASTP to call duplications',
+        default=99,
+    )
+    onegenecmd.add_argument(
+        '-t', '--first-reference',
+        required=False,
+        dest='first_gbk',
+        help="Reference name or file name whose locus tags should be used as unified names for conserved copies in the others."
+        " Default is the annotation with the most named CDSs. If you specify a file here that is not in your input list, it will be added."
+    )
+
+
 
     #
     # hybran annotate
@@ -250,6 +303,7 @@ def main(args, prokka_args):
     hybran_tmp_dir = config.hybran_tmp_dir
 
     designator.generic_orf_prefix[0]=args.orf_prefix
+    designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"
 
     # Cleanup the temporary files directory and its contents at exit unless
     # --debug is set
@@ -300,12 +354,16 @@ def main(args, prokka_args):
     os.chdir(args.output)
 
     # Setting up references for RATT, as well as versions in GFF format used later
-    if not os.path.isdir('deduped-refs'):
+    if not os.path.isdir('unified-refs'):
         try:
-            os.mkdir('deduped-refs')
+            os.mkdir('unified-refs')
         except:
-            sys.exit("Could not create directory: deduped-refs ")
-    args.references = refManager.dedupe(args.references, outdir='deduped-refs', tmpdir=hybran_tmp_dir)
+            sys.exit("Could not create directory: unified-refs ")
+    deduped_refs = [os.path.abspath(os.path.join('unified-refs',os.path.basename(_))) for _ in args.references]
+    if not all([os.path.isfile(_) for _ in deduped_refs]):
+        args.references = onegene.unify(args.references, outdir='unified-refs', tmpdir=hybran_tmp_dir)
+    else:
+        args.references = deduped_refs
     refdir, embl_dir, embls = fileManager.prepare_references(args.references)
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]

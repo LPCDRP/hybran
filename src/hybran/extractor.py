@@ -139,6 +139,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     logger = logging.getLogger('FastaFromGbk')
     contigs = []
     seqs = []
+    n_named_cds = 0
     # this is a bit circular, but I don't want to deal with the first CDS
     # possibly being a pseudogene.
     genetic_code = get_genetic_code(genbank)
@@ -151,6 +152,12 @@ def fastaFromGbk(genbank, out_cds, out_genome,
         if record.features:
             for feature in record.features:
                 if feature.type == 'CDS':
+                    if (
+                            'gene' in feature.qualifiers
+                            and not designator.is_unannotated(feature.qualifiers['gene'][0])
+                            and feature.qualifiers['gene'][0] != feature.qualifiers['locus_tag'][0]
+                    ):
+                        n_named_cds += 1
                     if designator.is_pseudo(feature.qualifiers):
                         seq_record = SeqRecord(
                             translate(feature.extract(record.seq), table=genetic_code, to_stop=True),
@@ -164,7 +171,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                     seqs.append(seq_record)
     SeqIO.write(seqs, out_cds, 'fasta')
     SeqIO.write(contigs, out_genome, 'fasta')
-    return
+    return n_named_cds
 
 def subset_fasta(inseq, outseq, match, identify = lambda _:_):
     """

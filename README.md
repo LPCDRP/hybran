@@ -44,8 +44,8 @@ outdir/
 ├── <i>sampleN</i>/
 │   └── ...
 │
-├──deduped-refs/
-│   ├── duplicates.tsv
+├──unified-refs/
+│   ├── unifications.tsv
 │   ├── <i>reference1</i>.gbk
 │   ├── ...
 │   └── <i>referenceN</i>.gbk
@@ -65,12 +65,12 @@ outdir/
 
 #### Logs and Reports
 
-##### `deduped-refs/duplicates.tsv`
+##### `unified-refs/unifications.tsv`
 
-`hybran` generates revised reference annotations in the `deduped-refs` directory.
-These annotations differ from the original in that each set of duplicate genes is assigned a single name used for all instances.
+`hybran` generates revised reference annotations in the `unified-refs` directory.
+These annotations differ from the original in that each set of conserved (>=99% amino acid identity and alignment coverage) or duplicated genes is assigned a single name used for all instances.
 The original name is retained as a `gene_synonym` qualifier in the annotation file.
-The file `duplicates.tsv` will list duplicate genes found in the reference annotations and the name they were assigned.
+The file `unifications.tsv` will list duplicate genes found in the reference annotations and the name they were assigned.
 Columns in this file are
 
 * reference name

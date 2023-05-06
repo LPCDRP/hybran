@@ -76,7 +76,7 @@ def test_standardize(gene):
             qualifiers={'gene':["MBT_5678::MBT_01234::MBT_4359"]}
         ),
     }
-    duplicates = {
+    generics = {
         'ORF2345': 'MBT_4356',
         'ORF2495': 'MBT_5467',
         'ORF2395': 'MBT_5457',
@@ -87,5 +87,5 @@ def test_standardize(gene):
     }
     designator.generic_orf_prefix[0]= 'ORF'
 
-    standardize.standardize(inputs[gene], duplicates=duplicates)
+    standardize.standardize(inputs[gene], generics=generics)
     assert inputs[gene].qualifiers == expected[gene].qualifiers
