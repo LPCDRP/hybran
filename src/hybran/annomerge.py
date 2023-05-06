@@ -1391,14 +1391,6 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
                     rejects.append((feature, "RATT-introduced compound interval did not include reference " +
                                     "stop position."))
                     continue
-                broken_stop, stop_note = has_broken_stop(feature)
-                if broken_stop:
-                    feature.qualifiers['pseudo']=['']
-                    designator.append_qualifier(feature.qualifiers, 'note', stop_note)
-                    valid_features.append(feature)
-                    continue
-            unbroken_cds.append(feature)
-            continue
 
         feature_is_pseudo = pseudoscan(
             feature,
