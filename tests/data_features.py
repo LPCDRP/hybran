@@ -178,12 +178,12 @@ features = {
             'ratt': SeqFeature(
                 FeatureLocation(936376, 937360, strand=-1),
                 type='CDS',
-                qualifiers={'locus_tag':['Rv0840c'],'gene':['pip']}
+                qualifiers={'locus_tag':['Rv0840c'],'gene':['pip'],'pseudo':['']}
             ),
             'abinit': SeqFeature(
                 FeatureLocation(936376, 937021, strand=-1),
                 type='CDS',
-                qualifiers={'locus_tag':['L_00896'],'gene':['pip']}
+                qualifiers={'locus_tag':['L_00896'],'gene':['pip'],'pseudo':['']}
             ),
         },
         'Rv0907': {
