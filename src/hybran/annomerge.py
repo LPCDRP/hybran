@@ -1601,17 +1601,8 @@ def thunderdome(abinit_annotation, ratt_annotation):
         key_ref_gene(ratt_annotation.source, ratt_annotation.qualifiers['gene'][0])
     ])
 
-    #If an annotation has a delayed stop, (indicating a potential gene fusion event), we want to consider it a good stop
-    #because it could correspond to the downstream gene's stop position. Gene fusions should take precedence over
-    #alternative annotations if warranted.
-    if abinit_delayed_stop:
-        abinit_coord_status = (abinit_coord_status[0], True)
-    if ratt_delayed_stop:
-        ratt_coord_status = (ratt_coord_status[0], True)
-
     (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
     abinit_coord_score = sum([int(_) for _ in abinit_coord_status])
-
     (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
     ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
 
