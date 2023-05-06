@@ -1,4 +1,6 @@
 import os
+import re
+import warnings
 
 from Bio import SeqIO
 
@@ -13,6 +15,7 @@ def main(args):
     )
 
     designator.generic_orf_prefix[0]=args.orf_prefix
+    designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"
 
     if not os.path.isdir(args.output):
         try:
@@ -57,6 +60,11 @@ def standardize(feature, generics):
             for i in range(len(components)):
                 if components[i] in generics:
                     components[i] = generics[components[i]]
+                    if 'inference' in feature.qualifiers:
+                        update_inferences(
+                            feature.qualifiers['inference'],
+                            generics,
+                        )
                 elif designator.is_unannotated(components[i]):
                     # HGNC nomenclature for fusion with an unknown gene
                     components[i] = '?'
@@ -66,11 +74,23 @@ def standardize(feature, generics):
                 or designator.is_uniref(feature.qualifiers['gene'][0])
         ):
             if 'gene_synonym' in feature.qualifiers:
+                if 'inference' in feature.qualifiers:
+                    update_inferences(
+                        feature.qualifiers['inference'],
+                        {
+                            feature.qualifiers['gene'][0]:feature.qualifiers['gene_synonym'][-1]
+                        },
+                    )
                 feature.qualifiers['gene'][0] = feature.qualifiers['gene_synonym'].pop()
                 if len(feature.qualifiers['gene_synonym']) == 0:
                     del feature.qualifiers['gene_synonym']
             elif gene in generics:
                 feature.qualifiers['gene'][0] = generics[gene]
+                if 'inference' in feature.qualifiers:
+                    update_inferences(
+                        feature.qualifiers['inference'],
+                        generics,
+                    )
             else:
                 del feature.qualifiers['gene']
 
@@ -85,3 +105,14 @@ def load_reference_generics(infile):
             [ref, ltag, gene, generic_name] = line.strip().split('\t')
             generics[generic_name] = gene
     return generics
+
+def update_inferences(inference_list, generics):
+    for i in range(len(inference_list)):
+        try:
+            inference_list[i] = re.sub(
+                designator.ref_orf_prefix[0] + r"\d+",
+                lambda _: generics[_[0]],
+                inference_list[i],
+            )
+        except KeyError:
+            warnings.warn(f"Did not find matching generic name to replace that in the inference: {inference_list[i]}")
