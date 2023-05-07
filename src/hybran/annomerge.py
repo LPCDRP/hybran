@@ -1280,7 +1280,13 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
         remark = ''
         blast_stats = {}
         ref_feature = ref_annotation[cds_feature.qualifiers['gene'][0]]
-        ref_seq = ref_feature.qualifiers['translation'][0]
+        try:
+            ref_seq = ref_feature.qualifiers['translation'][0]
+        except KeyError:
+            ref_seq = translate(
+                ref_feature.extract(ref_feature.references[ref_feature.hybranref], references=ref_feature.references),
+                table=genetic_code, to_stop=True
+            )
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
         if len(feature_sequence) == 0:
             remark = 'length of AA sequence is 0'
