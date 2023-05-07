@@ -1,10 +1,17 @@
 # Release Notes
 
-## Development
-
 ### Enhancements
-* New subcommand `hybran standardize` to remove generic gene names in the final annotations.
-  The `--dedupe-references` option is now removed, being made a core part of the pipeline since the generic names that it introduces to collapse reference paralogs can be undone by `hybran standardize` if desired afterwards.
+* New subcommands:
+  - `hybran standardize`: remove generic gene names in the final annotations.
+  - `hybran onegene`: unify names of highly conserved gene copies
+*  The `--dedupe-references` option is now removed, being made a core part of the pipeline with `onegene` since the generic names that it introduces to collapse reference paralogs can be undone by `hybran standardize` if desired afterwards.
+* Reference unification now uses a different generic prefix than that used for unnamed genes to allow differentiating between them.
+`hybran standardize` handles these as well.
+
+### Bugs fixed
+* reference unification (formerly activated by the `--dedupe-references` option):
+  - fixed for multiple references (#55)
+  - enabled checkpointing on this step in the full pipeline.
 
 ## [Version 1.6.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.6.1)
 
