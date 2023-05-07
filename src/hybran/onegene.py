@@ -62,7 +62,8 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
     :param tmpdir: str path to pipeline's temporary directory
     :param seq_ident: int sequence identity threshold for matching duplicates
     :param seq_covg: int alignment coverage threshold for matching duplicates
-    :return: list of paths to deduplicated annotation files
+    :param main_ref: str name/id of reference to use as primary (for naming). corresponds to basename of gbk filename.
+    :return: str fasta filename of amino acid sequences and list of paths to deduplicated annotation files
     """
 
     dedupe_tmp = os.path.join(tmpdir,'onegene')
@@ -152,7 +153,36 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
         ann_sources[ref] = os.path.abspath(os.path.join(outdir,ref + '.gbk'))
         SeqIO.write(revised_records, ann_sources[ref], format='genbank')
 
-    return list(ann_sources.values())
+
+    proteome_filename = os.path.join(outdir, "unique_ref_cdss.faa")
+    update_multifaa(
+        infasta=ref_cdss_unique_fp,
+        outfasta=proteome_filename,
+        subs=subs,
+    )
+
+    return proteome_filename, list(ann_sources.values())
+
+
+def update_multifaa(infasta, outfasta, subs):
+    """
+    Retitle fasta headers to use the assigned generic names.
+    :param infasta: str input fasta file name
+    :param outfasta: str output fasta file name
+    :param subs: nested dictionary of generic name substitutions for each individual gene by sample
+    """
+
+    outrecords = []
+    for record in SeqIO.parse(infasta, "fasta"):
+        (ref, ltag, gene) = record.id.split(':')
+        if ltag in subs[ref]:
+            record.id = ':'.join([ref, ltag, subs[ref][ltag]])
+            record.description = ''
+        outrecords.append(record)
+
+    with open(outfasta, 'w') as outfasta_handle:
+        SeqIO.write(outrecords, outfasta_handle, "fasta")
+
 
 def name_cluster(main_ref, cluster, increment, subs, subs_report):
     """

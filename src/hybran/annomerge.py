@@ -1778,7 +1778,7 @@ def fix_embl_id_line(embl_file):
             out.write(line)
 
 
-def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, reference_genome, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
+def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
     nproc=1,
 ):
     """
@@ -1796,8 +1796,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     <annotation_fp>/prokka-noreference. Additionally annomerge also assumes that withing prokka and prokka-noreference
     directories, the genbank files are located in <isolate_id>.gbk
     :param ref_proteins_fasta: File path for proteome fasta of reference strain
-    :param ref_gbk_fp: File path for annotated GenBank file for reference strain
-    :param reference_genome: File path for nucleotide fasta of assembled genome
+    :param ref_gbk_list: list of file paths for annotated GenBank file for reference genomes
     :param script_dir: Directory where hybran scripts are located
     :param ratt_enforce_thresholds: boolean - whether to enforce seq_ident/seq_covg for RATT-transferred annotations
     :param nproc: int number of processers available for use
@@ -1852,6 +1851,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     global corrected_orf_report
     corrected_orf_report = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
+    # TODO - keep a reference-specific copy of everything; make it a nested dictionary by reference name.
     global ref_annotation
     ref_annotation = keydefaultdict(ref_fuse)
     # upstream sequence contexts for reference genes. used in multiple places
@@ -1859,22 +1859,23 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
     global ref_fna_dict
     ref_prom_fp_dict = {}
     ref_fna_dict = {}
-    ref_id = os.path.basename(os.path.splitext(ref_gbk_fp)[0])
-    for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
-        ref_contig_id = '.'.join([ref_id, ref_record.name])
-        for feature in ref_record.features:
-            if feature.type != "CDS":
-                continue
-            # setting feature.ref doesn't work for CompoundLocations
-            # but we can set random attributes.
-            feature.hybranref = ref_contig_id
-            feature.references = {ref_contig_id: ref_record.seq}
-            # if reference paralogs have been collapsed, the last occurrence in the genome
-            # will prevail.
-            ref_annotation[feature.qualifiers['gene'][0]] = feature
-        prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
-        ref_prom_fp_dict.update(prom)
-        ref_fna_dict.update(fna)
+    for ref_gbk_fp in ref_gbk_list:
+        ref_id = os.path.basename(os.path.splitext(ref_gbk_fp)[0])
+        for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
+            ref_contig_id = '.'.join([ref_id, ref_record.name])
+            for feature in ref_record.features:
+                if feature.type != "CDS":
+                    continue
+                # setting feature.ref doesn't work for CompoundLocations
+                # but we can set random attributes.
+                feature.hybranref = ref_contig_id
+                feature.references = {ref_contig_id: ref_record.seq}
+                # if reference paralogs have been collapsed, the last occurrence in the genome
+                # will prevail.
+                ref_annotation[feature.qualifiers['gene'][0]] = feature
+            prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
+            ref_prom_fp_dict.update(prom)
+            ref_fna_dict.update(fna)
 
     output_isolate_recs = []
 
@@ -1984,7 +1985,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                 subject=ref_proteins_fasta,
                 seq_ident=seq_ident,
                 seq_covg=seq_covg,
-                identify=lambda _:_.split(':')[1],
+                identify=lambda _:_.split(':')[2],
             )
             prokka_contig_cdss = [f for f in abinit_features_dict.values() if f.type == 'CDS']
             with multiprocessing.Pool(processes=nproc) as pool:
@@ -2025,7 +2026,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_fp, refe
                         ref_annotation[ref_gene],
                         inference=':'.join([
                             f"similar to AA sequence",
-                            ref_id,
+                            ref_annotation[ref_gene].hybranref,
                             ref_annotation[ref_gene].qualifiers['locus_tag'][0],
                             ref_gene,
                             "blastp",
