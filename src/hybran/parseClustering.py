@@ -98,7 +98,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
     unique_genes_list = []
     with open(clustered_proteins, 'r') as clustered_proteins_file:
         for line in clustered_proteins_file:
-            cluster_members = [_.groups() for _ in re.finditer(r'(?P<sample_id>\S+)\|(?P<seq_id>\S+)', line)]
+            cluster_members = [_.groups() for _ in re.finditer(r'(?P<sample_id>\S+)@@@(?P<seq_id>\S+)', line)]
             (rep_isolate, rep_seq_id) = cluster_members[0]
             representative_ltag_gene_tup = gffs[rep_isolate][rep_seq_id]
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
