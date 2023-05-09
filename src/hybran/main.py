@@ -218,7 +218,11 @@ def cmds():
                                  'Free',
                              ],
                              default='Strain',
-                             help='presets for nucmer alignment settings to determine synteny.')
+                             help=(
+                                 'Presets for nucmer alignment settings to determine synteny.'
+                                 "Automatically set to 'Multiple' when multiple references are provided unless 'Free' is specified."
+                             )
+    )
     ratt_params.add_argument('--ratt-splice-sites',
                              type=str,
                              default='XX..XX',
@@ -372,6 +376,9 @@ def main(args, prokka_args):
         args.references = deduped_refs
     refdir, embl_dir, embls = fileManager.prepare_references(args.references)
     ref_gbks = fileManager.file_list([refdir], "genbank")
+    if len(ref_gbks) > 1 and args.ratt_transfer_type not in ["Multiple", "Free"]:
+        logger.info(f"Multiple reference annotations found. Setting RATT transfer type to 'Multiple' accordingly...")
+        args.ratt_transfer_type = "Multiple"
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]
     intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
