@@ -30,7 +30,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
-from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature
+from Bio.SeqFeature import FeatureLocation, ExactPosition, SeqFeature, BeforePosition, AfterPosition
 from Bio import Align
 
 from . import BLAST
@@ -130,14 +130,18 @@ def has_broken_stop(feature):
             note = f"Internal stop detected in the following codon(s): {' '.join([str(i) for i in num_internal_stop])}"
     return internal_stop, note
 
-def stopseeker(feature):
+def stopseeker(feature, circularize=False):
     """
     Use the coordinates from a feature that does not contain a valid in-frame stop codon, and
     return a new extended feature that contains the next available downstream stop codon.
     :param feature: A SeqFeature object
+    :param circular: User specified Boolean to determine topology (i.e. 'circular' or 'linear')
     :return: SeqFeature object that contains a valid stop codon
     """
     extended_feature = deepcopy(feature)
+    return_feature = deepcopy(feature)
+    rec_len = len(record_sequence) -1
+
     if feature.strand == 1:
         extended_feature_start = feature.location.start
         extended_feature_end = len(record_sequence) - 1
@@ -148,24 +152,37 @@ def stopseeker(feature):
     extended_feature.location = FeatureLocation(
         int(extended_feature_start),
         int(extended_feature_end),
-        strand=extended_feature.strand
+        strand=feature.strand
     )
+    if circularize and ((0 in feature) or (rec_len in feature)):
+        circ = FeatureLocation(int(0), int(rec_len), strand=feature.strand)
+        #Creates CompoundLocation
+        if feature.strand == 1:
+            extended_feature.location = extended_feature.location + circularize
+        else:
+            extended_feature.location = circularize + extended_feature.location
     extended_seq = extended_feature.extract(record_sequence).translate(to_stop=True, table=genetic_code)
 
     #Translation extends up to, but not including the stop codon, so we need to add 3 to the end
     if feature.strand == 1:
         extended_feature_start = feature.location.start
         extended_feature_end = feature.location.start + (3*len(extended_seq)) + 3
+        if extended_feature_end > rec_len:
+            #Annotation will look like [feature.start ... >(rec_len)]
+            extended_feature_end = AfterPosition(rec_len)
     else:
         extended_feature_start = feature.location.end - (3*len(extended_seq)) - 3
         extended_feature_end = feature.location.end
+        if extended_feature_start < 0:
+            #Annotation will look like [<0 ... feature.end]
+            extended_feature_start = BeforePosition(0)
 
-    extended_feature.location = FeatureLocation(
+    return_feature.location = FeatureLocation(
         int(extended_feature_start),
         int(extended_feature_end),
-        strand=extended_feature.strand
+        strand=feature.strand
     )
-    return extended_feature
+    return return_feature
 
 def log_feature_fate(feature, logfile, remark=""):
     """
