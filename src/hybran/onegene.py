@@ -91,6 +91,10 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
                     extractor.get_gene(f)
                     ])
             )
+    if main_ref is not None and main_ref not in ann_sources:
+        main_ref = None
+        # TODO - print a warning once we set up logging here:
+        # logger.warning(f"{main_ref} could not be found in the reference list.")
     if main_ref is None:
         main_ref = max(ref_named_cds_count, key=lambda _:ref_named_cds_count[_])
 

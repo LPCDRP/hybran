@@ -368,6 +368,7 @@ def main(args, prokka_args):
                 os.path.abspath(_) for _ in args.references
         ]:
             args.references.append(args.first_gbk)
+            args.first_gbk = os.path.basename(os.path.splitext(args.first_gbk)[0])
     deduped_refs = [os.path.abspath(os.path.join('unified-refs',os.path.basename(_))) for _ in args.references]
     ref_cds = os.path.abspath(os.path.join('unified-refs', 'unique_ref_cdss.faa'))
     if not all([os.path.isfile(_) for _ in deduped_refs]):
