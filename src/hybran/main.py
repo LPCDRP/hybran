@@ -363,6 +363,11 @@ def main(args, prokka_args):
             os.mkdir('unified-refs')
         except:
             sys.exit("Could not create directory: unified-refs ")
+    if args.first_gbk is not None and os.path.isfile(args.first_gbk):
+        if os.path.abspath(args.first_gbk) not in [
+                os.path.abspath(_) for _ in args.references
+        ]:
+            args.references.append(args.first_gbk)
     deduped_refs = [os.path.abspath(os.path.join('unified-refs',os.path.basename(_))) for _ in args.references]
     ref_cds = os.path.abspath(os.path.join('unified-refs', 'unique_ref_cdss.faa'))
     if not all([os.path.isfile(_) for _ in deduped_refs]):
