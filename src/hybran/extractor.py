@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import subprocess
@@ -152,7 +153,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     contigs = []
     seqs = []
     n_named_cds = 0
-    ref_id = os.path.basename(genbank)
+    ref_id = os.path.basename(os.path.splitext(genbank)[0])
     # this is a bit circular, but I don't want to deal with the first CDS
     # possibly being a pseudogene.
     genetic_code = get_genetic_code(genbank)
@@ -165,7 +166,9 @@ def fastaFromGbk(genbank, out_cds, out_genome,
         ))
         if record.features:
             for feature in record.features:
-                feature.ref = ref_contig_id
+                for part in feature.location.parts:
+                    part.ref = ref_contig_id
+                feature.references = {ref_contig_id: record.seq}
                 if feature.type == 'CDS':
                     if (
                             'gene' in feature.qualifiers
@@ -175,7 +178,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                         n_named_cds += 1
                     if designator.is_pseudo(feature.qualifiers):
                         seq_record = SeqRecord(
-                            translate(feature.extract(record.seq), table=genetic_code, to_stop=True),
+                            translate(get_seq(feature), table=genetic_code, to_stop=True),
                             id=identify(feature),
                             description=describe(feature))
                     else:

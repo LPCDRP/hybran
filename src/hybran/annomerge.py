@@ -239,11 +239,11 @@ def ref_fuse(fusion_gene_name):
     """
 
     (refs, fusion_name) = fusion_gene_name.split('@@@')
-    const_genes = fusion_gene_name.split('::')
+    const_genes = fusion_name.split('::')
     const_refs = refs.split('::')
     # Not a fusion gene; defaultdict lookup should fail
     if len(const_genes) <= 1:
-        raise KeyError()
+        raise KeyError(fusion_gene_name)
     location_parts = []
     location_sequences = {}
     for i in range(len(const_genes)):
@@ -470,17 +470,19 @@ def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
         #
         elif only_one_named or extractor.get_gene(last_gene) == extractor.get_gene(feature):
             if only_one_named and last_gene_named:
+                ref_gene_source = last_gene.source
                 ref_gene = last_gene.qualifiers['gene'][0]
             else:
+                ref_gene_source = feature.source
                 ref_gene = feature.qualifiers['gene'][0]
 
             lg_status = coord_check(
                 last_gene,
-                ref_annotation[key_ref_gene(ref_gene.source, ref_gene)],
+                ref_annotation[key_ref_gene(ref_gene_source, ref_gene)],
             )
             cg_status = coord_check(
                 feature,
-                ref_annotation[key_ref_gene(ref_gene.source, ref_gene)],
+                ref_annotation[key_ref_gene(ref_gene_source, ref_gene)],
             )
             if ((any(lg_status) and any(cg_status))
                 and (int(lg_status[0])+int(cg_status[0]), int(lg_status[1])+int(cg_status[1]))==(1,1)):
@@ -642,11 +644,15 @@ def fusionfisher(feature_list):
             else:
                 (pf_goodstart, pf_goodstop) = coord_check(
                     prev_feature,
-                    ref_annotation[extractor.get_gene(prev_feature)],
+                    ref_annotation[
+                        key_ref_gene(prev_feature.source, extractor.get_gene(prev_feature))
+                    ],
                 )
                 (cf_goodstart, cf_goodstop) = coord_check(
                     feature,
-                    ref_annotation[extractor.get_gene(feature)],
+                    ref_annotation[
+                        key_ref_gene(feature.source, extractor.get_gene(feature))
+                    ],
                 )
                 if pf_goodstop and not cf_goodstop:
                     rejects.append((
@@ -1306,7 +1312,9 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
         valid = False
         remark = ''
         blast_stats = {}
-        ref_feature = ref_annotation[cds_feature.qualifiers['gene'][0]]
+        ref_feature = ref_annotation[
+            key_ref_gene(cds_feature.source, cds_feature.qualifiers['gene'][0])
+        ]
         try:
             ref_seq = ref_feature.qualifiers['translation'][0]
         except KeyError:
@@ -1357,7 +1365,7 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
             if broken_stop:
                 good_start, good_stop = coord_check(
                     feature,
-                    ref_annotation[feature.qualifiers['gene'][0]],
+                    ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
                     fix_start=True,
                     fix_stop=True,
                 )
@@ -1376,7 +1384,7 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
 
         feature_is_pseudo = pseudoscan(
             feature,
-            ref_annotation[feature.qualifiers['gene'][0]],
+            ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
             seq_ident,
             seq_covg,
             attempt_rescue=True
@@ -1635,8 +1643,12 @@ def thunderdome(abinit_annotation, ratt_annotation):
     abinit_broken_stop = has_broken_stop(abinit_annotation)[0]
     ratt_broken_stop = has_broken_stop(ratt_annotation)[0]
 
-    abinit_coord_status = coord_check(abinit_annotation, ref_annotation[abinit_annotation.qualifiers['gene'][0]])
-    ratt_coord_status = coord_check(ratt_annotation, ref_annotation[ratt_annotation.qualifiers['gene'][0]])
+    abinit_coord_status = coord_check(abinit_annotation, ref_annotation[
+        key_ref_gene(abinit_annotation.source, abinit_annotation.qualifiers['gene'][0])
+    ])
+    ratt_coord_status = coord_check(ratt_annotation, ref_annotation[
+        key_ref_gene(ratt_annotation.source, ratt_annotation.qualifiers['gene'][0])
+    ])
 
     #If an annotation has a delayed stop, (indicating a potential gene fusion event), we want to consider it a good stop
     #because it could correspond to the downstream gene's stop position. Gene fusions should take precedence over

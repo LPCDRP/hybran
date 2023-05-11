@@ -86,7 +86,7 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
                 out_cds = ref_cdss,
                 out_genome = os.devnull,
                 identify = lambda f: ':'.join([
-                    f.ref,
+                    f.location.parts[0].ref,
                     extractor.get_ltag(f),
                     extractor.get_gene(f)
                     ])
@@ -135,22 +135,23 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
     with open(os.path.join(outdir,'unifications.tsv'),'w') as report:
         report.write(subs_report)
 
-    for ref in subs.keys():
+    for ref in ann_sources:
         revised_records = []
         for record in SeqIO.parse(ann_sources[ref],'genbank'):
+            ref_contig_id = '.'.join([ref, record.id])
             revised = []
             for feature in record.features:
                 if 'locus_tag' in feature.qualifiers.keys() and \
-                   feature.qualifiers['locus_tag'][0] in subs[ref].keys():
+                   feature.qualifiers['locus_tag'][0] in subs[ref_contig_id]:
                     if 'gene' in feature.qualifiers.keys():
                         designator.append_qualifier(
                             feature.qualifiers,
                             'gene_synonym',
                             feature.qualifiers['gene'][0]
                         )
-                        feature.qualifiers['gene'][0] = subs[ref][feature.qualifiers['locus_tag'][0]]
+                        feature.qualifiers['gene'][0] = subs[ref_contig_id][feature.qualifiers['locus_tag'][0]]
                     else:
-                        feature.qualifiers['gene'] = [ subs[ref][feature.qualifiers['locus_tag'][0]] ]
+                        feature.qualifiers['gene'] = [ subs[ref_contig_id][feature.qualifiers['locus_tag'][0]] ]
                 revised.append(feature)
             record.features = revised
             revised_records.append(record)

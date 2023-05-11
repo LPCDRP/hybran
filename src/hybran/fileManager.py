@@ -59,11 +59,12 @@ def prepare_references(references):
     for i in references:
         # we will be using the references exclusively from our temporary directory
         # genbank
-        ref_id = os.path.basename(i)
-        gbk = os.path.join(refdir, ref_id)
+        ref_file = os.path.basename(i)
+        ref_id = os.path.splitext(ref_file)[0]
+        gbk = os.path.join(refdir, ref_file)
         revised_records = []
         for record in SeqIO.parse(i, "genbank"):
-            ref_contig_id = '.'.join([ref_id, ref_record.name])
+            ref_contig_id = '.'.join([ref_id, record.name])
             for f in record.features:
                 if ( 'locus_tag' in f.qualifiers.keys()
                      and 'gene' not in f.qualifiers.keys()
