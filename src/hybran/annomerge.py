@@ -1623,35 +1623,35 @@ def thunderdome(abinit_annotation, ratt_annotation):
                 if abinit_longer:
                     include_abinit = True
                     include_ratt = False
-                    remark = f"Equally valid call, but the more complete ab initio annotation is favored."
+                    remark = f"Equally valid call, but the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} is less complete."
                 elif ratt_longer:
                     include_abinit = False
                     include_ratt = True
-                    remark = f"Equally valid call, but the more complete RATT annotation is favored."
+                    remark = f"Equally valid call, but the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} less complete."
                 else:
                     include_abinit = False
                     include_ratt = True
-                    remark = f"Equally valid call, but conflicts with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
+                    remark = f"Equally valid call. Same length as ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}, but RATT annotation is favored due to synteny."
             #Both pseudo
             else:
                 if abinit_longer and abinit_delayed_stop and not ratt_delayed_stop:
                     include_abinit = True
                     include_ratt = False
-                    remark = f"The ab initio annotation is favored due to having a valid delayed stop."
+                    remark = f"The ab initio annotation is favored over the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} because it is longer and contains a valid delayed stop."
                 elif ratt_longer and ratt_delayed_stop and not abinit_delayed_stop:
                     include_abinit = False
                     include_ratt = True
-                    remark = f"The ratt annotation is favored due to having a valid delayed stop."
+                    remark = f"The RATT annotation is favored over the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} because it is longer and contains a valid delayed stop."
                 #Same location or equivalent delayed stop status
                 else:
                     if abinit_broken_stop and not ratt_broken_stop:
                          include_abinit = False
                          include_ratt = True
-                         remark = f"The ratt annotation is favored due to having a valid stop."
+                         remark = f"The RATT annotation is favored over the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} because it doesn't contain any internal stops and ends with a valid stop codon."
                     elif ratt_broken_stop and not abinit_broken_stop:
                         include_abinit = True
                         include_ratt = False
-                        remark = f"The ab initio annotation is favored due to having a valid stop."
+                        remark = f"The ab initio annotation is favored over the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} because it doesn't contain any internal stops and ends with a valid stop codon."
                     else:
                         include_abinit = False
                         include_ratt = True
@@ -1660,31 +1660,31 @@ def thunderdome(abinit_annotation, ratt_annotation):
         elif (all(ratt_coord_status) or ratt_coord_score > abinit_coord_score or (ratt_stop_ok and not abinit_stop_ok)):
             include_abinit = False
             include_ratt = True
-            remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated."
+            remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated compared to the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}."
         else:
         #This is the only other possibility:
         #elif (all(abinit_coord_status or abinit_coord_score > ratt_coord_score
         #or (abinit_stop_ok and not ratt_stop_ok)):
             include_abinit = True
             include_ratt = False
-            remark = f"Ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated."
+            remark = f"Ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated compared to the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
     else:
         #Always take the non-pseudo annotation if possible
         if not abinit_is_pseudo and ratt_is_pseudo:
             include_abinit = True
             include_ratt = False
-            remark = "Non-pseudo ab initio annotation takes precedence."
+            remark = "Non-pseudo ab initio annotation takes precedence over the pseudo RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
         else:
             include_abinit = False
             include_ratt = True
-            remark = "Non-pseudo RATT annotation takes precedence."
+            remark = "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}."
 
     if include_abinit == include_ratt:
         logger.warning(f"Both annotations were marked for {'inclusion' if include_ratt else 'exclusion'} and one annotation is expected to be excluded:\nRATT Feature\n{ratt_annotation}\n\nab initio Feature\n{abinit_annotation}\n\nUnhandled scenario--RATT favored due to synteny"
         )
         include_abinit = False
         include_ratt = True
-        remark = "Conflicting annotations, RATT favored due to synteny"
+        remark = "Both annotations marked for inclusion. Unhandled scenario--RATT annotation favored due to synteny"
     return include_abinit, include_ratt, remark
 
 
