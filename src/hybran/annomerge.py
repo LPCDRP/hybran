@@ -41,6 +41,20 @@ from . import extractor
 from . import __version__
 
 
+def get_and_remove_ref_tracer(feature):
+    """
+    Remove the temporary tracer note we added to keep track of where an annotation that RATT placed originated from
+    """
+    ref_contig_id = ""
+    if 'note' in feature.qualifiers:
+        marker_note = [_ for _ in feature.qualifiers['note'] if _.startswith("HYBRANSOURCE")][0]
+        feature.qualifiers['note'].remove(marker_note)
+        if not feature.qualifiers['note']:
+            del feature.qualifiers['note']
+        ref_contig_id = marker_note.split(':')[1]
+
+    return ref_contig_id
+
 def overlap_inframe(loc1, loc2):
     """
     Say whether two FeatureLocations are overlapping and share the same reading frame.
@@ -1882,6 +1896,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
         for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
             ref_contig_id = '.'.join([ref_id, ref_record.name])
             for feature in ref_record.features:
+                get_and_remove_ref_tracer(feature) # prevent our tracer note from propagating to future liftovers
                 if feature.type != "CDS":
                     continue
                 # setting feature.ref doesn't work for CompoundLocations
@@ -1914,11 +1929,24 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
 
         ratt_contig_non_cds = []
         for feature in ratt_contig_features:
+            ref_contig_id = get_and_remove_ref_tracer(feature)
+            feature.source = ref_contig_id
             # maybe RATT should be adding this inference tag itself
-            if 'inference' not in feature.qualifiers:
-                feature.qualifiers['inference'] = ["alignment:RATT"]
+            if 'locus_tag' in feature.qualifiers:
+                infer_string = ':'.join([
+                    f"similar to nucleotide sequence",
+                    ref_contig_id,
+                    extractor.get_ltag(feature),
+                    extractor.get_gene(feature),
+                    "RATT",
+                ])
             else:
-                feature.qualifiers['inference'].append("alignment:RATT")
+                infer_string = ':'.join([
+                    f"similar to nucleotide sequence",
+                    ref_contig_id,
+                    "RATT",
+                ])
+            designator.append_qualifier(feature.qualifiers, 'inference', infer_string)
             if feature.type not in [
                     'CDS',
                     'gene',
