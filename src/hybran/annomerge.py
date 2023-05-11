@@ -1890,7 +1890,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 feature.references = {ref_contig_id: ref_record.seq}
                 # if reference paralogs have been collapsed, the last occurrence in the genome
                 # will prevail.
-                ref_annotation[key_ref_gene(ref_id, feature.qualifiers['gene'][0])] = feature
+                ref_annotation[key_ref_gene(ref_contig_id, feature.qualifiers['gene'][0])] = feature
             prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
             ref_prom_fp_dict.update(prom)
             ref_fna_dict.update(fna)

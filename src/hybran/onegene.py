@@ -86,7 +86,7 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
                 out_cds = ref_cdss,
                 out_genome = os.devnull,
                 identify = lambda f: ':'.join([
-                    ref_name,
+                    f.ref,
                     extractor.get_ltag(f),
                     extractor.get_gene(f)
                     ])

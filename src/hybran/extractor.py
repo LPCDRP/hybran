@@ -152,10 +152,12 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     contigs = []
     seqs = []
     n_named_cds = 0
+    ref_id = os.path.basename(genbank)
     # this is a bit circular, but I don't want to deal with the first CDS
     # possibly being a pseudogene.
     genetic_code = get_genetic_code(genbank)
     for record in SeqIO.parse(genbank, 'genbank'):
+        ref_contig_id = '.'.join([ref_id, record.name])
         contigs.append(SeqRecord(
             record.seq,
             id=record.id, # os.path.splitext(os.path.basename(genbank))[0],
@@ -163,6 +165,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
         ))
         if record.features:
             for feature in record.features:
+                feature.ref = ref_contig_id
                 if feature.type == 'CDS':
                     if (
                             'gene' in feature.qualifiers
