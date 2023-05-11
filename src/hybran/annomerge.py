@@ -876,6 +876,8 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         pad_feature_seq = pad_feature.extract(record_sequence)
 
         pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
+
+        #Don't try to fix what isn't broken
         if found_low:
             pad_found_low = False
         if found_high:
@@ -953,12 +955,13 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
 
         if i == 1:
             continue
+
+        #Coordinates can fail to get corrected because the second alignment score is worse than the first score
+        #only because of excess leftover padding. A third alignment with the corrected coordinates (sans 'padding')
+        #ensures we aren't unnecessarily rejecting corrections.
         elif any([pad_found_low, pad_found_high]) and any([fix_start, fix_stop]) and (first_score > second_score):
 
-            #Catch corner cases where we try to correct a reference corresponding start PAST the end of the feature.
-            #or where we try to correct a reference corresponding stop BEFORE the start of a feature.
-            #If the original alignment was really far off, and we found a downstream start/upstream stop
-            #simply by chance from the addition of extra padding, we should just leave the gene alone.
+            #Same corner case 'catch' as the one found above
             if corrected_feature_start > corrected_feature_end:
                  feature.location = FeatureLocation(
                      int(og_feature_start),
@@ -983,14 +986,15 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         else:
             break
 
-    #For cases where we DON'T want to fix coords, good_start/stop should only be true if positionally
-    #identical to the start/stop in the reference. This is opposed to the normal definition of
-    #good_start/stop as CONTAINING a reference corresponding start/stop site.
-    if good_start and not fix_start:
+    #Up to this point, good_start/stop would be True if a sequence CONTAINED a reference corresponding start/stop somewhere
+    #within its boundaries. This concept was necessary for determining where and when corrections should be made.
+    #Now that corrections have been made, we are requiring that good_start/stop should only be True if positionally identical
+    #to the start/stop in the reference sequence.
+    if good_start:
         if ((feature.strand == 1 and feature.location.start != corrected_feature_start) or
             (feature.strand == -1 and feature.location.end != corrected_feature_end)):
             good_start = False
-    if good_stop and not fix_stop:
+    if good_stop:
         if ((feature.strand == 1 and feature.location.end != corrected_feature_end) or
             (feature.strand == -1 and feature.location.start != corrected_feature_start)):
             good_stop = False
