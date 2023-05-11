@@ -220,32 +220,39 @@ def ref_fuse(fusion_gene_name):
     Throws a KeyError if one of the constituent names is not in the ref_annotation dictionary or if the fusion gene name is not valid.
     This is intended to be used as a callable for defaultdict for reference annotations.
 
-    :param fusion_gene_name: A string, expected to be ::-delimited, corresponding to the fusion gene name.
+    :param fusion_gene_name: A string, expected to be @@@-delimited between ref and gene, and each of those to be ::-delimited, corresponding to the ref and gene name of each component.
     :return: SeqFeature with concatenated coordinates
     """
 
-    constituents = fusion_gene_name.split('::')
+    (refs, fusion_name) = fusion_gene_name.split('@@@')
+    const_genes = fusion_gene_name.split('::')
+    const_refs = refs.split('::')
     # Not a fusion gene; defaultdict lookup should fail
-    if len(constituents) <= 1:
+    if len(const_genes) <= 1:
         raise KeyError()
     location_parts = []
     location_sequences = {}
-    for member in constituents:
-        location_sequences.update(ref_annotation[member].references)
-        if isinstance(ref_annotation[member].location, Bio.SeqFeature.CompoundLocation):
-            location_parts += list(ref_annotation[member].location.parts)
-        else:
-            location_parts.append(ref_annotation[member].location)
+    for i in range(len(const_genes)):
+        ref_feature_i = ref_annotation[key_ref_gene(const_refs[i], const_genes[i])]
+        location_sequences.update(ref_feature_i.references)
+        location_parts += list(ref_feature_i.location.parts)
     ref_fusion = SeqFeature(
-        Bio.SeqFeature.CompoundLocation(location_parts, operator='order'),
+        # Biopython currently doesn't support the 'order' operator for feature.extract()
+        Bio.SeqFeature.CompoundLocation(location_parts, operator='join'),
         qualifiers={'locus_tag':fusion_gene_name, 'gene':fusion_gene_name},
     )
-    # TODO: We're forced to set a single ref for all the parts.
-    #       This would pose a problem for fusions of translocated genes.
-    # TODO: We can't use the native .ref attribute since it isn't allowed for CompoundLocations
-    ref_fusion.hybranref = ref_annotation[member].hybranref
+
     ref_fusion.references = location_sequences
     return ref_fusion
+
+def key_ref_gene(ref_id, gene_name):
+    """
+    Generate a key for ref_annotation dictionary
+
+    We do this rather than use a nested dictionary because, for gene fusions,
+    the reference sequence that each member lifted over from is not necessarily the same.
+    """
+    return '@@@'.join([ref_id, gene_name])
 
 def upstream_context(feature_location, source_seq, n=40, circular=True):
     """
@@ -308,7 +315,7 @@ def get_nuc_seq_for_gene(feature_list, source_seq):
         locus = f.qualifiers['locus_tag'][0]
         prom_seq = upstream_context(f.location, source_seq)
         ref_fna_dict[locus] = SeqRecord(
-            seq=f.extract(f.references[f.hybranref], references=f.references),
+            seq=extractor.get_seq(f),
             id=locus
         )
         fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
@@ -455,11 +462,11 @@ def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
 
             lg_status = coord_check(
                 last_gene,
-                ref_annotation[ref_gene],
+                ref_annotation[key_ref_gene(ref_gene.source, ref_gene)],
             )
             cg_status = coord_check(
                 feature,
-                ref_annotation[ref_gene],
+                ref_annotation[key_ref_gene(ref_gene.source, ref_gene)],
             )
             if ((any(lg_status) and any(cg_status))
                 and (int(lg_status[0])+int(cg_status[0]), int(lg_status[1])+int(cg_status[1]))==(1,1)):
@@ -483,14 +490,18 @@ def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
             new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
 
-            if all(coord_check(new_feature, ref_annotation[new_feature.qualifiers['gene'][0]], fix_start=True, fix_stop=True)) or reason == 'overlapping_inframe':
+            if all(coord_check(
+                    new_feature,
+                    ref_annotation[key_ref_gene(new_feature.source, new_feature.qualifiers['gene'][0])],
+                    fix_start=True, fix_stop=True)
+                   ) or reason == 'overlapping_inframe':
                 dropped_ltag_features.append(
                     (dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}")
                 )
                 # Re-call pseudoscan for updated notes and blast
                 pseudoscan(
                     new_feature,
-                    ref_annotation[new_feature.qualifiers['gene'][0]],
+                    ref_annotation[key_ref_gene(new_feature.source, new_feature.qualifiers['gene'][0])],
                     seq_ident=seq_ident,
                     seq_covg=seq_covg,
                     blast_hit_dict=abinit_blast_results[new_feature.qualifiers['locus_tag'][0]],
@@ -560,11 +571,11 @@ def fusionfisher(feature_list):
             else:
                 (pf_goodstart, pf_goodstop) = coord_check(
                     prev_feature,
-                    ref_annotation[extractor.get_gene(prev_feature)],
+                    ref_annotation[key_ref_gene(prev_feature.source, extractor.get_gene(prev_feature))],
                 )
                 (cf_goodstart, cf_goodstop) = coord_check(
                     feature,
-                    ref_annotation[extractor.get_gene(feature)],
+                    ref_annotation[key_ref_gene(feature.source, extractor.get_gene(feature))],
                 )
                 if (pf_goodstart and not cf_goodstart) or (not pf_goodstop and cf_goodstop):
                     upstream = prev_feature
@@ -578,6 +589,7 @@ def fusionfisher(feature_list):
                     downstream = feature
 
                 prev_feature.qualifiers['gene'][0] = '::'.join([extractor.get_gene(_) for _ in [upstream, downstream]])
+                prev_feature.source = '::'.join([upstream.source, downstream.source])
                 prev_feature.qualifiers['product'] = [' / '.join([_.qualifiers['product'][0] for _ in [upstream, downstream] if 'product' in _.qualifiers])]
 
                 rejects.append((
@@ -606,6 +618,7 @@ def fusionfisher(feature_list):
                 )
 
                 upstream.qualifiers['gene'][0] = '::'.join([extractor.get_gene(_) for _ in [upstream, downstream]])
+                upstream.source = '::'.join([upstream.source, downstream.source])
                 upstream.qualifiers['product'] = [' / '.join([_.qualifiers['product'][0] for _ in [upstream, downstream] if 'product' in _.qualifiers])]
 
                 remarkable['conjoined'].append(upstream)
@@ -754,7 +767,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     """
 
     logger = logging.getLogger('CoordCheck')
-    ref_seq = ref_feature.extract(ref_feature.references[ref_feature.hybranref], references=ref_feature.references)
+    ref_seq = extractor.get_seq(ref_feature)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
@@ -1109,7 +1122,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
             good_start, good_stop = coord_check(feature, ref_feature, fix_start, fix_stop)
             coords_ok = [good_start, good_stop]
             ref_seq = translate(
-                ref_feature.extract(ref_feature.references[ref_feature.hybranref], references=ref_feature.references),
+                extractor.get_seq(ref_feature),
                 table=genetic_code, to_stop=True
             )
             feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
@@ -1284,7 +1297,7 @@ def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident
             ref_seq = ref_feature.qualifiers['translation'][0]
         except KeyError:
             ref_seq = translate(
-                ref_feature.extract(ref_feature.references[ref_feature.hybranref], references=ref_feature.references),
+                extractor.get_seq(ref_feature),
                 table=genetic_code, to_stop=True
             )
         feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
@@ -1857,7 +1870,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
     global corrected_orf_report
     corrected_orf_report = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
-    # TODO - keep a reference-specific copy of everything; make it a nested dictionary by reference name.
     global ref_annotation
     ref_annotation = keydefaultdict(ref_fuse)
     # upstream sequence contexts for reference genes. used in multiple places
@@ -1873,12 +1885,12 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 if feature.type != "CDS":
                     continue
                 # setting feature.ref doesn't work for CompoundLocations
-                # but we can set random attributes.
-                feature.hybranref = ref_contig_id
+                for part in feature.location.parts:
+                    part.ref = ref_contig_id
                 feature.references = {ref_contig_id: ref_record.seq}
                 # if reference paralogs have been collapsed, the last occurrence in the genome
                 # will prevail.
-                ref_annotation[feature.qualifiers['gene'][0]] = feature
+                ref_annotation[key_ref_gene(ref_id, feature.qualifiers['gene'][0])] = feature
             prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
             ref_prom_fp_dict.update(prom)
             ref_fna_dict.update(fna)
@@ -1991,7 +2003,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 subject=ref_proteins_fasta,
                 seq_ident=seq_ident,
                 seq_covg=seq_covg,
-                identify=lambda _:_.split(':')[2],
             )
             prokka_contig_cdss = [f for f in abinit_features_dict.values() if f.type == 'CDS']
             with multiprocessing.Pool(processes=nproc) as pool:
@@ -2002,15 +2013,16 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
             n_coords_corrected = 0
             n_bad_starts = 0
             for j in range(len(prokka_contig_cdss)):
-                ref_gene, low_covg, blast_hits = blast_package[j]
+                top_hit, low_covg, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
-
-                if ref_gene:
+                if top_hit:
+                    ref_id, ref_ltag, ref_gene = top_hit.split(':')
+                    feature.source = ref_id
                     feature.qualifiers['gene'] = [ref_gene]
                     og_feature_location = deepcopy(feature.location)
                     feature_is_pseudo = pseudoscan(
                         feature,
-                        ref_annotation[ref_gene],
+                        ref_annotation[key_ref_gene(ref_id, ref_gene)],
                         seq_ident,
                         seq_covg,
                         attempt_rescue=True,
@@ -2029,11 +2041,11 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
 
                     liftover_annotation(
                         feature,
-                        ref_annotation[ref_gene],
+                        ref_annotation[key_ref_gene(ref_id, ref_gene)],
                         inference=':'.join([
                             f"similar to AA sequence",
-                            ref_annotation[ref_gene].hybranref,
-                            ref_annotation[ref_gene].qualifiers['locus_tag'][0],
+                            ref_id,
+                            ref_ltag,
                             ref_gene,
                             "blastp",
                         ])

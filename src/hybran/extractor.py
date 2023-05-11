@@ -21,6 +21,18 @@ def get_gene(feature):
         gene = get_ltag(feature)
     return gene
 
+def get_seq(feature):
+    """
+    Adapted from Bio.SeqFeature CompoundLocation.extract()
+    """
+    parts = [
+        loc.extract(
+            feature.references[loc.ref],
+            references=feature.references
+        ) for loc in feature.location.parts
+    ]
+    return functools.reduce(lambda x, y: x + y, parts)
+
 def get_contig_names(fasta_file):
     return [record.id for record in SeqIO.parse(fasta_file,"fasta")]
 
