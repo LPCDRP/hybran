@@ -322,48 +322,6 @@ def key_ref_gene(ref_id, gene_name):
     """
     return '@@@'.join([ref_id, gene_name])
 
-def upstream_context(feature_location, source_seq, n=40, circular=True):
-    """
-    Get the n bases upstream of a genomic feature.
-    :param feature_location: FeatureLocation
-    :source_seq: Seq or str sequence to which the FeatureLocation maps
-    :param n: int number of bases of upstream context to retrieve
-    :param circular: boolean whether the end of the sequence precedes position 0
-                     (linear support not currently implemented)
-    :return: str upstream sequence length n
-    """
-    feature_start = int(feature_location.start)
-    feature_stop = int(feature_location.end)
-    feature_strand = int(feature_location.strand)
-    if feature_strand == 1:
-        prom_end = feature_start
-        if feature_start < n:
-            if circular:
-                prev_prom_len = n - prom_end
-                prom_start = len(source_seq) - prev_prom_len
-                extra_prom_seq = str(source_seq[prom_start:len(source_seq)])
-            else:
-                extra_prom_seq = ''
-            prom_seq = extra_prom_seq + str(source_seq[0:prom_end])
-        else:
-            prom_start = feature_start - n
-            prom_seq = str(source_seq[prom_start:prom_end])
-    else:
-        prom_start = feature_stop
-        if len(source_seq) - feature_stop < n:
-            if circular:
-                prev_prom_len = len(source_seq) - prom_start
-                extra_prom_seq = str(source_seq[0:n-prev_prom_len])
-            else:
-                extra_prom_seq = ''
-            prom_seq = str(source_seq[prom_start:]) + extra_prom_seq
-        else:
-            prom_end = feature_stop + n
-            prom_seq = str(source_seq[prom_start:prom_end])
-        prom_seq = str(Seq(prom_seq).reverse_complement())
-
-    return prom_seq
-
 def get_nuc_seq_for_gene(feature_list, source_seq):
     """
     This function gets the promoter sequence (40 bp upstream of gene) for a set of features, stores the

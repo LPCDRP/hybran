@@ -33,6 +33,7 @@ def test_ref_fuse():
 #    'beginning_linear',
 #    'end_minus_linear',
 ])
+@pytest.mark.skip("unused")
 def test_upstream_context(location):
     # sequence generated with `makenucseq`
     seq = 'cgctaccgggtgcttgacta'
