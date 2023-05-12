@@ -884,7 +884,7 @@ def test_find_inframe_overlaps(case):
 
     abinit_features_dictionary = dictate(abinit_features[case])
 
-    assert annomerge.remove_duplicate_annotations(ratt_features[case], abinit_features_dictionary) == \
+    assert annomerge.find_inframe_overlaps(ratt_features[case], abinit_features_dictionary) == \
         (dictate(expected_keep[case]), expected_overlaps[case], expected_rejects[case])
 
 @pytest.mark.parametrize('pair', [
