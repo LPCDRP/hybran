@@ -181,8 +181,8 @@ def cmds():
     optional.add_argument('-c', '--coverage-threshold', required=False, type=int,
                           help='Percent sequence coverage threshold to use during CD-HIT clustering and BLASTP',
                           default=95)
-    optional.add_argument('-o', '--output', help='Directory to output all new annotation files. Default is the '
-                                                 '-r/--references directory. Full path only')
+    optional.add_argument('-o', '--output', help='Directory to output all new annotation files.',
+                          default='.')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use',
                           type=int,
                           default=1)
@@ -340,8 +340,6 @@ def main(args, prokka_args):
                                 format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
                                 datefmt='%H:%M:%S %m-%d')
     logger = logging.getLogger('Hybran')
-    if not args.output:
-        args.output = args.references
     cwd = os.getcwd() + '/'
 
     # Convert all input paths to full path if not given as full path

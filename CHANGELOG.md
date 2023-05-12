@@ -14,6 +14,9 @@
   - enabled checkpointing on this step in the full pipeline.
 * pseudoscan: now identifies delayed stop codons when start coordinate correction changes the reading frame without introducing an internal stop.
 
+### Housekeeping
+* set default output directory to current directory.
+
 ## [Version 1.6.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.6.1)
 
 ### Bugs fixed
