@@ -24,9 +24,10 @@ for ref in [
                 if 'locus_tag' in feature.qualifiers and 'gene' not in feature.qualifiers:
                     feature.qualifiers['gene'] = deepcopy(feature.qualifiers['locus_tag'])
                 if 'gene' in feature.qualifiers:
-                    feature.hybranref = k
+                    for part in feature.location.parts:
+                        part.ref = k
                     feature.references = {k: record.seq}
-                    ref_features[ref][feature.qualifiers['gene'][0]] = feature
+                    ref_features[ref]['@@@'.join([k, feature.qualifiers['gene'][0]])] = feature
 
 
 features = {
@@ -497,6 +498,26 @@ features = {
         },
     },
 }
+for sample in features:
+    if sample in [
+            '1-0006',
+            '1-0009',
+            '1-0047',
+            '2-0031',
+            '4-0041',
+            'SEA08151',
+    ]:
+        source = 'H37Rv.NC_000962.3'
+    else:
+        source = 'nissle-hybrid.CP007799'
+    for gene in features[sample]:
+        for call in features[sample][gene].values():
+            if 'gene' in call.qualifiers:
+                n_fusions = call.qualifiers['gene'][0].count('::')
+            else:
+                n_fusions = 0
+            call.source = '::'.join([source]*(n_fusions+1))
+
 
 abinit_blast_results = {
     '1-0006': {

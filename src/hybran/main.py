@@ -173,8 +173,8 @@ def cmds():
                           dest='database_dir',
                           required=False)
     optional.add_argument('-t', '--first-reference', required=False, dest='first_gbk',
-                          help='Reference to use as the reference database for Prokka. Must exist in --references dir.'
-                               ' Default is the first reference annotation (Genbank) in -r/--references.')
+                          help="Reference name or file name whose locus tags should be used as unified names for conserved copies in the others."
+                          " Default is the annotation with the most named CDSs. If you specify a file here that is not in your input list, it will be added.")
     optional.add_argument('-i', '--identity-threshold', required=False, type=int,
                           help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP',
                           default=95)
@@ -218,7 +218,11 @@ def cmds():
                                  'Free',
                              ],
                              default='Strain',
-                             help='presets for nucmer alignment settings to determine synteny.')
+                             help=(
+                                 'Presets for nucmer alignment settings to determine synteny.'
+                                 "Automatically set to 'Multiple' when multiple references are provided unless 'Free' is specified."
+                             )
+    )
     ratt_params.add_argument('--ratt-splice-sites',
                              type=str,
                              default='XX..XX',
@@ -359,12 +363,28 @@ def main(args, prokka_args):
             os.mkdir('unified-refs')
         except:
             sys.exit("Could not create directory: unified-refs ")
+    if args.first_gbk is not None and os.path.isfile(args.first_gbk):
+        if os.path.abspath(args.first_gbk) not in [
+                os.path.abspath(_) for _ in args.references
+        ]:
+            args.references.append(args.first_gbk)
+            args.first_gbk = os.path.basename(os.path.splitext(args.first_gbk)[0])
     deduped_refs = [os.path.abspath(os.path.join('unified-refs',os.path.basename(_))) for _ in args.references]
+    ref_cds = os.path.abspath(os.path.join('unified-refs', 'unique_ref_cdss.faa'))
     if not all([os.path.isfile(_) for _ in deduped_refs]):
-        args.references = onegene.unify(args.references, outdir='unified-refs', tmpdir=hybran_tmp_dir)
+        ref_cds, args.references = onegene.unify(
+            args.references,
+            outdir='unified-refs',
+            tmpdir=hybran_tmp_dir,
+            main_ref=args.first_gbk,
+        )
     else:
         args.references = deduped_refs
     refdir, embl_dir, embls = fileManager.prepare_references(args.references)
+    ref_gbks = fileManager.file_list([refdir], "genbank")
+    if len(ref_gbks) > 1 and args.ratt_transfer_type not in ["Multiple", "Free"]:
+        logger.info(f"Multiple reference annotations found. Setting RATT transfer type to 'Multiple' accordingly...")
+        args.ratt_transfer_type = "Multiple"
     intermediate_dirs = ['clustering/', 'eggnog-mapper-annotations/', 'prodigal-test/', refdir] + \
                         [d for d in glob.glob('emappertmp*/')]
     intermediate_files = ['reference_prodigal_proteome.faa', 'ref.fasta', 'eggnog_seqs.fasta', 'ref_proteome.fasta']
@@ -375,23 +395,9 @@ def main(args, prokka_args):
               'overwrite intermediate files ' \
               '(does not overwrite Genbank/GFF files created in a previous run of hybran).')
         exit()
-    # Getting first reference information
-    if not args.first_gbk:
-        first_reference_gbk = glob.glob(os.path.join(refdir, '*.gbk'))[0]
-    else:
-        first_reference_gbk = os.path.join(refdir, args.first_gbk)
-    ref_cds     = os.path.join(hybran_tmp_dir, 'ref_proteome.fasta')
-    ref_genome  = os.path.join(hybran_tmp_dir, 'ref.fasta')
-    genetic_code = extractor.get_genetic_code(first_reference_gbk)
+    genetic_code = extractor.get_genetic_code(ref_gbks[0])
     config.set_genetic_code(genetic_code)
     logger.info('Using genetic code ' + str(genetic_code) + ' as detected in reference annotation.')
-    logger.info('Creating a reference proteome FASTA for Prokka from ' + first_reference_gbk)
-    extractor.fastaFromGbk(
-        genbank = first_reference_gbk,
-        out_cds = ref_cds,
-        out_genome = ref_genome,
-        describe = extractor.prokka_faa,
-    )
 
 
     # Configure RATT start/stop codons and other settings,
@@ -436,8 +442,7 @@ def main(args, prokka_args):
                                   contigs=extractor.get_contig_names(genome),
                                   annotation_fp=os.getcwd() + '/',
                                   ref_proteins_fasta=ref_cds,
-                                  ref_gbk_fp=first_reference_gbk,
-                                  reference_genome=ref_genome,
+                                  ref_gbk_list=ref_gbks,
                                   script_directory=script_dir,
                                   seq_ident=args.identity_threshold,
                                   seq_covg=args.coverage_threshold,
@@ -458,15 +463,22 @@ def main(args, prokka_args):
                        nproc=args.nproc,
                        seq_ident=args.identity_threshold,
                        seq_covg=args.coverage_threshold)
-        tax_id = extractor.get_taxonomy_id(first_reference_gbk)
-        if args.database_dir and tax_id and 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
-            ref_gene_dict = extractor.gene_dict(first_reference_gbk)
-            run.eggnog_mapper(script_dir=script_dir,
-                              nproc=args.nproc,
-                              emapper_loc=args.database_dir,
-                              ref_tax_id = tax_id,
-                              ref_gene_dict = ref_gene_dict,
-                              temp_dir=hybran_tmp_dir)
+        if args.database_dir and 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
+            ref_tax_ids = [extractor.get_taxonomy_id(_) for _ in ref_gbks]
+            if any(ref_tax_ids):
+                # TODO: extractor.gene_dict should have another level by refname
+                ref_gene_dict = {}
+                [ref_gene_dict.update(extractor.gene_dict(_)) for _ in ref_gbks]
+                run.eggnog_mapper(
+                    script_dir=script_dir,
+                    nproc=args.nproc,
+                    emapper_loc=args.database_dir,
+                    ref_tax_ids = [_ for _ in ref_tax_ids if _ is not None],
+                    ref_gene_dict = ref_gene_dict,
+                    temp_dir=hybran_tmp_dir
+                )
+            else:
+                logger.info('No reference taxonomy IDs detected. Skipping eggNOG mapping...')
         else:
             logger.info('No genes to be annotated with eggnog, continuing')
 

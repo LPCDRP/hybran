@@ -62,7 +62,8 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
     :param tmpdir: str path to pipeline's temporary directory
     :param seq_ident: int sequence identity threshold for matching duplicates
     :param seq_covg: int alignment coverage threshold for matching duplicates
-    :return: list of paths to deduplicated annotation files
+    :param main_ref: str name/id of reference to use as primary (for naming). corresponds to basename of gbk filename.
+    :return: str fasta filename of amino acid sequences and list of paths to deduplicated annotation files
     """
 
     dedupe_tmp = os.path.join(tmpdir,'onegene')
@@ -85,11 +86,15 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
                 out_cds = ref_cdss,
                 out_genome = os.devnull,
                 identify = lambda f: ':'.join([
-                    ref_name,
+                    f.location.parts[0].ref,
                     extractor.get_ltag(f),
                     extractor.get_gene(f)
                     ])
             )
+    if main_ref is not None and main_ref not in ann_sources:
+        main_ref = None
+        # TODO - print a warning once we set up logging here:
+        # logger.warning(f"{main_ref} could not be found in the reference list.")
     if main_ref is None:
         main_ref = max(ref_named_cds_count, key=lambda _:ref_named_cds_count[_])
 
@@ -130,29 +135,59 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
     with open(os.path.join(outdir,'unifications.tsv'),'w') as report:
         report.write(subs_report)
 
-    for ref in subs.keys():
+    for ref in ann_sources:
         revised_records = []
         for record in SeqIO.parse(ann_sources[ref],'genbank'):
+            ref_contig_id = '.'.join([ref, record.id])
             revised = []
             for feature in record.features:
                 if 'locus_tag' in feature.qualifiers.keys() and \
-                   feature.qualifiers['locus_tag'][0] in subs[ref].keys():
+                   feature.qualifiers['locus_tag'][0] in subs[ref_contig_id]:
                     if 'gene' in feature.qualifiers.keys():
                         designator.append_qualifier(
                             feature.qualifiers,
                             'gene_synonym',
                             feature.qualifiers['gene'][0]
                         )
-                        feature.qualifiers['gene'][0] = subs[ref][feature.qualifiers['locus_tag'][0]]
+                        feature.qualifiers['gene'][0] = subs[ref_contig_id][feature.qualifiers['locus_tag'][0]]
                     else:
-                        feature.qualifiers['gene'] = [ subs[ref][feature.qualifiers['locus_tag'][0]] ]
+                        feature.qualifiers['gene'] = [ subs[ref_contig_id][feature.qualifiers['locus_tag'][0]] ]
                 revised.append(feature)
             record.features = revised
             revised_records.append(record)
         ann_sources[ref] = os.path.abspath(os.path.join(outdir,ref + '.gbk'))
         SeqIO.write(revised_records, ann_sources[ref], format='genbank')
 
-    return list(ann_sources.values())
+
+    proteome_filename = os.path.join(outdir, "unique_ref_cdss.faa")
+    update_multifaa(
+        infasta=ref_cdss_unique_fp,
+        outfasta=proteome_filename,
+        subs=subs,
+    )
+
+    return proteome_filename, list(ann_sources.values())
+
+
+def update_multifaa(infasta, outfasta, subs):
+    """
+    Retitle fasta headers to use the assigned generic names.
+    :param infasta: str input fasta file name
+    :param outfasta: str output fasta file name
+    :param subs: nested dictionary of generic name substitutions for each individual gene by sample
+    """
+
+    outrecords = []
+    for record in SeqIO.parse(infasta, "fasta"):
+        (ref, ltag, gene) = record.id.split(':')
+        if ltag in subs[ref]:
+            record.id = ':'.join([ref, ltag, subs[ref][ltag]])
+            record.description = ''
+        outrecords.append(record)
+
+    with open(outfasta, 'w') as outfasta_handle:
+        SeqIO.write(outrecords, outfasta_handle, "fasta")
+
 
 def name_cluster(main_ref, cluster, increment, subs, subs_report):
     """

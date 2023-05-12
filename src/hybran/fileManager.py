@@ -7,6 +7,7 @@ from Bio import SeqIO
 
 from . import converter
 from . import config
+from . import designator
 
 
 exts = dict(
@@ -58,14 +59,25 @@ def prepare_references(references):
     for i in references:
         # we will be using the references exclusively from our temporary directory
         # genbank
-        gbk = os.path.join(refdir, os.path.basename(i))
+        ref_file = os.path.basename(i)
+        ref_id = os.path.splitext(ref_file)[0]
+        gbk = os.path.join(refdir, ref_file)
         revised_records = []
         for record in SeqIO.parse(i, "genbank"):
+            ref_contig_id = '.'.join([ref_id, record.name])
             for f in record.features:
                 if ( 'locus_tag' in f.qualifiers.keys()
                      and 'gene' not in f.qualifiers.keys()
                 ):
                     f.qualifiers['gene'] = [ f.qualifiers['locus_tag'][0] ]
+                # Since RATT doesn't tell us which annotation came from which reference,
+                # we'll mark our private copies of the input references so we can trace
+                # them after the transfer.
+                designator.append_qualifier(
+                    f.qualifiers,
+                    'note',
+                    f"HYBRANSOURCE:{ref_contig_id}",
+                )
             revised_records.append(record)
         SeqIO.write(revised_records, gbk, "genbank")
 

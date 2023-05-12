@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import subprocess
@@ -20,6 +21,18 @@ def get_gene(feature):
     except KeyError:
         gene = get_ltag(feature)
     return gene
+
+def get_seq(feature):
+    """
+    Adapted from Bio.SeqFeature CompoundLocation.extract()
+    """
+    parts = [
+        loc.extract(
+            feature.references[loc.ref],
+            references=feature.references
+        ) for loc in feature.location.parts
+    ]
+    return functools.reduce(lambda x, y: x + y, parts)
 
 def get_contig_names(fasta_file):
     return [record.id for record in SeqIO.parse(fasta_file,"fasta")]
@@ -140,10 +153,12 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     contigs = []
     seqs = []
     n_named_cds = 0
+    ref_id = os.path.basename(os.path.splitext(genbank)[0])
     # this is a bit circular, but I don't want to deal with the first CDS
     # possibly being a pseudogene.
     genetic_code = get_genetic_code(genbank)
     for record in SeqIO.parse(genbank, 'genbank'):
+        ref_contig_id = '.'.join([ref_id, record.name])
         contigs.append(SeqRecord(
             record.seq,
             id=record.id, # os.path.splitext(os.path.basename(genbank))[0],
@@ -151,6 +166,9 @@ def fastaFromGbk(genbank, out_cds, out_genome,
         ))
         if record.features:
             for feature in record.features:
+                for part in feature.location.parts:
+                    part.ref = ref_contig_id
+                feature.references = {ref_contig_id: record.seq}
                 if feature.type == 'CDS':
                     if (
                             'gene' in feature.qualifiers
@@ -160,7 +178,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                         n_named_cds += 1
                     if designator.is_pseudo(feature.qualifiers):
                         seq_record = SeqRecord(
-                            translate(feature.extract(record.seq), table=genetic_code, to_stop=True),
+                            translate(get_seq(feature), table=genetic_code, to_stop=True),
                             id=identify(feature),
                             description=describe(feature))
                     else:

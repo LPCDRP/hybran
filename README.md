@@ -46,6 +46,7 @@ outdir/
 │
 ├──unified-refs/
 │   ├── unifications.tsv
+|   ├── unique_ref_cdss.faa
 │   ├── <i>reference1</i>.gbk
 │   ├── ...
 │   └── <i>referenceN</i>.gbk
@@ -77,6 +78,10 @@ Columns in this file are
 * reference locus tag
 * reference gene name
 * unified name
+
+##### `unified-refs/unique_ref_cdss.faa`
+
+A multi-fasta file of the representative amino acid sequences for each unique reference CDS.
 
 ##### `clustering/novelty_report.tsv`
 
