@@ -1995,6 +1995,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
             if 'gene' in f.qualifiers.keys():
                 f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
 
+
+        #
+        # RATT Postprocessing
+        #
         ratt_contig_non_cds = []
         for feature in ratt_contig_features:
             ref_contig_id = get_and_remove_ref_tracer(feature)
@@ -2087,6 +2091,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 logger.error(ratt_contig_record)
             ratt_contig_record_mod.features = ratt_contig_features
 
+            #
+            # Ab initio Postprocessing
+            #
             abinit_features_dict = generate_feature_dictionary(prokka_contig_features)
             logger.debug(f'{seqname}: Checking ab initio CDS annotations for matches to reference using {nproc} process(es)')
             #
@@ -2228,6 +2235,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                     if not include_abinit:
                         prokka_rejects.append((abinit_feature,remark))
                         break
+                    # TODO: explain why this is an elif rather than an independent else.
                     elif not include_ratt:
                         ratt_rejects.append((ratt_contig_features_dict.pop(ratt_conflict_loc), remark))
                 # Add the abinit feature if it survived all the conflicts
