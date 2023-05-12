@@ -12,6 +12,7 @@
 * reference unification (formerly activated by the `--dedupe-references` option):
   - fixed for multiple references (#55)
   - enabled checkpointing on this step in the full pipeline.
+* pseudoscan: now identifies delayed stop codons when start coordinate correction changes the reading frame without introducing an internal stop.
 
 ## [Version 1.6.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.6.1)
 
