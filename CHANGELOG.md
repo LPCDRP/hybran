@@ -13,6 +13,8 @@
   - fixed for multiple references (#55)
   - enabled checkpointing on this step in the full pipeline.
 * pseudoscan: now identifies delayed stop codons when start coordinate correction changes the reading frame without introducing an internal stop.
+* annomerge: reject the `source` feature from RATT.
+Some final annotations contained two of them: one from RATT and one from Prokka.
 
 ### Housekeeping
 * set default output directory to current directory.

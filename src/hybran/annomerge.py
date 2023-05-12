@@ -2020,6 +2020,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 ])
             designator.append_qualifier(feature.qualifiers, 'inference', infer_string)
             if feature.type not in [
+                    'source',
                     'CDS',
                     'gene',
                     'rRNA', # these aren't reliably transferred by RATT
