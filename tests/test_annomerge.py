@@ -3,7 +3,7 @@ from copy import deepcopy
 import os
 
 from Bio import SeqIO
-from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundLocation
+from Bio.SeqFeature import SeqFeature, SimpleLocation, FeatureLocation, ExactPosition, CompoundLocation
 
 import pytest
 
@@ -16,13 +16,12 @@ from .data_features import *
 
 def test_ref_fuse():
     annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
-    annomerge.ref_annotation.update(ref_features['H37Rv'])
-    annomerge.ref_annotation = ref_features['H37Rv']
+    annomerge.ref_annotation.update({'@@@'.join(['H37Rv',k]):v for k,v in ref_features['H37Rv'].items()})
 
-    assert annomerge.ref_annotation['PE_PGRS50::PE_PGRS49'] == CompoundLocation([
+    assert annomerge.ref_annotation['H37Rv::H37Rv@@@PE_PGRS50::PE_PGRS49'].location == CompoundLocation([
         SimpleLocation(ExactPosition(3738157), ExactPosition(3742774), strand=-1),
         SimpleLocation(ExactPosition(3736983), ExactPosition(3738000), strand=-1)
-    ], 'order')
+    ], 'join')
 
 
 @pytest.mark.parametrize('location', [
@@ -498,7 +497,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
 
     feature = test_features[feature_type]
     ref_feature = annomerge.ref_annotation[
-        test_features[feature_type].qualifiers['gene'][0]
+        annomerge.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
     ]
 
     expected = {
@@ -575,7 +574,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
     feature = test_features[feature_type]
     config.hybran_tmp_dir = tmp_path
     ref_feature = ref_features[ref_genome[feature_type]][
-        test_features[feature_type].qualifiers['gene'][0]
+        annomerge.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
     ]
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
     annomerge.genetic_code = 11
@@ -930,7 +929,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
     ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
     annomerge.ref_prom_fp_dict = annomerge.get_nuc_seq_for_gene(
-        [ref_features['H37Rv'][pairs[pair][0]]],
+        [ref_features['H37Rv']['@@@'.join(['H37Rv.NC_000962.3', pairs[pair][0]])]],
         ref_sequence,
     )[0]
 
