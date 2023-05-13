@@ -322,41 +322,6 @@ def key_ref_gene(ref_id, gene_name):
     """
     return '@@@'.join([ref_id, gene_name])
 
-def get_nuc_seq_for_gene(feature_list, source_seq):
-    """
-    This function gets the promoter sequence (40 bp upstream of gene) for a set of features, stores the
-    sequences in a temporary nucleotide FASTA and generates a dictionary key to reference these FASTA by headers for
-    each feature in the list
-    :param feature_list: list of type SeqFeature (Biopython feature) formats
-    :param source_seq: Nucleotide sequence of genome
-    :return: Dictionary key to reference temporary FASTA file with promoter sequences, key is the locus tag from feature
-     list and value is the FASTA header
-    """
-    hybran_tmp_dir = config.hybran_tmp_dir
-    ref_prom_dict = {}
-    ref_fna_dict = {}
-    for f in feature_list:
-        if f.type != 'CDS':
-            continue
-        locus = f.qualifiers['locus_tag'][0]
-        prom_seq = upstream_context(f.location, source_seq)
-        ref_fna_dict[locus] = SeqRecord(
-            seq=extractor.get_seq(f),
-            id=locus
-        )
-        fp_prom = tempfile.NamedTemporaryFile(suffix='_prom.fasta',
-                                              dir=hybran_tmp_dir,
-                                              delete=False,
-                                              mode='w')
-        ref_prom_dict[locus] = fp_prom.name
-        header_prom = '>' + locus + '_prom\n'
-        seq_prom = prom_seq + '\n'
-        fp_prom.write(header_prom)
-        fp_prom.write(seq_prom)
-        fp_prom.close()
-    return ref_prom_dict, ref_fna_dict
-
-
 def get_ordered_features(feature_list):
     """
     This function takes list of features and returns the list sorted by genomic location
@@ -1912,11 +1877,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
     global ref_annotation
     ref_annotation = keydefaultdict(ref_fuse)
-    # upstream sequence contexts for reference genes. used in multiple places
-    global ref_prom_fp_dict
-    global ref_fna_dict
-    ref_prom_fp_dict = {}
-    ref_fna_dict = {}
     for ref_gbk_fp in ref_gbk_list:
         ref_id = os.path.basename(os.path.splitext(ref_gbk_fp)[0])
         for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
@@ -1932,9 +1892,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 # if reference paralogs have been collapsed, the last occurrence in the genome
                 # will prevail.
                 ref_annotation[key_ref_gene(ref_contig_id, feature.qualifiers['gene'][0])] = feature
-            prom, fna = get_nuc_seq_for_gene(ref_record.features,ref_record.seq)
-            ref_prom_fp_dict.update(prom)
-            ref_fna_dict.update(fna)
 
     output_isolate_recs = []
 
