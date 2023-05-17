@@ -211,36 +211,48 @@ def log_feature_fate(feature, logfile, remark=""):
         locus_tag = feature.id
     print('\t'.join([locus_tag, remark]), file=logfile)
 
-def log_coord_correction(og_feature, feature, logfile):
+def log_coord_correction(og_feature, feature, accepted, logfile):
     """
     This function is used to log gene information when coord_check() fixes a start/stop postition
     :param og_feature: Original SeqFeature object
     :param feature: Updated SeqFeature object
+    :param accepted: Boolean whether the correction was accepted
     :param logfile: An open filehandle
     """
     locus_tag = og_feature.qualifiers['locus_tag'][0]
     gene_name = og_feature.qualifiers['gene'][0]
     strand = str(og_feature.strand)
-    og_start = str(int(og_feature.location.start) + 1)
-    og_end = (og_feature.location.end)
-    new_start = str(int(feature.location.start) + 1)
-    new_end = (feature.location.end)
+    og_start = (int(og_feature.location.start) + 1)
+    og_end = (int(og_feature.location.end))
+    new_start = (int(feature.location.start) + 1)
+    new_end = (int(feature.location.end))
     start_fixed = str(og_start != new_start).lower()
     stop_fixed = str(og_end != new_end).lower()
 
-    if designator.is_pseudo(og_feature.qualifiers) == designator.is_pseudo(feature.qualifiers):
-        if designator.is_pseudo(og_feature.qualifiers):
-            status = "remains_pseudo"
-        else:
-            status = "remains_non_pseudo"
-    elif designator.is_pseudo(feature.qualifiers):
-        status = "became_pseudo"
+    if (new_end - new_start) >= (og_end - og_start):
+        precent_restored = f"{((1 - (og_end - og_start)/(new_end - new_start))*100):.1f}%"
     else:
-        status = "became_non_pseudo"
-
+        precent_restored = f"-{((1 - (new_end - new_start)/(og_end - og_start))*100):.1f}%"
+    if accepted:
+        accepted = "accepted"
+    else:
+        accepted = "rejected"
     if og_feature.strand == -1:
         start_fixed, stop_fixed = stop_fixed, start_fixed
-    line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed, status]
+
+    line = [
+        locus_tag,
+        gene_name,
+        strand,
+        og_start,
+        og_end,
+        new_start,
+        new_end,
+        start_fixed,
+        stop_fixed,
+        precent_restored,
+        accepted,
+    ]
     print('\t'.join(str(v) for v in line), file=logfile)
 
 
@@ -1011,7 +1023,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
             feature.qualifiers, 'inference',
             "COORDINATES:alignment:Hybran"
         )
-        corrected_orf_report.append([og_feature, deepcopy(feature)])
+        corrected_orf_report.append({'og':og_feature, 'corr':deepcopy(feature), 'accepted':True})
     return good_start, good_stop
 
 def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, blast_hit_dict=None
@@ -1143,6 +1155,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                     feature.qualifiers = og_feature.qualifiers
                     broken_stop, stop_note = og_broken_stop, stop_note
                     blast_stats = og_blast_stats
+                    corrected_orf_report[-1]['accepted'] = False
                 confirmed_feature = True
 
             if confirmed_feature:
@@ -2016,13 +2029,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                     if (og_feature_location != feature.location):
                         n_coords_corrected += 1
 
-                        # for logging purposes
-                        if feature_is_pseudo:
-                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-                            corrected_orf_report[-1][1].qualifiers['pseudo'] = ['']
-                        else:
-                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-
                     liftover_annotation(
                         feature,
                         ref_annotation[key_ref_gene(ref_id, ref_gene)],
@@ -2195,17 +2201,19 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
 
     with open(corrected_abinit_orf_logfile, 'w') as abinit_corlog, \
          open(corrected_ratt_orf_logfile, 'w') as ratt_corlog:
-        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon', 'status']
+        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon', 'gene_length_diff', 'status']
         print('\t'.join(header), file=abinit_corlog)
         print('\t'.join(header), file=ratt_corlog)
-        for (orig_feature, corr_feature) in corrected_orf_report:
-            if designator.is_raw_ltag(orig_feature.qualifiers['locus_tag'][0]):
+        for entry in corrected_orf_report:
+            if designator.is_raw_ltag(entry['og'].qualifiers['locus_tag'][0]):
                 logfile = abinit_corlog
             else:
                 logfile = ratt_corlog
-            log_coord_correction(orig_feature,
-                                 corr_feature,
-                                 logfile,
+            log_coord_correction(
+                entry['og'],
+                entry['corr'],
+                entry['accepted'],
+                logfile,
             )
 
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
