@@ -135,7 +135,7 @@ def prokka_faa(feature):
     return '~~~'.join([ec,get_gene(feature),product])
 
 def fastaFromGbk(genbank, out_cds, out_genome,
-                 identify = lambda f: ':'.join([get_ltag(f),
+                 identify = lambda f: '%%%'.join([get_ltag(f),
                                                 get_gene(f)]),
                  describe = lambda f: '',
                  ):
