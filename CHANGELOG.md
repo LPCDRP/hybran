@@ -19,6 +19,7 @@ Some final annotations contained two of them: one from RATT and one from Prokka.
 
 ### Housekeeping
 * set default output directory to current directory.
+* Now ignoring warnings when generating translations for pseudogenes that aren't multiples of three.
 
 ## [Version 1.6.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.6.1)
 

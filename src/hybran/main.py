@@ -6,6 +6,7 @@ import glob
 import tempfile
 import atexit
 import shutil
+import warnings
 
 from . import \
     verifyInstallations, \
@@ -22,6 +23,11 @@ from . import \
 
 from .argparse import DefaultSubcommandArgumentParser
 
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"Partial codon",
+)
 
 def cmds():
     """
