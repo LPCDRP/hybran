@@ -118,7 +118,10 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
         match = designator.is_uniref,
         identify = lambda _: _.split(':')[2]
     )
-    increment = designator.find_next_increment(existing_generigenes_fasta)
+    increment = designator.find_next_increment(
+        existing_generigenes_fasta,
+        prefix=designator.ref_orf_prefix,
+    )
 
 
     subs = defaultdict(dict)
