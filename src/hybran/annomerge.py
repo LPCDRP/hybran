@@ -1672,11 +1672,11 @@ def thunderdome(abinit_annotation, ratt_annotation):
         if not abinit_is_pseudo and ratt_is_pseudo:
             include_abinit = True
             include_ratt = False
-            remark = "Non-pseudo ab initio annotation takes precedence over the pseudo RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
+            remark = f"Non-pseudo ab initio annotation takes precedence over the pseudo RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
         else:
             include_abinit = False
             include_ratt = True
-            remark = "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}."
+            remark = f"Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}."
 
     if include_abinit == include_ratt:
         logger.warning(f"Both annotations were marked for {'inclusion' if include_ratt else 'exclusion'} and one annotation is expected to be excluded:\nRATT Feature\n{ratt_annotation}\n\nab initio Feature\n{abinit_annotation}\n\nUnhandled scenario--RATT favored due to synteny"
