@@ -1,25 +1,110 @@
+import os
 import logging
 
+import Bio
 from Bio import SeqIO
+from Bio.Seq import Seq, translate
+from Bio.SeqFeature import SimpleLocation
+from Bio.SeqRecord import SeqRecord
+# standard multiprocessing can't pickle lambda
+import multiprocess as multiprocessing
 
-from .annomerge import get_and_remove_ref_tracer
-from .annomerge import fusionfisher
+from . import BLAST
+from . import config
+from . import converter
 from . import designator
+from . import extractor
+from .annomerge import coord_check
+from .annomerge import fusionfisher
+from .annomerge import get_and_remove_ref_tracer
+from .annomerge import get_ordered_features
+from .annomerge import has_broken_stop
+from .annomerge import key_ref_gene
+from .annomerge import log_feature_fate
+from .annomerge import pseudoscan
 
 
 def postprocess(
-        ratt_gbk,
+        isolate_id,
+        contigs,
+        ratt_outdir,
+        postprocess_outdir,
+        ref_annotation,
         seq_ident,
         seq_covg,
         nproc=1,
         enforce_thresholds=False,
 ):
+
+    logger = logging.getLogger('PostprocessRATT')
+
+    invalid_features = []
+    invalid_features_logfile = os.path.join(
+        postprocess_outdir,
+        'invalid_features.tsv',
+    )
+    os.makedirs(
+        postprocess_outdir,
+        exist_ok=True,
+    )
+
+    global genetic_code
+    genetic_code = config.genetic_code
+
+    ratt_correction_files = []
+    ratt_features = {}
+    try:
+        for contig in contigs:
+            seqname = '.'.join([isolate_id, contig])
+            embl_file = f"{isolate_id.replace('|','_')}.{contig.replace('|','_')}.final.embl"
+            gbk = converter.convert_embl_to_gbk(
+                os.path.join(ratt_outdir, embl_file),
+            )
+            ratt_contig_record, invalid_contig_features = postprocess_contig(
+                seqname=seqname,
+                ratt_gbk=gbk,
+                ref_annotation=ref_annotation,
+                seq_ident=seq_ident,
+                seq_covg=seq_covg,
+                nproc=nproc,
+                enforce_thresholds=enforce_thresholds,
+            )
+            ratt_features[contig] = ratt_contig_record.features
+            invalid_features += invalid_contig_features
+
+        correction_files = [cf for cf in os.listdir(ratt_outdir) if cf.endswith('.Report.txt')]
+        for corr_file in correction_files:
+            corr_file_path = ratt_file_path + '/' + corr_file
+            ratt_correction_files.append(corr_file_path)
+    except OSError:
+        logger.error('Expecting RATT annotation files but found none')
+    if not ratt_features:
+        logger.error('RATT did not complete running. Please see the log for more details.')
+
+
+    with open(invalid_features_logfile, 'w') as rejects_log:
+        [log_feature_fate(_[0], rejects_log, _[1]) for _ in invalid_features]
+
+    return ratt_features
+
+def postprocess_contig(
+        seqname,
+        ratt_gbk,
+        ref_annotation,
+        seq_ident,
+        seq_covg,
+        nproc=1,
+        enforce_thresholds=False,
+):
+
+    logger = logging.getLogger('PostprocessRATT')
+
     ratt_contig_record = SeqIO.read(ratt_gbk, 'genbank')
     global record_sequence
     record_sequence = ratt_contig_record.seq
 
     ratt_contig_non_cds = []
-    for feature in ratt_contig_features:
+    for feature in ratt_contig_record.features:
         ref_contig_id = get_and_remove_ref_tracer(feature)
         feature.source = ref_contig_id
         # maybe RATT should be adding this inference tag itself
@@ -50,11 +135,13 @@ def postprocess(
     logger.debug(f'{seqname}: {len(ratt_contig_non_cds)} non-CDS elements')
 
     ratt_contig_features, ratt_blast_results, invalid_ratt_features = \
-    isolate_valid_ratt_annotations(feature_list=ratt_contig_features,
-                                   seq_ident=seq_ident,
-                                   seq_covg=seq_covg,
-                                   ratt_enforce_thresholds=ratt_enforce_thresholds,
-                                   nproc=nproc,
+    isolate_valid_ratt_annotations(
+        feature_list=ratt_contig_record.features,
+        ref_annotation=ref_annotation,
+        seq_ident=seq_ident,
+        seq_covg=seq_covg,
+        ratt_enforce_thresholds=enforce_thresholds,
+        nproc=nproc,
     )
     logger.info(f"{seqname}: {len(invalid_ratt_features)} RATT features failed validation.")
     ratt_contig_features = get_ordered_features(ratt_contig_features)
@@ -64,17 +151,23 @@ def postprocess(
     logger.info(f"{seqname}: {len(merged_features)} RATT fusion genes detected.")
     logger.info(f"{seqname}: {len(inconsistent_ratt_features)} RATT annotations found to be inconsistent.")
 
-    ratt_rejects += invalid_ratt_features + inconsistent_ratt_features
+    ratt_rejects = invalid_ratt_features + inconsistent_ratt_features
+    ratt_contig_record.features = ratt_contig_features
 
-    if merged_features:
-        merged_features_record = ratt_contig_record[:]
-        merged_features_record.features = merged_features
-        SeqIO.write(merged_features_record, output_merged_genes, 'genbank')
+    # if merged_features:
+    #     merged_features_record = ratt_contig_record[:]
+    #     merged_features_record.features = merged_features
+    #     SeqIO.write(merged_features_record, output_merged_genes, 'genbank')
 
-    return ratt_contig_features
+    return ratt_contig_record, ratt_rejects
 
-def isolate_valid_ratt_annotations(feature_list, seq_ident, seq_covg, ratt_enforce_thresholds,
-    nproc=1,
+def isolate_valid_ratt_annotations(
+        feature_list,
+        ref_annotation,
+        seq_ident,
+        seq_covg,
+        ratt_enforce_thresholds,
+        nproc=1,
 ):
     """
     This function takes as input a list of features and checks if the length of the CDSs are divisible by

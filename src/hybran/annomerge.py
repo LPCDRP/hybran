@@ -38,7 +38,6 @@ from . import converter
 from . import config
 from . import designator
 from . import extractor
-from . import ratt
 from . import __version__
 
 
@@ -1676,6 +1675,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
     :return: EMBL record (SeqRecord) of annotated isolate
     """
 
+    # avoid circular imports
+    from . import ratt
+
     hybran_tmp_dir = config.hybran_tmp_dir
     global script_dir
     script_dir = script_directory
@@ -1689,22 +1691,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
         file_path = annotation_fp + isolate_id + '/'
     else:
         file_path = annotation_fp + '/' + isolate_id + '/'
-    ratt_file_path = file_path + 'ratt'
-    ratt_correction_files = []
-    ratt_gbk_files = {}
-    try:
-        for contig in contigs:
-            embl_file = f"{isolate_id.replace('|','_')}.{contig.replace('|','_')}.final.embl"
-            gbk = converter.convert_embl_to_gbk(ratt_file_path + '/' + embl_file)
-            ratt_gbk_files[contig] = gbk
-        correction_files = [cf for cf in os.listdir(ratt_file_path) if cf.endswith('.Report.txt')]
-        for corr_file in correction_files:
-            corr_file_path = ratt_file_path + '/' + corr_file
-            ratt_correction_files.append(corr_file_path)
-    except OSError:
-        logger.error('Expecting RATT annotation files but found none')
-    if not ratt_gbk_files:
-        logger.error('RATT did not complete running. Please see the log for more details.')
+
     try:
         input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbk'
     except OSError:
@@ -1741,6 +1728,22 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 # will prevail.
                 ref_annotation[key_ref_gene(ref_contig_id, feature.qualifiers['gene'][0])] = feature
 
+
+    ratt_file_path = os.path.join(file_path, 'ratt')
+    ratt_features = ratt.postprocess(
+        isolate_id,
+        contigs,
+        ratt_outdir=ratt_file_path,
+        postprocess_outdir=os.path.join(ratt_file_path, 'hybran'),
+        ref_annotation=ref_annotation,
+        seq_ident=seq_ident,
+        seq_covg=seq_covg,
+        nproc=nproc,
+        enforce_thresholds=ratt_enforce_thresholds,
+    )
+
+
+
     output_isolate_recs = []
 
     for i, contig in enumerate(contigs):
@@ -1759,13 +1762,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
 
 
-        ratt_contig_features = ratt.postprocess(
-            ratt_gbk=ratt_gbk_files[contig],
-            seq_ident=seq_ident,
-            seq_covg=seq_covg,
-            nproc=nproc,
-            enforce_thresholds=ratt_enforce_thresholds,
-        )
+        ratt_contig_features = ratt_features[contig]
 
         ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
         if len(ratt_contig_features) == 0:
