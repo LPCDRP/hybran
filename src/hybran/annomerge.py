@@ -1767,8 +1767,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
             enforce_thresholds=ratt_enforce_thresholds,
         )
 
-
-        global ratt_contig_features_dict
         ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
         if len(ratt_contig_features) == 0:
             logger.warning(f"NO RATT ANNOTATION FOR {seqname}")
