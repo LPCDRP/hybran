@@ -764,33 +764,19 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         #occurs by chance should be = 1/(ref_seq*10)
         interval = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
 
-        #The pairwise aligner returns an iterable list of alignments all with the
-        #highest score it could possibly produce. Take the first 5 alignments from this list.
         aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
+        #"blastn" scoring: extend_gap_score = -2.0, open_gap_score = -7.0
+        #Punishing internal gaps slighly more will discourage abhorrent behavior from the aligner.
+        #Prevents the miscalling of found_low/high is some scenarios and encourages continuity.
+        #Ex)
+        #internal_open_gap_score= -7.0           internal_open_gap_score= -8.0
+        # GT--------AG                           GTAG--------
+        # ||--------||                   ->      ||||--------
+        # GTAGTCCGCGAG                           GTAGTCCGCGAG
+        aligner.internal_open_gap_score = -8.0
+
         alignment = aligner.align(ref_seq, feature_seq)
-        alignment_list = []
-        while len(alignment_list) < 5:
-            i = len(alignment_list)
-            try:
-                target = alignment[i].aligned[0]
-                query = alignment[i].aligned[1]
-                found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
-                found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= interval
-                alignment_list.append([i, len(target), len(query), found_low, found_high])
-                continue
-            except IndexError:
-                break
-
-        #If possible, filter to find the best fitting alignment rather than the first one available.
-        if len(alignment_list) > 1:
-            max_found = max(map(lambda x: [x[3],x[4]], alignment_list))
-            alignment_list = [i for i in alignment_list if sum([i[3], i[4]]) == sum(max_found)]
-            min_breaks = min(map(lambda x: [x[1],x[2]], alignment_list))
-            alignment_list = [i for i in alignment_list if sum([i[1], i[2]]) == sum(min_breaks)]
-            alignment = alignment[alignment_list[0][0]]
-        else:
-            alignment = alignment[0]
-
+        alignment = alignment[0]
         target = alignment.aligned[0]
         query = alignment.aligned[1]
         score = alignment.score
@@ -951,18 +937,14 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         #If the original alignment was really far off, and we found a downstream start/upstream stop
         #simply by chance from the addition of extra padding, we should just leave the gene alone.
         if feature_start > feature_end:
-            feature.location = FeatureLocation(
-                int(og_feature_start),
-                int(og_feature_end),
-                strand=feature.strand
-            )
+            feature_start = og_feature_start
+            feature_end = og_feature_end
             logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
-        else:
-            feature.location = FeatureLocation(
-                int(feature_start),
-                int(feature_end),
-                strand=feature.strand
-            )
+        feature.location = FeatureLocation(
+            int(feature_start),
+            int(feature_end),
+            strand=feature.strand
+        )
         feature_seq = feature.extract(record_sequence)
 
         if i == 1:

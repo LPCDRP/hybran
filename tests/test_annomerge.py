@@ -433,7 +433,7 @@ def test_liftover_annotation():
     ['bad_mismatch_check2', True, True],
     ['ref_start_frameshift', True, False],
     ['bad_start_good_padding', True, False],
-    ['ratt_pseudo_pgrs', True, True],
+    ['ratt_pseudo_pgrs', True, False],
     ['same_start_alt_stop_1', False, False],
     ['same_start_alt_stop_2', False, False],
     ['same_start_alt_stop_2_fix', True, True],
