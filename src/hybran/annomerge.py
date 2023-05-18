@@ -244,34 +244,6 @@ def log_coord_correction(og_feature, feature, logfile):
     print('\t'.join(str(v) for v in line), file=logfile)
 
 
-def load_reference_info(proteome_fasta):
-    """
-    This function gets some reference data for annomerge.
-    1. A list of genes from the reference protein fasta
-    2. A list of locus tags from the reference protein fasta
-    """
-    hybran_tmp_dir = config.hybran_tmp_dir
-    reference_gene_list = []
-    reference_locus_list = []
-
-    ref_fasta_records = SeqIO.parse(proteome_fasta, 'fasta')
-    for record in ref_fasta_records:
-        gene_locus_name = record.id
-        gene_locus = gene_locus_name.split('%%%')
-        if len(gene_locus[0]) == 0:  # If locus tag is not specified
-            gene = gene_locus[1]
-            locus = gene
-        elif len(gene_locus[1]) == 0:  # If gene name is not specified
-            locus = gene_locus[0]
-            gene = locus
-        else:
-            locus = gene_locus[0]
-            gene = gene_locus[1]
-        reference_gene_list.append(gene)
-        reference_locus_list.append(locus)
-    return reference_gene_list, reference_locus_list
-
-
 # Thanks to Jochen Ritzel
 # https://stackoverflow.com/a/2912455
 class keydefaultdict(collections.defaultdict):
@@ -1270,7 +1242,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
 
     return is_pseudo
 
-def isolate_valid_ratt_annotations(feature_list, reference_locus_list, seq_ident, seq_covg, ratt_enforce_thresholds,
+def isolate_valid_ratt_annotations(feature_list, seq_ident, seq_covg, ratt_enforce_thresholds,
     nproc=1,
 ):
     """
@@ -1836,7 +1808,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
     logger.debug('Running Annomerge on ' + isolate_id)
     start_time = time.time()
 
-    reference_gene_list, reference_locus_list  = load_reference_info(ref_proteins_fasta)
     if annotation_fp.endswith('/'):
         file_path = annotation_fp + isolate_id + '/'
     else:
@@ -1946,7 +1917,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
 
         ratt_contig_features, ratt_blast_results, invalid_ratt_features = \
             isolate_valid_ratt_annotations(feature_list=ratt_contig_features,
-                                           reference_locus_list=reference_locus_list,
                                            seq_ident=seq_ident,
                                            seq_covg=seq_covg,
                                            ratt_enforce_thresholds=ratt_enforce_thresholds,
