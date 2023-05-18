@@ -15,29 +15,29 @@ def test_name_cluster(situation):
 
     inputs = {
         'singleref_multiple_nonames': [
-            'Ref1:Rv1369c:Rv1369c',
-            'Ref1:Rv1756c:Rv1756c',
-            'Ref1:Rv1764:Rv1764',
+            'Ref1%%%Rv1369c%%%Rv1369c',
+            'Ref1%%%Rv1756c%%%Rv1756c',
+            'Ref1%%%Rv1764%%%Rv1764',
         ],
         'singleref_one_named': [
-            'Ref1:Rv1454c:qor',
+            'Ref1%%%Rv1454c%%%qor',
         ],
         'multiref_single_orthologs': [
-            'Ref1:R1_01234:R1_01234',
-            'Ref2:R2_01234:R2_01234',
+            'Ref1%%%R1_01234%%%R1_01234',
+            'Ref2%%%R2_01234%%%R2_01234',
         ],
         'multiref_mixed_bag': [
-            'Ref1:R1_01234:R1_01234',
-            'Ref1:R1_05678:',
-            'Ref2:R2_01234:R2_01234',
-            'Ref3:R3_01234:genA',
-            'Ref3:R3_06789:R3_06789',
+            'Ref1%%%R1_01234%%%R1_01234',
+            'Ref1%%%R1_05678%%%',
+            'Ref2%%%R2_01234%%%R2_01234',
+            'Ref3%%%R3_01234%%%genA',
+            'Ref3%%%R3_06789%%%R3_06789',
         ],
         'multiref_orthologous_named_duplicates': [
-            'Ref1:R1_01234:genA',
-            'Ref1:R1_01235:genB',
-            'Ref2:R2_01234:genA',
-            'Ref2:R2_01235:genB',
+            'Ref1%%%R1_01234%%%genA',
+            'Ref1%%%R1_01235%%%genB',
+            'Ref2%%%R2_01234%%%genA',
+            'Ref2%%%R2_01235%%%genB',
         ],
     }
 

@@ -85,7 +85,7 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
                 ref,
                 out_cds = ref_cdss,
                 out_genome = os.devnull,
-                identify = lambda f: ':'.join([
+                identify = lambda f: '%%%'.join([
                     f.location.parts[0].ref,
                     extractor.get_ltag(f),
                     extractor.get_gene(f)
@@ -108,15 +108,15 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
 
 
     # look for existing generic names in our gene names,
-    # which are the third token in the colon-delimited string
-    # Ref:locus_tag:gene_name
+    # which are the third token in the delimited string
+    # Ref%%%locus_tag%%%gene_name
     existing_generigenes_fasta = os.path.join(dedupe_tmp,
                                               'preexisting_generigenes.fasta')
     extractor.subset_fasta(
         ref_cdss_all_fp,
         outseq = existing_generigenes_fasta,
         match = designator.is_uniref,
-        identify = lambda _: _.split(':')[2]
+        identify = lambda _: _.split('%%%')[2]
     )
     increment = designator.find_next_increment(
         existing_generigenes_fasta,
@@ -216,7 +216,7 @@ def name_cluster(main_ref, cluster, increment, subs, subs_report):
     cluster_list = []
     ref_gene_names = []
     for element in cluster:
-        ref, ltag, gene_name = element.split(':')
+        ref, ltag, gene_name = element.split('%%%')
         cluster_dict[ref].append((ltag, gene_name))
         cluster_list.append((ref, ltag, gene_name))
         if gene_name and gene_name != ltag:

@@ -257,7 +257,7 @@ def load_reference_info(proteome_fasta):
     ref_fasta_records = SeqIO.parse(proteome_fasta, 'fasta')
     for record in ref_fasta_records:
         gene_locus_name = record.id
-        gene_locus = gene_locus_name.split(':')
+        gene_locus = gene_locus_name.split('%%%')
         if len(gene_locus[0]) == 0:  # If locus tag is not specified
             gene = gene_locus[1]
             locus = gene
@@ -2035,7 +2035,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 top_hit, low_covg, blast_hits = blast_package[j]
                 feature = prokka_contig_cdss[j]
                 if top_hit:
-                    ref_id, ref_ltag, ref_gene = top_hit.split(':')
+                    ref_id, ref_ltag, ref_gene = top_hit.split('%%%')
                     feature.source = ref_id
                     feature.qualifiers['gene'] = [ref_gene]
                     og_feature_location = deepcopy(feature.location)
