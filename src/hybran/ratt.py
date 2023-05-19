@@ -78,10 +78,6 @@ def postprocess(
             )
             invalid_features += invalid_contig_features
 
-        correction_files = [cf for cf in os.listdir(ratt_outdir) if cf.endswith('.Report.txt')]
-        for corr_file in correction_files:
-            corr_file_path = ratt_file_path + '/' + corr_file
-            ratt_correction_files.append(corr_file_path)
     except OSError:
         logger.error('Expecting RATT annotation files but found none')
     if not ratt_features:
