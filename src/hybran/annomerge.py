@@ -457,7 +457,12 @@ def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
                 dropped_feature = last_gene
             dropped_feature_name = f"{extractor.get_ltag(dropped_feature)}:{extractor.get_gene(dropped_feature)}"
             new_feature_name = f"{extractor.get_ltag(new_feature)}:{extractor.get_gene(new_feature)}"
-            new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
+            new_feature.location = FeatureLocation(
+                new_start,
+                new_end,
+                feature.location.strand,
+                ref=feature.location.parts[0].ref,
+            )
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
 
             if all(coord_check(
@@ -1918,7 +1923,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 # Adding translated sequences where missing
                 if 'translation' not in feature.qualifiers and not designator.is_pseudo(feature.qualifiers):
                     feature_sequence = translate(
-                        feature.extract(record_sequence),
+                        feature.extract(),
                         table=genetic_code,
                         cds=True,
                     )

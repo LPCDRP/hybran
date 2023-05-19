@@ -19,6 +19,7 @@ from .annomerge import key_ref_gene
 from .annomerge import liftover_annotation
 from .annomerge import log_feature_fate
 from .annomerge import pseudoscan
+from .bio import AutarkicSeqFeature
 
 
 def postprocess(
@@ -97,10 +98,18 @@ def postprocess_contig(
 
     contig_features = []
     for f in record.features:
+        f = AutarkicSeqFeature.fromSeqFeature(f)
+        for part in f.location.parts:
+            part.ref = seqname
+        f.references = {seqname: record.seq}
         if 'gene' in f.qualifiers.keys():
             # When prokka assigns the same gene name to multiple orfs, it appends _1, _2, ... to make the names unique.
             # That causes issues for us because we expect all copies of a gene to have the same name.
             f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
+        contig_features.append(f)
+
+
+    record.features = contig_features
 
 
     logger.info(f'{seqname}: Checking ab initio CDS annotations for matches to reference using {nproc} process(es)')
