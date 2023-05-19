@@ -11,14 +11,12 @@ __status__ = "Development"
 # generates a log file to indicate characteristics of the transferred features from Prokka.
 
 import sys
-import functools
 import collections
 import os
 import tempfile
 import pickle
 import logging
 import time
-import re
 from copy import deepcopy
 from math import log, ceil
 
@@ -1693,7 +1691,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
     """
 
     # avoid circular imports
-    from . import ratt
+    from . import ratt, prokka
 
     hybran_tmp_dir = config.hybran_tmp_dir
     global script_dir
@@ -1709,13 +1707,8 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
     else:
         file_path = annotation_fp + '/' + isolate_id + '/'
 
-    try:
-        input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbk'
-    except OSError:
-        logger.error('Expecting Prokka annotation file but found none')
     output_merged_genes = os.path.join(isolate_id, 'annomerge', 'merged_genes.gbk')
     output_genbank = os.path.join(isolate_id, 'annomerge', isolate_id + '.gbk')
-    prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
     global ratt_rejects  # some RATT annotations are rejected as a side effect of check_inclusion_criteria
     ratt_rejects = []
     ratt_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'ratt_unused.tsv')
@@ -1759,6 +1752,18 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
         enforce_thresholds=ratt_enforce_thresholds,
     )
 
+    abinit_file_path = os.path.join(file_path, 'prokka')
+    abinit_features = prokka.postprocess(
+        isolate_id,
+        contigs,
+        prokka_outdir=abinit_file_path,
+        postprocess_outdir=os.path.join(abinit_file_path, 'hybran'),
+        ref_annotation=ref_annotation,
+        ref_proteome=ref_proteins_fasta,
+        seq_ident=seq_ident,
+        seq_covg=seq_covg,
+        nproc=nproc,
+    )
 
 
     output_isolate_recs = []
@@ -1772,14 +1777,10 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
 
         ratt_contig_features = ratt_contig_record.features
         prokka_contig_features = prokka_contig_record.features
-        # When prokka assigns the same gene name to multiple orfs, it appends _1, _2, ... to make the names unique.
-        # That causes issues for us because we expect all copies of a gene to have the same name.
-        for f in prokka_contig_features:
-            if 'gene' in f.qualifiers.keys():
-                f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
 
 
         ratt_contig_features = ratt_features[contig]
+        prokka_contig_features = prokka_features[contig]
 
         ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
         if len(ratt_contig_features) == 0:
@@ -1821,99 +1822,9 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 logger.error(ratt_contig_record)
             ratt_contig_record_mod.features = ratt_contig_features
 
-            #
-            # Ab initio Postprocessing
-            #
-            abinit_features_dict = generate_feature_dictionary(prokka_contig_features)
-            logger.debug(f'{seqname}: Checking ab initio CDS annotations for matches to reference using {nproc} process(es)')
-            #
-            # can contain results for hits to multiple reference genes
-            abinit_blast_results_complete = {}
-            # only contains results for the accepted reference gene hit
-            abinit_blast_results = {}
-            refmatch = functools.partial(
-                BLAST.reference_match,
-                subject=ref_proteins_fasta,
-                seq_ident=seq_ident,
-                seq_covg=seq_covg,
-            )
-            prokka_contig_cdss = [f for f in abinit_features_dict.values() if f.type == 'CDS']
-            with multiprocessing.Pool(processes=nproc) as pool:
-                blast_package = pool.map(
-                    refmatch,
-                    [SeqRecord(Seq(f.qualifiers['translation'][0])) for f in prokka_contig_cdss],
-                )
-            n_coords_corrected = 0
-            n_bad_starts = 0
-            for j in range(len(prokka_contig_cdss)):
-                top_hit, low_covg, blast_hits = blast_package[j]
-                feature = prokka_contig_cdss[j]
-                if top_hit:
-                    ref_id, ref_ltag, ref_gene = top_hit.split('%%%')
-                    feature.source = ref_id
-                    feature.qualifiers['gene'] = [ref_gene]
-                    og_feature_location = deepcopy(feature.location)
-                    feature_is_pseudo = pseudoscan(
-                        feature,
-                        ref_annotation[key_ref_gene(ref_id, ref_gene)],
-                        seq_ident,
-                        seq_covg,
-                        attempt_rescue=True,
-                        blast_hit_dict=blast_hits[ref_gene]
-                    )
-
-                    if (og_feature_location != feature.location):
-                        n_coords_corrected += 1
-
-                        # for logging purposes
-                        if feature_is_pseudo:
-                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-                            corrected_orf_report[-1][1].qualifiers['pseudo'] = ['']
-                        else:
-                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-
-                    liftover_annotation(
-                        feature,
-                        ref_annotation[key_ref_gene(ref_id, ref_gene)],
-                        inference=':'.join([
-                            f"similar to AA sequence",
-                            ref_id,
-                            ref_ltag,
-                            ref_gene,
-                            "blastp",
-                        ])
-                    )
-                    abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
-                # Don't keep gene name assignments from Prokka. They can sometimes be based on
-                # poor sequence similarity and partial matches (despite its --coverage option).
-                # Keeping them is risky for propagation of the name during clustering.
-                elif 'gene' in feature.qualifiers.keys():
-                    designator.append_qualifier(
-                        feature.qualifiers, 'gene_synonym',
-                        feature.qualifiers['gene'][0],
-                    )
-                    feature.qualifiers.pop('gene', None)
-                # We save all the blast hits at this point in case coordinates were corrected and the hits changed
-                abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
-
-            logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
-            logger.debug(f'{seqname}: Corrected coordinates for {n_coords_corrected} ab initio ORFs')
-
-            logger.info(f"{seqname}: Checking for fragmented ab initio annotations")
-            abinit_features_postprocessed_list, dropped_abinit_fragments = fissionfuser(
-                abinit_features_dict.values(),
-                seq_ident=seq_ident,
-                seq_covg=seq_covg,
-                abinit_blast_results=abinit_blast_results,
-            )
-            prokka_rejects += dropped_abinit_fragments
-            logger.debug(f"{seqname}: {len(dropped_abinit_fragments)} gene fragment pairs merged")
-
+            abinit_features_postprocessed = generate_feature_dictionary(prokka_contig_features)
 
             # Check for in-frame conflicts/duplicates
-            abinit_features_postprocessed = generate_feature_dictionary(
-                abinit_features_postprocessed_list
-            )
             logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
             unique_abinit_features, inframe_conflicts, abinit_duplicates = find_inframe_overlaps(
                 ratt_contig_features,
