@@ -122,7 +122,7 @@ def has_valid_start(feature):
     :return: True if valid start codon exists
     """
     start_codons = CodonTable.generic_by_id[genetic_code].start_codons
-    feature_seq = str(feature.extract(record_sequence))[:3]
+    feature_seq = str(feature.extract())[:3]
 
     return feature_seq in start_codons
 
@@ -133,7 +133,7 @@ def has_broken_stop(feature):
     """
     internal_stop = False
     note = ''
-    translation = str(feature.extract(record_sequence).translate(to_stop=False, table=genetic_code))
+    translation = str(feature.extract().translate(to_stop=False, table=genetic_code))
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
@@ -154,6 +154,11 @@ def stopseeker(feature, circularize=False):
     """
     extended_feature = deepcopy(feature)
     return_feature = deepcopy(feature)
+    try:
+        feature_ref = feature.location.parts[0].ref
+        record_sequence = feature.references[feature.location.parts[0].ref]
+    except AttributeError:
+        pass
     rec_len = len(record_sequence) -1
 
     if feature.strand == 1:
@@ -166,16 +171,17 @@ def stopseeker(feature, circularize=False):
     extended_feature.location = FeatureLocation(
         int(extended_feature_start),
         int(extended_feature_end),
-        strand=feature.strand
+        strand=feature.strand,
+        ref=feature_ref,
     )
     if circularize and ((0 in feature) or (rec_len in feature)):
-        circ = FeatureLocation(int(0), int(rec_len), strand=feature.strand)
+        circ = FeatureLocation(int(0), int(rec_len), strand=feature.strand, ref=feature_ref)
         #Creates CompoundLocation
         if feature.strand == 1:
             extended_feature.location = extended_feature.location + circularize
         else:
             extended_feature.location = circularize + extended_feature.location
-    extended_seq = extended_feature.extract(record_sequence).translate(to_stop=True, table=genetic_code)
+    extended_seq = extended_feature.extract().translate(to_stop=True, table=genetic_code)
 
     #Translation extends up to, but not including the stop codon, so we need to add 3 to the end
     if feature.strand == 1:
@@ -194,7 +200,8 @@ def stopseeker(feature, circularize=False):
     return_feature.location = FeatureLocation(
         int(extended_feature_start),
         int(extended_feature_end),
-        strand=feature.strand
+        strand=feature.strand,
+        ref=feature_ref,
     )
     return return_feature
 
@@ -736,16 +743,21 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     """
 
     logger = logging.getLogger('CoordCheck')
+    try:
+        record_sequence = feature.references[feature.location.parts[0].ref]
+    except AttributeError:
+        pass
     ref_seq = extractor.get_seq(ref_feature)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
-    feature_seq = feature.extract(record_sequence)
+    feature_seq = feature.extract()
     og_feature = deepcopy(feature)
     if 'gene' not in og_feature.qualifiers:
         og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
+    og_feature_loc_ref = og_feature.location.parts[0].ref
 
     def coord_align(ref_seq, feature_seq):
         #Probability that the continuous interval used to find good start/stops
@@ -835,7 +847,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         #the feature. All other scenarios would be where found_low/high = True and extra context is unnecessary.
         left_ref_overhang = int(target[0][0]) > int(query[0][0])
         right_ref_overhang = (int(query[-1][1]) == len(feature)) and (int(target[-1][1]) < len(ref_seq))
-        left_pad = right_pad = abs(len(ref_seq) - len(og_feature.extract(record_sequence))) + 2*interval
+        left_pad = right_pad = abs(len(ref_seq) - len(og_feature.extract())) + 2*interval
 
         if left_ref_overhang:
             left_pad = int(target[0][0] - query[0][0])
@@ -861,7 +873,8 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         pad_feature.location = FeatureLocation(
             feature_start,
             feature_end,
-            strand=feature.strand
+            strand=feature.strand,
+            ref=og_feature_loc_ref,
         )
         return pad_feature
 
@@ -873,7 +886,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     if padding:
         #Align again after adding padding to the feature sequence if warranted
         pad_feature = add_padding(feature, target, query, interval)
-        pad_feature_seq = pad_feature.extract(record_sequence)
+        pad_feature_seq = pad_feature.extract()
 
         pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
         if found_low:
@@ -940,16 +953,18 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
             feature.location = FeatureLocation(
                 int(og_feature_start),
                 int(og_feature_end),
-                strand=feature.strand
+                strand=feature.strand,
+                ref=og_feature_loc_ref,
             )
             logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
         else:
             feature.location = FeatureLocation(
                 int(feature_start),
                 int(feature_end),
-                strand=feature.strand
+                strand=feature.strand,
+                ref=og_feature_loc_ref,
             )
-        feature_seq = feature.extract(record_sequence)
+        feature_seq = feature.extract()
 
         if i == 1:
             continue
@@ -963,16 +978,18 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
                  feature.location = FeatureLocation(
                      int(og_feature_start),
                      int(og_feature_end),
-                     strand=feature.strand
+                     strand=feature.strand,
+                     ref=og_feature_loc_ref,
                  )
                  logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
                  break
             corrected_feature.location = FeatureLocation(
                 int(corrected_feature_start),
                 int(corrected_feature_end),
-                strand=feature.strand
+                strand=feature.strand,
+                ref=og_feature_loc_ref,
             )
-            corrected_feature_seq = corrected_feature.extract(record_sequence)
+            corrected_feature_seq = corrected_feature.extract()
             cor_low, cor_high, cor_target, cor_query, cor_alignment, cor_padding, third_score, third_interval = coord_align(ref_seq, corrected_feature_seq)
 
             if (third_score >= first_score):
@@ -998,7 +1015,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     if og_feature.location != feature.location:
         feature.qualifiers['translation'] = [
             str(translate(
-                feature.extract(record_sequence),
+                feature.extract(),
                 table=genetic_code,
                 to_stop=True,
             ))
@@ -1104,7 +1121,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                 extractor.get_seq(ref_feature),
                 table=genetic_code, to_stop=True
             )
-            feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
+            feature_seq = translate(feature.extract(), table=genetic_code, to_stop=True)
             #ref_match with 'thresholds enforced'
             top_hit, low_covg, blast_stats = BLAST.reference_match(
                 query=SeqRecord(feature_seq),

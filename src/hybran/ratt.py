@@ -22,6 +22,7 @@ from .annomerge import has_broken_stop
 from .annomerge import key_ref_gene
 from .annomerge import log_feature_fate
 from .annomerge import pseudoscan
+from .bio import AutarkicSeqFeature
 
 
 def postprocess(
@@ -70,6 +71,11 @@ def postprocess(
                 enforce_thresholds=enforce_thresholds,
             )
             ratt_features[contig] = ratt_contig_record.features
+            SeqIO.write(
+                ratt_contig_record,
+                os.path.join(postprocess_outdir, os.path.basename(gbk)),
+                "genbank",
+            )
             invalid_features += invalid_contig_features
 
         correction_files = [cf for cf in os.listdir(ratt_outdir) if cf.endswith('.Report.txt')]
@@ -100,13 +106,16 @@ def postprocess_contig(
     logger = logging.getLogger('PostprocessRATT')
 
     ratt_contig_record = SeqIO.read(ratt_gbk, 'genbank')
-    global record_sequence
-    record_sequence = ratt_contig_record.seq
 
+    ratt_contig_features = []
     ratt_contig_non_cds = []
     for feature in ratt_contig_record.features:
+        feature = AutarkicSeqFeature.fromSeqFeature(feature)
         ref_contig_id = get_and_remove_ref_tracer(feature)
         feature.source = ref_contig_id
+        for part in feature.location.parts:
+            part.ref = seqname
+        feature.references = {seqname: ratt_contig_record.seq}
         # maybe RATT should be adding this inference tag itself
         if 'locus_tag' in feature.qualifiers:
             infer_string = ':'.join([
@@ -131,12 +140,15 @@ def postprocess_contig(
                 'tRNA',
         ]:
             ratt_contig_non_cds.append(feature)
+        else:
+            ratt_contig_features.append(feature)
+
 
     logger.debug(f'{seqname}: {len(ratt_contig_non_cds)} non-CDS elements')
 
     ratt_contig_features, ratt_blast_results, invalid_ratt_features = \
     isolate_valid_ratt_annotations(
-        feature_list=ratt_contig_record.features,
+        feature_list=ratt_contig_features,
         ref_annotation=ref_annotation,
         seq_ident=seq_ident,
         seq_covg=seq_covg,
@@ -191,7 +203,7 @@ def isolate_valid_ratt_annotations(
     else:
         ratt_seq_ident = ratt_seq_covg = 0
 
-    def refcheck(cds_feature, ratt_seq_ident=ratt_seq_ident, ratt_seq_covg=ratt_seq_covg, record_sequence=record_sequence):
+    def refcheck(cds_feature, ratt_seq_ident=ratt_seq_ident, ratt_seq_covg=ratt_seq_covg):
         valid = False
         remark = ''
         blast_stats = {}
@@ -205,7 +217,7 @@ def isolate_valid_ratt_annotations(
                 extractor.get_seq(ref_feature),
                 table=genetic_code, to_stop=True
             )
-        feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
+        feature_sequence = translate(cds_feature.extract(), table=genetic_code, to_stop=True)
         if len(feature_sequence) == 0:
             remark = 'length of AA sequence is 0'
         else:
@@ -235,7 +247,12 @@ def isolate_valid_ratt_annotations(
             feature_start = feature.location.start
             feature_end = feature.location.end
             feature_strand = feature.strand
-            feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
+            feature.location = SimpleLocation(
+                feature_start,
+                feature_end,
+                strand=feature_strand,
+                ref=feature.location.parts[0].ref,
+            )
             #Check if feature has an internal stop codon.
             #
             # If it doesn't, we will assign pseudo and accept it.
