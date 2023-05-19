@@ -182,9 +182,9 @@ def update_multifaa(infasta, outfasta, subs):
 
     outrecords = []
     for record in SeqIO.parse(infasta, "fasta"):
-        (ref, ltag, gene) = record.id.split(':')
+        (ref, ltag, gene) = record.id.split('%%%')
         if ltag in subs[ref]:
-            record.id = ':'.join([ref, ltag, subs[ref][ltag]])
+            record.id = '%%%'.join([ref, ltag, subs[ref][ltag]])
             record.description = ''
         outrecords.append(record)
 

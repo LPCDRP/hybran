@@ -16,6 +16,7 @@
 * pseudoscan: now identifies delayed stop codons when start coordinate correction changes the reading frame without introducing an internal stop.
 * annomerge: reject the `source` feature from RATT.
 Some final annotations contained two of them: one from RATT and one from Prokka.
+* Fixed issues that occur when sequence IDs contain "|" character (#62).
 
 ### Housekeeping
 * set default output directory to current directory.
