@@ -152,11 +152,8 @@ def stopseeker(feature, circularize=False):
     """
     extended_feature = deepcopy(feature)
     return_feature = deepcopy(feature)
-    try:
-        feature_ref = feature.location.parts[0].ref
-        record_sequence = feature.references[feature.location.parts[0].ref]
-    except AttributeError:
-        pass
+    feature_ref = feature.location.parts[0].ref
+    record_sequence = feature.references[feature.location.parts[0].ref]
     rec_len = len(record_sequence) -1
 
     if feature.strand == 1:
@@ -746,10 +743,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     """
 
     logger = logging.getLogger('CoordCheck')
-    try:
-        record_sequence = feature.references[feature.location.parts[0].ref]
-    except AttributeError:
-        pass
+    record_sequence = feature.references[feature.location.parts[0].ref]
     ref_seq = extractor.get_seq(ref_feature)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
@@ -1776,8 +1770,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
     for i, contig in enumerate(contigs):
         seqname = '.'.join([isolate_id, contig])
         ratt_contig_record = SeqIO.read(ratt_gbk_files[contig], 'genbank')
-        global record_sequence
-        record_sequence = ratt_contig_record.seq
         prokka_contig_record = prokka_records[i]
 
         ratt_contig_features = ratt_contig_record.features
