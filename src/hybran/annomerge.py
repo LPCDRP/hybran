@@ -1896,13 +1896,11 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
         raw_features_unflattened = prokka_rec.features[:]
         raw_features = []
         for f_type in raw_features_unflattened:
-            if 'Bio.SeqFeature.SeqFeature' in str(type(f_type)):
+            if isinstance(f_type, Bio.SeqFeature.SeqFeature):
                 raw_features.append(f_type)
-            elif 'list' in str(type(f_type)) and len(f_type) > 0:
+            elif isinstance(f_type, list) and len(f_type) > 0:
                 for sub_feature in f_type:
-                    if 'Bio.SeqFeature.SeqFeature' not in str(type(sub_feature)):
-                        continue
-                    else:
+                    if isinstance(sub_feature, Bio.SeqFeature.SeqFeature):
                         raw_features.append(sub_feature)
             else:
                 continue
