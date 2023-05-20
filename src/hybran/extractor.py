@@ -34,9 +34,6 @@ def get_seq(feature):
     ]
     return functools.reduce(lambda x, y: x + y, parts)
 
-def get_contig_names(fasta_file):
-    return [record.id for record in SeqIO.parse(fasta_file,"fasta")]
-
 def get_genetic_code(genbank):
     """
     Find genetic code from annotation file

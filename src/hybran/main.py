@@ -443,7 +443,7 @@ def main(args, prokka_args):
                 if not os.path.isfile(annomerge_gbk):
                     logger.info('Merging RATT and Prokka annotations for ' + samplename)
                     annomerge.run(isolate_id=samplename,
-                                  contigs=extractor.get_contig_names(genome),
+                                  genome=genome,
                                   annotation_fp=os.getcwd() + '/',
                                   ref_proteins_fasta=ref_cds,
                                   ref_gbk_list=ref_gbks,
