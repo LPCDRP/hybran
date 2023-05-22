@@ -123,6 +123,10 @@ Updated end position
 Whether the start codon was corrected ('true' or 'false')
 - fixed_stop_codon
 Whether the stop codon was corrected ('true' or 'false')
+- gene_length_diff
+The percent difference in gene length between the original and updated locations
+- status
+Whether the correction was accepted or rejected
 
 For `og_start`, `og_end`, `new_start`, and `new_end`, "start" always corresponds to the low number on the genome and "stop" corresponds to the high number, regardless of strand.
 `new_start` and `new_end` are not necessary modified from the original coordinates.
