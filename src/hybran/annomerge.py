@@ -211,36 +211,48 @@ def log_feature_fate(feature, logfile, remark=""):
         locus_tag = feature.id
     print('\t'.join([locus_tag, remark]), file=logfile)
 
-def log_coord_correction(og_feature, feature, logfile):
+def log_coord_correction(og_feature, feature, accepted, logfile):
     """
     This function is used to log gene information when coord_check() fixes a start/stop postition
     :param og_feature: Original SeqFeature object
     :param feature: Updated SeqFeature object
+    :param accepted: Boolean whether the correction was accepted
     :param logfile: An open filehandle
     """
     locus_tag = og_feature.qualifiers['locus_tag'][0]
     gene_name = og_feature.qualifiers['gene'][0]
     strand = str(og_feature.strand)
-    og_start = str(int(og_feature.location.start) + 1)
-    og_end = (og_feature.location.end)
-    new_start = str(int(feature.location.start) + 1)
-    new_end = (feature.location.end)
+    og_start = (int(og_feature.location.start) + 1)
+    og_end = (int(og_feature.location.end))
+    new_start = (int(feature.location.start) + 1)
+    new_end = (int(feature.location.end))
     start_fixed = str(og_start != new_start).lower()
     stop_fixed = str(og_end != new_end).lower()
 
-    if designator.is_pseudo(og_feature.qualifiers) == designator.is_pseudo(feature.qualifiers):
-        if designator.is_pseudo(og_feature.qualifiers):
-            status = "remains_pseudo"
-        else:
-            status = "remains_non_pseudo"
-    elif designator.is_pseudo(feature.qualifiers):
-        status = "became_pseudo"
+    if (new_end - new_start) >= (og_end - og_start):
+        precent_restored = f"{((1 - (og_end - og_start)/(new_end - new_start))*100):.1f}%"
     else:
-        status = "became_non_pseudo"
-
+        precent_restored = f"-{((1 - (new_end - new_start)/(og_end - og_start))*100):.1f}%"
+    if accepted:
+        accepted = "accepted"
+    else:
+        accepted = "rejected"
     if og_feature.strand == -1:
         start_fixed, stop_fixed = stop_fixed, start_fixed
-    line = [locus_tag, gene_name, strand, og_start, og_end, new_start, new_end,  start_fixed, stop_fixed, status]
+
+    line = [
+        locus_tag,
+        gene_name,
+        strand,
+        og_start,
+        og_end,
+        new_start,
+        new_end,
+        start_fixed,
+        stop_fixed,
+        precent_restored,
+        accepted,
+    ]
     print('\t'.join(str(v) for v in line), file=logfile)
 
 
@@ -752,33 +764,19 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         #occurs by chance should be = 1/(ref_seq*10)
         interval = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
 
-        #The pairwise aligner returns an iterable list of alignments all with the
-        #highest score it could possibly produce. Take the first 5 alignments from this list.
         aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
+        #"blastn" scoring: extend_gap_score = -2.0, open_gap_score = -7.0
+        #Punishing internal gaps slighly more will discourage abhorrent behavior from the aligner.
+        #Prevents the miscalling of found_low/high is some scenarios and encourages continuity.
+        #Ex)
+        #internal_open_gap_score= -7.0           internal_open_gap_score= -8.0
+        # GT--------AG                           GTAG--------
+        # ||--------||                   ->      ||||--------
+        # GTAGTCCGCGAG                           GTAGTCCGCGAG
+        aligner.internal_open_gap_score = -8.0
+
         alignment = aligner.align(ref_seq, feature_seq)
-        alignment_list = []
-        while len(alignment_list) < 5:
-            i = len(alignment_list)
-            try:
-                target = alignment[i].aligned[0]
-                query = alignment[i].aligned[1]
-                found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
-                found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= interval
-                alignment_list.append([i, len(target), len(query), found_low, found_high])
-                continue
-            except IndexError:
-                break
-
-        #If possible, filter to find the best fitting alignment rather than the first one available.
-        if len(alignment_list) > 1:
-            max_found = max(map(lambda x: [x[3],x[4]], alignment_list))
-            alignment_list = [i for i in alignment_list if sum([i[3], i[4]]) == sum(max_found)]
-            min_breaks = min(map(lambda x: [x[1],x[2]], alignment_list))
-            alignment_list = [i for i in alignment_list if sum([i[1], i[2]]) == sum(min_breaks)]
-            alignment = alignment[alignment_list[0][0]]
-        else:
-            alignment = alignment[0]
-
+        alignment = alignment[0]
         target = alignment.aligned[0]
         query = alignment.aligned[1]
         score = alignment.score
@@ -876,6 +874,8 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         pad_feature_seq = pad_feature.extract(record_sequence)
 
         pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
+
+        #Don't try to fix what isn't broken
         if found_low:
             pad_found_low = False
         if found_high:
@@ -937,28 +937,25 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         #If the original alignment was really far off, and we found a downstream start/upstream stop
         #simply by chance from the addition of extra padding, we should just leave the gene alone.
         if feature_start > feature_end:
-            feature.location = FeatureLocation(
-                int(og_feature_start),
-                int(og_feature_end),
-                strand=feature.strand
-            )
+            feature_start = og_feature_start
+            feature_end = og_feature_end
             logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
-        else:
-            feature.location = FeatureLocation(
-                int(feature_start),
-                int(feature_end),
-                strand=feature.strand
-            )
+        feature.location = FeatureLocation(
+            int(feature_start),
+            int(feature_end),
+            strand=feature.strand
+        )
         feature_seq = feature.extract(record_sequence)
 
         if i == 1:
             continue
+
+        #Coordinates can fail to get corrected because the second alignment score is worse than the first score
+        #only because of excess leftover padding. A third alignment with the corrected coordinates (sans 'padding')
+        #ensures we aren't unnecessarily rejecting corrections.
         elif any([pad_found_low, pad_found_high]) and any([fix_start, fix_stop]) and (first_score > second_score):
 
-            #Catch corner cases where we try to correct a reference corresponding start PAST the end of the feature.
-            #or where we try to correct a reference corresponding stop BEFORE the start of a feature.
-            #If the original alignment was really far off, and we found a downstream start/upstream stop
-            #simply by chance from the addition of extra padding, we should just leave the gene alone.
+            #Same corner case 'catch' as the one found above
             if corrected_feature_start > corrected_feature_end:
                  feature.location = FeatureLocation(
                      int(og_feature_start),
@@ -983,14 +980,15 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         else:
             break
 
-    #For cases where we DON'T want to fix coords, good_start/stop should only be true if positionally
-    #identical to the start/stop in the reference. This is opposed to the normal definition of
-    #good_start/stop as CONTAINING a reference corresponding start/stop site.
-    if good_start and not fix_start:
+    #Up to this point, good_start/stop would be True if a sequence CONTAINED a reference corresponding start/stop somewhere
+    #within its boundaries. This concept was necessary for determining where and when corrections should be made.
+    #Now that corrections have been made, we are requiring that good_start/stop should only be True if positionally identical
+    #to the start/stop in the reference sequence.
+    if good_start:
         if ((feature.strand == 1 and feature.location.start != corrected_feature_start) or
             (feature.strand == -1 and feature.location.end != corrected_feature_end)):
             good_start = False
-    if good_stop and not fix_stop:
+    if good_stop:
         if ((feature.strand == 1 and feature.location.end != corrected_feature_end) or
             (feature.strand == -1 and feature.location.start != corrected_feature_start)):
             good_stop = False
@@ -1007,7 +1005,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
             feature.qualifiers, 'inference',
             "COORDINATES:alignment:Hybran"
         )
-        corrected_orf_report.append([og_feature, deepcopy(feature)])
+        corrected_orf_report.append({'og':og_feature, 'corr':deepcopy(feature), 'accepted':True})
     return good_start, good_stop
 
 def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, blast_hit_dict=None
@@ -1139,6 +1137,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                     feature.qualifiers = og_feature.qualifiers
                     broken_stop, stop_note = og_broken_stop, stop_note
                     blast_stats = og_blast_stats
+                    corrected_orf_report[-1]['accepted'] = False
                 confirmed_feature = True
 
             if confirmed_feature:
@@ -1601,17 +1600,8 @@ def thunderdome(abinit_annotation, ratt_annotation):
         key_ref_gene(ratt_annotation.source, ratt_annotation.qualifiers['gene'][0])
     ])
 
-    #If an annotation has a delayed stop, (indicating a potential gene fusion event), we want to consider it a good stop
-    #because it could correspond to the downstream gene's stop position. Gene fusions should take precedence over
-    #alternative annotations if warranted.
-    if abinit_delayed_stop:
-        abinit_coord_status = (abinit_coord_status[0], True)
-    if ratt_delayed_stop:
-        ratt_coord_status = (ratt_coord_status[0], True)
-
     (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
     abinit_coord_score = sum([int(_) for _ in abinit_coord_status])
-
     (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
     ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
 
@@ -1632,35 +1622,35 @@ def thunderdome(abinit_annotation, ratt_annotation):
                 if abinit_longer:
                     include_abinit = True
                     include_ratt = False
-                    remark = f"Equally valid call, but the more complete ab initio annotation is favored."
+                    remark = f"Equally valid call, but the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} is less complete."
                 elif ratt_longer:
                     include_abinit = False
                     include_ratt = True
-                    remark = f"Equally valid call, but the more complete RATT annotation is favored."
+                    remark = f"Equally valid call, but the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} less complete."
                 else:
                     include_abinit = False
                     include_ratt = True
-                    remark = f"Equally valid call, but conflicts with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
+                    remark = f"Equally valid call. Same length as ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}, but RATT annotation is favored due to synteny."
             #Both pseudo
             else:
                 if abinit_longer and abinit_delayed_stop and not ratt_delayed_stop:
                     include_abinit = True
                     include_ratt = False
-                    remark = f"The ab initio annotation is favored due to having a valid delayed stop."
+                    remark = f"The ab initio annotation is favored over the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} because it is longer and contains a valid delayed stop."
                 elif ratt_longer and ratt_delayed_stop and not abinit_delayed_stop:
                     include_abinit = False
                     include_ratt = True
-                    remark = f"The ratt annotation is favored due to having a valid delayed stop."
+                    remark = f"The RATT annotation is favored over the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} because it is longer and contains a valid delayed stop."
                 #Same location or equivalent delayed stop status
                 else:
                     if abinit_broken_stop and not ratt_broken_stop:
                          include_abinit = False
                          include_ratt = True
-                         remark = f"The ratt annotation is favored due to having a valid stop."
+                         remark = f"The RATT annotation is favored over the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} because it doesn't contain any internal stops and ends with a valid stop codon."
                     elif ratt_broken_stop and not abinit_broken_stop:
                         include_abinit = True
                         include_ratt = False
-                        remark = f"The ab initio annotation is favored due to having a valid stop."
+                        remark = f"The ab initio annotation is favored over the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} because it doesn't contain any internal stops and ends with a valid stop codon."
                     else:
                         include_abinit = False
                         include_ratt = True
@@ -1669,31 +1659,31 @@ def thunderdome(abinit_annotation, ratt_annotation):
         elif (all(ratt_coord_status) or ratt_coord_score > abinit_coord_score or (ratt_stop_ok and not abinit_stop_ok)):
             include_abinit = False
             include_ratt = True
-            remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated."
+            remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated compared to the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}."
         else:
         #This is the only other possibility:
         #elif (all(abinit_coord_status or abinit_coord_score > ratt_coord_score
         #or (abinit_stop_ok and not ratt_stop_ok)):
             include_abinit = True
             include_ratt = False
-            remark = f"Ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated."
+            remark = f"Ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated compared to the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
     else:
         #Always take the non-pseudo annotation if possible
         if not abinit_is_pseudo and ratt_is_pseudo:
             include_abinit = True
             include_ratt = False
-            remark = "Non-pseudo ab initio annotation takes precedence."
+            remark = f"Non-pseudo ab initio annotation takes precedence over the pseudo RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
         else:
             include_abinit = False
             include_ratt = True
-            remark = "Non-pseudo RATT annotation takes precedence."
+            remark = f"Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}."
 
     if include_abinit == include_ratt:
         logger.warning(f"Both annotations were marked for {'inclusion' if include_ratt else 'exclusion'} and one annotation is expected to be excluded:\nRATT Feature\n{ratt_annotation}\n\nab initio Feature\n{abinit_annotation}\n\nUnhandled scenario--RATT favored due to synteny"
         )
         include_abinit = False
         include_ratt = True
-        remark = "Conflicting annotations, RATT favored due to synteny"
+        remark = "Both annotations marked for inclusion. Unhandled scenario--RATT annotation favored due to synteny"
     return include_abinit, include_ratt, remark
 
 
@@ -2021,13 +2011,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                     if (og_feature_location != feature.location):
                         n_coords_corrected += 1
 
-                        # for logging purposes
-                        if feature_is_pseudo:
-                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-                            corrected_orf_report[-1][1].qualifiers['pseudo'] = ['']
-                        else:
-                            corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-
                     liftover_annotation(
                         feature,
                         ref_annotation[key_ref_gene(ref_id, ref_gene)],
@@ -2200,17 +2183,19 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
 
     with open(corrected_abinit_orf_logfile, 'w') as abinit_corlog, \
          open(corrected_ratt_orf_logfile, 'w') as ratt_corlog:
-        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon', 'status']
+        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon', 'gene_length_diff', 'status']
         print('\t'.join(header), file=abinit_corlog)
         print('\t'.join(header), file=ratt_corlog)
-        for (orig_feature, corr_feature) in corrected_orf_report:
-            if designator.is_raw_ltag(orig_feature.qualifiers['locus_tag'][0]):
+        for entry in corrected_orf_report:
+            if designator.is_raw_ltag(entry['og'].qualifiers['locus_tag'][0]):
                 logfile = abinit_corlog
             else:
                 logfile = ratt_corlog
-            log_coord_correction(orig_feature,
-                                 corr_feature,
-                                 logfile,
+            log_coord_correction(
+                entry['og'],
+                entry['corr'],
+                entry['accepted'],
+                logfile,
             )
 
     SeqIO.write(output_isolate_recs, output_genbank, 'genbank')

@@ -433,7 +433,7 @@ def test_liftover_annotation():
     ['bad_mismatch_check2', True, True],
     ['ref_start_frameshift', True, False],
     ['bad_start_good_padding', True, False],
-    ['ratt_pseudo_pgrs', True, True],
+    ['ratt_pseudo_pgrs', True, False],
     ['same_start_alt_stop_1', False, False],
     ['same_start_alt_stop_2', False, False],
     ['same_start_alt_stop_2_fix', True, True],
@@ -945,18 +945,18 @@ def test_check_inclusion_criteria(pair, tmp_path):
     expected = {
         'ratt_better': (
             False, True,
-            "RATT annotation Rv0001:dnaA more accurately named and delineated.",
+            "RATT annotation Rv0001:dnaA more accurately named and delineated compared to the ab initio annotation L_00001:dnaA.",
         ),
         'ratt_better_coverage': (
             False, True,
-            "RATT annotation Rv1453:Rv1453 more accurately named and delineated.",
+            "RATT annotation Rv1453:Rv1453 more accurately named and delineated compared to the ab initio annotation L_01557:Rv1453.",
         ),
         'pseudo_vs_nonpseudo': (
             False, True,
-            "Non-pseudo RATT annotation takes precedence.",
+            "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation L_00010:Rv0007.",
         ),
         'overlapping_unnamed': (False, True, "Hypothetical gene and conflicts (overlapping in-frame) with RATT's Rv0001:dnaA."),
-        'abinit_better': (True, False, 'Ab initio annotation L_02383:Rv1718 more accurately named and delineated.'),
+        'abinit_better': (True, False, "Ab initio annotation L_02383:Rv1718 more accurately named and delineated compared to the RATT annotation Rv1718:Rv1718."),
         'overlapping_different_names_ratt_better': (
             False, True,
             "putative misannotation: has no reference-corresponding coordinates, while Rv1945:Rv1945 has a reference-corresponding start, and  both share the same stop position.",
@@ -966,12 +966,12 @@ def test_check_inclusion_criteria(pair, tmp_path):
             "putative misannotation: has no reference-corresponding stop, while L_02335:ORF0004 does, and both share the same stop position."
         ),
         'ratt_join_vs_prokka_bad_start': (
-            False, True,
-            "Equally valid call, but the more complete RATT annotation is favored."
+            True, False,
+            "The ab initio annotation is favored over the RATT annotation Rv0840c:pip because it doesn't contain any internal stops and ends with a valid stop codon.",
         ),
         'prokka_gene_fusion': (
-            True, False,
-            "The ab initio annotation is favored due to having a valid delayed stop."
+            False, True,
+            "RATT annotation Rv1548c:PE21 more accurately named and delineated compared to the ab initio annotation L_02249:PE21.",
         ),
     }
 
