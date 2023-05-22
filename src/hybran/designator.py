@@ -1,10 +1,10 @@
 from collections import defaultdict
 import re
 
-from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation
 
 from . import extractor
+from .bio import SeqIO
 
 
 # This gets reset to whatever was passed as

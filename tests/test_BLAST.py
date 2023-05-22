@@ -1,12 +1,12 @@
 from collections import defaultdict
 import os
 
-from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
 from Bio.SeqRecord import SeqRecord
 import pytest
 
 from hybran import BLAST
+from hybran.bio import SeqIO
 
 from .data_features import *
 

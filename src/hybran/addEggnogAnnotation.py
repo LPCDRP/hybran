@@ -1,9 +1,11 @@
 
 import os
-from Bio import SeqIO
+
 from . import converter
 from . import config
 from . import designator
+from .bio import SeqIO
+
 
 def parse_eggnog(ref_tax_ids):
     hybran_tmp_dir = config.hybran_tmp_dir

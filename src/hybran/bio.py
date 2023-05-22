@@ -1,4 +1,9 @@
+from copy import copy
+
+from Bio import SeqIO
+from Bio.SeqIO import InsdcIO
 from Bio.SeqFeature import SeqFeature, SimpleLocation, CompoundLocation
+
 
 class AutarkicSeqFeature(SeqFeature):
     def __init__(
@@ -80,3 +85,21 @@ class AutarkicSeqFeature(SeqFeature):
         if references is None and self.references is not None:
             references=self.references
         return super().extract(parent_sequence, references)
+
+
+
+class HybGenBankWriter(InsdcIO.GenBankWriter):
+    # https://github.com/biopython/biopython/blob/master/Bio/SeqIO/InsdcIO.py
+    def _write_feature(self, feature, record_length):
+        """
+        intercept the .ref attributes to prevent locations from being printed
+        with f"{ref}:" sort of prefixed to it.
+        """
+        temp_feature = copy(feature)
+        temp_loc = copy(feature.location)
+        temp_feature.location = temp_loc
+        for part in temp_feature.location.parts:
+            part.ref = None
+        return super()._write_feature(temp_feature, record_length)
+
+SeqIO._FormatToWriter['genbank'] = SeqIO._FormatToWriter['gb'] = HybGenBankWriter

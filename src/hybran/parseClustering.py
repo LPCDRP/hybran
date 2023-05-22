@@ -5,7 +5,6 @@ import tempfile
 import subprocess
 import logging
 
-from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from collections import OrderedDict
@@ -15,6 +14,7 @@ from . import CDHIT
 from . import config
 from . import designator
 from . import extractor
+from .bio import SeqIO
 
 
 def parse_clustered_proteins(clustered_proteins, annotations):

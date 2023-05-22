@@ -3,13 +3,13 @@ import logging
 import os
 import tempfile
 
-from Bio import SeqIO
 from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastnCommandline
 import multiprocessing
 from Bio.SeqRecord import SeqRecord
 
 from functools import partial
 from . import config
+from .bio import SeqIO
 
 
 # blast wants to phone home, but we run blast too many times

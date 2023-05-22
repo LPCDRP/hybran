@@ -5,12 +5,12 @@ import subprocess
 from urllib.error import HTTPError
 
 from Bio import Entrez
-from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 
 from . import designator
+from .bio import SeqIO
 
 def get_ltag(feature):
     return feature.qualifiers['locus_tag'][0]

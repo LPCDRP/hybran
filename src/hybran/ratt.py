@@ -2,7 +2,6 @@ import os
 import logging
 
 import Bio
-from Bio import SeqIO
 from Bio.Seq import Seq, translate
 from Bio.SeqFeature import SimpleLocation
 from Bio.SeqRecord import SeqRecord
@@ -22,7 +21,7 @@ from .annomerge import has_broken_stop
 from .annomerge import key_ref_gene
 from .annomerge import log_feature_fate
 from .annomerge import pseudoscan
-from .bio import AutarkicSeqFeature
+from .bio import AutarkicSeqFeature, SeqIO
 
 
 def postprocess(

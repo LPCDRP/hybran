@@ -4,7 +4,6 @@ import logging
 import os
 import re
 
-from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 # standard multiprocessing can't pickle lambda
@@ -19,7 +18,7 @@ from .annomerge import key_ref_gene
 from .annomerge import liftover_annotation
 from .annomerge import log_feature_fate
 from .annomerge import pseudoscan
-from .bio import AutarkicSeqFeature
+from .bio import AutarkicSeqFeature, SeqIO
 
 
 def postprocess(

@@ -24,7 +24,6 @@ from math import log, ceil
 import multiprocess as multiprocessing
 import Bio
 from Bio.Data import CodonTable
-from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
@@ -37,6 +36,7 @@ from . import config
 from . import designator
 from . import extractor
 from . import __version__
+from .bio import SeqIO
 
 
 def get_and_remove_ref_tracer(feature):

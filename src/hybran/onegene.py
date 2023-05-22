@@ -4,10 +4,9 @@ import os
 import shutil
 import sys
 
-from Bio import SeqIO
-
 from . import config, fileManager
 from . import CDHIT, designator, extractor, parseClustering
+from .bio import SeqIO
 
 
 def main(args):

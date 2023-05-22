@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from Bio import SeqIO
+from .bio import SeqIO
 
 
 def convert_gbk_to_gff(gbk_filename):

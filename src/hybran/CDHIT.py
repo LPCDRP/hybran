@@ -1,10 +1,12 @@
 import logging
-from Bio import SeqIO
 import subprocess
 import sys
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+
+from .bio import SeqIO
+
 
 def create_allseq_dict(fa):
     """

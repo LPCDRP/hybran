@@ -2,13 +2,13 @@ from collections import defaultdict, OrderedDict
 from copy import deepcopy
 import os
 
-from Bio import SeqIO
 from Bio.SeqFeature import SeqFeature, SimpleLocation, FeatureLocation, ExactPosition, CompoundLocation
 
 import pytest
 
 from hybran import annomerge
 from hybran import config
+from hybran.bio import SeqIO
 
 from .data_features import *
 
