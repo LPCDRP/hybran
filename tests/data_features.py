@@ -4,8 +4,12 @@ import os
 import pathlib
 
 from Bio import SeqIO
-from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition, CompoundLocation
+from Bio.SeqFeature import FeatureLocation, ExactPosition, CompoundLocation
 
+from hybran.bio import AutarkicSeqFeature
+
+
+SeqFeature = AutarkicSeqFeature
 
 ref_features = {}
 for ref in [

@@ -322,7 +322,11 @@ def test_fusionfisher(gene_list):
     })
     source_genome = source_genomes[gene_list]
 
-    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
+    record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
+    for f in inputs[gene_list]:
+        f.references = {record_sequence.id: record_sequence.seq}
+        for part in f.location.parts:
+            part.ref = record_sequence.id
     annomerge.genetic_code = 11
     annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
     annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
@@ -490,7 +494,9 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'end_greater_than_start': features[source_genome['end_greater_than_start']]['lpqG']['ratt'],
     }
 
-    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
+    record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
+    test_features[feature_type].ref = record_sequence.id
+    test_features[feature_type].references = {record_sequence.id: record_sequence.seq}
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
     annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
@@ -502,23 +508,23 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     ]
 
     expected = {
-        'abinit_start_bad_minus': [(True, True), FeatureLocation(3548089, 3548542, strand=-1)],
-        'bad_translation':[(True, True), FeatureLocation(4230767, 4231754, strand=1)],
-        'tricky_found_low':[(False, True), FeatureLocation(2636045, 2637140, strand=-1)],
-        'good_start_stop_deletion':[(True, True), FeatureLocation(4239393, 4240378, strand=1)],
-        'bad_mismatch_check':[(True, False), FeatureLocation(2112334, 2114834, strand=1)],
-        'bad_mismatch_check2':[(False, False), FeatureLocation(3707086, 3709176, strand =1)],
-        'ref_start_frameshift':[(True, True), FeatureLocation(3374234, 3375312, strand=-1)],
-        'bad_start_good_padding':[(False, True), FeatureLocation(1927378, 1927894, strand=-1)],
-        'ratt_pseudo_pgrs':[(True,False), FeatureLocation(3741108, 3746955, strand=-1)],
-        'same_start_alt_stop_1':[(False, True), FeatureLocation(3182302, 3183397, strand=-1)],
-        'same_start_alt_stop_2':[(True, False), FeatureLocation(3182302, 3183397, strand=-1)],
-        'same_start_alt_stop_2_fix':[(True, True), FeatureLocation(3182570, 3183397, strand=-1)],
-        'bad_start_stop_nofix_pseudo': [(False, False), FeatureLocation(1217413, 1217872, strand=1)],
-        'bad_start_stop_fix_pseudo': [(True, False), FeatureLocation(1217428, 1217872, strand=1)],
-        'inverted_join_ecoli': [(False, False), FeatureLocation(3714209, 3716770, strand=-1)],
-        'gene_fusion': [(True, True), FeatureLocation(3741108, 3746955, strand=-1)],
-        'end_greater_than_start': [(False, False), FeatureLocation(4064133, 4064322, strand=1)],
+        'abinit_start_bad_minus': [(True, True), FeatureLocation(3548089, 3548542, strand=-1, ref='1')],
+        'bad_translation':[(True, True), FeatureLocation(4230767, 4231754, strand=1, ref='1')],
+        'tricky_found_low':[(False, True), FeatureLocation(2636045, 2637140, strand=-1, ref='1')],
+        'good_start_stop_deletion':[(True, True), FeatureLocation(4239393, 4240378, strand=1, ref='1')],
+        'bad_mismatch_check':[(True, False), FeatureLocation(2112334, 2114834, strand=1, ref='1')],
+        'bad_mismatch_check2':[(False, False), FeatureLocation(3707086, 3709176, strand=1, ref='1')],
+        'ref_start_frameshift':[(True, True), FeatureLocation(3374234, 3375312, strand=-1, ref='1')],
+        'bad_start_good_padding':[(False, True), FeatureLocation(1927378, 1927894, strand=-1, ref='1')],
+        'ratt_pseudo_pgrs':[(True,False), FeatureLocation(3741108, 3746955, strand=-1, ref='1')],
+        'same_start_alt_stop_1':[(False, True), FeatureLocation(3182302, 3183397, strand=-1, ref='1')],
+        'same_start_alt_stop_2':[(True, False), FeatureLocation(3182302, 3183397, strand=-1, ref='1')],
+        'same_start_alt_stop_2_fix':[(True, True), FeatureLocation(3182570, 3183397, strand=-1, ref='1')],
+        'bad_start_stop_nofix_pseudo': [(False, False), FeatureLocation(1217413, 1217872, strand=1, ref='1')],
+        'bad_start_stop_fix_pseudo': [(True, False), FeatureLocation(1217428, 1217872, strand=1, ref='1')],
+        'inverted_join_ecoli': [(False, False), FeatureLocation(3714209, 3716770, strand=-1, ref='1')],
+        'gene_fusion': [(True, True), FeatureLocation(3741108, 3746955, strand=-1, ref='1')],
+        'end_greater_than_start': [(False, False), FeatureLocation(4064133, 4064322, strand=1, ref='1')],
     }
     results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop)
     assert [results, feature.location] == expected[feature_type]
@@ -583,25 +589,27 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
     ref_feature = ref_features[ref_genome[feature_type]][
         annomerge.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
     ]
-    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0].seq
+    record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
+    test_features[feature_type].ref = record_sequence.id
+    test_features[feature_type].references = {record_sequence.id: record_sequence.seq}
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
     expected = {
-        'small_badstop_fix_pseudo': [True, FeatureLocation(66693, 67032, strand=-1)],
-        'small_badstart_fix_nopseudo': [False, FeatureLocation(712762, 713308, strand=1)],
-        'small_badstop_fix_pseudo_frameshift': [True, FeatureLocation(1202098, 1203042, strand=-1)],
-        'frameshift_alt_stop_pseudo' : [True, FeatureLocation(192566, 193259, strand=-1)],
-        'good_start_stop_frameshift_pseudo' : [True, FeatureLocation(366753, 376299, strand=-1)],
-        'bad_start_stop_nofix_pseudo': [True, FeatureLocation(1217428, 1217872, strand=1)],
-        'fix_stop_valid_broken_stop': [True, FeatureLocation(2339465, 2341436, strand=1)],
-        'sensitive_padding_fix_pseudo': [True, FeatureLocation(2342175, 2342617, strand=-1)],
-        'deletion_in_middle_fix_pseudo': [True, FeatureLocation(2397532, 2398106, strand=-1)],
-        'fix_start_stop_nonpseudo': [False, FeatureLocation(2552370, 2553750, strand=1)],
-        'good_start_stop_fix_pseudo': [True, FeatureLocation(2735891, 2736310, strand=1)],
-        'inframe_deletion_in_middle': [False, FeatureLocation(3730264, 3741334, strand=-1)],
-        'good_blast_still_repairable': [False, FeatureLocation(0, 1524, strand=1)],
-        'start_correction_induces_delayed_stop': [True, FeatureLocation(1370377, 1371385, strand=-1)],
-        'start_correction_induces_delayed_stop2': [True, FeatureLocation(2881559, 2882297, strand=1)],
+        'small_badstop_fix_pseudo': [True, FeatureLocation(66693, 67032, strand=-1, ref='1')],
+        'small_badstart_fix_nopseudo': [False, FeatureLocation(712762, 713308, strand=1, ref='1')],
+        'small_badstop_fix_pseudo_frameshift': [True, FeatureLocation(1202098, 1203042, strand=-1, ref='1')],
+        'frameshift_alt_stop_pseudo' : [True, FeatureLocation(192566, 193259, strand=-1, ref='1')],
+        'good_start_stop_frameshift_pseudo' : [True, FeatureLocation(366753, 376299, strand=-1, ref='1')],
+        'bad_start_stop_nofix_pseudo': [True, FeatureLocation(1217428, 1217872, strand=1, ref='1')],
+        'fix_stop_valid_broken_stop': [True, FeatureLocation(2339465, 2341436, strand=1, ref='1')],
+        'sensitive_padding_fix_pseudo': [True, FeatureLocation(2342175, 2342617, strand=-1, ref='1')],
+        'deletion_in_middle_fix_pseudo': [True, FeatureLocation(2397532, 2398106, strand=-1, ref='1')],
+        'fix_start_stop_nonpseudo': [False, FeatureLocation(2552370, 2553750, strand=1, ref='1')],
+        'good_start_stop_fix_pseudo': [True, FeatureLocation(2735891, 2736310, strand=1, ref='1')],
+        'inframe_deletion_in_middle': [False, FeatureLocation(3730264, 3741334, strand=-1, ref='1')],
+        'good_blast_still_repairable': [False, FeatureLocation(0, 1524, strand=1, ref='1')],
+        'start_correction_induces_delayed_stop': [True, FeatureLocation(1370377, 1371385, strand=-1, ref='1')],
+        'start_correction_induces_delayed_stop2': [True, FeatureLocation(2881559, 2882297, strand=1, ref='1')],
     }
     results = annomerge.pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]
@@ -832,17 +840,17 @@ def test_check_inclusion_criteria(pair, tmp_path):
     ratt = features[source_genome[pair]][pairs[pair][0]]['ratt']
     abinit = features[source_genome[pair]][pairs[pair][1]]['abinit']
 
-    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
+    record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0]
+    for f in [ratt, abinit]:
+        f.references = {record_sequence.id: record_sequence.seq}
+        for part in f.location.parts:
+            part.ref = record_sequence.id
     annomerge.ref_annotation = ref_features[ref_genome[pair]]
     annomerge.genetic_code = 11
 
     config.hybran_tmp_dir = tmp_path
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq
     ref_sequence = SeqIO.read('data/H37Rv.fasta', 'fasta').seq
-    annomerge.ref_prom_fp_dict = annomerge.get_nuc_seq_for_gene(
-        [ref_features['H37Rv']['@@@'.join(['H37Rv.NC_000962.3', pairs[pair][0]])]],
-        ref_sequence,
-    )[0]
 
     expected = {
         'ratt_better': (
