@@ -1,3 +1,4 @@
+import functools
 import os
 import logging
 
@@ -103,7 +104,6 @@ def postprocess_contig(
     ratt_contig_record = SeqIO.read(ratt_gbk, 'genbank')
 
     ratt_contig_features = []
-    ratt_contig_non_cds = []
     for feature in ratt_contig_record.features:
         feature = AutarkicSeqFeature.fromSeqFeature(feature)
         ref_contig_id = get_and_remove_ref_tracer(feature)
@@ -129,29 +129,31 @@ def postprocess_contig(
         designator.append_qualifier(feature.qualifiers, 'inference', infer_string)
         if feature.type not in [
                 'source',
-                'CDS',
                 'gene',
-                'rRNA', # these aren't reliably transferred by RATT
-                'tRNA',
         ]:
-            ratt_contig_non_cds.append(feature)
-        else:
             ratt_contig_features.append(feature)
 
 
-    logger.debug(f'{seqname}: {len(ratt_contig_non_cds)} non-CDS elements')
-
-    ratt_contig_features, ratt_blast_results, invalid_ratt_features = \
-    isolate_valid_ratt_annotations(
-        feature_list=ratt_contig_features,
+    logger.info(f"Validating CDSs using {nproc} process(es)")
+    valid_features = []
+    invalid_ratt_features = []
+    mp_validate = functools.partial(
+        validate,
         ref_annotation=ref_annotation,
         seq_ident=seq_ident,
         seq_covg=seq_covg,
-        ratt_enforce_thresholds=enforce_thresholds,
-        nproc=nproc,
+        enforce_thresholds=enforce_thresholds,
     )
+    with multiprocessing.Pool(processes=nproc) as pool:
+        results = pool.map(
+            mp_validate,
+            ratt_contig_features,
+        )
+    for valid, feature, remark in results:
+        valid_features.append(feature) if valid else invalid_ratt_features.append((feature, remark))
+
     logger.info(f"{seqname}: {len(invalid_ratt_features)} RATT features failed validation.")
-    ratt_contig_features = get_ordered_features(ratt_contig_features)
+    ratt_contig_features = get_ordered_features(valid_features)
 
     logger.info(f"{seqname}: Checking for gene fusion signatures in RATT annotations...")
     ratt_contig_features, merged_features, inconsistent_ratt_features = fusionfisher(ratt_contig_features)
@@ -161,6 +163,8 @@ def postprocess_contig(
     ratt_rejects = invalid_ratt_features + inconsistent_ratt_features
     ratt_contig_record.features = ratt_contig_features
 
+    logger.info(f"{seqname}: {len(ratt_contig_features)} total remaining RATT features")
+
     # if merged_features:
     #     merged_features_record = ratt_contig_record[:]
     #     merged_features_record.features = merged_features
@@ -168,136 +172,130 @@ def postprocess_contig(
 
     return ratt_contig_record, ratt_rejects
 
-def isolate_valid_ratt_annotations(
-        feature_list,
+def validate(
+        feature,
         ref_annotation,
         seq_ident,
         seq_covg,
-        ratt_enforce_thresholds,
-        nproc=1,
+        enforce_thresholds,
 ):
     """
     This function takes as input a list of features and checks if the length of the CDSs are divisible by
     3 and if the CDS is split across multiple locations. If so, it outputs the features to stdout and removes them
     from the valid_ratt_annotations. The function BLASTs the sequence to corresponding amino acid sequence in
     reference as well.
-    :param feature_list: List of features from RATT (list of SeqFeature objects)
+    :param feature: AutarkicSeqFeature feature annotation from RATT
     :return: List of valid RATT features (list of SeqFeature objects)
     """
     logger = logging.getLogger('ValidateRATTCDSs')
-    logger.debug('Parsing through RATT annotations')
-    unbroken_cds = []
-    non_cds_features = []
-    ratt_blast_results = {}
-    rejects = []
-    valid_features = []
+    blast_stats = {}
+    valid = False
+    unbroken = False
+    remark = ''
 
-    if ratt_enforce_thresholds:
+    if enforce_thresholds:
         ratt_seq_ident = seq_ident
         ratt_seq_covg = seq_covg
     else:
         ratt_seq_ident = ratt_seq_covg = 0
 
-    def refcheck(cds_feature, ratt_seq_ident=ratt_seq_ident, ratt_seq_covg=ratt_seq_covg):
-        valid = False
-        remark = ''
-        blast_stats = {}
-        ref_feature = ref_annotation[
-            key_ref_gene(cds_feature.source, cds_feature.qualifiers['gene'][0])
-        ]
-        try:
-            ref_seq = ref_feature.qualifiers['translation'][0]
-        except KeyError:
-            ref_seq = translate(
-                extractor.get_seq(ref_feature),
-                table=genetic_code, to_stop=True
-            )
-        feature_sequence = translate(cds_feature.extract(), table=genetic_code, to_stop=True)
-        if len(feature_sequence) == 0:
-            remark = 'length of AA sequence is 0'
+    if feature.type != 'CDS':
+        if feature.type in [
+                'rRNA', # these aren't reliably transferred by RATT
+                'tRNA',
+        ]:
+            valid = False
+            remark = f"{feature.type}s categorically rejected in favor of ab initio"
         else:
-            top_hit, low_covg, blast_stats = BLAST.reference_match(
-                query=SeqRecord(feature_sequence),
-                subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
-                seq_ident=ratt_seq_ident,
-                seq_covg=ratt_seq_covg,
+            valid = True
+        return valid, feature, remark
+
+    compound_interval = isinstance(feature.location,Bio.SeqFeature.CompoundLocation)
+    # Identify features with 'joins'
+    if compound_interval and 'ribosomal_slippage' not in feature.qualifiers:
+        #Need to initialize the feature without the compound location attribute.
+        #The earliest start and the latest end of the joined feature will be bridged together
+        feature_start = feature.location.start
+        feature_end = feature.location.end
+        feature_strand = feature.strand
+        feature.location = SimpleLocation(
+            feature_start,
+            feature_end,
+            strand=feature_strand,
+            ref=feature.location.parts[0].ref,
+        )
+        #Check if feature has an internal stop codon.
+        #
+        # If it doesn't, we will assign pseudo and accept it.
+
+        # The gff conversion of a gbk entry with joins is not meaningful,
+        # and causes some problems, as the entire sequence gets labeled
+        # "biological region" and two basically empty CDS records are created.
+
+        broken_stop, stop_note = has_broken_stop(feature)
+        if broken_stop:
+            good_start, good_stop = coord_check(
+                feature,
+                ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
+                fix_start=True,
+                fix_stop=True,
             )
+            if not good_stop:
+                remark = "RATT-introduced compound interval did not include reference stop position."
+                valid = False
+                return valid, feature, remark
 
-            if top_hit:
-                valid = True
-            else:
-                remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
-        return valid, feature_sequence, blast_stats, remark
+    feature_is_pseudo = pseudoscan(
+        feature,
+        ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
+        seq_ident,
+        seq_covg,
+        attempt_rescue=True,
+    )
 
-    for feature in feature_list:
-        if feature.type != 'CDS':
-            non_cds_features.append(feature)
-            continue
+    if feature_is_pseudo:
+        valid = True
+    else:
+        unbroken = True
 
-        compound_interval = isinstance(feature.location,Bio.SeqFeature.CompoundLocation)
-        # Identify features with 'joins'
-        if compound_interval and 'ribosomal_slippage' not in feature.qualifiers:
-            #Need to initialize the feature without the compound location attribute.
-            #The earliest start and the latest end of the joined feature will be bridged together
-            feature_start = feature.location.start
-            feature_end = feature.location.end
-            feature_strand = feature.strand
-            feature.location = SimpleLocation(
-                feature_start,
-                feature_end,
-                strand=feature_strand,
-                ref=feature.location.parts[0].ref,
-            )
-            #Check if feature has an internal stop codon.
-            #
-            # If it doesn't, we will assign pseudo and accept it.
+    if unbroken:
+        feature_sequence = translate(
+            feature.extract(),
+            table=genetic_code,
+            to_stop=True,
+        )
+        # TODO: if we want to keep track of the blast stats, we should add it as an attribute to the AutarkicSeqFeature object
+        #ratt_blast_results.update(blast_stats)
+        feature.qualifiers['translation'] = [str(feature_sequence)]
 
-            # The gff conversion of a gbk entry with joins is not meaningful,
-            # and causes some problems, as the entire sequence gets labeled
-            # "biological region" and two basically empty CDS records are created.
-
-            broken_stop, stop_note = has_broken_stop(feature)
-            if broken_stop:
-                good_start, good_stop = coord_check(
-                    feature,
-                    ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
-                    fix_start=True,
-                    fix_stop=True,
+        if not enforce_thresholds:
+            valid = True
+        else:
+            ref_feature = ref_annotation[
+                key_ref_gene(feature.source, feature.qualifiers['gene'][0])
+            ]
+            try:
+                ref_seq = ref_feature.qualifiers['translation'][0]
+            except KeyError:
+                ref_seq = translate(
+                    extractor.get_seq(ref_feature),
+                    table=genetic_code, to_stop=True
                 )
-                if not good_stop:
-                    rejects.append((feature, "RATT-introduced compound interval did not include reference " +
-                                    "stop position."))
-                    continue
 
-        feature_is_pseudo = pseudoscan(
-            feature,
-            ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
-            seq_ident,
-            seq_covg,
-            attempt_rescue=True
-        )
+            if len(feature_sequence) == 0:
+                remark = 'length of AA sequence is 0'
+            else:
+                top_hit, low_covg, blast_stats = BLAST.reference_match(
+                    query=SeqRecord(feature_sequence),
+                    subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
+                    seq_ident=seq_ident,
+                    seq_covg=seq_covg,
+                )
 
-        if feature_is_pseudo:
-            valid_features.append(feature)
-        else:
-            unbroken_cds.append(feature)
+                if top_hit:
+                    valid = True
+                else:
+                    remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
 
-    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features)))
-    logger.debug(f"Checking similarity to reference CDSs using {nproc} process(es)")
 
-    with multiprocessing.Pool(processes=nproc) as pool:
-         results = pool.map(
-            refcheck,
-            unbroken_cds,
-        )
-    for i in range(len(unbroken_cds)):
-        valid, feature_sequence, blast_stats, rejection_note = results[i]
-        cds_feature = unbroken_cds[i]
-        if valid:
-            ratt_blast_results.update(blast_stats)
-            cds_feature.qualifiers['translation'] = [str(feature_sequence)]
-            valid_features.append(cds_feature)
-        else:
-            rejects.append((cds_feature, rejection_note))
-    logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features)))
-    return valid_features, ratt_blast_results, rejects
+    return valid, feature, remark

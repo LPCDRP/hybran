@@ -1850,9 +1850,6 @@ def run(
 
         for ratt_feature_append in ratt_contig_features_dict.values():
             annomerge_contig_features.append(ratt_feature_append)
-        # !!!!!TODO!!!!! make sure these get added back in during RATT postprocessing
-        #for non_cds in ratt_contig_non_cds:
-        #    annomerge_contig_features.append(non_cds)
 
         annomerge_records[i].features = annomerge_contig_features
 
