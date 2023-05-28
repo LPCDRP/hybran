@@ -11,14 +11,12 @@ __status__ = "Development"
 # generates a log file to indicate characteristics of the transferred features from Prokka.
 
 import sys
-import functools
 import collections
 import os
 import tempfile
 import pickle
 import logging
 import time
-import re
 from copy import deepcopy
 from math import log, ceil
 
@@ -26,7 +24,6 @@ from math import log, ceil
 import multiprocess as multiprocessing
 import Bio
 from Bio.Data import CodonTable
-from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
@@ -39,6 +36,7 @@ from . import config
 from . import designator
 from . import extractor
 from . import __version__
+from .bio import SeqIO
 
 
 def get_and_remove_ref_tracer(feature):
@@ -122,7 +120,7 @@ def has_valid_start(feature):
     :return: True if valid start codon exists
     """
     start_codons = CodonTable.generic_by_id[genetic_code].start_codons
-    feature_seq = str(feature.extract(record_sequence))[:3]
+    feature_seq = str(feature.extract())[:3]
 
     return feature_seq in start_codons
 
@@ -133,7 +131,7 @@ def has_broken_stop(feature):
     """
     internal_stop = False
     note = ''
-    translation = str(feature.extract(record_sequence).translate(to_stop=False, table=genetic_code))
+    translation = str(feature.extract().translate(to_stop=False, table=genetic_code))
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
@@ -154,6 +152,8 @@ def stopseeker(feature, circularize=False):
     """
     extended_feature = deepcopy(feature)
     return_feature = deepcopy(feature)
+    feature_ref = feature.location.parts[0].ref
+    record_sequence = feature.references[feature.location.parts[0].ref]
     rec_len = len(record_sequence) -1
 
     if feature.strand == 1:
@@ -166,16 +166,17 @@ def stopseeker(feature, circularize=False):
     extended_feature.location = FeatureLocation(
         int(extended_feature_start),
         int(extended_feature_end),
-        strand=feature.strand
+        strand=feature.strand,
+        ref=feature_ref,
     )
     if circularize and ((0 in feature) or (rec_len in feature)):
-        circ = FeatureLocation(int(0), int(rec_len), strand=feature.strand)
+        circ = FeatureLocation(int(0), int(rec_len), strand=feature.strand, ref=feature_ref)
         #Creates CompoundLocation
         if feature.strand == 1:
             extended_feature.location = extended_feature.location + circularize
         else:
             extended_feature.location = circularize + extended_feature.location
-    extended_seq = extended_feature.extract(record_sequence).translate(to_stop=True, table=genetic_code)
+    extended_seq = extended_feature.extract().translate(to_stop=True, table=genetic_code)
 
     #Translation extends up to, but not including the stop codon, so we need to add 3 to the end
     if feature.strand == 1:
@@ -194,7 +195,8 @@ def stopseeker(feature, circularize=False):
     return_feature.location = FeatureLocation(
         int(extended_feature_start),
         int(extended_feature_end),
-        strand=feature.strand
+        strand=feature.strand,
+        ref=feature_ref,
     )
     return return_feature
 
@@ -367,13 +369,12 @@ def merge_qualifiers(f1quals, f2quals):
             )
     return final_qualifiers
 
-def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
+def fissionfuser(flist, seq_ident, seq_covg):
     """
     Given a list of features ordered by genomic position, identify adjacent gene fragments and combine them into a single feature.
     :param flist: list of SeqFeature objects
     :param seq_ident: sequence identity threshold for BLAST (for pseudo-calling)
     :param seq_covg: alignment coverage threshold for BLAST (for pseudo-calling)
-    :param abinit_blast_results: dictionary of ab initio annotation locus tag to top blast hit stats (for pseudo-calling)
     :returns:
         list of SeqFeature objects to keep (some modified from the original)
         list of annotations that have been merged into their neighbor.
@@ -464,7 +465,12 @@ def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
                 dropped_feature = last_gene
             dropped_feature_name = f"{extractor.get_ltag(dropped_feature)}:{extractor.get_gene(dropped_feature)}"
             new_feature_name = f"{extractor.get_ltag(new_feature)}:{extractor.get_gene(new_feature)}"
-            new_feature.location = FeatureLocation(new_start, new_end, feature.location.strand)
+            new_feature.location = FeatureLocation(
+                new_start,
+                new_end,
+                feature.location.strand,
+                ref=feature.location.parts[0].ref,
+            )
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
 
             if all(coord_check(
@@ -475,13 +481,12 @@ def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
                 dropped_ltag_features.append(
                     (dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}")
                 )
-                # Re-call pseudoscan for updated notes and blast
+                # Re-call pseudoscan for updated notes
                 pseudoscan(
                     new_feature,
                     ref_annotation[key_ref_gene(new_feature.source, new_feature.qualifiers['gene'][0])],
                     seq_ident=seq_ident,
                     seq_covg=seq_covg,
-                    blast_hit_dict=abinit_blast_results[new_feature.qualifiers['locus_tag'][0]],
                 )
                 last_gene_by_strand[feature.location.strand] = new_feature
                 outlist.remove(last_gene)
@@ -748,16 +753,18 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     """
 
     logger = logging.getLogger('CoordCheck')
+    record_sequence = feature.references[feature.location.parts[0].ref]
     ref_seq = extractor.get_seq(ref_feature)
     ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
-    feature_seq = feature.extract(record_sequence)
+    feature_seq = feature.extract()
     og_feature = deepcopy(feature)
     if 'gene' not in og_feature.qualifiers:
         og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
+    og_feature_loc_ref = og_feature.location.parts[0].ref
 
     def coord_align(ref_seq, feature_seq):
         #Probability that the continuous interval used to find good start/stops
@@ -833,7 +840,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         #the feature. All other scenarios would be where found_low/high = True and extra context is unnecessary.
         left_ref_overhang = int(target[0][0]) > int(query[0][0])
         right_ref_overhang = (int(query[-1][1]) == len(feature)) and (int(target[-1][1]) < len(ref_seq))
-        left_pad = right_pad = abs(len(ref_seq) - len(og_feature.extract(record_sequence))) + 2*interval
+        left_pad = right_pad = abs(len(ref_seq) - len(og_feature.extract())) + 2*interval
 
         if left_ref_overhang:
             left_pad = int(target[0][0] - query[0][0])
@@ -859,7 +866,8 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         pad_feature.location = FeatureLocation(
             feature_start,
             feature_end,
-            strand=feature.strand
+            strand=feature.strand,
+            ref=og_feature_loc_ref,
         )
         return pad_feature
 
@@ -871,7 +879,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     if padding:
         #Align again after adding padding to the feature sequence if warranted
         pad_feature = add_padding(feature, target, query, interval)
-        pad_feature_seq = pad_feature.extract(record_sequence)
+        pad_feature_seq = pad_feature.extract()
 
         pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
 
@@ -943,9 +951,10 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         feature.location = FeatureLocation(
             int(feature_start),
             int(feature_end),
-            strand=feature.strand
+            strand=feature.strand,
+            ref=og_feature_loc_ref,
         )
-        feature_seq = feature.extract(record_sequence)
+        feature_seq = feature.extract()
 
         if i == 1:
             continue
@@ -960,16 +969,18 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
                  feature.location = FeatureLocation(
                      int(og_feature_start),
                      int(og_feature_end),
-                     strand=feature.strand
+                     strand=feature.strand,
+                     ref=og_feature_loc_ref,
                  )
                  logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
                  break
             corrected_feature.location = FeatureLocation(
                 int(corrected_feature_start),
                 int(corrected_feature_end),
-                strand=feature.strand
+                strand=feature.strand,
+                ref=og_feature_loc_ref,
             )
-            corrected_feature_seq = corrected_feature.extract(record_sequence)
+            corrected_feature_seq = corrected_feature.extract()
             cor_low, cor_high, cor_target, cor_query, cor_alignment, cor_padding, third_score, third_interval = coord_align(ref_seq, corrected_feature_seq)
 
             if (third_score >= first_score):
@@ -996,7 +1007,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     if og_feature.location != feature.location:
         feature.qualifiers['translation'] = [
             str(translate(
-                feature.extract(record_sequence),
+                feature.extract(),
                 table=genetic_code,
                 to_stop=True,
             ))
@@ -1102,7 +1113,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                 extractor.get_seq(ref_feature),
                 table=genetic_code, to_stop=True
             )
-            feature_seq = translate(feature.extract(record_sequence), table=genetic_code, to_stop=True)
+            feature_seq = translate(feature.extract(), table=genetic_code, to_stop=True)
             #ref_match with 'thresholds enforced'
             top_hit, low_covg, blast_stats = BLAST.reference_match(
                 query=SeqRecord(feature_seq),
@@ -1241,130 +1252,6 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
 
     return is_pseudo
 
-def isolate_valid_ratt_annotations(feature_list, seq_ident, seq_covg, ratt_enforce_thresholds,
-    nproc=1,
-):
-    """
-    This function takes as input a list of features and checks if the length of the CDSs are divisible by
-    3 and if the CDS is split across multiple locations. If so, it outputs the features to stdout and removes them
-    from the valid_ratt_annotations. The function BLASTs the sequence to corresponding amino acid sequence in
-    reference as well.
-    :param feature_list: List of features from RATT (list of SeqFeature objects)
-    :return: List of valid RATT features (list of SeqFeature objects)
-    """
-    logger = logging.getLogger('ValidateRATTCDSs')
-    logger.debug('Parsing through RATT annotations')
-    unbroken_cds = []
-    non_cds_features = []
-    ratt_blast_results = {}
-    rejects = []
-    valid_features = []
-
-    if ratt_enforce_thresholds:
-        ratt_seq_ident = seq_ident
-        ratt_seq_covg = seq_covg
-    else:
-        ratt_seq_ident = ratt_seq_covg = 0
-
-    def refcheck(cds_feature, ratt_seq_ident=ratt_seq_ident, ratt_seq_covg=ratt_seq_covg, record_sequence=record_sequence):
-        valid = False
-        remark = ''
-        blast_stats = {}
-        ref_feature = ref_annotation[
-            key_ref_gene(cds_feature.source, cds_feature.qualifiers['gene'][0])
-        ]
-        try:
-            ref_seq = ref_feature.qualifiers['translation'][0]
-        except KeyError:
-            ref_seq = translate(
-                extractor.get_seq(ref_feature),
-                table=genetic_code, to_stop=True
-            )
-        feature_sequence = translate(cds_feature.extract(record_sequence), table=genetic_code, to_stop=True)
-        if len(feature_sequence) == 0:
-            remark = 'length of AA sequence is 0'
-        else:
-            top_hit, low_covg, blast_stats = BLAST.reference_match(
-                query=SeqRecord(feature_sequence),
-                subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
-                seq_ident=ratt_seq_ident,
-                seq_covg=ratt_seq_covg,
-            )
-
-            if top_hit:
-                valid = True
-            else:
-                remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
-        return valid, feature_sequence, blast_stats, remark
-
-    for feature in feature_list:
-        if feature.type != 'CDS':
-            non_cds_features.append(feature)
-            continue
-
-        compound_interval = isinstance(feature.location,Bio.SeqFeature.CompoundLocation)
-        # Identify features with 'joins'
-        if compound_interval and 'ribosomal_slippage' not in feature.qualifiers:
-            #Need to initialize the feature without the compound location attribute.
-            #The earliest start and the latest end of the joined feature will be bridged together
-            feature_start = feature.location.start
-            feature_end = feature.location.end
-            feature_strand = feature.strand
-            feature.location = (FeatureLocation(feature_start, feature_end, strand=feature_strand))
-            #Check if feature has an internal stop codon.
-            #
-            # If it doesn't, we will assign pseudo and accept it.
-
-            # The gff conversion of a gbk entry with joins is not meaningful,
-            # and causes some problems, as the entire sequence gets labeled
-            # "biological region" and two basically empty CDS records are created.
-
-            broken_stop, stop_note = has_broken_stop(feature)
-            if broken_stop:
-                good_start, good_stop = coord_check(
-                    feature,
-                    ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
-                    fix_start=True,
-                    fix_stop=True,
-                )
-                if not good_stop:
-                    rejects.append((feature, "RATT-introduced compound interval did not include reference " +
-                                    "stop position."))
-                    continue
-
-        feature_is_pseudo = pseudoscan(
-            feature,
-            ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
-            seq_ident,
-            seq_covg,
-            attempt_rescue=True
-        )
-
-        if feature_is_pseudo:
-            valid_features.append(feature)
-        else:
-            unbroken_cds.append(feature)
-
-    logger.debug("Valid CDSs before checking coverage: " + str(len(unbroken_cds) + len(valid_features)))
-    logger.debug(f"Checking similarity to reference CDSs using {nproc} process(es)")
-
-    with multiprocessing.Pool(processes=nproc) as pool:
-         results = pool.map(
-            refcheck,
-            unbroken_cds,
-        )
-    for i in range(len(unbroken_cds)):
-        valid, feature_sequence, blast_stats, rejection_note = results[i]
-        cds_feature = unbroken_cds[i]
-        if valid:
-            ratt_blast_results.update(blast_stats)
-            cds_feature.qualifiers['translation'] = [str(feature_sequence)]
-            valid_features.append(cds_feature)
-        else:
-            rejects.append((cds_feature, rejection_note))
-    logger.debug("Valid CDSs after checking coverage: " + str(len(valid_features)))
-    return valid_features, ratt_blast_results, rejects
-
 def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
     """
     Identify the relevant ab initio features.
@@ -1414,7 +1301,7 @@ def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
     return abinit_features_not_in_ratt, ratt_overlapping_genes, abinit_rejects
 
 
-def get_interregions(embl_record, intergene_length=1):
+def get_interregions(feature_list, intergene_length=1):
     """
     # Copyright(C) 2009 Iddo Friedberg & Ian MC Fleming
     # Released under Biopython license. http://www.biopython.org/DIST/LICENSE
@@ -1422,10 +1309,9 @@ def get_interregions(embl_record, intergene_length=1):
     # This function was modified by Deepika Gunasekaran
 
     This function gets the genomic locations that do not have an coding-sequence (intergenic regions)
-    :param embl_record: EMBL SeqRecord
+    :param feature_list: list of SeqFeatures
     :param intergene_length: minimum length of integernic region (Default: 1)
     :return:
-    SeqRecord of intergenic locations,
     list of intergenic positions where each element in the list is a tuple (start, end, strand),
     dictionary of genes preceding the intergenic regions where the key is a tuple (start of intergenic region, strand)
         and value is the SeqFeature preceding the intergenic region,
@@ -1433,15 +1319,13 @@ def get_interregions(embl_record, intergene_length=1):
         value is the SeqFeature succeeding the intergenic region
     """
 
-    seq_record = embl_record
     cds_list_plus = []
     cds_list_minus = []
-    intergenic_records = []
     intergenic_positions = []
     pre_intergene = {}
     post_intergene = {}
     # Loop over the genome file, get the CDS features on each of the strands
-    for feature in seq_record.features:
+    for feature in feature_list:
         if feature.type != 'CDS':
             continue
         mystart = feature.location.start
@@ -1467,26 +1351,16 @@ def get_interregions(embl_record, intergene_length=1):
         this_start = pospair[0]
         strand = pospair[2]
         if this_start - last_end >= intergene_length:
-            intergene_seq = seq_record.seq[last_end: this_start]
             strand_string = "+"
-            intergenic_records.append(SeqRecord(intergene_seq,
-                                                id="%s-ign-%d" % (seq_record.name, i),
-                                                description="%s %d-%d %s" % (seq_record.name, last_end + 1,
-                                                                             this_start, strand_string)))
             intergenic_positions.append((last_end + 1, this_start, strand_string))
     for i, pospair in enumerate(cds_list_minus[1:]):
         last_end = cds_list_minus[i][1]
         this_start = pospair[0]
         strand = pospair[2]
         if this_start - last_end >= intergene_length:
-            intergene_seq = seq_record.seq[last_end: this_start]
             strand_string = "-"
-            intergenic_records.append(SeqRecord(intergene_seq,
-                                                id="%s-ign-%d" % (seq_record.name, i),
-                                                description="%s %d-%d %s" % (seq_record.name, last_end + 1,
-                                                                             this_start, strand_string)))
             intergenic_positions.append((last_end + 1, this_start, strand_string))
-    return intergenic_records, intergenic_positions, pre_intergene, post_intergene
+    return intergenic_positions, pre_intergene, post_intergene
 
 
 def populate_gaps(
@@ -1764,8 +1638,17 @@ def fix_embl_id_line(embl_file):
             out.write(line)
 
 
-def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, script_directory, seq_ident, seq_covg, ratt_enforce_thresholds,
-    nproc=1,
+def run(
+        isolate_id,
+        genome,
+        annotation_fp,
+        ref_proteins_fasta,
+        ref_gbk_list,
+        script_directory,
+        seq_ident,
+        seq_covg,
+        ratt_enforce_thresholds,
+        nproc=1,
 ):
     """
     Annomerge takes as options -i <isolate_id> -g <output_genbank_file> -l <output_log_file> -m
@@ -1775,7 +1658,7 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
 
     :param isolate_id: ID of the isolate (Example: H37Rv, 1-0006, etc.). This is the isolate_id that is used for naming
      Genbank files in Prokka
-    :param contigs: list of strings for the contig names
+    :param genome: fasta file name corresponding to genome to annotate
     :param annotation_fp: Filepath where RATT, Prokka, reference and prokka no-reference annotations are located.
     Annomerge assumes that RATT annotations are located in <annotation_fp>/ratt, Prokka reference annotations are
     located in <annotation_fp>/prokka and prokka annotations without reference is located in
@@ -1789,50 +1672,31 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
     :return: EMBL record (SeqRecord) of annotated isolate
     """
 
+    start_time = time.time()
+
+    # avoid circular imports
+    from . import ratt, prokka
+
     hybran_tmp_dir = config.hybran_tmp_dir
     global script_dir
     script_dir = script_directory
     global genetic_code
     genetic_code = config.genetic_code
     logger = logging.getLogger('Annomerge')
-    logger.debug('Running Annomerge on ' + isolate_id)
-    start_time = time.time()
 
     if annotation_fp.endswith('/'):
         file_path = annotation_fp + isolate_id + '/'
     else:
         file_path = annotation_fp + '/' + isolate_id + '/'
-    ratt_file_path = file_path + 'ratt'
-    ratt_correction_files = []
-    ratt_gbk_files = {}
-    try:
-        for contig in contigs:
-            embl_file = f"{isolate_id.replace('|','_')}.{contig.replace('|','_')}.final.embl"
-            gbk = converter.convert_embl_to_gbk(ratt_file_path + '/' + embl_file)
-            ratt_gbk_files[contig] = gbk
-        correction_files = [cf for cf in os.listdir(ratt_file_path) if cf.endswith('.Report.txt')]
-        for corr_file in correction_files:
-            corr_file_path = ratt_file_path + '/' + corr_file
-            ratt_correction_files.append(corr_file_path)
-    except OSError:
-        logger.error('Expecting RATT annotation files but found none')
-    if not ratt_gbk_files:
-        logger.error('RATT did not complete running. Please see the log for more details.')
-    try:
-        input_prokka_genbank = file_path + 'prokka/' + isolate_id + '.gbk'
-    except OSError:
-        logger.error('Expecting Prokka annotation file but found none')
+
     output_merged_genes = os.path.join(isolate_id, 'annomerge', 'merged_genes.gbk')
     output_genbank = os.path.join(isolate_id, 'annomerge', isolate_id + '.gbk')
-    prokka_records = list(SeqIO.parse(input_prokka_genbank, 'genbank'))
     global ratt_rejects  # some RATT annotations are rejected as a side effect of check_inclusion_criteria
     ratt_rejects = []
     ratt_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'ratt_unused.tsv')
     prokka_rejects = []
     prokka_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'prokka_unused.tsv')
-    annomerge_records = []
-    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka', 'hybran_coord_corrections.tsv')
-    corrected_ratt_orf_logfile = os.path.join(isolate_id, 'ratt', 'hybran_coord_corrections.tsv')
+
     global corrected_orf_report
     corrected_orf_report = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
@@ -1854,299 +1718,152 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 # will prevail.
                 ref_annotation[key_ref_gene(ref_contig_id, feature.qualifiers['gene'][0])] = feature
 
+    annomerge_records = list(SeqIO.parse(genome, "fasta"))
+    contigs = [record.id for record in annomerge_records]
+
+    ratt_file_path = os.path.join(file_path, 'ratt')
+    corrected_ratt_orf_logfile = os.path.join(isolate_id, 'ratt-postprocessed', 'coord_corrections.tsv')
+    ratt_features = ratt.postprocess(
+        isolate_id,
+        contigs,
+        ratt_outdir=ratt_file_path,
+        postprocess_outdir=os.path.join(file_path, 'ratt-postprocessed'),
+        ref_annotation=ref_annotation,
+        seq_ident=seq_ident,
+        seq_covg=seq_covg,
+        nproc=nproc,
+        enforce_thresholds=ratt_enforce_thresholds,
+    )
+
+    abinit_file_path = os.path.join(file_path, 'prokka')
+    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka-postprocessed', 'coord_corrections.tsv')
+    abinit_features = prokka.postprocess(
+        isolate_id,
+        contigs,
+        prokka_outdir=abinit_file_path,
+        postprocess_outdir=os.path.join(file_path, 'prokka-postprocessed'),
+        ref_annotation=ref_annotation,
+        ref_proteome=ref_proteins_fasta,
+        seq_ident=seq_ident,
+        seq_covg=seq_covg,
+        nproc=nproc,
+    )
+
+    logger.info('Running Annomerge on ' + isolate_id)
+
     output_isolate_recs = []
 
     for i, contig in enumerate(contigs):
         seqname = '.'.join([isolate_id, contig])
-        ratt_contig_record = SeqIO.read(ratt_gbk_files[contig], 'genbank')
-        global record_sequence
-        record_sequence = ratt_contig_record.seq
-        prokka_contig_record = prokka_records[i]
+        annomerge_records[i].id = annomerge_records[i].name = seqname
+        annomerge_records[i].annotations['comment'] = "Annotated using hybran " + __version__ + " from https://lpcdrp.gitlab.io/hybran."
+        annomerge_records[i].annotations['molecule_type'] = 'DNA'
 
-        ratt_contig_features = ratt_contig_record.features
-        prokka_contig_features = prokka_contig_record.features
-        # When prokka assigns the same gene name to multiple orfs, it appends _1, _2, ... to make the names unique.
-        # That causes issues for us because we expect all copies of a gene to have the same name.
-        for f in prokka_contig_features:
-            if 'gene' in f.qualifiers.keys():
-                f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
+        ratt_contig_features = ratt_features[contig]
+        prokka_contig_features = abinit_features[contig]
 
-
-        #
-        # RATT Postprocessing
-        #
-        ratt_contig_non_cds = []
-        for feature in ratt_contig_features:
-            ref_contig_id = get_and_remove_ref_tracer(feature)
-            feature.source = ref_contig_id
-            # maybe RATT should be adding this inference tag itself
-            if 'locus_tag' in feature.qualifiers:
-                infer_string = ':'.join([
-                    f"similar to nucleotide sequence",
-                    ref_contig_id,
-                    extractor.get_ltag(feature),
-                    extractor.get_gene(feature),
-                    "RATT",
-                ])
-            else:
-                infer_string = ':'.join([
-                    f"similar to nucleotide sequence",
-                    ref_contig_id,
-                    "RATT",
-                ])
-            designator.append_qualifier(feature.qualifiers, 'inference', infer_string)
-            if feature.type not in [
-                    'source',
-                    'CDS',
-                    'gene',
-                    'rRNA', # these aren't reliably transferred by RATT
-                    'tRNA',
-            ]:
-                ratt_contig_non_cds.append(feature)
-        logger.debug(f'{seqname}: {len(ratt_contig_non_cds)} non-CDS elements')
-
-        ratt_contig_features, ratt_blast_results, invalid_ratt_features = \
-            isolate_valid_ratt_annotations(feature_list=ratt_contig_features,
-                                           seq_ident=seq_ident,
-                                           seq_covg=seq_covg,
-                                           ratt_enforce_thresholds=ratt_enforce_thresholds,
-                                           nproc=nproc,
-            )
-        logger.info(f"{seqname}: {len(invalid_ratt_features)} RATT features failed validation.")
-        ratt_contig_features = get_ordered_features(ratt_contig_features)
-
-        logger.info(f"{seqname}: Checking for gene fusion signatures in RATT annotations...")
-        ratt_contig_features, merged_features, inconsistent_ratt_features = fusionfisher(ratt_contig_features)
-        logger.info(f"{seqname}: {len(merged_features)} RATT fusion genes detected.")
-        logger.info(f"{seqname}: {len(inconsistent_ratt_features)} RATT annotations found to be inconsistent.")
-
-        ratt_rejects += invalid_ratt_features + inconsistent_ratt_features
-
-        if merged_features and i == 0:
-            merged_features_record = prokka_contig_record[:]
-            merged_features_record.features = merged_features
-            SeqIO.write(merged_features_record, output_merged_genes, 'genbank')
-        global ratt_contig_features_dict
-        ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
         if len(ratt_contig_features) == 0:
             logger.warning(f"NO RATT ANNOTATION FOR {seqname}")
-            feature_additions = {}
-            feature_lengths = {}
-            if len(merged_features) > 0:
-                for feature in merged_features:
-                    prokka_contig_features.append(feature)
-            prokka_contig_record.features = prokka_contig_features
-            annomerge_records.append(prokka_contig_record)
-            for prokka_feature in prokka_contig_record.features:
-                if prokka_feature.type not in feature_additions.keys():
-                    feature_additions[prokka_feature.type] = 1
-                    feature_lengths[prokka_feature.type] = [len(prokka_feature.location)]
-                else:
-                    feature_additions[prokka_feature.type] += 1
-                    feature_lengths[prokka_feature.type].append(len(prokka_feature.location))
+            annomerge_records[i].features = prokka_contig_features
             continue
         elif len(prokka_contig_features) == 0:
             logger.warning(f"NO AB INITIO ANNOTATION FOR {seqname}")
-            prokka_contig_features = ratt_contig_features
-            if len(merged_features) > 0:
-                for feature in merged_features:
-                    prokka_contig_features.append(feature)
-            logger.warning(f'{seqname}: no ab initio annotations to add')
-            prokka_contig_record.features = prokka_contig_features
-            annomerge_records.append(prokka_contig_record)
-        else:
-            # Initializing annomerge gbf record to hold information such as id, etc from prokka but populating the
-            # features from RATT
-            add_prokka_contig_record = prokka_contig_record[:]
-            add_prokka_contig_record.features = []
+            annomerge_records[i].features = ratt_contig_features
+            continue
 
-            try:
-                ratt_contig_record_mod = ratt_contig_record[:]
-            except AttributeError:
-                logger.error('Contains features with fuzzy locations')
-                logger.error(ratt_contig_record)
-            ratt_contig_record_mod.features = ratt_contig_features
+        annomerge_contig_features = []
 
-            #
-            # Ab initio Postprocessing
-            #
-            abinit_features_dict = generate_feature_dictionary(prokka_contig_features)
-            logger.debug(f'{seqname}: Checking ab initio CDS annotations for matches to reference using {nproc} process(es)')
-            #
-            # can contain results for hits to multiple reference genes
-            abinit_blast_results_complete = {}
-            # only contains results for the accepted reference gene hit
-            abinit_blast_results = {}
-            refmatch = functools.partial(
-                BLAST.reference_match,
-                subject=ref_proteins_fasta,
-                seq_ident=seq_ident,
-                seq_covg=seq_covg,
-            )
-            prokka_contig_cdss = [f for f in abinit_features_dict.values() if f.type == 'CDS']
-            with multiprocessing.Pool(processes=nproc) as pool:
-                blast_package = pool.map(
-                    refmatch,
-                    [SeqRecord(Seq(f.qualifiers['translation'][0])) for f in prokka_contig_cdss],
+        ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
+        abinit_features_postprocessed = generate_feature_dictionary(prokka_contig_features)
+
+        # Check for in-frame conflicts/duplicates
+        logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
+        unique_abinit_features, inframe_conflicts, abinit_duplicates = find_inframe_overlaps(
+            ratt_contig_features,
+            abinit_features_postprocessed,
+        )
+        prokka_rejects += abinit_duplicates
+        logger.debug(f"{seqname}: {len(abinit_duplicates)} ab initio ORFs identical to RATT's")
+        logger.debug(f"{seqname}: {len(inframe_conflicts)} ab initio ORFs conflicting in-frame with RATT's")
+        logger.debug(f'{seqname}: {len(unique_abinit_features)} total ab initio ORFs remain in consideration')
+
+
+        intergenic_positions, ratt_pre_intergene, ratt_post_intergene = get_interregions(
+            ratt_contig_features,
+            intergene_length=1,
+        )
+        sorted_intergenic_positions = sorted(intergenic_positions)
+        add_features_from_prokka, overlap_conflicts = populate_gaps(
+            abinit_features=unique_abinit_features,
+            intergenic_positions=sorted_intergenic_positions,
+            ratt_pre_intergene=ratt_pre_intergene,
+            ratt_post_intergene=ratt_post_intergene,
+        )
+        annomerge_contig_features += add_features_from_prokka
+        logger.debug(f"{seqname}: {len(add_features_from_prokka)} ab initio ORFs fall squarely into RATT's CDS-free regions.")
+
+        # merge the two dicts of lists. hat tip to https://stackoverflow.com/a/5946322
+        abinit_conflicts = collections.defaultdict(list)
+        for abinit_conflict_group in (inframe_conflicts, overlap_conflicts):
+            for key, value in abinit_conflict_group.items():
+                abinit_conflicts[key] += value
+
+        logger.debug(f"{seqname}: {len(abinit_conflicts.keys())} ab initio CDSs in total overlap RATT CDSs. Resolving...")
+
+        for feature_position in abinit_conflicts.keys():
+            abinit_feature = unique_abinit_features[feature_position]
+            # Conflict Resolution
+            # TODO: We're using set() here because the ratt_conflict_locs sometimes appear multiple times.
+            #       This causes check_inclusion_criteria to run multiple times on the same pair, which
+            #       in the case of gene fusions, causes cascading of the fusion names.
+            #       (i.e.,  rattA, abinitB => rattA::abinitB => rattA::abinitB::abinitB => ...)
+            for ratt_conflict_loc in set(abinit_conflicts[feature_position]):
+                # if the RATT annotation got rejected at some point, its remaining conflicts are moot
+                if ratt_conflict_loc not in ratt_contig_features_dict.keys():
+                    include_abinit = True
+                    continue
+                ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
+                include_abinit, include_ratt, remark = check_inclusion_criteria(
+                    ratt_annotation=ratt_feature,
+                    abinit_annotation=abinit_feature,
                 )
-            n_coords_corrected = 0
-            n_bad_starts = 0
-            for j in range(len(prokka_contig_cdss)):
-                top_hit, low_covg, blast_hits = blast_package[j]
-                feature = prokka_contig_cdss[j]
-                if top_hit:
-                    ref_id, ref_ltag, ref_gene = top_hit.split('%%%')
-                    feature.source = ref_id
-                    feature.qualifiers['gene'] = [ref_gene]
-                    og_feature_location = deepcopy(feature.location)
-                    feature_is_pseudo = pseudoscan(
-                        feature,
-                        ref_annotation[key_ref_gene(ref_id, ref_gene)],
-                        seq_ident,
-                        seq_covg,
-                        attempt_rescue=True,
-                        blast_hit_dict=blast_hits[ref_gene]
-                    )
+                if not include_abinit:
+                    prokka_rejects.append((abinit_feature,remark))
+                    break
+                # TODO: explain why this is an elif rather than an independent else.
+                elif not include_ratt:
+                    ratt_rejects.append((ratt_contig_features_dict.pop(ratt_conflict_loc), remark))
+            # Add the abinit feature if it survived all the conflicts
+            if include_abinit:
+                annomerge_contig_features.append(abinit_feature)
 
-                    if (og_feature_location != feature.location):
-                        n_coords_corrected += 1
+        for ratt_feature_append in ratt_contig_features_dict.values():
+            annomerge_contig_features.append(ratt_feature_append)
 
-                    liftover_annotation(
-                        feature,
-                        ref_annotation[key_ref_gene(ref_id, ref_gene)],
-                        inference=':'.join([
-                            f"similar to AA sequence",
-                            ref_id,
-                            ref_ltag,
-                            ref_gene,
-                            "blastp",
-                        ])
-                    )
-                    abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
-                # Don't keep gene name assignments from Prokka. They can sometimes be based on
-                # poor sequence similarity and partial matches (despite its --coverage option).
-                # Keeping them is risky for propagation of the name during clustering.
-                elif 'gene' in feature.qualifiers.keys():
-                    designator.append_qualifier(
-                        feature.qualifiers, 'gene_synonym',
-                        feature.qualifiers['gene'][0],
-                    )
-                    feature.qualifiers.pop('gene', None)
-                # We save all the blast hits at this point in case coordinates were corrected and the hits changed
-                abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
-
-            logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
-            logger.debug(f'{seqname}: Corrected coordinates for {n_coords_corrected} ab initio ORFs')
-
-            logger.info(f"{seqname}: Checking for fragmented ab initio annotations")
-            abinit_features_postprocessed_list, dropped_abinit_fragments = fissionfuser(
-                abinit_features_dict.values(),
-                seq_ident=seq_ident,
-                seq_covg=seq_covg,
-                abinit_blast_results=abinit_blast_results,
-            )
-            prokka_rejects += dropped_abinit_fragments
-            logger.debug(f"{seqname}: {len(dropped_abinit_fragments)} gene fragment pairs merged")
-
-
-            # Check for in-frame conflicts/duplicates
-            abinit_features_postprocessed = generate_feature_dictionary(
-                abinit_features_postprocessed_list
-            )
-            logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
-            unique_abinit_features, inframe_conflicts, abinit_duplicates = find_inframe_overlaps(
-                ratt_contig_features,
-                abinit_features_postprocessed,
-            )
-            prokka_rejects += abinit_duplicates
-            logger.debug(f"{seqname}: {len(abinit_duplicates)} ab initio ORFs identical to RATT's")
-            logger.debug(f"{seqname}: {len(inframe_conflicts)} ab initio ORFs conflicting in-frame with RATT's")
-            logger.debug(f'{seqname}: {len(unique_abinit_features)} total ab initio ORFs remain in consideration')
-
-
-            intergenic_ratt, intergenic_positions, ratt_pre_intergene, ratt_post_intergene = \
-                get_interregions(ratt_contig_record_mod, intergene_length=1)
-            sorted_intergenic_positions = sorted(intergenic_positions)
-            add_features_from_prokka, overlap_conflicts = populate_gaps(
-                abinit_features=unique_abinit_features,
-                intergenic_positions=sorted_intergenic_positions,
-                ratt_pre_intergene=ratt_pre_intergene,
-                ratt_post_intergene=ratt_post_intergene,
-            )
-            add_prokka_contig_record.features += add_features_from_prokka
-            logger.debug(f"{seqname}: {len(add_features_from_prokka)} ab initio ORFs fall squarely into RATT's CDS-free regions.")
-
-            # merge the two dicts of lists. hat tip to https://stackoverflow.com/a/5946322
-            abinit_conflicts = collections.defaultdict(list)
-            for abinit_conflict_group in (inframe_conflicts, overlap_conflicts):
-                for key, value in abinit_conflict_group.items():
-                    abinit_conflicts[key] += value
-
-            logger.debug(f"{seqname}: {len(abinit_conflicts.keys())} ab initio CDSs in total overlap RATT CDSs. Resolving...")
-
-            for feature_position in abinit_conflicts.keys():
-                abinit_feature = unique_abinit_features[feature_position]
-                # Conflict Resolution
-                # TODO: We're using set() here because the ratt_conflict_locs sometimes appear multiple times.
-                #       This causes check_inclusion_criteria to run multiple times on the same pair, which
-                #       in the case of gene fusions, causes cascading of the fusion names.
-                #       (i.e.,  rattA, abinitB => rattA::abinitB => rattA::abinitB::abinitB => ...)
-                for ratt_conflict_loc in set(abinit_conflicts[feature_position]):
-                    # if the RATT annotation got rejected at some point, its remaining conflicts are moot
-                    if ratt_conflict_loc not in ratt_contig_features_dict.keys():
-                        include_abinit = True
-                        continue
-                    ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
-                    include_abinit, include_ratt, remark = check_inclusion_criteria(
-                        ratt_annotation=ratt_feature,
-                        abinit_annotation=abinit_feature,
-                    )
-                    if not include_abinit:
-                        prokka_rejects.append((abinit_feature,remark))
-                        break
-                    # TODO: explain why this is an elif rather than an independent else.
-                    elif not include_ratt:
-                        ratt_rejects.append((ratt_contig_features_dict.pop(ratt_conflict_loc), remark))
-                # Add the abinit feature if it survived all the conflicts
-                if include_abinit:
-                    add_prokka_contig_record.features.append(abinit_feature)
-
-            for ratt_feature_append in ratt_contig_features_dict.values():
-                add_prokka_contig_record.features.append(ratt_feature_append)
-            for non_cds in ratt_contig_non_cds:
-                add_prokka_contig_record.features.append(non_cds)
-
-            annomerge_records.append(add_prokka_contig_record)
+        annomerge_records[i].features = annomerge_contig_features
 
         # Finalize annotation records for this contig
-        seqname = '.'.join([isolate_id, contig])
-        annomerge_records[i].name = seqname
-        # TODO - replace version variable with importlib.version call (and probably url too) in python 3.8+
-        annomerge_records[i].annotations['comment'] = "Annotated using hybran " + __version__ + " from https://lpcdrp.gitlab.io/hybran."
-        prokka_rec = annomerge_records[i]
-        raw_features_unflattened = prokka_rec.features[:]
+        raw_features_unflattened = annomerge_records[i].features[:]
         raw_features = []
         for f_type in raw_features_unflattened:
-            if 'Bio.SeqFeature.SeqFeature' in str(type(f_type)):
+            if isinstance(f_type, Bio.SeqFeature.SeqFeature):
                 raw_features.append(f_type)
-            elif 'list' in str(type(f_type)) and len(f_type) > 0:
+            elif isinstance(f_type, list) and len(f_type) > 0:
                 for sub_feature in f_type:
-                    if 'Bio.SeqFeature.SeqFeature' not in str(type(sub_feature)):
-                        continue
-                    else:
+                    if isinstance(sub_feature, Bio.SeqFeature.SeqFeature):
                         raw_features.append(sub_feature)
             else:
                 continue
-        prokka_rec.features = raw_features
+        annomerge_records[i].features = raw_features
         logger.debug(f'{seqname}: final feature annotation verification')
         n_final_cdss = 0
-        for feature in prokka_rec.features:
+        for feature in annomerge_records[i].features:
             if feature.type == 'CDS':
                 n_final_cdss += 1
                 # Adding translated sequences where missing
                 if 'translation' not in feature.qualifiers and not designator.is_pseudo(feature.qualifiers):
                     feature_sequence = translate(
-                        feature.extract(record_sequence),
+                        feature.extract(),
                         table=genetic_code,
                         cds=True,
                     )
@@ -2156,10 +1873,8 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 if 'gene' not in feature.qualifiers.keys():
                     feature.qualifiers['gene'] = feature.qualifiers['locus_tag']
 
-        sorted_final = get_ordered_features(prokka_rec.features)
-        prokka_rec.features = sorted_final
-        output_isolate_recs.append(prokka_rec)
-        isolate_features = prokka_rec.features
+        sorted_final = get_ordered_features(annomerge_records[i].features)
+        annomerge_records[i].features = sorted_final
 
         logger.info(f'{seqname}: {n_final_cdss} CDSs annomerge')
 
@@ -2198,6 +1913,6 @@ def run(isolate_id, contigs, annotation_fp, ref_proteins_fasta, ref_gbk_list, sc
                 logfile,
             )
 
-    SeqIO.write(output_isolate_recs, output_genbank, 'genbank')
+    SeqIO.write(annomerge_records, output_genbank, 'genbank')
 
-    logger.debug('annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')
+    logger.debug('postprocessing and annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')

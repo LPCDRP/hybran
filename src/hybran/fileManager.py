@@ -3,11 +3,10 @@ import os
 import shutil
 import logging
 
-from Bio import SeqIO
-
 from . import converter
 from . import config
 from . import designator
+from .bio import SeqIO
 
 
 exts = dict(

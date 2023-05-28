@@ -7,9 +7,8 @@ from Bio import SeqIO
 
 infile = sys.argv[1]
 
-sample_id = os.path.basename(os.path.splitext(infile)[0])
 for record in SeqIO.parse(infile,"genbank"):
-    sample_contig_id = '.'.join([sample_id, record.id])
+    sample_contig_id = record.id
     for f in record.features:
         if f.type == 'CDS':
             pseudo = str((('pseudo' in f.qualifiers.keys())

@@ -5,12 +5,12 @@ import subprocess
 from urllib.error import HTTPError
 
 from Bio import Entrez
-from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 
 from . import designator
+from .bio import SeqIO
 
 def get_ltag(feature):
     return feature.qualifiers['locus_tag'][0]
@@ -33,9 +33,6 @@ def get_seq(feature):
         ) for loc in feature.location.parts
     ]
     return functools.reduce(lambda x, y: x + y, parts)
-
-def get_contig_names(fasta_file):
-    return [record.id for record in SeqIO.parse(fasta_file,"fasta")]
 
 def get_genetic_code(genbank):
     """

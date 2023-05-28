@@ -2,10 +2,9 @@ import os
 import re
 import warnings
 
-from Bio import SeqIO
-
 from . import designator
 from . import fileManager
+from .bio import SeqIO
 
 
 def main(args):
