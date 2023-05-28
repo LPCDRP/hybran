@@ -16,6 +16,7 @@ from .annomerge import coord_check
 from .annomerge import fissionfuser
 from .annomerge import key_ref_gene
 from .annomerge import liftover_annotation
+from .annomerge import log_coord_corrections
 from .annomerge import log_feature_fate
 from .annomerge import pseudoscan
 from .bio import AutarkicSeqFeature, SeqIO
@@ -39,6 +40,10 @@ def postprocess(
     invalid_features_logfile = os.path.join(
         postprocess_outdir,
         'invalid_features.tsv',
+    )
+    corrected_orf_logfile = os.path.join(
+        postprocess_outdir,
+        'coord_corrections.tsv',
     )
     os.makedirs(
         postprocess_outdir,
@@ -80,6 +85,9 @@ def postprocess(
 
     with open(invalid_features_logfile, 'w') as rejects_log:
         [log_feature_fate(_[0], rejects_log, _[1]) for _ in invalid_features]
+
+    with open(corrected_orf_logfile, 'w') as corr_log:
+        log_coord_corrections(prokka_features, corr_log)
 
     return prokka_features
 

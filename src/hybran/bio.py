@@ -5,6 +5,31 @@ from Bio.SeqIO import InsdcIO
 from Bio.SeqFeature import SeqFeature, SimpleLocation, CompoundLocation
 
 
+class FeatureProperties():
+    def __init__(
+            self,
+            # coordcheck-related attributes
+            location=None,
+            alignment=None,
+            # pseudo-related attributes
+            d3=None, # divisible by 3
+            rcs=None, # has reference-corresponding start
+            rce=None, # has reference-corresponding end
+            vs=None,  # begins with a valid start codon
+            ve=None, # ends with a valid stop codon
+            bok=None, # BLAST hit ok (meeting thresholds)
+    ):
+        self.location = location
+        self.alignment = alignment
+
+        self.d3 = d3
+        self.rcs = rcs
+        self.rce = rce
+        self.vs = vs
+        self.ve = ve
+        self.bok = bok
+
+
 class AutarkicSeqFeature(SeqFeature):
     def __init__(
             self,
@@ -31,14 +56,10 @@ class AutarkicSeqFeature(SeqFeature):
             downstream_feature=None,
             ###
             source=None, # reference annotation from which this is lifted-over, if applicable
-            source_alignment=None,
-            # pseudo-related attributes
-            d3=None, # divisible by 3
-            rcs=None, # has reference-corresponding start
-            rce=None, # has reference-corresponding end
-            vs=None,  # begins with a valid start codon
-            ve=None, # ends with a valid stop codon
-            bok=None, # BLAST hit ok (meeting thresholds)
+            og=FeatureProperties(),
+            corr=FeatureProperties(),
+            corr_possible=None, # whether a coordinate correction was found
+            corr_accepted=None, # whether a correction was found not rejected
             ###
             is_fusion=None, # is a fusion of two or more genes
     ):
@@ -62,14 +83,12 @@ class AutarkicSeqFeature(SeqFeature):
         self.downstream_feature = downstream_feature
 
         self.source = source
-        self.source_alignment = None
 
-        self.d3 = d3
-        self.rcs = rcs
-        self.rce = rce
-        self.vs = vs
-        self.ve = ve
-        self.bok = bok
+        self.og = og
+        self.corr = corr
+        self.corr_possible = corr_possible
+        self.corr_accepted = corr_accepted
+
         self.is_fusion = is_fusion
 
 

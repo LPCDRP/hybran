@@ -213,21 +213,46 @@ def log_feature_fate(feature, logfile, remark=""):
         locus_tag = feature.id
     print('\t'.join([locus_tag, remark]), file=logfile)
 
-def log_coord_correction(og_feature, feature, accepted, logfile):
+def log_coord_corrections(features_by_contig_dict, logfile):
     """
-    This function is used to log gene information when coord_check() fixes a start/stop postition
-    :param og_feature: Original SeqFeature object
-    :param feature: Updated SeqFeature object
-    :param accepted: Boolean whether the correction was accepted
+    Log status of all correctable features.
+    :param features_by_contig_dict: dict of lists of AutarkicSeqFeatures where key is contig name
+    :param logfile: an open filehandle
+    """
+    header = [
+        'locus_tag',
+        'gene_name',
+        'strand',
+        'og_start',
+        'og_end',
+        'new_start',
+        'new_end',
+        'fixed_start_codon',
+        'fixed_stop_codon',
+        'gene_length_diff',
+        'status',
+    ]
+    print('\t'.join(header), file=logfile)
+
+    for contig in features_by_contig_dict:
+        for feature in features_by_contig_dict[contig]:
+            if feature.corr_possible:
+                log_coord_correction(feature, logfile)
+
+def log_coord_correction(feature, logfile):
+    """
+    This function is used to log gene information when coord_check() fixes a start/stop postition for individual features.
+    It is called by log_coord_corrections().
+    :param feature: AutarkicSeqFeature object
     :param logfile: An open filehandle
     """
-    locus_tag = og_feature.qualifiers['locus_tag'][0]
-    gene_name = og_feature.qualifiers['gene'][0]
-    strand = str(og_feature.strand)
-    og_start = (int(og_feature.location.start) + 1)
-    og_end = (int(og_feature.location.end))
-    new_start = (int(feature.location.start) + 1)
-    new_end = (int(feature.location.end))
+    locus_tag = feature.qualifiers['locus_tag'][0]
+    gene_name = feature.qualifiers['gene'][0]
+    strand = str(feature.strand)
+    og_start = (int(feature.og.location.start) + 1)
+    og_end = (int(feature.og.location.end))
+    new_start = (int(feature.corr.location.start) + 1)
+    new_end = (int(feature.corr.location.end))
     start_fixed = str(og_start != new_start).lower()
     stop_fixed = str(og_end != new_end).lower()
 
@@ -235,11 +260,11 @@ def log_coord_correction(og_feature, feature, accepted, logfile):
         precent_restored = f"{((1 - (og_end - og_start)/(new_end - new_start))*100):.1f}%"
     else:
         precent_restored = f"-{((1 - (new_end - new_start)/(og_end - og_start))*100):.1f}%"
-    if accepted:
+    if feature.corr_accepted:
         accepted = "accepted"
     else:
         accepted = "rejected"
-    if og_feature.strand == -1:
+    if feature.strand == -1:
         start_fixed, stop_fixed = stop_fixed, start_fixed
 
     line = [
@@ -760,6 +785,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     feature_end = int(feature.location.end)
     feature_seq = feature.extract()
     og_feature = deepcopy(feature)
+    feature.og.location = og_feature.location
     if 'gene' not in og_feature.qualifiers:
         og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
@@ -1016,7 +1042,12 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
             feature.qualifiers, 'inference',
             "COORDINATES:alignment:Hybran"
         )
-        corrected_orf_report.append({'og':og_feature, 'corr':deepcopy(feature), 'accepted':True})
+        feature.corr.location = deepcopy(feature.location)
+        feature.corr_possible = True
+        feature.corr_accepted = True
+    elif fix_start or fix_stop:
+        feature.corr_possible = False
+
     return good_start, good_stop
 
 def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, blast_hit_dict=None
@@ -1148,7 +1179,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                     feature.qualifiers = og_feature.qualifiers
                     broken_stop, stop_note = og_broken_stop, stop_note
                     blast_stats = og_blast_stats
-                    corrected_orf_report[-1]['accepted'] = False
+                    feature.corr_accepted = False
                 confirmed_feature = True
 
             if confirmed_feature:
@@ -1697,8 +1728,6 @@ def run(
     prokka_rejects = []
     prokka_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'prokka_unused.tsv')
 
-    global corrected_orf_report
-    corrected_orf_report = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
     global ref_annotation
     ref_annotation = keydefaultdict(ref_fuse)
@@ -1722,7 +1751,6 @@ def run(
     contigs = [record.id for record in annomerge_records]
 
     ratt_file_path = os.path.join(file_path, 'ratt')
-    corrected_ratt_orf_logfile = os.path.join(isolate_id, 'ratt-postprocessed', 'coord_corrections.tsv')
     ratt_features = ratt.postprocess(
         isolate_id,
         contigs,
@@ -1736,7 +1764,6 @@ def run(
     )
 
     abinit_file_path = os.path.join(file_path, 'prokka')
-    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka-postprocessed', 'coord_corrections.tsv')
     abinit_features = prokka.postprocess(
         isolate_id,
         contigs,
@@ -1895,23 +1922,6 @@ def run(
             last_gene = gene
             last_remark = remark
         log_feature_fate(last_gene, prokka_rejects_log, last_remark)
-
-    with open(corrected_abinit_orf_logfile, 'w') as abinit_corlog, \
-         open(corrected_ratt_orf_logfile, 'w') as ratt_corlog:
-        header = ['locus_tag', 'gene_name', 'strand', 'og_start', 'og_end', 'new_start', 'new_end', 'fixed_start_codon', 'fixed_stop_codon', 'gene_length_diff', 'status']
-        print('\t'.join(header), file=abinit_corlog)
-        print('\t'.join(header), file=ratt_corlog)
-        for entry in corrected_orf_report:
-            if designator.is_raw_ltag(entry['og'].qualifiers['locus_tag'][0]):
-                logfile = abinit_corlog
-            else:
-                logfile = ratt_corlog
-            log_coord_correction(
-                entry['og'],
-                entry['corr'],
-                entry['accepted'],
-                logfile,
-            )
 
     SeqIO.write(annomerge_records, output_genbank, 'genbank')
 
