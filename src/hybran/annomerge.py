@@ -1683,6 +1683,8 @@ def run(
     :return: EMBL record (SeqRecord) of annotated isolate
     """
 
+    start_time = time.time()
+
     # avoid circular imports
     from . import ratt, prokka
 
@@ -1692,8 +1694,6 @@ def run(
     global genetic_code
     genetic_code = config.genetic_code
     logger = logging.getLogger('Annomerge')
-    logger.debug('Running Annomerge on ' + isolate_id)
-    start_time = time.time()
 
     if annotation_fp.endswith('/'):
         file_path = annotation_fp + isolate_id + '/'
@@ -1759,6 +1759,7 @@ def run(
         nproc=nproc,
     )
 
+    logger.info('Running Annomerge on ' + isolate_id)
 
     output_isolate_recs = []
 
@@ -1922,4 +1923,4 @@ def run(
 
     SeqIO.write(annomerge_records, output_genbank, 'genbank')
 
-    logger.debug('annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')
+    logger.debug('postprocessing and annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')
