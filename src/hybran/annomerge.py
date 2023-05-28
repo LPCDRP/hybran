@@ -357,13 +357,12 @@ def merge_qualifiers(f1quals, f2quals):
             )
     return final_qualifiers
 
-def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
+def fissionfuser(flist, seq_ident, seq_covg):
     """
     Given a list of features ordered by genomic position, identify adjacent gene fragments and combine them into a single feature.
     :param flist: list of SeqFeature objects
     :param seq_ident: sequence identity threshold for BLAST (for pseudo-calling)
     :param seq_covg: alignment coverage threshold for BLAST (for pseudo-calling)
-    :param abinit_blast_results: dictionary of ab initio annotation locus tag to top blast hit stats (for pseudo-calling)
     :returns:
         list of SeqFeature objects to keep (some modified from the original)
         list of annotations that have been merged into their neighbor.
@@ -470,13 +469,12 @@ def fissionfuser(flist, seq_ident, seq_covg, abinit_blast_results):
                 dropped_ltag_features.append(
                     (dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}")
                 )
-                # Re-call pseudoscan for updated notes and blast
+                # Re-call pseudoscan for updated notes
                 pseudoscan(
                     new_feature,
                     ref_annotation[key_ref_gene(new_feature.source, new_feature.qualifiers['gene'][0])],
                     seq_ident=seq_ident,
                     seq_covg=seq_covg,
-                    blast_hit_dict=abinit_blast_results[new_feature.qualifiers['locus_tag'][0]],
                 )
                 last_gene_by_strand[feature.location.strand] = new_feature
                 outlist.remove(last_gene)

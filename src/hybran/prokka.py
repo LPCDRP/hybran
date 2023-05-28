@@ -101,96 +101,125 @@ def postprocess_contig(
         for part in f.location.parts:
             part.ref = seqname
         f.references = {seqname: record.seq}
-        if 'gene' in f.qualifiers.keys():
-            # When prokka assigns the same gene name to multiple orfs, it appends _1, _2, ... to make the names unique.
-            # That causes issues for us because we expect all copies of a gene to have the same name.
-            f.qualifiers['gene'][0] = re.sub(r"_\d+$","",f.qualifiers['gene'][0])
         contig_features.append(f)
 
-
-    record.features = contig_features
-
-
-    logger.info(f'{seqname}: Checking ab initio CDS annotations for matches to reference using {nproc} process(es)')
+    logger.info(f'{seqname}: postprocessing ab initio CDS annotations using {nproc} process(es)')
     #
     # can contain results for hits to multiple reference genes
     abinit_blast_results_complete = {}
     # only contains results for the accepted reference gene hit
     abinit_blast_results = {}
-    refmatch = functools.partial(
-        BLAST.reference_match,
-        subject=ref_proteome,
+    mp_postprocess_feature = functools.partial(
+        postprocess_feature,
+        ref_annotation=ref_annotation,
+        ref_proteome=ref_proteome,
         seq_ident=seq_ident,
         seq_covg=seq_covg,
     )
     prokka_contig_cdss = [f for f in contig_features if f.type == 'CDS']
     with multiprocessing.Pool(processes=nproc) as pool:
-        blast_package = pool.map(
-            refmatch,
-            [SeqRecord(Seq(f.qualifiers['translation'][0])) for f in prokka_contig_cdss],
-        )
-    n_coords_corrected = 0
-    n_bad_starts = 0
-    for j in range(len(prokka_contig_cdss)):
-        top_hit, low_covg, blast_hits = blast_package[j]
-        feature = prokka_contig_cdss[j]
-        if top_hit:
-            ref_id, ref_ltag, ref_gene = top_hit.split('%%%')
-            feature.source = ref_id
-            feature.qualifiers['gene'] = [ref_gene]
-            og_feature_location = deepcopy(feature.location)
-            feature_is_pseudo = pseudoscan(
-                feature,
-                ref_annotation[key_ref_gene(ref_id, ref_gene)],
-                seq_ident,
-                seq_covg,
-                attempt_rescue=True,
-                blast_hit_dict=blast_hits[ref_gene]
-            )
+        contig_features, ref_matched, coords_corrected = zip(*pool.map(
+            mp_postprocess_feature,
+            contig_features,
+        ))
 
-            if (og_feature_location != feature.location):
-                n_coords_corrected += 1
-
-                # # for logging purposes
-                # if feature_is_pseudo:
-                #     corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-                #     corrected_orf_report[-1][1].qualifiers['pseudo'] = ['']
-                # else:
-                #     corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
-
-            liftover_annotation(
-                feature,
-                ref_annotation[key_ref_gene(ref_id, ref_gene)],
-                inference=':'.join([
-                    f"similar to AA sequence",
-                        ref_id,
-                        ref_ltag,
-                        ref_gene,
-                        "blastp",
-                    ])
-            )
-            abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
-        # Don't keep gene name assignments from Prokka. They can sometimes be based on
-        # poor sequence similarity and partial matches (despite its --coverage option).
-        # Keeping them is risky for propagation of the name during clustering.
-        elif 'gene' in feature.qualifiers:
-            designator.append_qualifier(
-                feature.qualifiers, 'gene_synonym',
-                feature.qualifiers['gene'][0],
-            )
-            feature.qualifiers.pop('gene', None)
-        # We save all the blast hits at this point in case coordinates were corrected and the hits changed
-        abinit_blast_results_complete[feature.qualifiers['locus_tag'][0]] = blast_hits
-
-    logger.debug(f'{seqname}: {len(abinit_blast_results.keys())} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
-    logger.debug(f'{seqname}: Corrected coordinates for {n_coords_corrected} ab initio ORFs')
+    logger.info(f'{seqname}: {sum(ref_matched)} out of {len(prokka_contig_cdss)} ORFs matched to a reference gene')
+    logger.info(f'{seqname}: Corrected coordinates for {sum(coords_corrected)} ab initio ORFs')
 
     logger.info(f"{seqname}: Checking for fragmented ab initio annotations")
     abinit_features_postprocessed_list, dropped_abinit_fragments = fissionfuser(
         contig_features,
         seq_ident=seq_ident,
         seq_covg=seq_covg,
-        abinit_blast_results=abinit_blast_results,
     )
-    logger.debug(f"{seqname}: {len(dropped_abinit_fragments)} gene fragment pairs merged")
+
+    record.features = abinit_features_postprocessed_list
+
+    logger.info(f"{seqname}: {len(dropped_abinit_fragments)} gene fragment pairs merged")
+    logger.info(f"{seqname}: {len(abinit_features_postprocessed_list)} total remaining ab initio features")
     return dropped_abinit_fragments
+
+def postprocess_feature(
+        feature,
+        ref_annotation,
+        ref_proteome,
+        seq_ident,
+        seq_covg,
+):
+    """
+    general postprocessing of individual ab initio features.
+    Currently includes reference blastp matching and pseudoscan.
+
+    :param feature: AutarkicSeqFeature ab initio feature
+    :param ref_annotation: dict of curated reference annotations
+    :param ref_proteome: str file name of multi fasta reference amino acid sequences
+    :param seq_ident: int sequence identity percentage threshold for BLAST
+    :param seq_covg: int sequence alignment coverage percent threshold for BLAST
+    """
+    ref_matched = False
+    coords_corrected = False
+
+    if 'gene' in feature.qualifiers:
+        # When prokka assigns the same gene name to multiple orfs, it appends _1, _2, ... to make the names unique.
+        # That causes issues for us because we expect all copies of a gene to have the same name.
+        feature.qualifiers['gene'][0] = re.sub(r"_\d+$","",feature.qualifiers['gene'][0])
+
+    if feature.type != 'CDS':
+        return feature, ref_matched, coords_corrected
+
+    top_hit, low_covg, blast_hits = BLAST.reference_match(
+        SeqRecord(Seq(feature.qualifiers['translation'][0])),
+        subject=ref_proteome,
+        seq_ident=seq_ident,
+        seq_covg=seq_covg,
+    )
+
+    if top_hit:
+        ref_matched = True
+        ref_id, ref_ltag, ref_gene = top_hit.split('%%%')
+        feature.source = ref_id
+        feature.qualifiers['gene'] = [ref_gene]
+        og_feature_location = deepcopy(feature.location)
+        feature_is_pseudo = pseudoscan(
+            feature,
+            ref_annotation[key_ref_gene(ref_id, ref_gene)],
+            seq_ident,
+            seq_covg,
+            attempt_rescue=True,
+            blast_hit_dict=blast_hits[ref_gene]
+        )
+
+        if (og_feature_location != feature.location):
+            coords_corrected = True
+            # # for logging purposes
+            # if feature_is_pseudo:
+            #     corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
+            #     corrected_orf_report[-1][1].qualifiers['pseudo'] = ['']
+            # else:
+            #     corrected_orf_report[-1][0].qualifiers['pseudo'] = ['']
+
+        liftover_annotation(
+            feature,
+            ref_annotation[key_ref_gene(ref_id, ref_gene)],
+            inference=':'.join([
+                f"similar to AA sequence",
+                    ref_id,
+                    ref_ltag,
+                    ref_gene,
+                    "blastp",
+                ])
+        )
+        # TODO: if we still want to save blast results, we should make them attributes of the AutarkicSeqFeature object
+        # abinit_blast_results[feature.qualifiers['locus_tag'][0]] = blast_hits[ref_gene]
+    # Don't keep gene name assignments from Prokka. They can sometimes be based on
+    # poor sequence similarity and partial matches (despite its --coverage option).
+    # Keeping them is risky for propagation of the name during clustering.
+    elif 'gene' in feature.qualifiers:
+        designator.append_qualifier(
+            feature.qualifiers, 'gene_synonym',
+            feature.qualifiers['gene'][0],
+        )
+        feature.qualifiers.pop('gene', None)
+
+
+    return feature, ref_matched, coords_corrected
