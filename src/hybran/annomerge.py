@@ -1707,8 +1707,7 @@ def run(
     ratt_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'ratt_unused.tsv')
     prokka_rejects = []
     prokka_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'prokka_unused.tsv')
-    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka', 'hybran_coord_corrections.tsv')
-    corrected_ratt_orf_logfile = os.path.join(isolate_id, 'ratt', 'hybran_coord_corrections.tsv')
+
     global corrected_orf_report
     corrected_orf_report = []
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
@@ -1734,11 +1733,12 @@ def run(
     contigs = [record.id for record in annomerge_records]
 
     ratt_file_path = os.path.join(file_path, 'ratt')
+    corrected_ratt_orf_logfile = os.path.join(isolate_id, 'ratt-postprocessed', 'coord_corrections.tsv')
     ratt_features = ratt.postprocess(
         isolate_id,
         contigs,
         ratt_outdir=ratt_file_path,
-        postprocess_outdir=os.path.join(ratt_file_path, 'hybran'),
+        postprocess_outdir=os.path.join(file_path, 'ratt-postprocessed'),
         ref_annotation=ref_annotation,
         seq_ident=seq_ident,
         seq_covg=seq_covg,
@@ -1747,11 +1747,12 @@ def run(
     )
 
     abinit_file_path = os.path.join(file_path, 'prokka')
+    corrected_abinit_orf_logfile = os.path.join(isolate_id, 'prokka-postprocessed', 'coord_corrections.tsv')
     abinit_features = prokka.postprocess(
         isolate_id,
         contigs,
         prokka_outdir=abinit_file_path,
-        postprocess_outdir=os.path.join(abinit_file_path, 'hybran'),
+        postprocess_outdir=os.path.join(file_path, 'prokka-postprocessed'),
         ref_annotation=ref_annotation,
         ref_proteome=ref_proteins_fasta,
         seq_ident=seq_ident,

@@ -31,16 +31,20 @@ outdir/
 │   ├── annomerge/
 │   │   ├── <i>sample1</i>.gbk
 │   │   ├── <i>sample1</i>.gff
-│   │   ├── hybran_coord_corrections.tsv
-│   │   ├── merged_genes.gbk
 │   │   ├── prokka_unused.tsv
 │   │   └── ratt_unused.tsv
 |   ├── ratt/
-│   │   ├── hybran_coord_corrections.tsv
 │   │   └── ...
+|   ├── ratt-postprocessed/
+│   │   ├── <i>sample1</i>.*.final.gbk
+│   │   ├── coord_corrections.tsv
+│   │   └── invalid_features.tsv
 |   ├── prokka/
-│   │   ├── hybran_coord_corrections.tsv
 │   │   └── ...
+|   ├── prokka-postprocessed/
+│   │   ├── <i>sample1</i>.gbk
+│   │   ├── coord_corrections.tsv
+│   │   └── invalid_features.tsv
 ├── <i>sampleN</i>/
 │   └── ...
 │
@@ -99,12 +103,12 @@ Its values for all three metrics are shown in the next columns.
 * % subject(ref) coverage
 * % query coverage
 
-##### `annomerge/*/{ratt,prokka}_unused.tsv`
+##### `*/annomerge/{ratt,prokka}_unused.tsv` `*/{ratt,prokka}-postprocessed/invalid_features.tsv`
 
 Two columns: the locus tag and the reason why it was excluded from the final annotation.
 
 
-##### `*/*/hybran_coord_corrections.tsv`
+##### `*/{ratt,prokka}-postprocessed/coord_corrections.tsv`
 
 - locus_tag:
 Locus tag of the annotated feature from the source indicated by the parent directory.
