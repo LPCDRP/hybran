@@ -496,6 +496,7 @@ def fissionfuser(flist, seq_ident, seq_covg):
                 feature.location.strand,
                 ref=feature.location.parts[0].ref,
             )
+            new_feature.og.location = None
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
 
             if all(coord_check(
@@ -785,7 +786,8 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     feature_end = int(feature.location.end)
     feature_seq = feature.extract()
     og_feature = deepcopy(feature)
-    feature.og.location = og_feature.location
+    if feature.og.location is None:
+        feature.og.location = og_feature.location
     if 'gene' not in og_feature.qualifiers:
         og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
@@ -1045,7 +1047,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         feature.corr.location = deepcopy(feature.location)
         feature.corr_possible = True
         feature.corr_accepted = True
-    elif fix_start or fix_stop:
+    elif feature.corr_possible is None and (fix_start or fix_stop):
         feature.corr_possible = False
 
     return good_start, good_stop
@@ -1136,6 +1138,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                 extended_feature = stopseeker(feature)
                 if len(extended_feature) > len(feature):
                     feature.location = extended_feature.location
+                    feature.og.location = None
                     good_start, good_stop = coord_check(feature, ref_feature)
                     coords_ok = [good_start, good_stop]
                     broken_stop, stop_note = has_broken_stop(feature)
