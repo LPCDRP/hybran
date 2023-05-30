@@ -56,8 +56,8 @@ class AutarkicSeqFeature(SeqFeature):
             downstream_feature=None,
             ###
             source=None, # reference annotation from which this is lifted-over, if applicable
-            og=FeatureProperties(),
-            corr=FeatureProperties(),
+            og=None,
+            corr=None,
             corr_possible=None, # whether a coordinate correction was found
             corr_accepted=None, # whether a correction was found not rejected
             ###
@@ -84,8 +84,14 @@ class AutarkicSeqFeature(SeqFeature):
 
         self.source = source
 
-        self.og = og
-        self.corr = corr
+        if og is None:
+            self.og = FeatureProperties()
+        else:
+            self.og = og
+        if corr is None:
+            self.corr = FeatureProperties()
+        else:
+            self.corr = corr
         self.corr_possible = corr_possible
         self.corr_accepted = corr_accepted
 
