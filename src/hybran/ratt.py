@@ -199,6 +199,11 @@ def validate(
     else:
         ratt_seq_ident = ratt_seq_covg = 0
 
+    if feature.location is None:
+        valid = False
+        remark = "Empty feature location"
+        return valid, feature, remark
+
     if feature.type != 'CDS':
         if feature.type in [
                 'rRNA', # these aren't reliably transferred by RATT
