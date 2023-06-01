@@ -89,10 +89,12 @@ class AutarkicSeqFeature(SeqFeature):
         return super().extract(parent_sequence, references)
 
 
+# keep track of the original Location.fromstring function before we mask it
+super_fromstring = GenBank.Location.fromstring
 
 def locfromstring(text, length=None, circular=False, stranded=True):
     try:
-        return SeqFeature.Location.fromstring(text, length, circular, stranded)
+        return super_fromstring(text, length, circular, stranded)
     except:
         # This error will lead Biopython to set the location attribute to None.
         # We'll check for that later and remove it during validation.
