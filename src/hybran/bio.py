@@ -39,6 +39,26 @@ class FeatureProperties():
         self.ve = ve
         self.bok = bok
 
+    def __repr__(self):
+        return f"""
+================================================================================
+Location: {self.location}
+
+
+A L I G N M E N T
+================================================================================
+{self.alignment}
+
+================================================================================
+Divisible by 3:           {self.d3}
+Ref-Corresponding Start:  {self.rcs}
+Ref-Corresponding End:    {self.rce}
+Valid Start Codon:        {self.vs}
+Valid Stop Codon:         {self.ve}
+BLAST hit OK:             {self.bok}
+================================================================================
+"""
+
 
 class AutarkicSeqFeature(SeqFeature):
     def __init__(
