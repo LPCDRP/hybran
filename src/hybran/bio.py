@@ -5,6 +5,16 @@ from Bio.SeqIO import InsdcIO
 from Bio.SeqFeature import SeqFeature, SimpleLocation, CompoundLocation
 
 
+loc_props = [
+    'alignment',
+    'd3',
+    'rcs',
+    'rce',
+    'vs',
+    've',
+    'bok',
+]
+
 class FeatureProperties():
     def __init__(
             self,
@@ -111,6 +121,26 @@ class AutarkicSeqFeature(SeqFeature):
             references=self.references
         return super().extract(parent_sequence, references)
 
+
+    def __getattr__(self, name):
+        if name in loc_props:
+            if self.corr_accepted:
+                props = object.__getattribute__(self, f'corr')
+            else:
+                props = object.__getattribute__(self, f'og')
+            return object.__getattribute__(props, name)
+        else:
+           return  object.__getattribute__(self, name)
+
+    def __setattr__(self, name, val):
+        if name in loc_props:
+            if self.corr_accepted:
+                props = object.__getattribute__(self, f'corr')
+            else:
+                props = object.__getattribute__(self, f'og')
+            object.__setattr__(props, name, val)
+        else:
+            object.__setattr__(self, name, val)
 
 
 class HybGenBankWriter(InsdcIO.GenBankWriter):
