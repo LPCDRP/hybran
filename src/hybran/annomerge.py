@@ -38,6 +38,9 @@ from . import extractor
 from . import __version__
 from .bio import SeqIO
 
+from .lumberjack import log_feature_fate
+from .lumberjack import log_coord_correction
+from .lumberjack import log_coord_corrections
 
 def get_and_remove_ref_tracer(feature):
     """
@@ -199,89 +202,6 @@ def stopseeker(feature, circularize=False):
         ref=feature_ref,
     )
     return return_feature
-
-def log_feature_fate(feature, logfile, remark=""):
-    """
-    General-purpose logging function to print out a gene's information and a comment
-    :param feature: A SeqFeature object
-    :param logfile: An open filehandle
-    :param remark: (str) A comment
-    """
-    if 'locus_tag' in feature.qualifiers:
-        locus_tag = feature.qualifiers['locus_tag'][0]
-    else:
-        locus_tag = feature.id
-    print('\t'.join([locus_tag, remark]), file=logfile)
-
-def log_coord_corrections(features_by_contig_dict, logfile):
-    """
-    Log status of all correctable features.
-    :param features_by_contig_dict: dict of lists of AutarkicSeqFeatures where key is contig name
-    :param logfile: an open filehandle
-    """
-    header = [
-        'locus_tag',
-        'gene_name',
-        'strand',
-        'og_start',
-        'og_end',
-        'new_start',
-        'new_end',
-        'fixed_start_codon',
-        'fixed_stop_codon',
-        'gene_length_diff',
-        'status',
-    ]
-    print('\t'.join(header), file=logfile)
-
-    for contig in features_by_contig_dict:
-        for feature in features_by_contig_dict[contig]:
-            if feature.corr_possible:
-                log_coord_correction(feature, logfile)
-
-def log_coord_correction(feature, logfile):
-    """
-    This function is used to log gene information when coord_check() fixes a start/stop postition for individual features.
-    It is called by log_coord_corrections().
-    :param feature: AutarkicSeqFeature object
-    :param logfile: An open filehandle
-    """
-    locus_tag = feature.qualifiers['locus_tag'][0]
-    gene_name = feature.qualifiers['gene'][0]
-    strand = str(feature.strand)
-    og_start = (int(feature.og.location.start) + 1)
-    og_end = (int(feature.og.location.end))
-    new_start = (int(feature.corr.location.start) + 1)
-    new_end = (int(feature.corr.location.end))
-    start_fixed = str(og_start != new_start).lower()
-    stop_fixed = str(og_end != new_end).lower()
-
-    if (new_end - new_start) >= (og_end - og_start):
-        precent_restored = f"{((1 - (og_end - og_start)/(new_end - new_start))*100):.1f}%"
-    else:
-        precent_restored = f"-{((1 - (new_end - new_start)/(og_end - og_start))*100):.1f}%"
-    if feature.corr_accepted:
-        accepted = "accepted"
-    else:
-        accepted = "rejected"
-    if feature.strand == -1:
-        start_fixed, stop_fixed = stop_fixed, start_fixed
-
-    line = [
-        locus_tag,
-        gene_name,
-        strand,
-        og_start,
-        og_end,
-        new_start,
-        new_end,
-        start_fixed,
-        stop_fixed,
-        precent_restored,
-        accepted,
-    ]
-    print('\t'.join(str(v) for v in line), file=logfile)
-
 
 # Thanks to Jochen Ritzel
 # https://stackoverflow.com/a/2912455

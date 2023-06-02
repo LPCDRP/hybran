@@ -20,11 +20,13 @@ from .annomerge import get_and_remove_ref_tracer
 from .annomerge import get_ordered_features
 from .annomerge import has_broken_stop
 from .annomerge import key_ref_gene
-from .annomerge import log_coord_corrections
-from .annomerge import log_feature_fate
 from .annomerge import pseudoscan
 from .bio import AutarkicSeqFeature, SeqIO
 
+from .lumberjack import log_feature_fate
+from .lumberjack import log_coord_correction
+from .lumberjack import log_coord_corrections
+from .lumberjack import log_pseudos
 
 def postprocess(
         isolate_id,
@@ -48,6 +50,10 @@ def postprocess(
     corrected_orf_logfile = os.path.join(
         postprocess_outdir,
         'coord_corrections.tsv',
+    )
+    pseudoscan_logfile = os.path.join(
+        postprocess_outdir,
+        'pseudoscan_log.tsv',
     )
     os.makedirs(
         postprocess_outdir,
@@ -94,6 +100,9 @@ def postprocess(
 
     with open(corrected_orf_logfile, 'w') as corr_log:
         log_coord_corrections(ratt_features, corr_log)
+
+    with open(pseudoscan_logfile, 'w') as p_log:
+        log_pseudos(ratt_features, p_log)
 
     return ratt_features
 
