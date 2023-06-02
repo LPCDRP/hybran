@@ -1020,16 +1020,24 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
         if all(coords_ok):
             new_note.append(f"Has reference-corresponding start and stop")
 
-        if divisible_by_three(og_feature):
-            if not divisible_by_three(ref_feature):
-                new_note.append(f"Sequence divisible by three while the reference's is not.")
-            else:
-                new_note.append(f"Both this sequence and the reference's are divisible by three.")
-        else:
-            if not divisible_by_three(ref_feature):
-                new_note.append(f"Both this sequence and the reference's have invalid reading frames -- not divisible by three.")
-            else:
-                new_note.append(f"Sequence not divisable by three while the reference sequence's is.")
+    if ref_was_pseudo:
+        new_note = []
+        coord_note = (
+            f"Locus {'has' if all(coords_ok) else 'does not have'} reference-corresponding "
+            f"{'start' if not coords_ok[0] else ''}"
+            f"{' and ' if not any(coords_ok) else ''}"
+            f"{'end' if not coords_ok[1] else ''}"
+            f"{'start and end' if all(coords_ok) else ''}"
+        )
+        feat_div_note = (
+            f"Locus has {'valid' if divisible_by_three(feature) else 'invalid'} reading frame"
+            f"{'' if divisible_by_three(feature) else '-- not divisible by three'}"
+        )
+        ref_div_note = (
+            f"Reference gene has {'valid' if divisible_by_three(feature) else 'invalid'} reading frame"
+            f"{'' if divisible_by_three(feature) else '-- not divisible by three'}"
+        )
+        broke_note = f"{'No internal stop codons and ends with a valid stop codon' if not og_broken_stop else og_stop_note}"
 
         if (not all(coords_ok)) and (divisible_by_three(og_feature) and not divisible_by_three(ref_feature)) and not og_broken_stop:
             feature.qualifiers.pop('pseudo', None)
@@ -1113,45 +1121,27 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                 # Notes that are only interesting if we end up tagging the gene a certain way.
                 new_note = []
 
-                div_note = ('Locus has invalid reading frame-- not divisible by three', 0)
-                if divisible_by_three(feature):
-                    div_note = ('Locus divisible by three', 1)
+                # Summarize coord_check status
+                coord_note = (
+                    f"Locus {'has' if all(coords_ok) else 'does not have'} reference-corresponding "
+                    f"{'start' if not coords_ok[0] else ''}"
+                    f"{' and ' if not any(coords_ok) else ''}"
+                    f"{'end' if not coords_ok[1] else ''}"
+                    f"{'start and end' if all(coords_ok) else ''}"
+                )
+                div_note = (
+                    f"Locus has {'valid' if d3 else 'invalid'} reading frame"
+                    f"{'' if d3 else '-- not divisible by three'}"
+                )
+                blast_note = (
+                    f"{'Strong' if blast_ok else 'Poor'} blastp match at "
+                    f"{seq_ident}% identity and {seq_covg}% coverage thresholds"
+                )
+                start_note = f"Locus has {'valid' if valid_start else 'invalid'} start codon"
+                broke_note = f"{'No internal stop codons and ends with a valid stop codon' if not broken_stop else stop_note}"
 
-                broke_note = ('No internal stop codons and ends with a valid stop codon', 0)
-                if broken_stop:
-                    broke_note = (stop_note, 1)
-
-                start_note = ('Locus has invalid start codon', 0)
-                if valid_start:
-                    start_note = ('Locus has valid start codon', 1)
-
-                coord_note = ('Locus has reference-corresponding start and end', list(map(int, coords_ok)))
-                if not all(coords_ok):
-                    coord_note = (f'Locus does not have reference-corresponding {fancy_string}', list(map(int, coords_ok)))
-
-                blast_note = (f'Poor blastp match at {seq_ident}% identity and {seq_covg}% coverage thresholds', 0)
-                if blast_ok:
-                    blast_note = (f'Strong blastp match at {seq_ident}% identity and {seq_covg}% coverage thresholds', 1)
-
-                #Note codes are categorized by a '0' or '1' and correspond to 'False' and 'True' respectively
-                #D3 = Divisible by three [0/1]
-                #VS = Valid start [0/1]
-                #VE = Valid end [0/1]
-                #RCS = Reference corresponding start [0/1]
-                #RCE = Reference corresponding end [0/1]
-                #BOK = Blast OK [0/1]
-                note_codes = (f'D3{div_note[1]} VS{start_note[1]} VE{1 if broke_note[1] == 0 else 0} RCS{coord_note[1][0]} ' \
-                              f'RCE{coord_note[1][1]} BOK{0 if not blast_ok else 1}')
-
-                #This is the code for a normal non-pseudo gene, with no interesting characteristics.
-                #These codes will not be added to the feature notes.
-                if note_codes == 'D31 VS1 VE1 RCS1 RCE1 BOK1':
-                    note_codes = None
-
-                #The order in which notes appear is important. The first note should represent the
-                #main reason for why a gene is marked pseudo or not.
-                if ((all(coords_ok) or blast_ok) and divisible_by_three(feature)) and not broken_stop:
-                    is_pseudo = False
+                is_pseudo = True
+                if d3 and not broken_stop:
                     if all(coords_ok):
                         if not blast_ok:
                             new_note.extend([coord_note[0], blast_note[0]])
