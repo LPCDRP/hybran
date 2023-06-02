@@ -108,8 +108,9 @@ def postprocess_contig(
         feature = AutarkicSeqFeature.fromSeqFeature(feature)
         ref_contig_id = get_and_remove_ref_tracer(feature)
         feature.source = ref_contig_id
-        for part in feature.location.parts:
-            part.ref = seqname
+        if feature.location is not None:
+            for part in feature.location.parts:
+                part.ref = seqname
         feature.references = {seqname: ratt_contig_record.seq}
         # maybe RATT should be adding this inference tag itself
         if 'locus_tag' in feature.qualifiers:
