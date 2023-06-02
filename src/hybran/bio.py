@@ -13,6 +13,10 @@ loc_props = [
     'vs',
     've',
     'bok',
+    'alts',
+    'alte',
+    'de',
+    'ps_evid',
 ]
 
 class FeatureProperties():
@@ -28,6 +32,10 @@ class FeatureProperties():
             vs=None,  # begins with a valid start codon
             ve=None, # ends with a valid stop codon
             bok=None, # BLAST hit ok (meeting thresholds)
+            alts=None, # has alternative start
+            alte=None, # has alternative stop
+            de=None, # has delayed end
+            ps_evid=[], # list of pseudoscan evidence codes
     ):
         self.location = location
         self.alignment = alignment
@@ -38,6 +46,11 @@ class FeatureProperties():
         self.vs = vs
         self.ve = ve
         self.bok = bok
+        self.alts = alts
+        self.alte = alte
+        self.de = de
+
+        self.ps_evid = ps_evid
 
     def __repr__(self):
         return f"""
@@ -56,6 +69,11 @@ Ref-Corresponding End:    {self.rce}
 Valid Start Codon:        {self.vs}
 Valid Stop Codon:         {self.ve}
 BLAST hit OK:             {self.bok}
+Alternative Start Codon:  {self.alts}
+Alternative Stop Codon:   {self.alte}
+Delayed End:              {self.de}
+--------------------------------------------------------------------------------
+Pseudoscan Evidence Code: {','.join(self.ps_evid)}
 ================================================================================
 """
 
