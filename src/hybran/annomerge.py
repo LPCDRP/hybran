@@ -708,6 +708,9 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     og_feature = deepcopy(feature)
     if feature.og.location is None:
         feature.og.location = og_feature.location
+        feature.og.alignment = None
+    if fix_start or fix_stop:
+        feature.corr.alignment = None
     if 'gene' not in og_feature.qualifiers:
         og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
@@ -821,6 +824,9 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
 
     #First alignment
     found_low, found_high, target, query, alignment, padding, first_score, interval = coord_align(ref_seq, feature_seq)
+    feature.og.de = (found_high and query[-1][1] < len(feature_seq) and not fix_stop)
+    if feature.og.alignment is None:
+        feature.og.alignment = alignment
     corrected_feature = deepcopy(feature)
     corrected_feature_start = corrected_feature.location.start
     corrected_feature_end = corrected_feature.location.end
@@ -830,7 +836,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         pad_feature_seq = pad_feature.extract()
 
         pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
-
+        feature.corr.alignment = pad_alignment
         #Don't try to fix what isn't broken
         if found_low:
             pad_found_low = False
@@ -965,10 +971,12 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
             "COORDINATES:alignment:Hybran"
         )
         feature.corr.location = deepcopy(feature.location)
+        feature.corr.de = (found_high and query[-1][1] < len(feature_seq) and not fix_stop)
         feature.corr_possible = True
         feature.corr_accepted = True
     elif feature.corr_possible is None and (fix_start or fix_stop):
         feature.corr_possible = False
+        feature.corr.alignment = None
 
     return good_start, good_stop
 
