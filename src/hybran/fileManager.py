@@ -63,7 +63,7 @@ def prepare_references(references):
         gbk = os.path.join(refdir, ref_file)
         revised_records = []
         for record in SeqIO.parse(i, "genbank"):
-            ref_contig_id = '.'.join([ref_id, record.name])
+            ref_contig_id = '.'.join([ref_id, record.id])
             for f in record.features:
                 if ( 'locus_tag' in f.qualifiers.keys()
                      and 'gene' not in f.qualifiers.keys()

@@ -155,7 +155,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     # possibly being a pseudogene.
     genetic_code = get_genetic_code(genbank)
     for record in SeqIO.parse(genbank, 'genbank'):
-        ref_contig_id = '.'.join([ref_id, record.name])
+        ref_contig_id = '.'.join([ref_id, record.id])
         contigs.append(SeqRecord(
             record.seq,
             id=record.id, # os.path.splitext(os.path.basename(genbank))[0],
