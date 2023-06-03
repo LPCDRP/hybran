@@ -703,21 +703,18 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
     logger = logging.getLogger('CoordCheck')
     record_sequence = feature.references[feature.location.parts[0].ref]
     ref_seq = extractor.get_seq(ref_feature)
-    ref_length = len(ref_seq)
     feature_start = int(feature.location.start)
     feature_end = int(feature.location.end)
     feature_seq = feature.extract()
     og_feature = deepcopy(feature)
-    if feature.og.location is None:
-        feature.og.location = og_feature.location
-        feature.og.alignment = None
-    if fix_start or fix_stop:
-        feature.corr.alignment = None
     if 'gene' not in og_feature.qualifiers:
         og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = int(og_feature.location.start)
     og_feature_end = int(og_feature.location.end)
     og_feature_loc_ref = og_feature.location.parts[0].ref
+
+    if feature.og.location is None:
+        feature.og.location = og_feature.location
 
     def coord_align(ref_seq, feature_seq):
         #Probability that the continuous interval used to find good start/stops
@@ -743,7 +740,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         padding = False
 
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
-        found_high = (target[-1][1] == ref_length) and (abs(target[-1][0] - target[-1][1])) >= interval
+        found_high = (target[-1][1] == len(ref_seq)) and (abs(target[-1][0] - target[-1][1])) >= interval
 
         target_low_seq = ref_seq[target[0][0]:target[0][1]]
         target_high_seq = ref_seq[target[-1][0]:target[-1][1]]
@@ -826,19 +823,24 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
 
     #First alignment
     found_low, found_high, target, query, alignment, padding, first_score, interval = coord_align(ref_seq, feature_seq)
-    feature.og.de = (found_high and query[-1][1] < len(feature_seq) and not fix_stop)
+
+    #Assign initial alignment, but don't overwrite it.
     if feature.og.alignment is None:
         feature.og.alignment = alignment
+
+    #Assign initial 'delayed_stop' status
+    feature.og.de = (found_high and query[-1][1] < len(feature_seq))
+
     corrected_feature = deepcopy(feature)
     corrected_feature_start = corrected_feature.location.start
     corrected_feature_end = corrected_feature.location.end
+
     if padding:
         #Align again after adding padding to the feature sequence if warranted
         pad_feature = add_padding(feature, target, query, interval)
         pad_feature_seq = pad_feature.extract()
-
         pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
-        feature.corr.alignment = pad_alignment
+
         #Don't try to fix what isn't broken
         if found_low:
             pad_found_low = False
