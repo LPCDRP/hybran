@@ -684,7 +684,7 @@ def liftover_annotation(feature, ref_feature, inference):
         ref_feature_qualifiers_copy,
     )
 
-def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_name=None
+def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop=True, ref_gene_name=None
 ):
     """
     This function takes a feature as an input and aligns it to the corresponding reference gene.
@@ -693,6 +693,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
     :param feature: SeqFeature object
     :param fix_start: Boolean
     :param fix_stop: Boolean
+    :param seek_stop: Boolean whether to look for a valid stop codon if post-correction.
     :param ref_gene_name: str reference gene to check against.
         Must be a key existing in the `ref_annotation` dictionary.
         If not defined, the reference gene matching `feature`'s gene qualifier is used instead.
@@ -946,6 +947,17 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
         else:
             break
 
+    #If no stops are detected in the final feature, run stopseeker to find nearest downstream stop.
+    if seek_stop:
+        broken_stop, stop_note = has_broken_stop(feature)
+        if "No stop codons detected" in stop_note:
+            extended_feature = stopseeker(feature)
+            if len(extended_feature) > len(feature):
+                feature.location = extended_feature.location
+
+    final_feature_seq = feature.extract()
+    final_found_low, final_found_high, final_target, final_query, final_alignment, final_padding, final_score, final_interval = coord_align(ref_seq, final_feature_seq)
+
     #Up to this point, good_start/stop would be True if a sequence CONTAINED a reference corresponding start/stop somewhere
     #within its boundaries. This concept was necessary for determining where and when corrections should be made.
     #Now that corrections have been made, we are requiring that good_start/stop should only be True if positionally identical
@@ -971,13 +983,15 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, ref_gene_
             feature.qualifiers, 'inference',
             "COORDINATES:alignment:Hybran"
         )
+        #Assign feature.corr attributes if a change was made
+        feature.corr.alignment = final_alignment
         feature.corr.location = deepcopy(feature.location)
-        feature.corr.de = (found_high and query[-1][1] < len(feature_seq) and not fix_stop)
+        if seek_stop or not fix_stop:
+            feature.corr.de = (final_found_high and final_query[-1][1] < len(final_feature_seq))
         feature.corr_possible = True
         feature.corr_accepted = True
     elif feature.corr_possible is None and (fix_start or fix_stop):
         feature.corr_possible = False
-        feature.corr.alignment = None
 
     return good_start, good_stop
 
@@ -1073,21 +1087,6 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                 feature.corr.d3 = divisible_by_three(feature)
                 feature.corr.vs = has_valid_start(feature)
                 feature.corr.ve = not broken_stop
-
-            if feature.corr_possible:
-                if "No stop codons detected" in stop_note:
-                    extended_feature = stopseeker(feature)
-                    if len(extended_feature) > len(feature):
-                        feature.location = extended_feature.location
-                        feature.og.location = None
-                        (feature.og.rcs, feature.og.rce) = coord_check(feature, ref_feature)
-                        coords_ok = [feature.og.rcs, feature.og.rce]
-                        broken_stop, stop_note = has_broken_stop(feature)
-
-                        feature.og.d3 = divisible_by_three(feature)
-                        feature.og.vs = has_valid_start(feature)
-                        feature.og.ve = broken_stop
-                        feature.og.bok = None
 
             ref_seq = translate(
                 extractor.get_seq(ref_feature),
