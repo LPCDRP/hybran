@@ -37,10 +37,11 @@ from . import designator
 from . import extractor
 from . import __version__
 from .bio import SeqIO
-
+from .bio import FeatureProperties
 from .lumberjack import log_feature_fate
 from .lumberjack import log_coord_correction
 from .lumberjack import log_coord_corrections
+
 
 def get_and_remove_ref_tracer(feature):
     """
@@ -416,7 +417,7 @@ def fissionfuser(flist, seq_ident, seq_covg):
                 feature.location.strand,
                 ref=feature.location.parts[0].ref,
             )
-            new_feature.og.location = None
+            new_feature.og = FeatureProperties()
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
 
             if all(coord_check(
