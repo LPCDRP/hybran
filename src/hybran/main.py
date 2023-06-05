@@ -203,6 +203,14 @@ def cmds():
                           type=str,
                           help='prefix for generic gene names (*not* locus tags)',
                           default='ORF')
+    optional.add_argument('--dedupe-references',
+                          action='store_true',
+                          help=(
+                              'Identify duplicate genes in the reference annotations and assign one name to all copies.'
+                              'This option is deprecated and has no effect.'
+                              'If name unification is not desired, consider running `hybran standardize` afterwards.'
+                          ))
+
     logging_level = optional.add_mutually_exclusive_group()
     logging_level.add_argument('--verbose', action='store_true', help='Verbose output')
     logging_level.add_argument('-q', '--quiet', action='store_true', help='No logging output when flagged')
@@ -347,6 +355,13 @@ def main(args, prokka_args):
                                 datefmt='%H:%M:%S %m-%d')
     logger = logging.getLogger('Hybran')
     cwd = os.getcwd() + '/'
+
+
+    if args.dedupe_references:
+        logger.warning("""The --dedupe-references option is deprecated, as name unification happens constitutively.
+This option is scheduled for removal, so please update your invocation for the future.
+"""
+        )
 
     # Convert all input paths to full path if not given as full path
     args.genomes = fileManager.file_list(args.genomes, file_type="fasta")
