@@ -16,6 +16,12 @@
   - fixed for multiple references (#55)
   - enabled checkpointing on this step in the full pipeline.
 * pseudoscan: now identifies delayed stop codons when start coordinate correction changes the reading frame without introducing an internal stop.
+* coord_check:
+  - Fixed issue in coord_check's reporting status when not attempting correction.
+  - Coordinate correction sometimes resulted in genes with no stop codons.
+    coord_check now checks for this and extends the ORF to the next in-frame stop codon to make a proper correction.
+  These address the root cause of the problem for which the temporary measure from v1.6.1 was taken.
+  That temporary measure has been removed.
 * annomerge: reject the `source` feature from RATT.
 Some final annotations contained two of them: one from RATT and one from Prokka.
 * Fixed issues that occur when sequence IDs contain "|" character (#62).
