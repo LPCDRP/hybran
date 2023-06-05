@@ -8,6 +8,8 @@
 * Reference unification now uses a different generic prefix than that used for unnamed genes to allow differentiating between them.
 `hybran standardize` handles these as well.
 * Full support for multiple reference annotations.
+* Postprocessed versions of RATT and ab initio annotations, with associated reports, are now saved.
+* Substantial speedups due to parallelization of all postprocessing logic.
 
 ### Bugs fixed
 * reference unification (formerly activated by the `--dedupe-references` option):
