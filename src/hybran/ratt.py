@@ -22,11 +22,11 @@ from .annomerge import has_broken_stop
 from .annomerge import key_ref_gene
 from .annomerge import pseudoscan
 from .bio import AutarkicSeqFeature, SeqIO
-
 from .lumberjack import log_feature_fate
 from .lumberjack import log_coord_correction
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos
+from .util import mpbreakpoint
 
 def postprocess(
         isolate_id,

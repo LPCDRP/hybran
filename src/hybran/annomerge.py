@@ -41,6 +41,7 @@ from .bio import FeatureProperties
 from .lumberjack import log_feature_fate
 from .lumberjack import log_coord_correction
 from .lumberjack import log_coord_corrections
+from .util import keydefaultdict, mpbreakpoint
 
 
 def get_and_remove_ref_tracer(feature):
@@ -203,16 +204,6 @@ def stopseeker(feature, circularize=False):
         ref=feature_ref,
     )
     return return_feature
-
-# Thanks to Jochen Ritzel
-# https://stackoverflow.com/a/2912455
-class keydefaultdict(collections.defaultdict):
-    def __missing__(self, key):
-        if self.default_factory is None:
-            raise KeyError( key )
-        else:
-            ret = self[key] = self.default_factory(key)
-            return ret
 
 def ref_fuse(fusion_gene_name):
     """

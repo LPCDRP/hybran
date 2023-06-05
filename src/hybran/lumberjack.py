@@ -1,6 +1,7 @@
 import Bio
 from Bio.SeqFeature import SimpleLocation
 from Bio.SeqRecord import SeqRecord
+
 from .bio import AutarkicSeqFeature, SeqIO
 from . import designator
 

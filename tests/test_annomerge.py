@@ -9,13 +9,14 @@ import pytest
 from hybran import annomerge
 from hybran import config
 from hybran.bio import SeqIO
+from hybran.util import keydefaultdict
 
 from .data_features import *
 
 
 
 def test_ref_fuse():
-    annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
     annomerge.ref_annotation.update({'@@@'.join(['H37Rv',k]):v for k,v in ref_features['H37Rv'].items()})
 
     assert annomerge.ref_annotation['H37Rv::H37Rv@@@PE_PGRS50::PE_PGRS49'].location == CompoundLocation([
@@ -328,7 +329,7 @@ def test_fusionfisher(gene_list):
         for part in f.location.parts:
             part.ref = record_sequence.id
     annomerge.genetic_code = 11
-    annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
     annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
 
     assert annomerge.fusionfisher(
@@ -499,7 +500,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     test_features[feature_type].references = {record_sequence.id: record_sequence.seq}
     annomerge.genetic_code = 11
     annomerge.corrected_orf_report = []
-    annomerge.ref_annotation = annomerge.keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
     annomerge.ref_annotation.update(ref_features[ref_genome[feature_type]])
 
     feature = test_features[feature_type]
