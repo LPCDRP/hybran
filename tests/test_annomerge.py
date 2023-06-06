@@ -546,6 +546,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
     ['good_blast_still_repairable', 95, 95, True],
     ['start_correction_induces_delayed_stop', 95, 95, True],
     ['start_correction_induces_delayed_stop2', 95, 95, True],
+    ['reject_coord_correction', 95, 95, True],
 ])
 def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -565,6 +566,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'good_blast_still_repairable': '1-0006',
         'start_correction_induces_delayed_stop': '1-0006',
         'start_correction_induces_delayed_stop2': '1-0006',
+        'reject_coord_correction': '1-0006',
     }
 
     test_features = {
@@ -583,6 +585,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'good_blast_still_repairable': features[source_genome['good_blast_still_repairable']]['dnaA']['abinit'],
         'start_correction_induces_delayed_stop': features[source_genome['start_correction_induces_delayed_stop']]['Rv1225c']['abinit_raw'],
         'start_correction_induces_delayed_stop2': features[source_genome['start_correction_induces_delayed_stop2']]['Rv2561']['ratt_raw'],
+        'reject_coord_correction': features[source_genome['reject_coord_correction']]['pks6']['abinit'],
     }
 
     feature = test_features[feature_type]
@@ -611,6 +614,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'good_blast_still_repairable': [False, FeatureLocation(0, 1524, strand=1, ref='1')],
         'start_correction_induces_delayed_stop': [True, FeatureLocation(1370377, 1371385, strand=-1, ref='1')],
         'start_correction_induces_delayed_stop2': [True, FeatureLocation(2881559, 2882297, strand=1, ref='1')],
+        'reject_coord_correction': [False, FeatureLocation(486288, 490458, strand=1, ref='1')],
     }
     results = annomerge.pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]
