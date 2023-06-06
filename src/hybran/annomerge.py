@@ -818,9 +818,6 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
     if feature.og.alignment is None:
         feature.og.alignment = alignment
 
-    #Assign initial 'delayed_stop' status
-    feature.og.de = (found_high and query[-1][1] < len(feature_seq))
-
     corrected_feature = deepcopy(feature)
     corrected_feature_start = corrected_feature.location.start
     corrected_feature_end = corrected_feature.location.end
@@ -982,8 +979,22 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
     elif feature.corr_possible is None and (fix_start or fix_stop):
         feature.corr_possible = False
 
-#    if seek_stop or not fix_stop:
-    feature.de = (
+    #
+    # Figure out and set delayed end attribute.
+    #
+    # This way isn't ideal since it only sets for either og or corr (not for both when doing corr),
+    # so getting both values set in the end necessitates running coord_check twice: with and without correction.
+    # We currently do that anyway in pseudoscan, so it isn't too consequential.
+    #
+    if fix_start or fix_stop:
+        prop = feature.corr
+    elif feature.og.de is None:
+        prop = feature.og
+    # throw-away; we don't want to overwrite the existing original
+    # because the original that is passed to coord_check might have been changed before invocation/corrected previously
+    else:
+        prop = FeatureProperties()
+    prop.de = (
         not good_stop
         and (
             # the end of the feature extends beyond the last reference base
