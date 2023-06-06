@@ -209,7 +209,6 @@ def validate(
     valid = False
     unbroken = False
     remark = ''
-    pseudoscan_attempt_corr = True
 
     if enforce_thresholds:
         ratt_seq_ident = seq_ident
@@ -262,15 +261,13 @@ def validate(
                 remark = "RATT-introduced compound interval did not include reference stop position."
                 valid = False
                 return valid, feature, remark
-            # don't attempt correction again later since we've just done it
-            pseudoscan_attempt_corr = False
 
     feature_is_pseudo = pseudoscan(
         feature,
         ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
         seq_ident,
         seq_covg,
-        attempt_rescue=pseudoscan_attempt_corr,
+        attempt_rescue=True,
     )
 
     if feature_is_pseudo:
