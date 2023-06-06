@@ -979,13 +979,20 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         #Assign feature.corr attributes if a change was made
         feature.corr.alignment = final_alignment
         feature.corr.location = deepcopy(feature.location)
-        if seek_stop or not fix_stop:
-            feature.corr.de = (final_found_high and final_query[-1][1] < len(final_feature_seq))
         feature.corr_possible = True
-        feature.corr_accepted = True
     elif feature.corr_possible is None and (fix_start or fix_stop):
         feature.corr_possible = False
 
+#    if seek_stop or not fix_stop:
+    feature.de = (
+        not good_stop
+        and (
+            # the end of the feature extends beyond the last reference base
+            final_query[-1][1] < len(final_feature_seq)
+            # ...but, if it appears not to, it was in a spurious alignment block
+            or (final_target[-1][1] - target[-1][0]) < final_interval
+        )
+    )
     return good_start, good_stop
 
 def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, blast_hit_dict=None
@@ -1123,6 +1130,8 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                     feature.qualifiers = og_feature.qualifiers
                     blast_stats = og_blast_stats
                     stop_note = og_stop_note
+                else:
+                    feature.corr_accepted = True
                 confirmed_feature = True
 
             if confirmed_feature:
