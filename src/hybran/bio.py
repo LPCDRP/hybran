@@ -35,7 +35,7 @@ class FeatureProperties():
             alts=None, # has alternative start
             alte=None, # has alternative stop
             de=None, # has delayed end
-            ps_evid=[], # list of pseudoscan evidence codes
+            ps_evid=None, # list of pseudoscan evidence codes
     ):
         self.location = location
         self.alignment = alignment
@@ -50,7 +50,10 @@ class FeatureProperties():
         self.alte = alte
         self.de = de
 
-        self.ps_evid = ps_evid
+        if ps_evid is None:
+            self.ps_evid = []
+        else:
+            self.ps_evid = ps_evid
 
     def __repr__(self):
         return f"""

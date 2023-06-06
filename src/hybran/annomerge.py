@@ -1066,7 +1066,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
         else:
             feature.qualifiers['pseudo'] = ['']
             is_pseudo = True
-
+        feature.ps_evid.append("ref_pseudo")
         new_note.append(f"Reference gene is pseudo")
         new_note.extend([ref_div_note, feat_div_note, coord_note, broke_note])
         new_note = ' | '.join(new_note)
