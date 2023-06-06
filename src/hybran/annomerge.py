@@ -39,10 +39,9 @@ from . import __version__
 from .bio import SeqIO
 from .bio import FeatureProperties
 from .lumberjack import log_feature_fate
-from .lumberjack import log_coord_correction
 from .lumberjack import log_coord_corrections
+from .lumberjack import log_pseudos
 from .util import keydefaultdict, mpbreakpoint
-
 
 def get_and_remove_ref_tracer(feature):
     """
@@ -1895,5 +1894,22 @@ def run(
         log_feature_fate(last_gene, prokka_rejects_log, last_remark)
 
     SeqIO.write(annomerge_records, output_genbank, 'genbank')
+
+    annomerge_records_dict = {i: annomerge_records[i].features for i in range(len(annomerge_records))}
+    corrected_orf_logfile = os.path.join(
+        isolate_id,
+        'annomerge',
+        'coord_corrections.tsv'
+    )
+    with open(corrected_orf_logfile, 'w') as corr_log:
+        log_coord_corrections(annomerge_records_dict, corr_log)
+
+    pseudoscan_logfile = os.path.join(
+        isolate_id,
+        'annomerge',
+        'pseudoscan_log.tsv'
+    )
+    with open(pseudoscan_logfile, 'w') as p_log:
+        log_pseudos(annomerge_records_dict, p_log)
 
     logger.debug('postprocessing and annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')
