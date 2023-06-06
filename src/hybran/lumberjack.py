@@ -104,25 +104,24 @@ def log_pseudos(features_by_contig_dict, logfile):
         'RCE',
         'BOK',
         'pseudo',
-        'note',
+        'evidence_codes',
     ]
-
+    # represent boolean values as ints but account for N/A (None)
+    nacast = lambda _: int(_) if _ is not None else "."
     print('\t'.join(header), file=logfile)
     for contig in features_by_contig_dict:
         for feature in features_by_contig_dict[contig]:
-            if 'note' in feature.qualifiers:
-                if 'Hybran/Pseudoscan' in feature.qualifiers['note'][0]:
-
-                    line = [
-                        feature.qualifiers['locus_tag'][0],
-                        feature.qualifiers['gene'][0],
-                        int(feature.d3),
-                        int(feature.vs),
-                        int(feature.ve),
-                        int(feature.rcs),
-                        int(feature.rce),
-                        int(feature.bok),
-                        int(designator.is_pseudo(feature.qualifiers)),
-                        ','.join(feature.ps_evid),
-                    ]
-                    print('\t'.join(str(v) for v in line), file=logfile)
+            if feature.ps_evid:
+                line = [
+                    feature.qualifiers['locus_tag'][0],
+                    feature.qualifiers['gene'][0],
+                    nacast(feature.d3),
+                    nacast(feature.vs),
+                    nacast(feature.ve),
+                    nacast(feature.rcs),
+                    nacast(feature.rce),
+                    nacast(feature.bok),
+                    nacast(designator.is_pseudo(feature.qualifiers)),
+                    ','.join(feature.ps_evid),
+                ]
+                print('\t'.join(str(v) for v in line), file=logfile)
