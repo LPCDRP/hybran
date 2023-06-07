@@ -681,7 +681,7 @@ def liftover_annotation(feature, ref_feature, inference):
         ref_feature_qualifiers_copy,
     )
 
-def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop=True, ref_gene_name=None
+def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop=None, ref_gene_name=None
 ):
     """
     This function takes a feature as an input and aligns it to the corresponding reference gene.
@@ -944,7 +944,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
             break
 
     #If no stops are detected in the final feature, run stopseeker to find nearest downstream stop.
-    if seek_stop:
+    if seek_stop or ((fix_start or fix_stop) and seek_stop is None):
         broken_stop, stop_note = has_broken_stop(feature)
         if "No stop codons detected" in stop_note:
             extended_feature = stopseeker(feature)
@@ -986,7 +986,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         feature.corr.alignment = final_alignment
         feature.corr.location = deepcopy(feature.location)
         feature.corr_possible = True
-    elif feature.corr_possible is None and (fix_start or fix_stop):
+    elif feature.corr_possible is None and (fix_start or fix_stop or seek_stop):
         feature.corr_possible = False
 
     #
@@ -996,7 +996,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
     # so getting both values set in the end necessitates running coord_check twice: with and without correction.
     # We currently do that anyway in pseudoscan, so it isn't too consequential.
     #
-    if fix_start or fix_stop:
+    if feature.corr_possible:
         prop = feature.corr
     elif feature.og.de is None:
         prop = feature.og
@@ -1065,6 +1065,17 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
 
     if ref_was_pseudo:
         new_note = []
+
+        broken_stop, stop_note = og_broken_stop, og_stop_note
+        if "No stop codons detected" in stop_note:
+            (feature.corr.rcs, feature.corr.rce) = coord_check(feature, ref_feature, seek_stop=True)
+            coords_ok = [feature.corr.rcs, feature.corr.rce]
+            feature.corr_accepted = True
+            broken_stop, stop_note = has_broken_stop(feature)
+            feature.corr.d3 = divisible_by_three(feature)
+            feature.corr.vs = has_valid_start(feature)
+            feature.corr.ve = not broken_stop
+
         coord_note = (
             f"Locus {'has' if all(coords_ok) else 'does not have'} reference-corresponding "
             f"{'start' if not coords_ok[0] else ''}"
@@ -1080,9 +1091,11 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
             f"Reference gene has {'valid' if divisible_by_three(feature) else 'invalid'} reading frame"
             f"{'' if divisible_by_three(feature) else '-- not divisible by three'}"
         )
-        broke_note = f"{'No internal stop codons and ends with a valid stop codon' if not og_broken_stop else og_stop_note}"
+        broke_note = f"{'No internal stop codons and ends with a valid stop codon' if not broken_stop else stop_note}"
+        if feature.de:
+            new_note.append("Locus has a delayed stop codon")
 
-        if (not all(coords_ok)) and (divisible_by_three(og_feature) and not divisible_by_three(ref_feature)) and not og_broken_stop:
+        if (not all(coords_ok)) and (divisible_by_three(feature) and not divisible_by_three(ref_feature)) and not broken_stop:
             feature.qualifiers.pop('pseudo', None)
             feature.qualifiers.pop('pseudogene', None)
             is_pseudo = False
@@ -1153,7 +1166,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                     feature.qualifiers = og_feature.qualifiers
                     blast_stats = og_blast_stats
                     stop_note = og_stop_note
-                else:
+                elif feature.corr_possible:
                     feature.corr_accepted = True
                 confirmed_feature = True
 
