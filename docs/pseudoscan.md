@@ -29,3 +29,7 @@ Each pseudo gene in the final annotation will contain a note field describing th
 3) "Has a frameshift mutation leading to a delayed stop codon"
     -Triggered when a pseudo gene has a reference corresponding start (no stop), has a valid reading frame (divisible by three) and does not contain internal/invalid stop codons.
     -This note is used to find and track gene fusion events, which is denoted by the 'geneA::geneB' nomenclature in the gene name field
+
+## Report Format
+
+{!pseudoscan.report-format.md!}

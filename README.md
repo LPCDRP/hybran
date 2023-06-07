@@ -33,19 +33,22 @@ outdir/
 │   │   ├── <i>sample1</i>.gff
 │   │   ├── coord_corrections.tsv
 │   │   ├── prokka_unused.tsv
+│   │   ├── pseudoscan_report.tsv
 │   │   └── ratt_unused.tsv
 |   ├── ratt/
 │   │   └── ...
 |   ├── ratt-postprocessed/
 │   │   ├── <i>sample1</i>.*.final.gbk
 │   │   ├── coord_corrections.tsv
-│   │   └── invalid_features.tsv
+│   │   ├── invalid_features.tsv
+│   │   └── pseudoscan_report.tsv
 |   ├── prokka/
 │   │   └── ...
 |   ├── prokka-postprocessed/
 │   │   ├── <i>sample1</i>.gbk
 │   │   ├── coord_corrections.tsv
-│   │   └── invalid_features.tsv
+│   │   ├── invalid_features.tsv
+│   │   └── pseudoscan_report.tsv
 ├── <i>sampleN</i>/
 │   └── ...
 │
@@ -136,6 +139,14 @@ Whether the correction was accepted or rejected
 For `og_start`, `og_end`, `new_start`, and `new_end`, "start" always corresponds to the low number on the genome and "stop" corresponds to the high number, regardless of strand.
 `new_start` and `new_end` are not necessary modified from the original coordinates.
 `fixed_start_codon` and `fixed_stop_codon` indicate whether they have changed, but these correspond to the strand-adjusted start and stop positions, hence the reference to codons.
+
+
+##### `*/*/pseudoscan_report.tsv`
+
+A summary of the characteristics of "interesting" features found by [pseudoscan](pseudoscan.md).
+Such features include all genes to which the `pseudo` tag was applied, but also includes non-pseudo genes if they had signatures consistent with a `pseudo` but had a redeeming attribute.
+
+{!pseudoscan.report-format.md!}
 
 ## Citation
 

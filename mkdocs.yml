@@ -10,7 +10,12 @@ nav:
     - Installation: install.md
     - Special Considerations: faq.md
     - Issues and Questions: 'https://gitlab.com/LPCDRP/hybran/issues'
+    - Core Components:
+        - pseudoscan: pseudoscan.md
 markdown_extensions:
     - toc:
         permalink: True
+    - markdown_include.include:
+        base_path: docs
+        inheritHeadingDepth: True
 theme: readthedocs

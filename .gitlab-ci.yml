@@ -1,7 +1,7 @@
 image: python:3.8-buster
 
 before_script:
-    - pip install mkdocs
+    - pip install mkdocs markdown-include
 
 pages:
     stage: deploy
