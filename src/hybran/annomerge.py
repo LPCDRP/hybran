@@ -408,6 +408,8 @@ def fissionfuser(flist, seq_ident, seq_covg):
                 ref=feature.location.parts[0].ref,
             )
             new_feature.og = FeatureProperties()
+            new_feature.corr = FeatureProperties()
+            new_feature.corr_accepted = new_feature.corr_possible = None
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
 
             if all(coord_check(
@@ -418,12 +420,17 @@ def fissionfuser(flist, seq_ident, seq_covg):
                 dropped_ltag_features.append(
                     (dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}")
                 )
+                # TODO: pseudoscan is the only thing at this time that determines corr_accepted.
+                # If it isn't making the correction itself, it won't make that call, so we're
+                # temporarily re-doing the correction to make that happen...
+                new_feature.corr = FeatureProperties()
                 # Re-call pseudoscan for updated notes
                 pseudoscan(
                     new_feature,
                     ref_annotation[key_ref_gene(new_feature.source, new_feature.qualifiers['gene'][0])],
                     seq_ident=seq_ident,
                     seq_covg=seq_covg,
+                    attempt_rescue=True,
                 )
                 last_gene_by_strand[feature.location.strand] = new_feature
                 outlist.remove(last_gene)
