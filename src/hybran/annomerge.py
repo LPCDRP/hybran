@@ -1705,7 +1705,7 @@ def run(
     for ref_gbk_fp in ref_gbk_list:
         ref_id = os.path.basename(os.path.splitext(ref_gbk_fp)[0])
         for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
-            ref_contig_id = '.'.join([ref_id, ref_record.name])
+            ref_contig_id = '.'.join([ref_id, ref_record.id])
             for feature in ref_record.features:
                 get_and_remove_ref_tracer(feature) # prevent our tracer note from propagating to future liftovers
                 if feature.type != "CDS":

@@ -108,8 +108,9 @@ def postprocess_contig(
         feature = AutarkicSeqFeature.fromSeqFeature(feature)
         ref_contig_id = get_and_remove_ref_tracer(feature)
         feature.source = ref_contig_id
-        for part in feature.location.parts:
-            part.ref = seqname
+        if feature.location is not None:
+            for part in feature.location.parts:
+                part.ref = seqname
         feature.references = {seqname: ratt_contig_record.seq}
         # maybe RATT should be adding this inference tag itself
         if 'locus_tag' in feature.qualifiers:
@@ -198,6 +199,11 @@ def validate(
         ratt_seq_covg = seq_covg
     else:
         ratt_seq_ident = ratt_seq_covg = 0
+
+    if feature.location is None:
+        valid = False
+        remark = "Empty feature location"
+        return valid, feature, remark
 
     if feature.type != 'CDS':
         if feature.type in [
