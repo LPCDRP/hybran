@@ -31,6 +31,7 @@ outdir/
 │   ├── annomerge/
 │   │   ├── <i>sample1</i>.gbk
 │   │   ├── <i>sample1</i>.gff
+│   │   ├── coord_corrections.tsv
 │   │   ├── prokka_unused.tsv
 │   │   └── ratt_unused.tsv
 |   ├── ratt/
@@ -108,7 +109,7 @@ Its values for all three metrics are shown in the next columns.
 Two columns: the locus tag and the reason why it was excluded from the final annotation.
 
 
-##### `*/{ratt,prokka}-postprocessed/coord_corrections.tsv`
+##### `*/*/coord_corrections.tsv`
 
 - locus_tag:
 Locus tag of the annotated feature from the source indicated by the parent directory.
