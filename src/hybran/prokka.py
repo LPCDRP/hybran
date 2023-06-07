@@ -49,7 +49,7 @@ def postprocess(
     )
     pseudoscan_logfile = os.path.join(
         postprocess_outdir,
-        'pseudoscan_log.tsv',
+        'pseudoscan_report.tsv',
     )
     os.makedirs(
         postprocess_outdir,

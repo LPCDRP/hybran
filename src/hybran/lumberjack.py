@@ -97,12 +97,12 @@ def log_pseudos(features_by_contig_dict, logfile):
     header = [
         'locus_tag',
         'gene_name',
-        'D3',
-        'VS',
-        'VE',
-        'RCS',
-        'RCE',
-        'BOK',
+        'div_by_3',
+        'valid_start_codon',
+        'valid_stop_codon',
+        'ref_corr_start',
+        'ref_corr_end',
+        'blast_ok',
         'pseudo',
         'evidence_codes',
     ]

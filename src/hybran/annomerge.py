@@ -1944,7 +1944,7 @@ def run(
     pseudoscan_logfile = os.path.join(
         isolate_id,
         'annomerge',
-        'pseudoscan_log.tsv'
+        'pseudoscan_report.tsv'
     )
     with open(pseudoscan_logfile, 'w') as p_log:
         log_pseudos(annomerge_records_dict, p_log)
