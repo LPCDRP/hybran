@@ -7,6 +7,82 @@ from Bio.SeqFeature import SeqFeature, SimpleLocation, CompoundLocation
 from Bio.SeqFeature import LocationParserError
 
 
+loc_props = [
+    'alignment',
+    'd3',
+    'rcs',
+    'rce',
+    'vs',
+    've',
+    'bok',
+    'alts',
+    'alte',
+    'de',
+    'ps_evid',
+]
+
+class FeatureProperties():
+    def __init__(
+            self,
+            # coordcheck-related attributes
+            location=None,
+            alignment=None,
+            # pseudo-related attributes
+            d3=None, # divisible by 3
+            rcs=None, # has reference-corresponding start
+            rce=None, # has reference-corresponding end
+            vs=None,  # begins with a valid start codon
+            ve=None, # ends with a valid stop codon
+            bok=None, # BLAST hit ok (meeting thresholds)
+            alts=None, # has alternative start
+            alte=None, # has alternative stop
+            de=None, # has delayed end
+            ps_evid=None, # list of pseudoscan evidence codes
+    ):
+        self.location = location
+        self.alignment = alignment
+
+        self.d3 = d3
+        self.rcs = rcs
+        self.rce = rce
+        self.vs = vs
+        self.ve = ve
+        self.bok = bok
+        self.alts = alts
+        self.alte = alte
+        self.de = de
+
+        if ps_evid is None:
+            self.ps_evid = []
+        else:
+            self.ps_evid = ps_evid
+
+    def __repr__(self):
+        return f"""
+================================================================================
+Location: {self.location}
+
+
+A L I G N M E N T
+================================================================================
+{self.alignment}
+
+================================================================================
+Divisible by 3:           {self.d3}
+Ref-Corresponding Start:  {self.rcs}
+Ref-Corresponding End:    {self.rce}
+Valid Start Codon:        {self.vs}
+Valid Stop Codon:         {self.ve}
+BLAST hit OK:             {self.bok}
+Alternative Start Codon:  {self.alts}
+Alternative Stop Codon:   {self.alte}
+Delayed End:              {self.de}
+--------------------------------------------------------------------------------
+Pseudoscan Evidence Code: {','.join(self.ps_evid)}
+================================================================================
+"""
+
+
 class AutarkicSeqFeature(SeqFeature):
     def __init__(
             self,
@@ -33,14 +109,10 @@ class AutarkicSeqFeature(SeqFeature):
             downstream_feature=None,
             ###
             source=None, # reference annotation from which this is lifted-over, if applicable
-            source_alignment=None,
-            # pseudo-related attributes
-            d3=None, # divisible by 3
-            rcs=None, # has reference-corresponding start
-            rce=None, # has reference-corresponding end
-            vs=None,  # begins with a valid start codon
-            ve=None, # ends with a valid stop codon
-            bok=None, # BLAST hit ok (meeting thresholds)
+            og=None,
+            corr=None,
+            corr_possible=None, # whether a coordinate correction was found
+            corr_accepted=None, # whether a correction was found not rejected
             ###
             is_fusion=None, # is a fusion of two or more genes
     ):
@@ -64,14 +136,18 @@ class AutarkicSeqFeature(SeqFeature):
         self.downstream_feature = downstream_feature
 
         self.source = source
-        self.source_alignment = None
 
-        self.d3 = d3
-        self.rcs = rcs
-        self.rce = rce
-        self.vs = vs
-        self.ve = ve
-        self.bok = bok
+        if og is None:
+            self.og = FeatureProperties()
+        else:
+            self.og = og
+        if corr is None:
+            self.corr = FeatureProperties()
+        else:
+            self.corr = corr
+        self.corr_possible = corr_possible
+        self.corr_accepted = corr_accepted
+
         self.is_fusion = is_fusion
 
 
@@ -87,6 +163,26 @@ class AutarkicSeqFeature(SeqFeature):
         if references is None and self.references is not None:
             references=self.references
         return super().extract(parent_sequence, references)
+
+    def __getattr__(self, name):
+        if name in loc_props:
+            if self.corr_accepted:
+                props = object.__getattribute__(self, f'corr')
+            else:
+                props = object.__getattribute__(self, f'og')
+            return object.__getattribute__(props, name)
+        else:
+           return  object.__getattribute__(self, name)
+
+    def __setattr__(self, name, val):
+        if name in loc_props:
+            if self.corr_accepted:
+                props = object.__getattribute__(self, f'corr')
+            else:
+                props = object.__getattribute__(self, f'og')
+            object.__setattr__(props, name, val)
+        else:
+            object.__setattr__(self, name, val)
 
 
 # keep track of the original Location.fromstring function before we mask it

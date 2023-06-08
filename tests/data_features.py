@@ -191,6 +191,13 @@ features = {
                 qualifiers={'locus_tag':['L_00896'],'gene':['pip'],'pseudo':['']}
             ),
         },
+        'pks6': {
+            'abinit': SeqFeature(
+                FeatureLocation(486288, 490458, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['L_00431'],'gene':['pks6']}
+            ),
+        },
         'Rv0907': {
             'ratt': SeqFeature(
                 # Actually join(1012633..1012764,1012769..1014232)
