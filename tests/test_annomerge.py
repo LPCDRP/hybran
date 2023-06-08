@@ -429,28 +429,28 @@ def test_liftover_annotation():
     annomerge.liftover_annotation(abinit, ref, False, inference='alignment:blastp')
     assert abinit.qualifiers == expected
 
-@pytest.mark.parametrize('feature_type,fix_start,fix_stop', [
-    ['abinit_start_bad_minus', True, False],
-    ['bad_translation', True, False],
-    ['tricky_found_low', True, False],
-    ['good_start_stop_deletion', True, False],
-    ['bad_mismatch_check', True, True],
-    ['bad_mismatch_check2', True, True],
-    ['ref_start_frameshift', True, False],
-    ['bad_start_good_padding', True, False],
-    ['ratt_pseudo_pgrs', True, False],
-    ['same_start_alt_stop_1', False, False],
-    ['same_start_alt_stop_2', False, False],
-    ['same_start_alt_stop_2_fix', True, True],
-    ['bad_start_stop_nofix_pseudo', False, False],
-    ['bad_start_stop_fix_pseudo', True, False],
-    ['inverted_join_ecoli', True, True],
-    ['gene_fusion', True, True],
-    ['end_greater_than_start', True, True],
+@pytest.mark.parametrize('feature_type,fix_start,fix_stop,seek_stop', [
+    ['abinit_start_bad_minus', True, False, None],
+    ['bad_translation', True, False, None],
+    ['tricky_found_low', True, False, None],
+    ['good_start_stop_deletion', True, False, None],
+    ['bad_mismatch_check', True, True, None],
+    ['bad_mismatch_check2', True, True, None],
+    ['ref_start_frameshift', True, False, None],
+    ['bad_start_good_padding', True, False, None],
+    ['ratt_pseudo_pgrs', True, False, None],
+    ['same_start_alt_stop_1', False, False, None],
+    ['same_start_alt_stop_2', False, False, None],
+    ['same_start_alt_stop_2_fix', True, True, False],
+    ['bad_start_stop_nofix_pseudo', False, False, None],
+    ['bad_start_stop_fix_pseudo', True, False, None],
+    ['inverted_join_ecoli', True, True, None],
+    ['gene_fusion', True, True, None],
+    ['end_greater_than_start', True, True, None],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 @pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
-def test_coord_check(feature_type, fix_start, fix_stop):
+def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
     #prokka for Rv2300c and Rv3181c
     source_genome = {
         'abinit_start_bad_minus':'1-0006',
@@ -527,7 +527,7 @@ def test_coord_check(feature_type, fix_start, fix_stop):
         'gene_fusion': [(True, True), FeatureLocation(3741108, 3746955, strand=-1, ref='1')],
         'end_greater_than_start': [(False, False), FeatureLocation(4064133, 4064322, strand=1, ref='1')],
     }
-    results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop)
+    results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop, seek_stop=seek_stop)
     assert [results, feature.location] == expected[feature_type]
 
 @pytest.mark.parametrize('feature_type, seq_ident, seq_covg, attempt_rescue', [
