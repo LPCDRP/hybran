@@ -4,6 +4,7 @@
 * New subcommands:
   - `hybran standardize`: remove generic gene names in the final annotations.
   - `hybran onegene`: unify names of highly conserved gene copies
+* Intercept malformed features in RATT output to allow continuity of the pipeline (#64).
 *  The `--dedupe-references` option is now deprecated, being made a core part of the pipeline with `onegene` since the generic names that it introduces to collapse reference paralogs can be undone by `hybran standardize` if desired afterwards.
 * Reference unification now uses a different generic prefix than that used for unnamed genes to allow differentiating between them.
 `hybran standardize` handles these as well.
