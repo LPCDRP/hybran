@@ -11,6 +11,7 @@
 * Full support for multiple reference annotations.
 * Postprocessed versions of RATT and ab initio annotations, with associated reports, are now saved.
 * Substantial speedups due to parallelization of all postprocessing logic.
+* Comprehensive reporting of pseudoscan results.
 
 ### Bugs fixed
 * reference unification (formerly activated by the `--dedupe-references` option):
@@ -23,6 +24,7 @@
     coord_check now checks for this and extends the ORF to the next in-frame stop codon to make a proper correction.
   These address the root cause of the problem for which the temporary measure from v1.6.1 was taken.
   That temporary measure has been removed.
+* Improved detection of gene fusions when one of the components is derived from a reference pseudogene.
 * annomerge: reject the `source` feature from RATT.
 Some final annotations contained two of them: one from RATT and one from Prokka.
 * Fixed issues that occur when sequence IDs contain "|" character (#62).
