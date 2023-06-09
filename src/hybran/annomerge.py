@@ -1052,7 +1052,7 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
     # checking the feature's pseudo attribute to decide whether the reference is pseudo
     # is only possible with RATT annotations since liftover from the reference may bring
     # the reference's pseudo tag attribute along with it. Our liftover doesn't do that.
-    ref_was_pseudo = pseudo_note
+    ref_was_pseudo = pseudo_note or designator.is_pseudo(ref_feature.qualifiers)
     divisible_by_three = lambda  _: len(_.location) % 3 == 0
     og_feature = deepcopy(feature)
 
