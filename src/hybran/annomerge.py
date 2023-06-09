@@ -219,7 +219,7 @@ def ref_fuse(fusion_gene_name):
     const_refs = refs.split('::')
     # Not a fusion gene; defaultdict lookup should fail
     if len(const_genes) <= 1:
-        raise KeyError(fusion_gene_name)
+        raise KeyError(f'no gene "{const_genes[0]}" found for reference "{const_refs[0]}"') from None
     location_parts = []
     location_sequences = {}
     for i in range(len(const_genes)):
