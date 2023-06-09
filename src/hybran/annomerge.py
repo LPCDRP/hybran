@@ -17,6 +17,7 @@ import tempfile
 import pickle
 import logging
 import time
+import re
 from copy import deepcopy
 from math import log, ceil
 
@@ -53,7 +54,7 @@ def get_and_remove_ref_tracer(feature):
         feature.qualifiers['note'].remove(marker_note)
         if not feature.qualifiers['note']:
             del feature.qualifiers['note']
-        ref_contig_id = marker_note.split(':')[1]
+        ref_contig_id = re.sub(r'\s+', '', marker_note.split(':')[1])
 
     return ref_contig_id
 
