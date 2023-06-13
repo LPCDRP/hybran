@@ -21,7 +21,7 @@ from .annomerge import get_ordered_features
 from .annomerge import has_broken_stop
 from .annomerge import key_ref_gene
 from .annomerge import pseudoscan
-from .bio import AutarkicSeqFeature, SeqIO
+from .bio import AutarkicSeqFeature, SeqIO, FeatureProperties
 from .lumberjack import log_feature_fate
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos
@@ -259,13 +259,20 @@ def validate(
             good_start, good_stop = coord_check(
                 feature,
                 ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
-                fix_start=True,
                 fix_stop=True,
             )
             if not good_stop:
                 remark = "RATT-introduced compound interval did not include reference stop position."
                 valid = False
                 return valid, feature, remark
+            # elif feature.corr_possible:
+            #     # TODO: find a way to report the stop corrections from the RATT joins without interfering with pseudoscan
+
+            # The stop-corrected coordinates are our new original. pseudoscan will take care of start correction
+            # and determining whether that is appropriate to keep.
+            feature.og = FeatureProperties()
+            feature.corr = FeatureProperties()
+            feature.corr_possible = None
 
     feature_is_pseudo = pseudoscan(
         feature,

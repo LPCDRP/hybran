@@ -424,7 +424,11 @@ def fissionfuser(flist, seq_ident, seq_covg):
                 # TODO: pseudoscan is the only thing at this time that determines corr_accepted.
                 # If it isn't making the correction itself, it won't make that call, so we're
                 # temporarily re-doing the correction to make that happen...
+                # TODO: This will make it seem like there isn't a correction happening, but it
+                # is necessary to prevent pseudoscan from rejecting our initial correction.
+                new_feature.og = FeatureProperties()
                 new_feature.corr = FeatureProperties()
+                new_feature.corr_accepted = new_feature.corr_possible = None
                 # Re-call pseudoscan for updated notes
                 pseudoscan(
                     new_feature,
