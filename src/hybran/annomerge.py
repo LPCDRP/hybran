@@ -1233,13 +1233,12 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                                 new_note.append("Locus has a valid alternative start site")
                                 feature.ps_evid.append("alt_start")
 
-                            if feature.de:
-                                new_note.append("Locus has a delayed stop codon")
-                                feature.ps_evid.append('delayed_end')
-                            elif feature.alte:
+                            if feature.alte:
                                 new_note.append("Locus has a valid alternative stop codon")
                                 feature.ps_evid.append("alt_end")
 
+                            if feature.de:
+                                new_note.append("Locus has a delayed stop codon")
 
                         #Primary reason for non-pseudo is all(coords_ok). Interesting because blast_ok == False.
                         else:
@@ -1276,6 +1275,10 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                     if not all(coords_ok):
                         if feature.alts:
                             new_note.append("Locus has a valid alternative start site")
+
+                        if feature.alte:
+                            new_note.append("Locus has a valid alternative stop codon")
+
                         if feature.de:
                             new_note.append("Locus has a delayed stop codon")
                     else:

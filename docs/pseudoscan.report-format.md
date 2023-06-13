@@ -33,8 +33,6 @@ The reference gene is marked `pseudo`.
 The feature has a valid start codon that does NOT correspond with the reference.
 - alt_end:
 The feature has a valid stop codon that does NOT correspond with the reference.
-- delayed_end:
-The feature has a valid stop that extends beyond the last aligned base to the reference gene.
 - noisy_seq:
 The feature has a reference-corresponding start and stop, but a poor blastp hit.
 - no_rcc:
