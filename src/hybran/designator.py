@@ -12,11 +12,11 @@ from .bio import SeqIO
 # ...but we have to hide it in a list
 # because of a long story that involves
 # a "from" import. See https://stackoverflow.com/a/43855120
-generic_orf_prefix = ['HYBRAN']
+generic_orf_prefix = ['HYBRA']
 # to distinguish reference CDS unification from unnamed genes.
 # changing it from ORF -> REFORFX prevents potential errors in lookups for
 # people searching for ORF* and thinking they'll only match unnamed genes.
-ref_orf_prefix = ['REFHYBRANX']
+ref_orf_prefix = ['REFHYBRAX']
 
 
 def append_qualifier(qualifiers, qual_name, qual_value):

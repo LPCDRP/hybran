@@ -18,7 +18,7 @@ hybran --genomes Rv.fasta --references H37Rv.gbk --dedupe-references --orf-prefi
 
 ## Annotating multiple genomes
 
-Hybran assigns numbered generic names to unknown genes (HYBRAN1234, for example) so that you can match gene names across samples.
+Hybran assigns numbered generic names to unknown genes (HYBRA1234, for example) so that you can match gene names across samples.
 If you have multiple genomes to annotate and want to take advantage of this, the best approach is to annotate them simultaneously-- Hybran can accept multiple fasta files as input.
 In the example below, all the genomes in the `assemblies` folder will be annotated.
 
@@ -26,7 +26,7 @@ In the example below, all the genomes in the `assemblies` folder will be annotat
 hybran --genomes assemblies -r H37Rv.gbk -o annotations ...
 ```
 
-If you have annotated several samples already and later receive a new sample to annotate, you can still do so without reannotating everything else, and all previously observed `HYBRAN####` names will be used consistently.
+If you have annotated several samples already and later receive a new sample to annotate, you can still do so without reannotating everything else, and all previously observed `HYBRA####` names will be used consistently.
 Just pass all your previously annotated genomes as reference genomes together with your primary reference.
 But make sure to set your primary reference as the `--first-reference` since it's the only one used for initial reference matching to the *ab initio* calls.
 

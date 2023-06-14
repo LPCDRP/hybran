@@ -95,7 +95,7 @@ def cmds():
         '-p', '--orf-prefix',
         type=str,
         help='prefix for generic gene names (*not* locus tags)',
-        default='HYBRAN',
+        default='HYBRA',
     )
     stdize.add_argument(
         '-o', '--output',
@@ -122,9 +122,9 @@ def cmds():
         help=(
             "prefix for unifying gene names (*not* locus tags). "
             "Such names will be applied to all sets of highly conserved genes if they don't already have a name or if they have discrepant names. "
-            "Whatever you pass here will be sandwiched by REF and X. (i.e., the default HYBRAN will be transformed into REFHYBRANX and then used)."
+            "Whatever you pass here will be sandwiched by REF and X. (i.e., the default HYBRA will be transformed into REFHYBRAX and then used)."
         ),
-        default='HYBRAN',
+        default='HYBRA',
     )
     onegenecmd.add_argument(
         '-o', '--output',
@@ -202,7 +202,7 @@ def cmds():
     optional.add_argument('-p', '--orf-prefix',
                           type=str,
                           help='prefix for generic gene names (*not* locus tags)',
-                          default='HYBRAN')
+                          default='HYBRA')
     optional.add_argument('--dedupe-references',
                           action='store_true',
                           help=(
