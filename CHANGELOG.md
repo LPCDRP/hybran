@@ -25,6 +25,8 @@
   These address the root cause of the problem for which the temporary measure from v1.6.1 was taken.
   That temporary measure has been removed.
 * Improved detection of gene fusions when one of the components is derived from a reference pseudogene.
+* fissionfuser: fixed issue where apparent complementary fragments are combined despite one of the copies being non-pseudo (#66).
+Although the issue severity was mitigated in that the combined annotation would be rejected in favor of RATT's, the second gene would have been lost.
 * annomerge: reject the `source` feature from RATT.
 Some final annotations contained two of them: one from RATT and one from Prokka.
 * Fixed issues that occur when sequence IDs contain "|" character (#62).
