@@ -148,7 +148,7 @@ def test_overlap_inframe(pair):
     'complementary_fragments_one_unnamed',
     'fails_final_coord_check_inframe_overlap',
 #    'seemingly_complete_fragment',
-#    'independent_fragments',
+    'independent_copies',
 ])
 @pytest.mark.skipif(not os.path.isfile("data/1-0006.fasta"), reason="test genome sequence not available")
 @pytest.mark.skipif(not os.path.isfile("data/2-0031.fasta"), reason="test genome sequence not available")
@@ -205,13 +205,25 @@ def test_fissionfuser(gene_list, tmp_path):
         ],
         'seemingly_complete_fragment': [
         ],
-        'independent_fragments': [
+        'independent_copies': [
+            SeqFeature(
+                FeatureLocation(ExactPosition(1483334), ExactPosition(1484933), strand=-1), type='CDS', qualifiers={
+                    'locus_tag': ['L_01415'],
+                }
+            ),
+            SeqFeature(
+                FeatureLocation(ExactPosition(1484939), ExactPosition(1486616), strand=-1), type='CDS', qualifiers={
+                    'gene': ['Rv1319c'],
+                    'locus_tag': ['L_01416'],
+                }
+            ),
         ],
     }
     source_genomes = {
         'complementary_fragments':'1-0006',
         'complementary_fragments_one_unnamed':'1-0006',
         'fails_final_coord_check_inframe_overlap':'2-0031',
+        'independent_copies':'1-0006',
     }
     config.hybran_tmp_dir = tmp_path
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -276,6 +288,10 @@ def test_fissionfuser(gene_list, tmp_path):
                 }
             )],
             [(inputs['fails_final_coord_check_inframe_overlap'][0], 'L_03351:Rv3327 combined with L_03352:Rv3327: overlapping_inframe')]
+        ),
+        'independent_copies': (
+            inputs['independent_copies'],
+            [],
         ),
     }
 
