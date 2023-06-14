@@ -413,21 +413,32 @@ def fissionfuser(flist, seq_ident, seq_covg):
             new_feature.corr_accepted = new_feature.corr_possible = None
             new_feature.qualifiers = merge_qualifiers(dropped_feature.qualifiers, new_feature.qualifiers)
 
+            if reason == 'overlapping_inframe':
+                confirmed = True
             #
             # Abort combination if one of the genes is non-pseudo. (issue #66)
             #
-            if last_gene_named and not designator.is_pseudo(last_gene.qualifiers):
-                logger.debug(f"Did not combine {dropped_feature_name} and {new_feature_name} ({reason}) because {last_gene.qualifiers['locus_tag'][0]} is not pseudo.")
+            elif last_gene_named and not designator.is_pseudo(last_gene.qualifiers):
+                confirmed = False
+                problem = f"{last_gene.qualifiers['locus_tag'][0]} is not pseudo"
             elif curr_gene_named and not designator.is_pseudo(feature.qualifiers):
-                logger.debug(f"Did not combine {dropped_feature_name} and {new_feature_name} ({reason}) because {feature.qualifiers['locus_tag'][0]} is not pseudo.")
+                confirmed = False
+                problem = f"{feature.qualifiers['locus_tag'][0]} is not pseudo"
             #
             # Last check before pulling the trigger: coordinate verification
             #
-            elif all(coord_check(
+            elif not all(coord_check(
                     new_feature,
                     ref_annotation[key_ref_gene(new_feature.source, new_feature.qualifiers['gene'][0])],
                     fix_start=True, fix_stop=True)
-                   ) or reason == 'overlapping_inframe':
+            ):
+                confirmed = False
+                problem = "coordinate verification failed"
+            else:
+                confirmed = True
+
+
+            if confirmed:
                 dropped_ltag_features.append(
                     (dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}")
                 )
@@ -452,7 +463,7 @@ def fissionfuser(flist, seq_ident, seq_covg):
                 outlist.remove(feature)
                 outlist.append(new_feature)
             else:
-                logger.debug(f"Did not combine {dropped_feature_name} and {new_feature_name} ({reason}) due to failing coordinate verification.")
+                logger.debug(f"Did not combine {dropped_feature_name} and {new_feature_name} ({reason}) because {problem}.")
 
     return outlist, dropped_ltag_features
 
