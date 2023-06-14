@@ -148,12 +148,12 @@ def test_overlap_inframe(pair):
     'complementary_fragments_one_unnamed',
     'fails_final_coord_check_inframe_overlap',
 #    'seemingly_complete_fragment',
-#    'independent_fragments',
+    'independent_copies',
 ])
 @pytest.mark.skipif(not os.path.isfile("data/1-0006.fasta"), reason="test genome sequence not available")
 @pytest.mark.skipif(not os.path.isfile("data/2-0031.fasta"), reason="test genome sequence not available")
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.fasta"), reason="test reference genome sequence not available")
-def test_fissionfuser(gene_list):
+def test_fissionfuser(gene_list, tmp_path):
     inputs = {
         # post coordinate correction, so they both have the same start position
         'complementary_fragments' : [
@@ -205,27 +205,52 @@ def test_fissionfuser(gene_list):
         ],
         'seemingly_complete_fragment': [
         ],
-        'independent_fragments': [
+        'independent_copies': [
+            SeqFeature(
+                FeatureLocation(ExactPosition(1483334), ExactPosition(1484933), strand=-1), type='CDS', qualifiers={
+                    'locus_tag': ['L_01415'],
+                }
+            ),
+            SeqFeature(
+                FeatureLocation(ExactPosition(1484939), ExactPosition(1486616), strand=-1), type='CDS', qualifiers={
+                    'gene': ['Rv1319c'],
+                    'locus_tag': ['L_01416'],
+                }
+            ),
         ],
     }
     source_genomes = {
         'complementary_fragments':'1-0006',
         'complementary_fragments_one_unnamed':'1-0006',
         'fails_final_coord_check_inframe_overlap':'2-0031',
+        'independent_copies':'1-0006',
     }
+    config.hybran_tmp_dir = tmp_path
     ref_genome = defaultdict(lambda :'H37Rv')
     source_genome = source_genomes[gene_list]
-    annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0].seq
+    record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
     annomerge.genetic_code = 11
-    annomerge.ref_annotation = ref_features[ref_genome[gene_list]]
-    annomerge.corrected_orf_report = []
+    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
+
+    for f in inputs[gene_list]:
+        f.source = 'H37Rv.NC_000962.3' # TODO - clean this up
+        f.ref = record_sequence.id
+        f.references = {record_sequence.id: record_sequence.seq}
 
     expected = {
         'complementary_fragments': ([
             SeqFeature(
-                FeatureLocation(ExactPosition(2275540), ExactPosition(2277261), strand=-1), type='CDS', qualifiers={
+                FeatureLocation(ExactPosition(2275540), ExactPosition(2277261), strand=-1, ref='1'), type='CDS', qualifiers={
                     'gene': ['dosT'],
                     'locus_tag': ['L_02174'],
+                    'note': [
+                        ('Hybran/Pseudoscan: Internal stop detected in the following '
+                         'codon(s): 270 283 353 380 | Locus has invalid reading frame-- not '
+                         'divisible by three | Locus has reference-corresponding start and '
+                         'end | Poor blastp match at 95% identity and 95% coverage thresholds '
+                         '| Locus is 1 base pair(s) shorter than the reference')
+                    ],
                     'pseudo': [''],
                 }
             )],
@@ -233,9 +258,16 @@ def test_fissionfuser(gene_list):
         ),
         'complementary_fragments_one_unnamed': ([
             SeqFeature(
-                FeatureLocation(ExactPosition(1104310), ExactPosition(1105056), strand=1), type='CDS', qualifiers={
+                FeatureLocation(ExactPosition(1104310), ExactPosition(1105056), strand=1, ref='1'), type='CDS', qualifiers={
                     'gene': ['Rv0986'],
                     'locus_tag': ['L_01054'],
+                    'note': [
+                        ('Hybran/Pseudoscan: Internal stop detected in the following '
+                         'codon(s): 98 168 199 208 215 223 227 | Locus has invalid reading '
+                         'frame-- not divisible by three | Locus has reference-corresponding '
+                         'start and end | Poor blastp match at 95% identity and 95% coverage '
+                         'thresholds | Locus is 1 base pair(s) shorter than the reference')
+                    ],
                     'pseudo': [''],
                 }
             )],
@@ -243,13 +275,23 @@ def test_fissionfuser(gene_list):
         ),
         'fails_final_coord_check_inframe_overlap': ([
             SeqFeature(
-                FeatureLocation(ExactPosition(3522323), ExactPosition(3523418), strand=-1), type='CDS', qualifiers={
+                FeatureLocation(ExactPosition(3522323), ExactPosition(3523418), strand=-1, ref='1'), type='CDS', qualifiers={
                     'gene': ['Rv3327'],
                     'locus_tag': ['L_03352'],
+                    'note': [
+                        ('Hybran/Pseudoscan: Internal stop detected in the following '
+                         'codon(s): 53 | Locus has valid reading frame | Locus does not have '
+                         'reference-corresponding end | Poor blastp match at 95% identity and '
+                         '95% coverage thresholds | Locus has a delayed stop codon')
+                    ],
                     'pseudo': [''],
                 }
             )],
             [(inputs['fails_final_coord_check_inframe_overlap'][0], 'L_03351:Rv3327 combined with L_03352:Rv3327: overlapping_inframe')]
+        ),
+        'independent_copies': (
+            inputs['independent_copies'],
+            [],
         ),
     }
 
