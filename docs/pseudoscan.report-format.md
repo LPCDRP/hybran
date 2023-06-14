@@ -3,6 +3,10 @@ Locus tag of the annotated feature.
 In the hybran pipeline, pseudoscan is run before final locus tags have been determined, so the locus tags in those reports will still correspond to those assigned by RATT and the ab initio annotation.
 - gene_name:
 Assigned gene name (lifted over from reference annotation)
+- pseudo:
+Whether the feature has been called `pseudo`.
+- summary:
+Concatenated string of the boolean values reported for each pseudo attribute.
 - div_by_3:
 Whether the feature sequence is divisible by three.
 - valid_start_codon:
@@ -17,8 +21,6 @@ Whether the feature sequence's end aligns to the reference sequence's end.
 End here refers to the part of the sequence containing the stop codon, even for genes on the minus strand.
 - blast_ok:
 Whether the feature sequence has a passing blastp hit based on the thresholds configured with `--seq-ident` and `--seq-covg`.
-- pseudo:
-Whether the feature has been called `pseudo`.
 - evidence_codes:
 Summary of the reason(s) for the `pseudo` determination.
 If multiple evidence codes apply to a single feature, they will be comma-delimited.

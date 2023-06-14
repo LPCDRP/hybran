@@ -103,6 +103,7 @@ def log_pseudos(features_by_contig_dict, logfile):
         'ref_corr_start',
         'ref_corr_end',
         'blast_ok',
+        'summmary',
         'pseudo',
         'evidence_codes',
     ]
@@ -112,16 +113,25 @@ def log_pseudos(features_by_contig_dict, logfile):
     for contig in features_by_contig_dict:
         for feature in features_by_contig_dict[contig]:
             if feature.ps_evid:
+                summary = ';'.join([
+                    f"D3{nacast(feature.d3)}",
+                    f"VS{nacast(feature.vs)}",
+                    f"VE{nacast(feature.ve)}",
+                    f"RCS{nacast(feature.rcs)}",
+                    f"RCE{nacast(feature.rce)}",
+                    f"BOK{nacast(feature.bok)}",
+                ])
                 line = [
                     feature.qualifiers['locus_tag'][0],
                     feature.qualifiers['gene'][0],
+                    nacast(designator.is_pseudo(feature.qualifiers)),
+                    ';'.join(feature.ps_evid),
+                    summary,
                     nacast(feature.d3),
                     nacast(feature.vs),
                     nacast(feature.ve),
                     nacast(feature.rcs),
                     nacast(feature.rce),
                     nacast(feature.bok),
-                    nacast(designator.is_pseudo(feature.qualifiers)),
-                    ','.join(feature.ps_evid),
                 ]
                 print('\t'.join(str(v) for v in line), file=logfile)
