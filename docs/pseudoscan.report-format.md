@@ -5,8 +5,12 @@ In the hybran pipeline, pseudoscan is run before final locus tags have been dete
 Assigned gene name (lifted over from reference annotation)
 - pseudo:
 Whether the feature has been called `pseudo`.
+- evidence_codes:
+Summary of the reason(s) for the `pseudo` determination.
+If multiple evidence codes apply to a single feature, they will be semicolon-delimited.
+See below for a description of the possible evidence codes.
 - summary:
-Concatenated string of the boolean values reported for each pseudo attribute.
+Semicolon-delimited string of (abbreviated) pseudo attributes and their respective boolean values.
 - div_by_3:
 Whether the feature sequence is divisible by three.
 - valid_start_codon:
@@ -21,10 +25,6 @@ Whether the feature sequence's end aligns to the reference sequence's end.
 End here refers to the part of the sequence containing the stop codon, even for genes on the minus strand.
 - blast_ok:
 Whether the feature sequence has a passing blastp hit based on the thresholds configured with `--seq-ident` and `--seq-covg`.
-- evidence_codes:
-Summary of the reason(s) for the `pseudo` determination.
-If multiple evidence codes apply to a single feature, they will be comma-delimited.
-See below for a description of the possible evidence codes.
 
 Apart from `locus_tag`, `gene_name`, and `evidence_codes`, the column values are `0` (false), `1` (true), or `.` (not determined).
 

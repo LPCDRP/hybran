@@ -143,15 +143,15 @@ def log_pseudos(features_by_contig_dict, logfile):
     header = [
         'locus_tag',
         'gene_name',
+        'pseudo',
+        'evidence_codes',
+        'summmary',
         'div_by_3',
         'valid_start_codon',
         'valid_stop_codon',
         'ref_corr_start',
         'ref_corr_end',
         'blast_ok',
-        'summmary',
-        'pseudo',
-        'evidence_codes',
     ]
     # represent boolean values as ints but account for N/A (None)
     nacast = lambda _: int(_) if _ is not None else "."
