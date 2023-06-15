@@ -18,7 +18,7 @@ from .annomerge import key_ref_gene
 from .annomerge import liftover_annotation
 from .annomerge import pseudoscan
 from .bio import AutarkicSeqFeature, SeqIO
-from .lumberjack import log_feature_fate
+from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos
 from .util import mpbreakpoint
@@ -90,7 +90,7 @@ def postprocess(
     )
 
     with open(invalid_features_logfile, 'w') as rejects_log:
-        [log_feature_fate(_[0], rejects_log, _[1]) for _ in invalid_features]
+        log_feature_fates(invalid_features, rejects_log)
 
     with open(corrected_orf_logfile, 'w') as corr_log:
         log_coord_corrections(prokka_features, corr_log)

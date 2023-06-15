@@ -109,8 +109,64 @@ Its values for all three metrics are shown in the next columns.
 
 ##### `*/annomerge/{ratt,prokka}_unused.tsv` `*/{ratt,prokka}-postprocessed/invalid_features.tsv`
 
-Two columns: the locus tag and the reason why it was excluded from the final annotation.
+- locus_tag:
+Locus tag of the rejected feature from the source indicated by the file name or parent directory.
+- gene_name:
+Assigned gene name of the rejected feature (lifted over from reference annotation).
+Same as locus tag if none was assigned.
+- rival_locus_tag:
+Locus tag of the prevailing feature.
+- rival_gene_name:
+Assigned gene name of the prevailing feature (lifted over from reference annotation).
+- evidence_codes:
+Summary of the reason for rejecting the feature.
+- remark:
+A more verbose explanation of the rejection reason.
 
+##### Evidence Codes
+
+###### Evidence Codes Assigned during RATT Postprocessing
+
+- no_coordinates
+: RATT sometimes outputs malformed feature locations (see, for example, [RATT#18](https://github.com/ThomasDOtto/ratt/issues/18) and [RATT#19](https://github.com/ThomasDOtto/ratt/issues/19)).
+Hybran intercepts these during parsing of the results and sets an empty location to enable continuity of the pipeline.
+Since the malformed feature could not be properly parsed, however, there may not be a name to refer to in the log here.
+- zero_length
+- categorical
+: Currently, rRNAs and tRNAs are only taken from the ab initio annotation, so these are categorically rejected from RATT.
+- misplaced
+- poor_match
+: When using `--filter-ratt`, annotations not meeting the blastp thresholds are rejected and have this evidence code applied.
+
+###### Evidence Codes Assigned by fissionfuser
+
+`fissionfuser` is only applied during postprocessing of the ab initio annotations.
+
+- complementary_fragments
+- overlapping_inframe
+: This scenario arises as a result of postprocessing ab initio annotations.
+When a CDS has an internal stop, the ab initio annotation often reports what looks like a tandem duplication.
+Start coordinate correction by pseudoscan often extends the downstream fragment to overlap with the upstream fragment and `fissionfuser` identifies this fission event signature.
+
+###### Evidence Codes Assigned by fusionfisher
+
+- redundant_fusion_member
+- combined_annotation
+- putative_misannotation
+
+###### Evidence Codes Assigned by annomerge
+
+- identical
+- identical_non_cds
+- shorter
+- shorter_pseudogene
+- forfeit
+: When postprocessed RATT and ab initio annotations are equally valid, RATT is preferred since its name assignment derives from synteny.
+- internal_stop
+- worse_ref_correspondence
+- nonpseudo_vs_pseudo
+- hypothetical_vs_real
+: When an ab initio annotation for which a name could not be assigned using blastp hits conflicts with a RATT annotation, the ab initio annotation is rejected for this reason.
 
 ##### `*/*/coord_corrections.tsv`
 

@@ -4,19 +4,65 @@ from Bio.SeqRecord import SeqRecord
 
 from .bio import AutarkicSeqFeature, SeqIO
 from . import designator
+from .extractor import get_ltag, get_gene
 
-def log_feature_fate(feature, logfile, remark=""):
+
+def log_feature_fate(feature, logfile, superior=None, evid=None, remark=None):
     """
     General-purpose logging function to print out a gene's information and a comment
     :param feature: A SeqFeature object
     :param logfile: An open filehandle
-    :param remark: (str) A comment
+    :param superior: SeqFeature representing the superior annotation displacing feature.
+    :param evid: str evidence code
+    :param remark: str explanation
     """
-    if 'locus_tag' in feature.qualifiers:
-        locus_tag = feature.qualifiers['locus_tag'][0]
+    if superior is not None:
+        superior_locus_tag = get_ltag(superior)
+        superior_gene_name = get_gene(superior)
     else:
-        locus_tag = feature.id
-    print('\t'.join([locus_tag, remark]), file=logfile)
+        superior_locus_tag = superior_gene_name = None
+
+    locus_tag = get_ltag(feature)
+    gene_name = get_gene(feature)
+
+    row = [
+        locus_tag,
+        gene_name,
+        superior_locus_tag,
+        superior_gene_name,
+        evid,
+        remark,
+    ]
+    print(
+        '\t'.join([_ if _ is not None else '.' for _ in row]),
+        file=logfile
+    )
+
+def log_feature_fates(info_list, logfile):
+    """
+    Calls log_feature_fate on each element in info_list and creates headers
+    :param info_list:
+      list of dictionaries with required key/values
+        - 'feature': SeqFeature that is rejected
+        - 'evid': str evidence code
+      and optional key/values
+        - 'remark': str explanation
+        - 'superior': SeqFeature of prevailing annotation
+    :param logfile: An open filehandle
+    """
+    header = [
+        'locus_tag',
+        'gene_name',
+        'rival_locus_tag',
+        'rival_gene_name',
+        'evidence_codes',
+        'remark',
+    ]
+    print('\t'.join(header), file=logfile)
+    if info_list:
+        info_list.sort(key=lambda _:_['feature'].qualifiers['locus_tag'][0])
+
+    [log_feature_fate(**_, logfile=logfile) for _ in info_list]
 
 def log_coord_correction(feature, logfile):
     """

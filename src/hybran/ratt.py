@@ -22,7 +22,7 @@ from .annomerge import has_broken_stop
 from .annomerge import key_ref_gene
 from .annomerge import pseudoscan
 from .bio import AutarkicSeqFeature, SeqIO, FeatureProperties
-from .lumberjack import log_feature_fate
+from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos
 from .util import mpbreakpoint
@@ -95,7 +95,7 @@ def postprocess(
 
 
     with open(invalid_features_logfile, 'w') as rejects_log:
-        [log_feature_fate(_[0], rejects_log, _[1]) for _ in invalid_features]
+        log_feature_fates(invalid_features, rejects_log)
 
     with open(corrected_orf_logfile, 'w') as corr_log:
         log_coord_corrections(ratt_features, corr_log)
@@ -166,8 +166,12 @@ def postprocess_contig(
             mp_validate,
             ratt_contig_features,
         )
-    for valid, feature, remark in results:
-        valid_features.append(feature) if valid else invalid_ratt_features.append((feature, remark))
+    for valid, feature, evid, remark in results:
+        valid_features.append(feature) if valid else invalid_ratt_features.append({
+            'feature':feature,
+            'evid':evid,
+            'remark':remark,
+        })
 
     logger.info(f"{seqname}: {len(invalid_ratt_features)} RATT features failed validation.")
     ratt_contig_features = get_ordered_features(valid_features)
@@ -208,7 +212,8 @@ def validate(
     blast_stats = {}
     valid = False
     unbroken = False
-    remark = ''
+    evid = None
+    remark = None
 
     if enforce_thresholds:
         ratt_seq_ident = seq_ident
@@ -218,8 +223,10 @@ def validate(
 
     if feature.location is None:
         valid = False
-        remark = "Empty feature location"
-        return valid, feature, remark
+        evid = "no_coordinates"
+        if 'locus_tag' not in feature.qualifiers:
+            feature.qualifiers['locus_tag'] = feature.id
+        return valid, feature, evid, remark
 
     if feature.type != 'CDS':
         if feature.type in [
@@ -227,10 +234,11 @@ def validate(
                 'tRNA',
         ]:
             valid = False
+            evid = "categorical"
             remark = f"{feature.type}s categorically rejected in favor of ab initio"
         else:
             valid = True
-        return valid, feature, remark
+        return valid, feature, evid, remark
 
     compound_interval = isinstance(feature.location,Bio.SeqFeature.CompoundLocation)
     # Identify features with 'joins'
@@ -262,9 +270,10 @@ def validate(
                 fix_stop=True,
             )
             if not good_stop:
+                evid = "misplaced"
                 remark = "RATT-introduced compound interval did not include reference stop position."
                 valid = False
-                return valid, feature, remark
+                return valid, feature, evid, remark
             # elif feature.corr_possible:
             #     # TODO: find a way to report the stop corrections from the RATT joins without interfering with pseudoscan
 
@@ -312,6 +321,7 @@ def validate(
                 )
 
             if len(feature_sequence) == 0:
+                evid = "zero_length"
                 remark = 'length of AA sequence is 0'
             else:
                 top_hit, low_covg, blast_stats = BLAST.reference_match(
@@ -324,7 +334,8 @@ def validate(
                 if top_hit:
                     valid = True
                 else:
+                    evid = "poor_match"
                     remark = 'No blastp hit to corresponding reference CDS at specified thresholds.'
 
 
-    return valid, feature, remark
+    return valid, feature, evid, remark
