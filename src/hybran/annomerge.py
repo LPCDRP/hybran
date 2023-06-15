@@ -39,7 +39,7 @@ from . import extractor
 from . import __version__
 from .bio import SeqIO
 from .bio import FeatureProperties
-from .lumberjack import log_feature_fate
+from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos
 from .util import keydefaultdict, mpbreakpoint
@@ -439,9 +439,13 @@ def fissionfuser(flist, seq_ident, seq_covg):
 
 
             if confirmed:
-                dropped_ltag_features.append(
-                    (dropped_feature, f"{dropped_feature_name} combined with {new_feature_name}: {reason}")
-                )
+                dropped_ltag_features.append({
+                    'feature':dropped_feature,
+                    'evid':reason,
+                    'remark':"combined fission fragments",
+                    'superior':new_feature,
+                })
+
                 # TODO: pseudoscan is the only thing at this time that determines corr_accepted.
                 # If it isn't making the correction itself, it won't make that call, so we're
                 # temporarily re-doing the correction to make that happen...
@@ -1987,11 +1991,9 @@ def run(
         logger.info(f'{seqname}: {n_final_cdss} CDSs annomerge')
 
     with open(ratt_rejects_logfile, 'w') as ratt_rejects_log:
-        [log_feature_fate(**_, logfile=ratt_rejects_log) for _ in ratt_rejects]
+        log_feature_fates(ratt_rejects, logfile=ratt_rejects_log)
     with open(prokka_rejects_logfile, 'w') as prokka_rejects_log:
-        if prokka_rejects:
-            prokka_rejects.sort(key=lambda _:_['feature'].qualifiers['locus_tag'][0])
-        [log_feature_fate(**_, logfile=prokka_rejects_log) for _ in prokka_rejects]
+        log_feature_fates(prokka_rejects, logfile=prokka_rejects_log)
 
     SeqIO.write(annomerge_records, output_genbank, 'genbank')
 

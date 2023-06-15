@@ -6,13 +6,15 @@ from .bio import AutarkicSeqFeature, SeqIO
 from . import designator
 from .extractor import get_ltag, get_gene
 
+
 def log_feature_fate(feature, logfile, superior=None, evid=".", remark="."):
     """
     General-purpose logging function to print out a gene's information and a comment
     :param feature: A SeqFeature object
     :param logfile: An open filehandle
     :param superior: SeqFeature representing the superior annotation displacing feature.
-    :param evid: (str) evidence code
+    :param evid: str evidence code
+    :param remark: str explanation
     """
     if superior is not None:
         superior_locus_tag = get_ltag(superior)
@@ -26,11 +28,37 @@ def log_feature_fate(feature, logfile, superior=None, evid=".", remark="."):
     print('\t'.join([
         locus_tag,
         gene_name,
-        evid,
-        remark,
         superior_locus_tag,
         superior_gene_name,
+        evid,
+        remark,
     ]), file=logfile)
+
+def log_feature_fates(info_list, logfile):
+    """
+    Calls log_feature_fate on each element in info_list and creates headers
+    :param info_list:
+      list of dictionaries with required key/values
+        - 'feature': SeqFeature that is rejected
+        - 'evid': str evidence code
+      and optional key/values
+        - 'remark': str explanation
+        - 'superior': SeqFeature of prevailing annotation
+    :param logfile: An open filehandle
+    """
+    header = [
+        'locus_tag',
+        'gene_name',
+        'rival_locus_tag',
+        'rival_gene_name',
+        'evidence_codes',
+        'remark',
+    ]
+    print('\t'.join(header), file=logfile)
+    if info_list:
+        info_list.sort(key=lambda _:_['feature'].qualifiers['locus_tag'][0])
+
+    [log_feature_fate(**_, logfile=logfile) for _ in info_list]
 
 def log_coord_correction(feature, logfile):
     """
