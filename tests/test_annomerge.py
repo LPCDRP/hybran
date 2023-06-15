@@ -254,7 +254,11 @@ def test_fissionfuser(gene_list, tmp_path):
                     'pseudo': [''],
                 }
             )],
-            [(inputs['complementary_fragments'][0], 'L_02173:dosT combined with L_02174:dosT: overlapping_inframe')]
+            [{
+                'feature':inputs['complementary_fragments'][0],
+                'evid':'overlapping_inframe',
+                'remark':'combined fission fragments',
+            }],
         ),
         'complementary_fragments_one_unnamed': ([
             SeqFeature(
@@ -271,7 +275,11 @@ def test_fissionfuser(gene_list, tmp_path):
                     'pseudo': [''],
                 }
             )],
-            [(inputs['complementary_fragments_one_unnamed'][0], 'L_01053:L_01053 combined with L_01054:Rv0986: complementary_fragments')]
+            [{
+                'feature':inputs['complementary_fragments_one_unnamed'][0],
+                'evid':'complementary_fragments',
+                'remark':'combined fission fragments',
+            }],
         ),
         'fails_final_coord_check_inframe_overlap': ([
             SeqFeature(
@@ -287,13 +295,21 @@ def test_fissionfuser(gene_list, tmp_path):
                     'pseudo': [''],
                 }
             )],
-            [(inputs['fails_final_coord_check_inframe_overlap'][0], 'L_03351:Rv3327 combined with L_03352:Rv3327: overlapping_inframe')]
+            [{
+                'feature':inputs['fails_final_coord_check_inframe_overlap'][0],
+                'evid':'overlapping_inframe',
+                'remark':"combined fission fragments",
+            }],
         ),
         'independent_copies': (
             inputs['independent_copies'],
             [],
         ),
     }
+
+    # set the rival feature as the passing one. for these test cases, we're always looking at pairs
+    if expected[gene_list][1]:
+        expected[gene_list][1][0]['superior'] = expected[gene_list][0][0]
 
     assert annomerge.fissionfuser(
         inputs[gene_list],
@@ -339,22 +355,38 @@ def test_fusionfisher(gene_list):
         'misannotation_false_delayed_stop': (
             [ source_features['Rv0074']['ratt'] ],
             [ ],
-            [ (source_features['Rv0071']['ratt'], "putative misannotation: has no reference-corresponding stop, while Rv0074:Rv0074 does, and both share the same stop position.") ]
+            [{
+                'feature':source_features['Rv0071']['ratt'],
+                'evid':'putative_misannotation',
+                'remark':"Has no reference-corresponding stop, while rival feature does, and both share the same stop position.",
+            }],
         ),
         'redundant_double_hybrid_fusion': (
             [ source_features['AZ20_03933']['ratt'] ],
             [ ],
-            [ (source_features['AZ20_03933']['prokka'], "Redundant annotation with ECOLIN_01320:ORF0033::ECOLIN_01320") ],
+            [{
+                'feature':source_features['AZ20_03933']['prokka'],
+                'evid':'redundant_fusion_member',
+                'remark':"Same locus as rival (fusion) gene and name already included as fusion element there.",
+            }],
         ),
         'misannotation_both_nonpseudo': (
             [ source_features['ECOLIN_18975']['ratt'] ],
             [ ],
-            [ (source_features['ECOLIN_18965']['ratt'] , "Both ECOLIN_18975:ECOLIN_18975 and ECOLIN_18965:ECOLIN_18965 have reference-corresponding start codons and have reference-corresponding stop codons. Longer feature ECOLIN_18975:ECOLIN_18975 favored.") ],
+            [{
+                'feature':source_features['ECOLIN_18965']['ratt'],
+                'evid':'shorter',
+                'remark':"Both have reference-corresponding start codons and have reference-corresponding stop codons.",
+            }],
         ),
         'misannotation_one_pseudo': (
             [source_features['ECOLIN_25305']['ratt']],
             [ ],
-            [(source_features['garD']['ratt'], "putative misannotation: has no reference-corresponding coordinates, while ECOLIN_25305:ECOLIN_25305 has a reference-corresponding start, and  both share the same stop position.")],
+            [{
+                'feature':source_features['garD']['ratt'],
+                'evid':'putative_misannotation',
+                'remark':"Has no reference-corresponding coordinates, while rival feature has a reference-corresponding start, and both share the same stop position.",
+            }],
         ),
     }
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -373,6 +405,11 @@ def test_fusionfisher(gene_list):
     annomerge.genetic_code = 11
     annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
     annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
+
+
+    # set the rival feature as the passing one. for these test cases, we're always looking at pairs
+    if expected[gene_list][2]:
+        expected[gene_list][2][0]['superior'] = expected[gene_list][0][0]
 
     assert annomerge.fusionfisher(
         inputs[gene_list],
@@ -902,33 +939,48 @@ def test_check_inclusion_criteria(pair, tmp_path):
     expected = {
         'ratt_better': (
             False, True,
-            "RATT annotation Rv0001:dnaA more accurately named and delineated compared to the ab initio annotation L_00001:dnaA.",
+            'worse_ref_correspondence',
+            "RATT annotation more accurately named and delineated compared to the ab initio annotation.",
         ),
         'ratt_better_coverage': (
             False, True,
-            "RATT annotation Rv1453:Rv1453 more accurately named and delineated compared to the ab initio annotation L_01557:Rv1453.",
+            'worse_ref_correspondence',
+            "RATT annotation more accurately named and delineated compared to the ab initio annotation.",
         ),
         'pseudo_vs_nonpseudo': (
             False, True,
-            "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation L_00010:Rv0007.",
+            'pseudo',
+            "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation.",
         ),
-        'overlapping_unnamed': (False, True, "Hypothetical gene and conflicts (overlapping in-frame) with RATT's Rv0001:dnaA."),
-        'abinit_better': (True, False, "Ab initio annotation L_02383:Rv1718 more accurately named and delineated compared to the RATT annotation Rv1718:Rv1718."),
+        'overlapping_unnamed': (
+            False, True,
+            'unnamed',
+            "Unnamed gene and conflicts (overlapping in-frame) with named rival annotation.",
+        ),
+        'abinit_better': (
+            True, False,
+            'worse_ref_correspondence',
+            "Ab initio annotation more accurately named and delineated compared to the RATT annotation.",
+        ),
         'overlapping_different_names_ratt_better': (
             False, True,
-            "putative misannotation: has no reference-corresponding coordinates, while Rv1945:Rv1945 has a reference-corresponding start, and  both share the same stop position.",
+            'putative_misannotation',
+            "Has no reference-corresponding coordinates, while rival feature has a reference-corresponding start, and both share the same stop position.",
         ),
         'overlapping_different_names_abinit_better': (
             True, False,
-            "putative misannotation: has no reference-corresponding stop, while L_02335:ORF0004 does, and both share the same stop position."
+            'putative_misannotation',
+            "Has no reference-corresponding stop, while rival feature does, and both share the same stop position."
         ),
         'ratt_join_vs_prokka_bad_start': (
             True, False,
-            "The ab initio annotation is favored over the RATT annotation Rv0840c:pip because it doesn't contain any internal stops and ends with a valid stop codon.",
+            'internal_stop',
+            "The ab initio annotation is favored over the RATT annotation because it doesn't contain any internal stops.",
         ),
         'prokka_gene_fusion': (
             False, True,
-            "RATT annotation Rv1548c:PE21 more accurately named and delineated compared to the ab initio annotation L_02249:PE21.",
+            'worse_ref_correspondence',
+            "RATT annotation more accurately named and delineated compared to the ab initio annotation.",
         ),
     }
 
