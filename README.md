@@ -164,8 +164,8 @@ Start coordinate correction by pseudoscan often extends the downstream fragment 
 : When postprocessed RATT and ab initio annotations are equally valid, RATT is preferred since its name assignment derives from synteny.
 - internal_stop
 - worse_ref_correspondence
-- nonpseudo_vs_pseudo
-- hypothetical_vs_real
+- pseudo
+- unnamed
 : When an ab initio annotation for which a name could not be assigned using blastp hits conflicts with a RATT annotation, the ab initio annotation is rejected for this reason.
 
 ##### `*/*/coord_corrections.tsv`

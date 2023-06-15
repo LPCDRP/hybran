@@ -1643,12 +1643,12 @@ def thunderdome(abinit_annotation, ratt_annotation):
         if not abinit_is_pseudo and ratt_is_pseudo:
             include_abinit = True
             include_ratt = False
-            evid = 'nonpseudo_vs_pseudo'
+            evid = 'pseudo'
             remark = "Non-pseudo ab initio annotation takes precedence over the pseudo RATT annotation."
         else:
             include_abinit = False
             include_ratt = True
-            evid = 'nonpseudo_vs_pseudo'
+            evid = 'pseudo'
             remark = "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation."
 
     if include_abinit == include_ratt:
@@ -1694,8 +1694,8 @@ def check_inclusion_criteria(
     elif 'gene' not in abinit_annotation.qualifiers:
         if overlap_inframe(abinit_annotation.location, ratt_annotation.location):
             include_abinit = False
-            evid = 'hypothetical_vs_real'
-            remark = "Hypothetical gene and conflicts (overlapping in-frame) with named rival annotation."
+            evid = 'unnamed'
+            remark = "Unnamed gene and conflicts (overlapping in-frame) with named rival annotation."
     else:
         same_gene_name = extractor.get_gene(ratt_annotation) == extractor.get_gene(abinit_annotation)
         same_loc = (abinit_annotation.location == ratt_annotation.location)
