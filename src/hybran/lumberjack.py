@@ -7,7 +7,7 @@ from . import designator
 from .extractor import get_ltag, get_gene
 
 
-def log_feature_fate(feature, logfile, superior=None, evid=".", remark="."):
+def log_feature_fate(feature, logfile, superior=None, evid=None, remark=None):
     """
     General-purpose logging function to print out a gene's information and a comment
     :param feature: A SeqFeature object
@@ -20,19 +20,23 @@ def log_feature_fate(feature, logfile, superior=None, evid=".", remark="."):
         superior_locus_tag = get_ltag(superior)
         superior_gene_name = get_gene(superior)
     else:
-        superior_locus_tag = superior_gene_name = '.'
+        superior_locus_tag = superior_gene_name = None
 
     locus_tag = get_ltag(feature)
     gene_name = get_gene(feature)
 
-    print('\t'.join([
+    row = [
         locus_tag,
         gene_name,
         superior_locus_tag,
         superior_gene_name,
         evid,
         remark,
-    ]), file=logfile)
+    ]
+    print(
+        '\t'.join([_ if _ is not None else '.' for _ in row]),
+        file=logfile
+    )
 
 def log_feature_fates(info_list, logfile):
     """

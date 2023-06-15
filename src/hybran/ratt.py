@@ -224,6 +224,8 @@ def validate(
     if feature.location is None:
         valid = False
         evid = "no_coordinates"
+        if 'locus_tag' not in feature.qualifiers:
+            feature.qualifiers['locus_tag'] = feature.id
         return valid, feature, evid, remark
 
     if feature.type != 'CDS':
