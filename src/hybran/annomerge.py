@@ -513,10 +513,12 @@ def fusionfisher(feature_list):
                 else:
                     goner = outlist.pop()
                     keeper = prev_feature
-                rejects.append((
-                    goner,
-                    f'Redundant annotation with {extractor.get_ltag(keeper)}:{extractor.get_gene(keeper)}'
-                ))
+                rejects.append({
+                    'feature':goner,
+                    'superior':keeper,
+                    'evid':'redundant_fusion_member',
+                    'remark':"Same locus as rival (fusion) gene and name already included as fusion element there.",
+                })
             #
             # Artifact due to a gene fusion hybrid
             #
@@ -544,10 +546,12 @@ def fusionfisher(feature_list):
                 prev_feature.source = '::'.join([upstream.source, downstream.source])
                 prev_feature.qualifiers['product'] = [' / '.join([_.qualifiers['product'][0] for _ in [upstream, downstream] if 'product' in _.qualifiers])]
 
-                rejects.append((
-                    outlist.pop(),
-                    f"Apparent hybrid fusion gene. Removed due to redundant location with {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)}.",
-                ))
+                rejects.append({
+                    'feature':outlist.pop(),
+                    'superior':prev_feature,
+                    'evid':'combined_annotation',
+                    'remark':"Apparent hybrid fusion gene. Name incorporated into rival feature's and redundant locus removed.",
+                })
                 remarkable['hybrid'].append(prev_feature)
 
         elif have_same_stop(prev_feature.location, feature.location):
@@ -591,30 +595,38 @@ def fusionfisher(feature_list):
                     ],
                 )
                 if pf_goodstop and not cf_goodstop:
-                    rejects.append((
-                        outlist.pop(),
-                        f"putative misannotation: has no reference-corresponding stop, while {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)} does, and both share the same stop position."
-                    ))
+                    rejects.append({
+                        'feature':outlist.pop(),
+                        'superior':prev_feature,
+                        'evid':'putative_misannotation',
+                        'remark':"Has no reference-corresponding stop, while rival feature does, and both share the same stop position.",
+                    })
                 elif not pf_goodstop and cf_goodstop:
-                    rejects.append((
-                        prev_feature,
-                        f"putative misannotation: has no reference-corresponding stop, while {extractor.get_ltag(feature)}:{extractor.get_gene(feature)} does, and both share the same stop position."
-                    ))
+                    rejects.append({
+                        'feature':prev_feature,
+                        'superior':feature,
+                        'evid':'putative_misannotation',
+                        'remark':"Has no reference-corresponding stop, while rival feature does, and both share the same stop position.",
+                    })
                     outlist.remove(prev_feature)
                 #
                 # likely scenarios in the case of a misannotation coinciding with a truncated gene
                 #
                 elif not pf_goodstart and cf_goodstart:
-                    rejects.append((
-                        prev_feature,
-                        f"putative misannotation: has no reference-corresponding coordinates, while {extractor.get_ltag(feature)}:{extractor.get_gene(feature)} has a reference-corresponding start, and both share the same stop position."
-                    ))
+                    rejects.append({
+                        'feature':prev_feature,
+                        'superior':feature,
+                        'evid':'putative_misannotation',
+                        'remark':"Has no reference-corresponding coordinates, while rival feature has a reference-corresponding start, and both share the same stop position.",
+                    })
                     outlist.remove(prev_feature)
                 elif pf_goodstart and not cf_goodstart:
-                    rejects.append((
-                        outlist.pop(),
-                        f"putative misannotation: has no reference-corresponding coordinates, while {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)} has a reference-corresponding start, and  both share the same stop position."
-                    ))
+                    rejects.append({
+                        'feature':outlist.pop(),
+                        'superior':prev_feature,
+                        'evid':'putative_misannotation',
+                        'remark':"Has no reference-corresponding coordinates, while rival feature has a reference-corresponding start, and both share the same stop position."
+                    })
                 # remaining scenarios:
                 # - both sets of coords are all good.
                 # - both sets of coords are all bad.
@@ -630,11 +642,9 @@ def fusionfisher(feature_list):
                     both_good_stops = pf_goodstop and cf_goodstop
                     word_choice = lambda _: 'have' if _ else 'lack'
                     coord_status_report = (
-                        f"Both {extractor.get_ltag(prev_feature)}:{extractor.get_gene(prev_feature)} and "
-                        f"{extractor.get_ltag(feature)}:{extractor.get_gene(feature)} {word_choice(both_good_starts)} "
+                        f"Both {word_choice(both_good_starts)} "
                         f"reference-corresponding start codons and {word_choice(both_good_stops)} "
                         f"reference-corresponding stop codons.")
-                    reason = 'Longer'
                     if designator.is_pseudo(prev_feature.qualifiers) != designator.is_pseudo(feature.qualifiers):
                         if designator.is_pseudo(prev_feature.qualifiers):
                             goner = prev_feature
@@ -651,10 +661,12 @@ def fusionfisher(feature_list):
                         goner = prev_feature
                         keeper = feature
                         outlist.remove(prev_feature)
-                    rejects.append((
-                        goner,
-                        f'{coord_status_report} {reason} feature {extractor.get_ltag(keeper)}:{extractor.get_gene(keeper)} favored.'
-                    ))
+                    rejects.append({
+                        'feature':goner,
+                        'superior':keeper,
+                        'evid':'shorter',
+                        'remark':coord_status_report,
+                    })
 
         if outlist[-1] != feature:
             last_feature_by_strand[feature.location.strand] = prev_feature
@@ -1358,8 +1370,11 @@ def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
             elif (overlap_inframe(ratt_feature.location, abinit_feature.location)):
                 if (len(ratt_feature.location) == len(abinit_feature.location)
                     and extractor.get_gene(ratt_feature) == extractor.get_gene(abinit_feature)):
-                    abinit_rejects.append((abinit_features_not_in_ratt.pop((abinit_start, abinit_end, abinit_strand), None),
-                                           'duplicate of ' + ratt_feature.qualifiers['locus_tag'][0]))
+                    abinit_rejects.append({
+                        'feature': abinit_features_not_in_ratt.pop((abinit_start, abinit_end, abinit_strand), None),
+                        'superior': ratt_feature,
+                        'evid': 'identical',
+                    })
                     abinit_duplicate_removed = True
                 else:
                     ratt_overlapping_genes[abinit_feature_position].append((ratt_start, ratt_end, ratt_strand))
@@ -1525,7 +1540,8 @@ def thunderdome(abinit_annotation, ratt_annotation):
     :returns:
         - include_abinit (:py:class:`bool`) - whether the ab initio annotation should be kept
         - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
-        - remark (:py:class:`str`) - explanation for why the rejected annotation, if any, was not included
+        - evid (:py:class:`str`) - evidence code for rejected annotation
+        - remark (:py:class:`str`) - explanation why the rejected annotation was not included
     """
     logger = logging.getLogger('Thunderdome')
     abinit_delayed_stop = has_delayed_stop(abinit_annotation)
@@ -1563,69 +1579,82 @@ def thunderdome(abinit_annotation, ratt_annotation):
                 if abinit_longer:
                     include_abinit = True
                     include_ratt = False
-                    remark = f"Equally valid call, but the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} is less complete."
+                    evid = 'shorter'
+                    remark = "Equally valid call, but the RATT annotation is less complete."
                 elif ratt_longer:
                     include_abinit = False
                     include_ratt = True
-                    remark = f"Equally valid call, but the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} less complete."
+                    evid = 'shorter'
+                    remark = "Equally valid call, but the ab initio annotation is less complete."
                 else:
                     include_abinit = False
                     include_ratt = True
-                    remark = f"Equally valid call. Same length as ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}, but RATT annotation is favored due to synteny."
+                    evid = 'forfeit'
+                    remark = f"Equally valid call. Same length as ab initio annotation, but RATT annotation is favored due to synteny."
             #Both pseudo
             else:
                 if abinit_longer and abinit_delayed_stop and not ratt_delayed_stop:
                     include_abinit = True
                     include_ratt = False
-                    remark = f"The ab initio annotation is favored over the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} because it is longer and contains a valid delayed stop."
+                    evid = 'shorter_pseudo'
+                    remark = "The ab initio annotation is favored over the RATT annotation because it is longer and contains a valid delayed stop."
                 elif ratt_longer and ratt_delayed_stop and not abinit_delayed_stop:
                     include_abinit = False
                     include_ratt = True
-                    remark = f"The RATT annotation is favored over the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} because it is longer and contains a valid delayed stop."
+                    evid = 'shorter_pseudo'
+                    remark = "The RATT annotation is favored over the ab initio annotation because it is longer and contains a valid delayed stop."
                 #Same location or equivalent delayed stop status
                 else:
                     if abinit_broken_stop and not ratt_broken_stop:
                          include_abinit = False
                          include_ratt = True
-                         remark = f"The RATT annotation is favored over the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} because it doesn't contain any internal stops and ends with a valid stop codon."
+                         evid = 'broken_stop'
+                         remark = "The RATT annotation is favored over the ab initio annotation because it doesn't contain any internal stops and ends with a valid stop codon."
                     elif ratt_broken_stop and not abinit_broken_stop:
                         include_abinit = True
                         include_ratt = False
-                        remark = f"The ab initio annotation is favored over the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} because it doesn't contain any internal stops and ends with a valid stop codon."
+                        evid = 'broken_stop'
+                        remark = "The ab initio annotation is favored over the RATT annotation because it doesn't contain any internal stops and ends with a valid stop codon."
                     else:
                         include_abinit = False
                         include_ratt = True
-                        remark = f"Equally valid call, but conflicts with RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}; RATT favored due to synteny."
+                        evid = 'forfeit'
+                        remark = f"Equally valid call, but conflicts with RATT annotation; RATT favored due to synteny."
 
         elif (all(ratt_coord_status) or ratt_coord_score > abinit_coord_score or (ratt_stop_ok and not abinit_stop_ok)):
             include_abinit = False
             include_ratt = True
-            remark = f"RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)} more accurately named and delineated compared to the ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}."
+            evid = 'worse_ref_correspondence'
+            remark = "RATT annotation more accurately named and delineated compared to the ab initio annotation."
         else:
         #This is the only other possibility:
         #elif (all(abinit_coord_status or abinit_coord_score > ratt_coord_score
         #or (abinit_stop_ok and not ratt_stop_ok)):
             include_abinit = True
             include_ratt = False
-            remark = f"Ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)} more accurately named and delineated compared to the RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
+            evid = 'worse_ref_correspondence'
+            remark = f"Ab initio annotation more accurately named and delineated compared to the RATT annotation."
     else:
         #Always take the non-pseudo annotation if possible
         if not abinit_is_pseudo and ratt_is_pseudo:
             include_abinit = True
             include_ratt = False
-            remark = f"Non-pseudo ab initio annotation takes precedence over the pseudo RATT annotation {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
+            evid = 'nonpseudo_vs_pseudo'
+            remark = "Non-pseudo ab initio annotation takes precedence over the pseudo RATT annotation."
         else:
             include_abinit = False
             include_ratt = True
-            remark = f"Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation {extractor.get_ltag(abinit_annotation)}:{extractor.get_gene(abinit_annotation)}."
+            evid = 'nonpseudo_vs_pseudo'
+            remark = "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation."
 
     if include_abinit == include_ratt:
         logger.warning(f"Both annotations were marked for {'inclusion' if include_ratt else 'exclusion'} and one annotation is expected to be excluded:\nRATT Feature\n{ratt_annotation}\n\nab initio Feature\n{abinit_annotation}\n\nUnhandled scenario--RATT favored due to synteny"
         )
         include_abinit = False
         include_ratt = True
+        evid = 'forfeit'
         remark = "Both annotations marked for inclusion. Unhandled scenario--RATT annotation favored due to synteny"
-    return include_abinit, include_ratt, remark
+    return include_abinit, include_ratt, evid, remark
 
 
 def check_inclusion_criteria(
@@ -1642,12 +1671,14 @@ def check_inclusion_criteria(
     :returns:
         - include_abinit (:py:class:`bool`) - whether the ab initio annotation should be kept
         - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
-        - remark (:py:class:`str`) - explanation for why the rejected annotation, if any, was not included
+        - evid (:py:class:`str`) - evidence code for rejected annotation, if any. `None` otherwise.
+        - remark (:py:class:`str`) - explanation why the rejected annotation, if any, was not included. `None` otherwise.
     """
     logger = logging.getLogger('CheckInclusionCriteria')
     include_ratt = True
     include_abinit = True
-    remark = ''
+    evid = None
+    remark = None
 
     if abinit_annotation.type != ratt_annotation.type:
         pass
@@ -1655,37 +1686,41 @@ def check_inclusion_criteria(
         # TODO: we should come up with criteria for non-CDS genes
         if abinit_annotation.location == ratt_annotation.location:
             include_abinit = False
-            remark = f'Has same location as {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}.'
+            evid = 'identical_non_cds'
     elif 'gene' not in abinit_annotation.qualifiers:
         if overlap_inframe(abinit_annotation.location, ratt_annotation.location):
             include_abinit = False
-            remark = f"Hypothetical gene and conflicts (overlapping in-frame) with RATT's {extractor.get_ltag(ratt_annotation)}:{extractor.get_gene(ratt_annotation)}."
+            evid = 'hypothetical_vs_real'
+            remark = "Hypothetical gene and conflicts (overlapping in-frame) with named rival annotation."
     else:
         same_gene_name = extractor.get_gene(ratt_annotation) == extractor.get_gene(abinit_annotation)
         same_loc = (abinit_annotation.location == ratt_annotation.location)
         if same_loc or same_gene_name:
-            include_abinit, include_ratt, remark = thunderdome(abinit_annotation, ratt_annotation)
+            include_abinit, include_ratt, evid, remark = thunderdome(abinit_annotation, ratt_annotation)
 
         elif not same_gene_name and overlap_inframe(abinit_annotation.location, ratt_annotation.location):
             keepers, fusions, rejects = fusionfisher([ratt_annotation, abinit_annotation])
-            for (reject, reason) in rejects:
+            for trial in rejects:
+                reject = trial['feature']
                 if reject == ratt_annotation:
                     include_ratt = False
-                    remark = reason
+                    evid = trial['evid']
+                    remark = trial['remark']
                 elif reject == abinit_annotation:
                     include_abinit = False
-                    remark = reason
+                    evid = trial['evid']
+                    remark = trial['remark']
             # fusionfisher didn't detect a misannotation, but it didn't detect a fusion either.
             # welcome to the thunderdome!
             if not fusions and not rejects:
-                include_abinit, include_ratt, remark = thunderdome(abinit_annotation, ratt_annotation)
+                include_abinit, include_ratt, evid, remark = thunderdome(abinit_annotation, ratt_annotation)
 
         else:
             #include everything if different names and not overlapping in frame
             include_abinit = True
             include_ratt = True
 
-    return include_abinit, include_ratt, remark
+    return include_abinit, include_ratt, evid, remark
 
 def fix_embl_id_line(embl_file):
     """
@@ -1886,16 +1921,26 @@ def run(
                     include_abinit = True
                     continue
                 ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
-                include_abinit, include_ratt, remark = check_inclusion_criteria(
+                include_abinit, include_ratt, evid, remark = check_inclusion_criteria(
                     ratt_annotation=ratt_feature,
                     abinit_annotation=abinit_feature,
                 )
                 if not include_abinit:
-                    prokka_rejects.append((abinit_feature,remark))
+                    prokka_rejects.append({
+                        'feature':abinit_feature,
+                        'superior':ratt_feature,
+                        'evid':evid,
+                        'remark':remark,
+                    })
                     break
                 # TODO: explain why this is an elif rather than an independent else.
                 elif not include_ratt:
-                    ratt_rejects.append((ratt_contig_features_dict.pop(ratt_conflict_loc), remark))
+                    ratt_rejects.append({
+                        'feature': ratt_contig_features_dict.pop(ratt_conflict_loc),
+                        'superior': abinit_feature,
+                        'evid': evid,
+                        'remark':remark,
+                    })
             # Add the abinit feature if it survived all the conflicts
             if include_abinit:
                 annomerge_contig_features.append(abinit_feature)
@@ -1942,22 +1987,11 @@ def run(
         logger.info(f'{seqname}: {n_final_cdss} CDSs annomerge')
 
     with open(ratt_rejects_logfile, 'w') as ratt_rejects_log:
-        [log_feature_fate(_[0], ratt_rejects_log, _[1]) for _ in ratt_rejects]
+        [log_feature_fate(**_, logfile=ratt_rejects_log) for _ in ratt_rejects]
     with open(prokka_rejects_logfile, 'w') as prokka_rejects_log:
-        # we sometimes get the same gene appearing here multiple times, so collapse
-        # the list and merge the remarks.
-        prokka_rejects.sort(key=lambda _:_[0].qualifiers['locus_tag'][0])
-        last_gene = prokka_rejects[0][0]
-        last_remark = ''
-        for (gene, remark) in prokka_rejects:
-            if gene == last_gene:
-                if last_remark:
-                    remark = ';'.join([last_remark,remark])
-            else:
-                log_feature_fate(last_gene, prokka_rejects_log, last_remark)
-            last_gene = gene
-            last_remark = remark
-        log_feature_fate(last_gene, prokka_rejects_log, last_remark)
+        if prokka_rejects:
+            prokka_rejects.sort(key=lambda _:_['feature'].qualifiers['locus_tag'][0])
+        [log_feature_fate(**_, logfile=prokka_rejects_log) for _ in prokka_rejects]
 
     SeqIO.write(annomerge_records, output_genbank, 'genbank')
 

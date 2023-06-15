@@ -4,19 +4,33 @@ from Bio.SeqRecord import SeqRecord
 
 from .bio import AutarkicSeqFeature, SeqIO
 from . import designator
+from .extractor import get_ltag, get_gene
 
-def log_feature_fate(feature, logfile, remark=""):
+def log_feature_fate(feature, logfile, superior=None, evid=".", remark="."):
     """
     General-purpose logging function to print out a gene's information and a comment
     :param feature: A SeqFeature object
     :param logfile: An open filehandle
-    :param remark: (str) A comment
+    :param superior: SeqFeature representing the superior annotation displacing feature.
+    :param evid: (str) evidence code
     """
-    if 'locus_tag' in feature.qualifiers:
-        locus_tag = feature.qualifiers['locus_tag'][0]
+    if superior is not None:
+        superior_locus_tag = get_ltag(superior)
+        superior_gene_name = get_gene(superior)
     else:
-        locus_tag = feature.id
-    print('\t'.join([locus_tag, remark]), file=logfile)
+        superior_locus_tag = superior_gene_name = '.'
+
+    locus_tag = get_ltag(feature)
+    gene_name = get_gene(feature)
+
+    print('\t'.join([
+        locus_tag,
+        gene_name,
+        evid,
+        remark,
+        superior_locus_tag,
+        superior_gene_name,
+    ]), file=logfile)
 
 def log_coord_correction(feature, logfile):
     """
