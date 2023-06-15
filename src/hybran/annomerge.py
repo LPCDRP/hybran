@@ -1612,13 +1612,13 @@ def thunderdome(abinit_annotation, ratt_annotation):
                     if abinit_broken_stop and not ratt_broken_stop:
                          include_abinit = False
                          include_ratt = True
-                         evid = 'broken_stop'
-                         remark = "The RATT annotation is favored over the ab initio annotation because it doesn't contain any internal stops and ends with a valid stop codon."
+                         evid = 'internal_stop'
+                         remark = "The RATT annotation is favored over the ab initio annotation because it doesn't contain any internal stops."
                     elif ratt_broken_stop and not abinit_broken_stop:
                         include_abinit = True
                         include_ratt = False
-                        evid = 'broken_stop'
-                        remark = "The ab initio annotation is favored over the RATT annotation because it doesn't contain any internal stops and ends with a valid stop codon."
+                        evid = 'internal_stop'
+                        remark = "The ab initio annotation is favored over the RATT annotation because it doesn't contain any internal stops."
                     else:
                         include_abinit = False
                         include_ratt = True
