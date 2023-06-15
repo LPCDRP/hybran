@@ -103,9 +103,12 @@ The top hit among the reference or other candidate novel genes.
 * metric
 The `nearest_ref_match` is the top hit according to the metric specified in this column.
 Its values for all three metrics are shown in the next columns.
-* % AA sequence identity
-* % subject(ref) coverage
-* % query coverage
+* pct_aa_ident
+: Percent amino acid sequence identity
+* pct_sub_covg
+: Percent subject (reference) alignment coverage
+* pct_qry_covg
+: Percent query alignment coverage
 
 ##### `*/annomerge/{ratt,prokka}_unused.tsv` `*/{ratt,prokka}-postprocessed/invalid_features.tsv`
 

@@ -803,9 +803,9 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
                          'candidate_novel_gene',
                          'nearest_ref_match',
                          'metric',
-                         '% AA sequence identity',
-                         '% subject(ref) coverage',
-                         '% query coverage',
+                         'pct_aa_ident',
+                         'pct_sub_covg',
+                         'pct_qry_covg',
                          ]),
               file=novelty_report)
         for report in novelty_report_singleton + novelty_report_noref + novelty_report_multiref:
