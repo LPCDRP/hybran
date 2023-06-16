@@ -17,11 +17,12 @@ from .data_features import *
 
 def test_ref_fuse():
     annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
-    annomerge.ref_annotation.update({'@@@'.join(['H37Rv',k]):v for k,v in ref_features['H37Rv'].items()})
+    annomerge.ref_annotation.update(ref_features['H37Rv'])
+    ref_id = 'H37Rv.NC_000962.3'
 
-    assert annomerge.ref_annotation['H37Rv::H37Rv@@@PE_PGRS50::PE_PGRS49'].location == CompoundLocation([
-        SimpleLocation(ExactPosition(3738157), ExactPosition(3742774), strand=-1),
-        SimpleLocation(ExactPosition(3736983), ExactPosition(3738000), strand=-1)
+    assert annomerge.ref_annotation[f'{ref_id}::{ref_id}@@@PE_PGRS50::PE_PGRS49'].location == CompoundLocation([
+        SimpleLocation(ExactPosition(3738157), ExactPosition(3742774), strand=-1, ref=ref_id),
+        SimpleLocation(ExactPosition(3736983), ExactPosition(3738000), strand=-1, ref=ref_id)
     ], 'join')
 
 
@@ -415,6 +416,8 @@ def test_fusionfisher(gene_list):
         inputs[gene_list],
     ) == expected[gene_list]
 
+
+@pytest.mark.skip("superseded by fusionfisher")
 def test_identify_conjoined_genes():
     ratt_features = [
         features['1-0006']['PPE5']['ratt'],
@@ -434,6 +437,7 @@ def test_identify_conjoined_genes():
     assert [_.location for _ in observed] == expected_locs
 
 
+@pytest.mark.skip("superseded by fusionfisher")
 def test_identify_merged_genes():
     ratt_features = [
         features['1-0006']['PPE5']['ratt'],
@@ -505,7 +509,7 @@ def test_liftover_annotation():
         'db_xref': ['COG:COG1132'],
         'translation': ['MQL']
     }
-    annomerge.liftover_annotation(abinit, ref, False, inference='alignment:blastp')
+    annomerge.liftover_annotation(abinit, ref, inference='alignment:blastp')
     assert abinit.qualifiers == expected
 
 @pytest.mark.parametrize('feature_type,fix_start,fix_stop,seek_stop', [
@@ -834,7 +838,8 @@ def test_find_inframe_overlaps(case):
         qualifiers={'locus_tag':['L_02518'],'gene':['NISSLEORF0212']}
     )
 
-    # 1-0006. abinit overlapping fused reference
+    # 1-0006. abinit overlapping fused reference.
+    # not rejected here since names don't match. It's left to the inclusion criteria.
     abinit_ppe6 = SeqFeature(
         FeatureLocation(366753, 376299, strand=-1),
         type='CDS',
@@ -866,15 +871,15 @@ def test_find_inframe_overlaps(case):
     }
     expected_keep = {
         'double_overlap': [abinit_nissleorf0212],
-        'overlapping_fused_ref': []
+        'overlapping_fused_ref': [abinit_ppe6],
     }
     expected_rejects = {
         'double_overlap': [],
-        'overlapping_fused_ref': [(abinit_ppe6, 'duplicate of Rv0305c')]
+        'overlapping_fused_ref': [],
     }
     expected_overlaps = {
         'double_overlap': defaultdict(list, {loc_triplet(abinit_nissleorf0212): [loc_triplet(nissleorf0212)]}),
-        'overlapping_fused_ref': defaultdict(list, {})
+        'overlapping_fused_ref': defaultdict(list, {loc_triplet(abinit_ppe6): [loc_triplet(_) for _ in [ppe5, ppe6]]}),
     }
 
     abinit_features_dictionary = dictate(abinit_features[case])
