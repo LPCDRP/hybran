@@ -21,6 +21,9 @@ hybran                                                                          
     --nproc 2
 ```
 
+Calling `hybran` without specifying a subcommand is the same as calling `hybran annotate`.
+Except to see the help menu, you must do `hybran annotate --help`.
+
 ## Output
 
 Final annotations are created in Genbank and GFF formats in the output directory.
