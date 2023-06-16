@@ -17,6 +17,7 @@ hybran                                                                          
     --genomes /dir/to/FASTAs | in.fasta [in2.fasta in3.fasta ...] | fastas.fofn  \
     --references /dir/to/reference/annotation(s)                                 \
     --output ./                                                                  \
+	--organism "Genus species strain"                                            \
     --nproc 2
 ```
 

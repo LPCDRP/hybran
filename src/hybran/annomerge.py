@@ -1746,6 +1746,8 @@ def fix_embl_id_line(embl_file):
 
 def run(
         isolate_id,
+        organism,
+        strain,
         genome,
         annotation_fp,
         ref_proteins_fasta,
@@ -1764,6 +1766,8 @@ def run(
 
     :param isolate_id: ID of the isolate (Example: H37Rv, 1-0006, etc.). This is the isolate_id that is used for naming
      Genbank files in Prokka
+    :param organism: str binomial organism name or genus
+    :param strain: str strain name
     :param genome: fasta file name corresponding to genome to annotate
     :param annotation_fp: Filepath where RATT, Prokka, reference and prokka no-reference annotations are located.
     Annomerge assumes that RATT annotations are located in <annotation_fp>/ratt, Prokka reference annotations are
@@ -1858,6 +1862,8 @@ def run(
     for i, contig in enumerate(contigs):
         seqname = '.'.join([isolate_id, contig])
         annomerge_records[i].id = annomerge_records[i].name = seqname
+        annomerge_records[i].annotations['source'] = f"{organism} {strain}" if strain else organism
+        annomerge_records[i].annotations['organism'] = organism
         annomerge_records[i].annotations['comment'] = "Annotated using hybran " + __version__ + " from https://lpcdrp.gitlab.io/hybran."
         annomerge_records[i].annotations['molecule_type'] = 'DNA'
 

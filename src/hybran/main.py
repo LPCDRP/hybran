@@ -174,6 +174,11 @@ def cmds():
                                                      'step.',
                           required=True,
                           nargs='+')
+    # This flag is set to match the way pgap takes it.
+    optional.add_argument('-s', '--organism',
+                          help="genus only or binomial name",
+                          required=False,
+                          )
     optional.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
                           dest='database_dir',
@@ -262,9 +267,9 @@ def cmds():
                                ],
                                default='Bacteria',
                                help='Determines which UniProtKB databases Prokka searches against.')
-    prokka_params.add_argument('--genus', help='Genus name')
-    prokka_params.add_argument('--species', help='Species name')
-    prokka_params.add_argument('--strain', help='Strain name')
+    prokka_params.add_argument('--genus', help='Genus name. Deprecated -- use hybran -s/--organism instead')
+    prokka_params.add_argument('--species', help='Species name. Deprecated -- use hybran -s/--organism instead')
+    prokka_params.add_argument('--strain', help='Strain name. Deprecated -- use hybran -s/--organism instead')
     prokka_params.add_argument('--plasmid', help='Plasmid name or identifier')
     prokka_params.add_argument('--gram',
                                choices=[
@@ -357,6 +362,16 @@ def main(args, prokka_args):
     cwd = os.getcwd() + '/'
 
 
+    if not args.organism:
+        organism = "Genus species"
+    else:
+        organism = args.organism
+        strain = ""
+        name_components = organism.split()
+        if len(name_components) > 2:
+            organism = name_components[0:2]
+            strain = ' '.join(name_components[2:])
+
     if args.dedupe_references:
         logger.warning("""The --dedupe-references option is deprecated, as name unification happens constitutively.
 This option is scheduled for removal, so please update your invocation for the future.
@@ -447,6 +462,8 @@ This option is scheduled for removal, so please update your invocation for the f
                 genome_count += 1
                 genomes.append(filename)
                 run.ratt_prokka(ref_dir=embl_dir,
+                                organism=organism,
+                                strain=strain,
                                 fasta=genome,
                                 ref_cds=ref_cds,
                                 gcode=genetic_code,
@@ -458,6 +475,8 @@ This option is scheduled for removal, so please update your invocation for the f
                 if not os.path.isfile(annomerge_gbk):
                     logger.info('Merging RATT and Prokka annotations for ' + samplename)
                     annomerge.run(isolate_id=samplename,
+                                  organism=organism,
+                                  strain=strain,
                                   genome=genome,
                                   annotation_fp=os.getcwd() + '/',
                                   ref_proteins_fasta=ref_cds,

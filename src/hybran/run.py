@@ -6,12 +6,14 @@ import subprocess
 from . import extractor, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
 from . import config
 
-def ratt_prokka(ref_dir, fasta, ref_cds, gcode, ratt_ttype, prokka_extra_args, script_dir, cpus, qcov):
+def ratt_prokka(ref_dir, organism, strain, fasta, ref_cds, gcode, ratt_ttype, prokka_extra_args, script_dir, cpus, qcov):
     """
     Executes RATT and Prokka that resides in ratt_prokka.sh
     File IO is handled by ratt_prokka.sh
 
     :param ref_dir: str directory that houses the EMBL reference(s)
+    :param organism: str genus or binomial name
+    :param strain: str strain name
     :param fasta: str FASTA file name that needs to be annotated
     :param ref_cds: str FASTA proteome of the reference for Prokka
     :param gcode: int NCBI genetic code table ID
@@ -25,6 +27,14 @@ def ratt_prokka(ref_dir, fasta, ref_cds, gcode, ratt_ttype, prokka_extra_args, s
     logger = logging.getLogger('ProkkaRATTAnnomerge')
     c = os.getcwd()
     isolate = os.path.splitext(os.path.basename(fasta))[0]
+    org_components = organism.split()
+    if len(org_components) == 2:
+        [genus, species] = org_components
+        org_flags = f"--genus {genus} --species {species}"
+    else:
+        org_flags = f"--genus {organism}"
+    if strain:
+        org_flags += f" --strain {strain}"
 
     if isolate not in os.listdir(os.getcwd()) or \
         ('ratt' not in os.listdir(isolate) or
@@ -48,7 +58,7 @@ def ratt_prokka(ref_dir, fasta, ref_cds, gcode, ratt_ttype, prokka_extra_args, s
                str(qcov),
                str(gcode),
                ratt_ttype,
-               prokka_extra_args,
+               f"{org_flags} {prokka_extra_args}",
                ]
         try:
             subprocess.run(
