@@ -11,7 +11,10 @@
 * Full support for multiple reference annotations.
 * Postprocessed versions of RATT and ab initio annotations, with associated reports, are now saved.
 * Substantial speedups due to parallelization of all postprocessing logic.
-* Comprehensive reporting of pseudoscan results.
+* Logging and reporting:
+  - Comprehensive reporting of pseudoscan results.
+  - Reorganized the invalid and rejected features reports.
+  - Removed spaces from column names of novelty report.
 
 ### Bugs fixed
 * reference unification (formerly activated by the `--dedupe-references` option):
