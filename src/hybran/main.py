@@ -179,6 +179,11 @@ def cmds():
                           help="genus only or binomial name",
                           required=False,
                           )
+    optional.add_argument('--topology',
+                          help="sequence toplogy",
+                          choices=['linear', 'circular'],
+                          required=False,
+                          default='linear')
     optional.add_argument('-e', '--eggnog-databases', help='Directory of the eggnog databases downloaded using '
                                                            'download_eggnog_data.py -y bactNOG. Full path only',
                           dest='database_dir',
@@ -478,6 +483,7 @@ This option is scheduled for removal, so please update your invocation for the f
                                   organism=organism,
                                   strain=strain,
                                   genome=genome,
+                                  topology=topology,
                                   annotation_fp=os.getcwd() + '/',
                                   ref_proteins_fasta=ref_cds,
                                   ref_gbk_list=ref_gbks,

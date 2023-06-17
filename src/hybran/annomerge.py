@@ -1749,6 +1749,7 @@ def run(
         organism,
         strain,
         genome,
+        topology,
         annotation_fp,
         ref_proteins_fasta,
         ref_gbk_list,
@@ -1769,6 +1770,7 @@ def run(
     :param organism: str binomial organism name or genus
     :param strain: str strain name
     :param genome: fasta file name corresponding to genome to annotate
+    :param topology: str "linear" or "circular" default sequence topology (if not specified per contig)
     :param annotation_fp: Filepath where RATT, Prokka, reference and prokka no-reference annotations are located.
     Annomerge assumes that RATT annotations are located in <annotation_fp>/ratt, Prokka reference annotations are
     located in <annotation_fp>/prokka and prokka annotations without reference is located in
@@ -1827,6 +1829,7 @@ def run(
 
     annomerge_records = list(SeqIO.parse(genome, "fasta"))
     contigs = [record.id for record in annomerge_records]
+    contig_properties = [extractor.repossess(record.description) for record in annomerge_records]
 
     ratt_file_path = os.path.join(file_path, 'ratt')
     ratt_features = ratt.postprocess(
@@ -1865,6 +1868,11 @@ def run(
         annomerge_records[i].annotations['organism'] = organism
         annomerge_records[i].annotations['comment'] = "Annotated using hybran " + __version__ + " from https://lpcdrp.gitlab.io/hybran."
         annomerge_records[i].annotations['molecule_type'] = 'DNA'
+        if 'topology' in contig_properties[i]:
+            contig_topology = contig_properties[i]['topology']
+        else:
+            contig_topology = topology
+        annomerge_records[i].annotations['topology'] = contig_topology
 
         ratt_contig_features = ratt_features[contig]
         prokka_contig_features = abinit_features[contig]

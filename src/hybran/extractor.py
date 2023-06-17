@@ -1,6 +1,7 @@
 import functools
 import logging
 import os
+import re
 import subprocess
 from urllib.error import HTTPError
 
@@ -71,6 +72,15 @@ def gene_dict(genbank, cds_only=True):
                 ):
                     genes[get_ltag(feature)] = get_gene(feature)
     return genes
+
+def repossess(description_string):
+    """
+    recover fasta sequence properties encoded in PGAP-style notation "[property1 = value] [property2 = value] ..."
+    """
+    if description_string is None:
+        description_string = ''
+    m = re.findall(r"\[\s*([^\]\s]+)\s*=\s*([^\]\s]+)\s*\]", description_string)
+    return dict(m)
 
 def get_taxonomy_id(genbank):
     """
