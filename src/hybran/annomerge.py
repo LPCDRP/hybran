@@ -1801,7 +1801,6 @@ def run(
 
     output_merged_genes = os.path.join(isolate_id, 'annomerge', 'merged_genes.gbk')
     output_genbank = os.path.join(isolate_id, 'annomerge', isolate_id + '.gbk')
-    global ratt_rejects  # some RATT annotations are rejected as a side effect of check_inclusion_criteria
     ratt_rejects = []
     ratt_rejects_logfile = os.path.join(isolate_id, 'annomerge', 'ratt_unused.tsv')
     prokka_rejects = []
