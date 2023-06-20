@@ -878,7 +878,7 @@ def test_find_inframe_overlaps(case):
         'overlapping_fused_ref': [],
     }
     expected_overlaps = {
-        'double_overlap': defaultdict(list, {loc_triplet(abinit_nissleorf0212): [loc_triplet(nissleorf0212)]}),
+        'double_overlap': defaultdict(list, {loc_triplet(abinit_nissleorf0212): [loc_triplet(_) for _ in [nissleorf0212, nissleorf0346]]}),
         'overlapping_fused_ref': defaultdict(list, {loc_triplet(abinit_ppe6): [loc_triplet(_) for _ in [ppe5, ppe6]]}),
     }
 
