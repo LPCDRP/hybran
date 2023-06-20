@@ -364,6 +364,7 @@ def main(args, prokka_args):
 
     if not args.organism:
         organism = "Genus species"
+        strain = ""
     else:
         organism = args.organism
         strain = ""
