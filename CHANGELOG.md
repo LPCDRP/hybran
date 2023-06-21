@@ -39,6 +39,7 @@ Some final annotations contained two of them: one from RATT and one from Prokka.
 * Changed default generic ORF prefix to "HYBRA" for greater clarity.
 * set default output directory to current directory.
 * Now ignoring warnings when generating translations for pseudogenes that aren't multiples of three.
+* Enabled setting any of RATT's configured transfer types and fixed names for *.global parameter sets.
 
 ## [Version 1.6.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.6.1)
 
