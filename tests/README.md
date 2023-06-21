@@ -9,6 +9,9 @@ Again, this requires some external data files.
 
 ## Options
 
+HYBRANFLAGS
+: Extra flags to pass to `hybran`
+
 SUBMIT
 : if defined, will perform the hybran runs in a batch cluster job.
 

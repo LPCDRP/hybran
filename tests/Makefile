@@ -3,6 +3,7 @@
 NPROC ?= 8
 RESDIR ?= ${GROUPHOME}/data/depot/hybran/resources
 OUTDIR ?= $(shell date +%m_%d)
+HYBRANFLAGS ?=
 
 ifeq ($(SUBMIT), 1)
 QSUB ?= qsub -N crazy_ivan -cwd -pe smp $(NPROC) -S /bin/bash -b yes -shell no -V -j yes -sync yes -o $(@D)/run.log
@@ -32,7 +33,7 @@ $(cases): %: $(OUTDIR)/%/coords.txt
 $(OUTDIR)/1-0006%: genome=$(RESDIR)/1-0006.fasta
 $(OUTDIR)/1-0006/final.gbk $(OUTDIR)/1-0006-filterratt/final.gbk $(OUTDIR)/SRR23086714_FLYE/final.gbk: ref=$(RESDIR)/H37Rv-3.3.3.gbk
 $(OUTDIR)/1-0006-ncbi/final.gbk: ref=$(RESDIR)/h37rv_ncbi_2023_06_07.gbk
-$(OUTDIR)/1-0006-filterratt/final.gbk: extra_args += --filter-ratt
+$(OUTDIR)/1-0006-filterratt/final.gbk: local_HYBRANFLAGS += --filter-ratt
 $(OUTDIR)/SRR23086714_FLYE/final.gbk: genome=$(RESDIR)/SRR23086714_FLYE.fasta
 $(OUTDIR)/mpox/final.gbk: genome=$(RESDIR)/UnicyclerMpox.fasta
 $(OUTDIR)/mpox/final.gbk: ref=$(RESDIR)/mpox.gbk
@@ -46,11 +47,11 @@ $(OUTDIR)/AZ20-reannotatedref/final.gbk: ref=$(RESDIR)/ECOLIN.gbk
 	hybran \
 	-g $(genome) \
 	-r $(ref) \
-	$(extra_args) \
 	--nproc $(NPROC) \
 	--verbose \
 	--orf-prefix ORF \
 	--dedupe-references \
+	$(local_HYBRANFLAGS) $(HYBRANFLAGS) \
 	-o $(@D) \
 	$(log)
 	ln -sf $$(basename $(genome) .fasta).gbk $@
