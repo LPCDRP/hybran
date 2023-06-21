@@ -3,8 +3,12 @@
 nproc ?= 8
 RESDIR ?= ${GROUPHOME}/data/depot/hybran/resources
 OUTDIR ?= $(shell date +%m_%d)
-QSUB ?= qsub -N crazy_ivan -cwd -pe smp $(nproc) -S /bin/bash -b yes -shell no -V -j yes -sync yes
 
+ifeq ($(SUBMIT), 1)
+QSUB ?= qsub -N crazy_ivan -cwd -pe smp $(nproc) -S /bin/bash -b yes -shell no -V -j yes -sync yes -o $(@D)/run.log
+else
+log = 2>&1 | tee -a $(@D)/run.log
+endif
 
 cases = \
  1-0006 \
@@ -18,7 +22,7 @@ cases = \
 
 
 crazy-ivan: $(cases:%=$(OUTDIR)/%/coords.txt) ;
-single: $(OUTDIR)/1-0006/coords.txt ;
+$(cases): %: $(OUTDIR)/%/coords.txt
 
 
 %/coords.txt: %/final.gbk
@@ -38,7 +42,7 @@ $(OUTDIR)/AZ20/final.gbk $(OUTDIR)/AZ20-reannotatedref/final.gbk: genome=$(RESDI
 $(OUTDIR)/AZ20/final.gbk: ref=$(RESDIR)/nissle-hybrid.gbk
 $(OUTDIR)/AZ20-reannotatedref/final.gbk: ref=$(RESDIR)/ECOLIN.gbk
 %/final.gbk:
-	mkdir -p $(@D); $(QSUB) -o $(@D)/run.log \
+	mkdir -p $(@D); $(QSUB) \
 	hybran \
 	-g $(genome) \
 	-r $(ref) \
@@ -47,5 +51,6 @@ $(OUTDIR)/AZ20-reannotatedref/final.gbk: ref=$(RESDIR)/ECOLIN.gbk
 	--verbose \
 	--orf-prefix ORF \
 	--dedupe-references \
-	-o $(@D)
+	-o $(@D) \
+	$(log)
 	ln -sf $$(basename $(genome) .fasta).gbk $@
