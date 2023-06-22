@@ -1878,92 +1878,91 @@ def run(
         if len(ratt_contig_features) == 0:
             logger.warning(f"NO RATT ANNOTATION FOR {seqname}")
             annomerge_records[i].features = prokka_contig_features
-            continue
         elif len(prokka_contig_features) == 0:
             logger.warning(f"NO AB INITIO ANNOTATION FOR {seqname}")
             annomerge_records[i].features = ratt_contig_features
-            continue
+        else:
+            annomerge_contig_features = []
 
-        annomerge_contig_features = []
+            ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
+            abinit_features_postprocessed = generate_feature_dictionary(prokka_contig_features)
 
-        ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
-        abinit_features_postprocessed = generate_feature_dictionary(prokka_contig_features)
-
-        # Check for in-frame conflicts/duplicates
-        logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
-        unique_abinit_features, inframe_conflicts, abinit_duplicates = find_inframe_overlaps(
-            ratt_contig_features,
-            abinit_features_postprocessed,
-        )
-        prokka_rejects += abinit_duplicates
-        logger.debug(f"{seqname}: {len(abinit_duplicates)} ab initio ORFs identical to RATT's")
-        logger.debug(f"{seqname}: {len(inframe_conflicts)} ab initio ORFs conflicting in-frame with RATT's")
-        logger.debug(f'{seqname}: {len(unique_abinit_features)} total ab initio ORFs remain in consideration')
+            # Check for in-frame conflicts/duplicates
+            logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
+            unique_abinit_features, inframe_conflicts, abinit_duplicates = find_inframe_overlaps(
+                ratt_contig_features,
+                abinit_features_postprocessed,
+            )
+            prokka_rejects += abinit_duplicates
+            logger.debug(f"{seqname}: {len(abinit_duplicates)} ab initio ORFs identical to RATT's")
+            logger.debug(f"{seqname}: {len(inframe_conflicts)} ab initio ORFs conflicting in-frame with RATT's")
+            logger.debug(f'{seqname}: {len(unique_abinit_features)} total ab initio ORFs remain in consideration')
 
 
-        intergenic_positions, ratt_pre_intergene, ratt_post_intergene = get_interregions(
-            ratt_contig_features,
-            intergene_length=1,
-        )
-        sorted_intergenic_positions = sorted(intergenic_positions)
-        add_features_from_prokka, overlap_conflicts = populate_gaps(
-            abinit_features=unique_abinit_features,
-            intergenic_positions=sorted_intergenic_positions,
-            ratt_pre_intergene=ratt_pre_intergene,
-            ratt_post_intergene=ratt_post_intergene,
-        )
-        annomerge_contig_features += add_features_from_prokka
-        logger.debug(f"{seqname}: {len(add_features_from_prokka)} ab initio ORFs fall squarely into RATT's CDS-free regions.")
+            intergenic_positions, ratt_pre_intergene, ratt_post_intergene = get_interregions(
+                ratt_contig_features,
+                intergene_length=1,
+            )
+            sorted_intergenic_positions = sorted(intergenic_positions)
+            add_features_from_prokka, overlap_conflicts = populate_gaps(
+                abinit_features=unique_abinit_features,
+                intergenic_positions=sorted_intergenic_positions,
+                ratt_pre_intergene=ratt_pre_intergene,
+                ratt_post_intergene=ratt_post_intergene,
+            )
+            annomerge_contig_features += add_features_from_prokka
+            logger.debug(f"{seqname}: {len(add_features_from_prokka)} ab initio ORFs fall squarely into RATT's CDS-free regions.")
 
-        # merge the two dicts of lists. hat tip to https://stackoverflow.com/a/5946322
-        abinit_conflicts = collections.defaultdict(list)
-        for abinit_conflict_group in (inframe_conflicts, overlap_conflicts):
-            for key, value in abinit_conflict_group.items():
-                abinit_conflicts[key] += value
+            # merge the two dicts of lists. hat tip to https://stackoverflow.com/a/5946322
+            abinit_conflicts = collections.defaultdict(list)
+            for abinit_conflict_group in (inframe_conflicts, overlap_conflicts):
+                for key, value in abinit_conflict_group.items():
+                    abinit_conflicts[key] += value
 
-        logger.debug(f"{seqname}: {len(abinit_conflicts.keys())} ab initio CDSs in total overlap RATT CDSs. Resolving...")
+            logger.debug(f"{seqname}: {len(abinit_conflicts.keys())} ab initio CDSs in total overlap RATT CDSs. Resolving...")
 
-        for feature_position in abinit_conflicts.keys():
-            abinit_feature = unique_abinit_features[feature_position]
-            # Conflict Resolution
-            # TODO: We're using set() here because the ratt_conflict_locs sometimes appear multiple times.
-            #       This causes check_inclusion_criteria to run multiple times on the same pair, which
-            #       in the case of gene fusions, causes cascading of the fusion names.
-            #       (i.e.,  rattA, abinitB => rattA::abinitB => rattA::abinitB::abinitB => ...)
-            for ratt_conflict_loc in set(abinit_conflicts[feature_position]):
-                # if the RATT annotation got rejected at some point, its remaining conflicts are moot
-                if ratt_conflict_loc not in ratt_contig_features_dict.keys():
-                    include_abinit = True
-                    continue
-                ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
-                include_abinit, include_ratt, evid, remark = check_inclusion_criteria(
-                    ratt_annotation=ratt_feature,
-                    abinit_annotation=abinit_feature,
-                )
-                if not include_abinit:
-                    prokka_rejects.append({
-                        'feature':abinit_feature,
-                        'superior':ratt_feature,
-                        'evid':evid,
-                        'remark':remark,
-                    })
-                    break
-                # TODO: explain why this is an elif rather than an independent else.
-                elif not include_ratt:
-                    ratt_rejects.append({
-                        'feature': ratt_contig_features_dict.pop(ratt_conflict_loc),
-                        'superior': abinit_feature,
-                        'evid': evid,
-                        'remark':remark,
-                    })
-            # Add the abinit feature if it survived all the conflicts
-            if include_abinit:
-                annomerge_contig_features.append(abinit_feature)
+            for feature_position in abinit_conflicts.keys():
+                abinit_feature = unique_abinit_features[feature_position]
+                # Conflict Resolution
+                # TODO: We're using set() here because the ratt_conflict_locs sometimes appear multiple times.
+                #       This causes check_inclusion_criteria to run multiple times on the same pair, which
+                #       in the case of gene fusions, causes cascading of the fusion names.
+                #       (i.e.,  rattA, abinitB => rattA::abinitB => rattA::abinitB::abinitB => ...)
+                for ratt_conflict_loc in set(abinit_conflicts[feature_position]):
+                    # if the RATT annotation got rejected at some point, its remaining conflicts are moot
+                    if ratt_conflict_loc not in ratt_contig_features_dict.keys():
+                        include_abinit = True
+                        continue
+                    ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
+                    include_abinit, include_ratt, evid, remark = check_inclusion_criteria(
+                        ratt_annotation=ratt_feature,
+                        abinit_annotation=abinit_feature,
+                    )
+                    if not include_abinit:
+                        prokka_rejects.append({
+                            'feature':abinit_feature,
+                            'superior':ratt_feature,
+                            'evid':evid,
+                            'remark':remark,
+                        })
+                        break
+                    # TODO: explain why this is an elif rather than an independent else.
+                    elif not include_ratt:
+                        ratt_rejects.append({
+                            'feature': ratt_contig_features_dict.pop(ratt_conflict_loc),
+                            'superior': abinit_feature,
+                            'evid': evid,
+                            'remark':remark,
+                        })
+                # Add the abinit feature if it survived all the conflicts
+                if include_abinit:
+                    annomerge_contig_features.append(abinit_feature)
 
-        for ratt_feature_append in ratt_contig_features_dict.values():
-            annomerge_contig_features.append(ratt_feature_append)
+            for ratt_feature_append in ratt_contig_features_dict.values():
+                annomerge_contig_features.append(ratt_feature_append)
 
-        annomerge_records[i].features = annomerge_contig_features
+            annomerge_records[i].features = annomerge_contig_features
+
 
         # Finalize annotation records for this contig
         raw_features_unflattened = annomerge_records[i].features[:]
