@@ -15,6 +15,7 @@ ref_features = {}
 for ref in [
         'H37Rv',
         'nissle-hybrid',
+        'PAO1_107',
 ]:
     ref_file = os.path.join(pathlib.Path(__file__).parent.resolve(), 'data', f'{ref}.gbk')
     ref_features[ref] = {}
@@ -35,6 +36,15 @@ for ref in [
 
 
 features = {
+    'PAK':{
+        'PA2452': {
+            'ratt': SeqFeature(
+                FeatureLocation(2799744, 2801325, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['PA2452'],'gene':['PA2452']}
+            ),
+        },
+    },
     'AZ20': {
         'secD': {
             'ratt': SeqFeature(
@@ -197,6 +207,13 @@ features = {
                 type='CDS',
                 qualifiers={'locus_tag':['L_00431'],'gene':['pks6']}
             ),
+        },
+        'Rv0325': {
+            'ratt': SeqFeature(
+                FeatureLocation(392626, 393316, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv0325'],'gene':['Rv0325']}
+	    ),
         },
         'Rv0907': {
             'ratt': SeqFeature(

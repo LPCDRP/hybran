@@ -530,6 +530,8 @@ def test_liftover_annotation():
     ['inverted_join_ecoli', True, True, None],
     ['gene_fusion', True, True, None],
     ['end_greater_than_start', True, True, None],
+    ['extend_gap_penalty_delay_stop', True, True, None],
+    ['insertion_final_interval', True, True, None],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 @pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
@@ -550,13 +552,16 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'same_start_alt_stop_2_fix':'1-0006',
         'bad_start_stop_nofix_pseudo':'1-0006',
         'bad_start_stop_fix_pseudo':'1-0006',
-        'inverted_join_ecoli': 'AZ20',
-        'gene_fusion': '1-0006',
-        'end_greater_than_start': 'SEA08151',
+        'inverted_join_ecoli':'AZ20',
+        'gene_fusion':'1-0006',
+        'end_greater_than_start':'SEA08151',
+        'extend_gap_penalty_delay_stop':'1-0006',
+        'insertion_final_interval':'PAK',
 
     }
     ref_genome = defaultdict(lambda :'H37Rv')
     ref_genome['inverted_join_ecoli'] = 'nissle-hybrid'
+    ref_genome['insertion_final_interval'] = 'PAO1_107'
 
     test_features = {
         'abinit_start_bad_minus': features[source_genome['abinit_start_bad_minus']]['Rv3181c']['abinit'],
@@ -576,6 +581,8 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'inverted_join_ecoli': features[source_genome['inverted_join_ecoli']]['secD']['ratt'],
         'gene_fusion': features[source_genome['gene_fusion']]['PE_PGRS50']['final'],
         'end_greater_than_start': features[source_genome['end_greater_than_start']]['lpqG']['ratt'],
+        'extend_gap_penalty_delayed_stop': features[source_genome['extend_gap_penalty_delay_stop']]['Rv0325']['ratt'],
+        'insertion_final_interval': features[source_genome['insertion_final_interval']]['PA2452']['ratt'],
     }
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
@@ -609,6 +616,8 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'inverted_join_ecoli': [(False, False), FeatureLocation(3714209, 3716770, strand=-1, ref='1')],
         'gene_fusion': [(True, True), FeatureLocation(3741108, 3746955, strand=-1, ref='1')],
         'end_greater_than_start': [(False, False), FeatureLocation(4064133, 4064322, strand=1, ref='1')],
+        'extend_gap_penalty_delay_stop': [(True, False), FeatureLocation(392626, 393316, strand=1, ref='1')],
+        'insertion_final_interval': [(True, False), FeatureLocation(2799744, 2801325, strand=1, ref='1')],
     }
     results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop, seek_stop=seek_stop)
     assert [results, feature.location] == expected[feature_type]
