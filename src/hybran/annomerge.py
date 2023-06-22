@@ -1876,10 +1876,10 @@ def run(
         prokka_contig_features = abinit_features[contig]
 
         if len(ratt_contig_features) == 0:
-            logger.warning(f"NO RATT ANNOTATION FOR {seqname}")
+            logger.info(f"{seqname}: Using ab initio annotations only since RATT did not annotate any")
             annomerge_records[i].features = prokka_contig_features
         elif len(prokka_contig_features) == 0:
-            logger.warning(f"NO AB INITIO ANNOTATION FOR {seqname}")
+            logger.info(f"{seqname}: Using RATT annotations only since ab initio methods did not annotate any")
             annomerge_records[i].features = ratt_contig_features
         else:
             annomerge_contig_features = []

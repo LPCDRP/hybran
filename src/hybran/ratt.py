@@ -119,6 +119,10 @@ def postprocess_contig(
 
     ratt_contig_record = SeqIO.read(ratt_gbk, 'genbank')
 
+    if not ratt_contig_record.features:
+        logger.warning(f"{seqname} HAS NO RATT ANNOTATION")
+        return ratt_contig_record, []
+
     ratt_contig_features = []
     for feature in ratt_contig_record.features:
         feature = AutarkicSeqFeature.fromSeqFeature(feature)

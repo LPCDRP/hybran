@@ -112,6 +112,10 @@ def postprocess_contig(
 
     logger = logging.getLogger('PostprocessAbInitio')
 
+    if not record.features:
+        logger.warning(f"{seqname} HAS NO AB INITIO ANNOTATION")
+        return []
+
     contig_features = []
     for f in record.features:
         f = AutarkicSeqFeature.fromSeqFeature(f)
