@@ -770,6 +770,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         # ||--------||                   ->      ||||--------
         # GTAGTCCGCGAG                           GTAGTCCGCGAG
         aligner.internal_open_gap_score = -8.0
+        aligner.internal_extend_gap_score = -3.0
 
         alignment = aligner.align(ref_seq, feature_seq)
         alignment = alignment[0]
@@ -780,6 +781,10 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
 
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
         found_high = (target[-1][1] == len(ref_seq)) and (abs(target[-1][0] - target[-1][1])) >= interval
+
+        frameshift_interval = ("-" in alignment[0][target[-1][1] - interval : target[-1][1]] or
+                            "-" in alignment[1][target[-1][1] - interval : target[-1][1]])
+        relaxed_found_high = (target[-1][1] == len(ref_seq)) and ((abs(target[-1][0] - target[-1][1]) >= interval) or frameshift_interval)
 
         target_low_seq = ref_seq[target[0][0]:target[0][1]]
         target_high_seq = ref_seq[target[-1][0]:target[-1][1]]
@@ -817,7 +822,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
 
         if not found_low or not found_high:
             padding = True
-        return found_low, found_high, target, query, target_high_seq, query_high_seq, alignment, padding, score, interval
+        return found_low, found_high, target, query, target_high_seq, query_high_seq, alignment, padding, score, interval, relaxed_found_high
 
     def add_padding(feature, target, query, interval):
         #If we're looking to make corrections, add some context to help the aligner
@@ -861,8 +866,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         return pad_feature
 
     #First alignment
-    found_low, found_high, target, query, target_high_seq, query_high_seq, alignment, padding, first_score, interval = coord_align(ref_seq, feature_seq)
-
+    found_low, found_high, target, query, target_high_seq, query_high_seq, alignment, padding, first_score, interval, relaxed_found_high = coord_align(ref_seq, feature_seq)
     #Assign initial alignment, but don't overwrite it.
     if feature.og.alignment is None:
         feature.og.alignment = alignment
@@ -875,7 +879,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         #Align again after adding padding to the feature sequence if warranted
         pad_feature = add_padding(feature, target, query, interval)
         pad_feature_seq = pad_feature.extract()
-        pad_found_low, pad_found_high, pad_target, pad_query, pad_target_hseq, pad_query_hseq, pad_alignment, padding, second_score, second_interval = coord_align(ref_seq, pad_feature_seq)
+        pad_found_low, pad_found_high, pad_target, pad_query, pad_target_hseq, pad_query_hseq, pad_alignment, padding, second_score, second_interval, pad_relaxed_found_high = coord_align(ref_seq, pad_feature_seq)
 
         #Don't try to fix what isn't broken
         if found_low:
@@ -975,7 +979,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
                 ref=og_feature_loc_ref,
             )
             corrected_feature_seq = corrected_feature.extract()
-            cor_low, cor_high, cor_target, cor_query, cor_target_hseq, cor_query_hseq, cor_alignment, cor_padding, third_score, third_interval = coord_align(ref_seq, corrected_feature_seq)
+            cor_low, cor_high, cor_target, cor_query, cor_target_hseq, cor_query_hseq, cor_alignment, cor_padding, third_score, third_interval, cor_relaxed_found_high = coord_align(ref_seq, corrected_feature_seq)
 
             if (third_score >= first_score):
                 second_score = third_score + 1
@@ -994,7 +998,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
                 feature.location = extended_feature.location
 
     final_feature_seq = feature.extract()
-    final_found_low, final_found_high, final_target, final_query, final_target_hseq, final_query_hseq, final_alignment, final_padding, final_score, final_interval = coord_align(ref_seq, final_feature_seq)
+    final_found_low, final_found_high, final_target, final_query, final_target_hseq, final_query_hseq, final_alignment, final_padding, final_score, final_interval, final_relaxed_found_high = coord_align(ref_seq, final_feature_seq)
 
     final_target_high_seq = ref_seq[final_target[-1][0]:final_target[-1][1]]
     final_query_high_seq = final_feature_seq[final_query[-1][0]:final_query[-1][1]]
@@ -1046,18 +1050,20 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
     # because the original that is passed to coord_check might have been changed before invocation/corrected previously
     else:
         prop = FeatureProperties()
+
     prop.de = (
         not good_stop
         and (
-            final_found_high or (final_target_hseq == final_query_hseq)
+            final_found_high or (final_target_hseq == final_query_hseq) or relaxed_found_high
         )
         and (
             # the end of the feature extends beyond the last reference base
             final_query[-1][1] < len(final_feature_seq)
             # ...but, if it appears not to, it was in a spurious alignment block
-            or (final_target[-1][1] - target[-1][0]) < final_interval
+            or (final_target[-1][1] - final_target[-1][0]) < final_interval
         )
     )
+
     return good_start, good_stop
 
 def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, blast_hit_dict=None
