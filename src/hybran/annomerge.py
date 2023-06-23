@@ -770,9 +770,10 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         # ||--------||                   ->      ||||--------
         # GTAGTCCGCGAG                           GTAGTCCGCGAG
         aligner.internal_open_gap_score = -8.0
-        aligner.internal_extend_gap_score = -3.0
+        aligner.internal_extend_gap_score = -2.01
 
         alignment = aligner.align(ref_seq, feature_seq)
+
         alignment = alignment[0]
         target = alignment.aligned[0]
         query = alignment.aligned[1]
@@ -782,8 +783,8 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
         found_high = (target[-1][1] == len(ref_seq)) and (abs(target[-1][0] - target[-1][1])) >= interval
 
-        frameshift_interval = ("-" in alignment[0][target[-1][1] - interval : target[-1][1]] or
-                            "-" in alignment[1][target[-1][1] - interval : target[-1][1]])
+        frameshift_interval = ("-" in alignment[0][target[-1][1] - interval : target[-1][1] + 1] or
+                               "-" in alignment[1][target[-1][1] - interval : target[-1][1] + 1])
         relaxed_found_high = (target[-1][1] == len(ref_seq)) and ((abs(target[-1][0] - target[-1][1]) >= interval) or frameshift_interval)
 
         target_low_seq = ref_seq[target[0][0]:target[0][1]]
@@ -1042,27 +1043,24 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
     # so getting both values set in the end necessitates running coord_check twice: with and without correction.
     # We currently do that anyway in pseudoscan, so it isn't too consequential.
     #
-    if feature.corr_possible:
-        prop = feature.corr
-    elif feature.og.de is None:
-        prop = feature.og
-    # throw-away; we don't want to overwrite the existing original
-    # because the original that is passed to coord_check might have been changed before invocation/corrected previously
-    else:
-        prop = FeatureProperties()
-
-    prop.de = (
+    delayed_end = (
         not good_stop
         and (
-            final_found_high or (final_target_hseq == final_query_hseq) or relaxed_found_high
+            final_found_high or (final_target_hseq == final_query_hseq) or final_relaxed_found_high
         )
         and (
             # the end of the feature extends beyond the last reference base
             final_query[-1][1] < len(final_feature_seq)
-            # ...but, if it appears not to, it was in a spurious alignment block
-            or (final_target[-1][1] - final_target[-1][0]) < final_interval
+
+            # The implementation of 'relaxed_found_high' and the change to our internal gap score
+            # should prevent spurious alignment blocks induced by delayed stops.
+            # or (final_target[-1][1] - final_target[-1][0]) < final_interval
         )
     )
+    if feature.og.de is None:
+        feature.og.de = delayed_end
+    if feature.corr_possible:
+        feature.corr.de = delayed_end
 
     return good_start, good_stop
 
