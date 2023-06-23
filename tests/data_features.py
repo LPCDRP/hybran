@@ -26,7 +26,8 @@ for ref in [
                 record.name,
             ])
             for feature in record.features:
-                if 'locus_tag' in feature.qualifiers and 'gene' not in feature.qualifiers:
+                if (('locus_tag' in feature.qualifiers) and
+                    ('gene' not in feature.qualifiers or feature.qualifiers['gene'][0] == '')):
                     feature.qualifiers['gene'] = deepcopy(feature.qualifiers['locus_tag'])
                 if 'gene' in feature.qualifiers:
                     for part in feature.location.parts:
@@ -426,11 +427,25 @@ features = {
                             'pseudo':['']}
             )
         },
+        'accE5': {
+            'ratt': SeqFeature(
+                FeatureLocation(3659371, 3659770, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3281'],'gene':['accE5']}
+            )
+        },
         'Rv3327': {
             'ratt': SeqFeature(
                 FeatureLocation(3707086, 3709176, strand=1),
                 type='CDS',
                 qualifiers={'locus_tag':['Rv3327'], 'gene':['Rv3327']}
+            )
+        },
+        'Rv3611': {
+            'ratt': SeqFeature(
+                FeatureLocation(4060333, 4061209, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3611'], 'gene':['Rv3611']}
             )
         },
         'PE_PGRS50': {
@@ -536,6 +551,10 @@ for sample in features:
             'SEA08151',
     ]:
         source = 'H37Rv.NC_000962.3'
+    elif sample in [
+            'PAK',
+    ]:
+        source = 'PAO1_107.NC_002516.2'
     else:
         source = 'nissle-hybrid.CP007799'
     for gene in features[sample]:

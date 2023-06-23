@@ -532,9 +532,12 @@ def test_liftover_annotation():
     ['end_greater_than_start', True, True, None],
     ['extend_gap_penalty_delay_stop', True, True, None],
     ['insertion_final_interval', True, True, None],
+    ['early_del_altered_scoring', False, False, None],
+    ['alt_start_delicate_scoring', True, False, None],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 @pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
+@pytest.mark.skipif(not os.path.isfile("data/PAO1_107.gbk"), reason="test reference annotation not available")
 def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
     #prokka for Rv2300c and Rv3181c
     source_genome = {
@@ -557,11 +560,15 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'end_greater_than_start':'SEA08151',
         'extend_gap_penalty_delay_stop':'1-0006',
         'insertion_final_interval':'PAK',
+        'early_del_altered_scoring':'1-0006',
+        'alt_start_delicate_scoring':'1-0006',
 
     }
     ref_genome = defaultdict(lambda :'H37Rv')
-    ref_genome['inverted_join_ecoli'] = 'nissle-hybrid'
-    ref_genome['insertion_final_interval'] = 'PAO1_107'
+    ref_genome.update({
+        'inverted_join_ecoli': 'nissle-hybrid',
+        'insertion_final_interval': 'PAO1_107',
+    })
 
     test_features = {
         'abinit_start_bad_minus': features[source_genome['abinit_start_bad_minus']]['Rv3181c']['abinit'],
@@ -581,8 +588,11 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'inverted_join_ecoli': features[source_genome['inverted_join_ecoli']]['secD']['ratt'],
         'gene_fusion': features[source_genome['gene_fusion']]['PE_PGRS50']['final'],
         'end_greater_than_start': features[source_genome['end_greater_than_start']]['lpqG']['ratt'],
-        'extend_gap_penalty_delayed_stop': features[source_genome['extend_gap_penalty_delay_stop']]['Rv0325']['ratt'],
+        'extend_gap_penalty_delay_stop': features[source_genome['extend_gap_penalty_delay_stop']]['Rv0325']['ratt'],
         'insertion_final_interval': features[source_genome['insertion_final_interval']]['PA2452']['ratt'],
+        'early_del_altered_scoring': features[source_genome['early_del_altered_scoring']]['accE5']['ratt'],
+        'alt_start_delicate_scoring': features[source_genome['alt_start_delicate_scoring']]['Rv3611']['ratt'],
+
     }
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
@@ -599,28 +609,121 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
     ]
 
     expected = {
-        'abinit_start_bad_minus': [(True, True), FeatureLocation(3548089, 3548542, strand=-1, ref='1')],
-        'bad_translation':[(True, True), FeatureLocation(4230767, 4231754, strand=1, ref='1')],
-        'tricky_found_low':[(False, True), FeatureLocation(2636045, 2637140, strand=-1, ref='1')],
-        'good_start_stop_deletion':[(True, True), FeatureLocation(4239393, 4240378, strand=1, ref='1')],
-        'bad_mismatch_check':[(True, False), FeatureLocation(2112334, 2114834, strand=1, ref='1')],
-        'bad_mismatch_check2':[(False, False), FeatureLocation(3707086, 3709176, strand=1, ref='1')],
-        'ref_start_frameshift':[(True, True), FeatureLocation(3374234, 3375312, strand=-1, ref='1')],
-        'bad_start_good_padding':[(False, True), FeatureLocation(1927378, 1927894, strand=-1, ref='1')],
-        'ratt_pseudo_pgrs':[(True,False), FeatureLocation(3741108, 3746955, strand=-1, ref='1')],
-        'same_start_alt_stop_1':[(False, True), FeatureLocation(3182302, 3183397, strand=-1, ref='1')],
-        'same_start_alt_stop_2':[(True, False), FeatureLocation(3182302, 3183397, strand=-1, ref='1')],
-        'same_start_alt_stop_2_fix':[(True, True), FeatureLocation(3182570, 3183397, strand=-1, ref='1')],
-        'bad_start_stop_nofix_pseudo': [(False, False), FeatureLocation(1217413, 1217872, strand=1, ref='1')],
-        'bad_start_stop_fix_pseudo': [(True, False), FeatureLocation(1217428, 1217872, strand=1, ref='1')],
-        'inverted_join_ecoli': [(False, False), FeatureLocation(3714209, 3716770, strand=-1, ref='1')],
-        'gene_fusion': [(True, True), FeatureLocation(3741108, 3746955, strand=-1, ref='1')],
-        'end_greater_than_start': [(False, False), FeatureLocation(4064133, 4064322, strand=1, ref='1')],
-        'extend_gap_penalty_delay_stop': [(True, False), FeatureLocation(392626, 393316, strand=1, ref='1')],
-        'insertion_final_interval': [(True, False), FeatureLocation(2799744, 2801325, strand=1, ref='1')],
+        'abinit_start_bad_minus': {
+            'results':[(True, True), FeatureLocation(3548089, 3548542, strand=-1, ref='1')],
+            'og_de':False,
+            'corr_de':False,
+        },
+        'bad_translation': {
+            'results':[(True, True), FeatureLocation(4230767, 4231754, strand=1, ref='1')],
+            'og_de':False,
+            'corr_de':False,
+        },
+        'tricky_found_low': {
+            'results':[(False, True), FeatureLocation(2636045, 2637140, strand=-1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
+        'good_start_stop_deletion': {
+            'results':[(True, True), FeatureLocation(4239393, 4240378, strand=1, ref='1')],
+            'og_de':False,
+            'corr_de':False,
+        },
+        'bad_mismatch_check': {
+            'results':[(True, False), FeatureLocation(2112334, 2114834, strand=1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
+        'bad_mismatch_check2': {
+            'results':[(False, False), FeatureLocation(3707086, 3709176, strand=1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
+        'ref_start_frameshift': {
+            'results':[(True, True), FeatureLocation(3374234, 3375312, strand=-1, ref='1')],
+            'og_de':False,
+            'corr_de':False,
+        },
+        'bad_start_good_padding': {
+            'results':[(False, True), FeatureLocation(1927378, 1927894, strand=-1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
+        'ratt_pseudo_pgrs': {
+            'results':[(True,False), FeatureLocation(3741108, 3746955, strand=-1, ref='1')],
+            'og_de':True,
+            'corr_de':None,
+        },
+        'same_start_alt_stop_1': {
+            'results':[(False, True), FeatureLocation(3182302, 3183397, strand=-1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
+        'same_start_alt_stop_2': {
+            'results':[(True, False), FeatureLocation(3182302, 3183397, strand=-1, ref='1')],
+            'og_de':True,
+            'corr_de':None,
+        },
+        'same_start_alt_stop_2_fix': {
+            'results':[(True, True), FeatureLocation(3182570, 3183397, strand=-1, ref='1')],
+            'og_de':True,
+            'corr_de':False,
+        },
+        'bad_start_stop_nofix_pseudo': {
+            'results':[(False, False), FeatureLocation(1217413, 1217872, strand=1, ref='1')],
+            'og_de':True,
+            'corr_de':None,
+        },
+        'bad_start_stop_fix_pseudo':  {
+            'results':[(True, False), FeatureLocation(1217428, 1217872, strand=1, ref='1')],
+            'og_de':True,
+            'corr_de':True,
+        },
+        'inverted_join_ecoli':  {
+            'results':[(False, False), FeatureLocation(3714209, 3716770, strand=-1, ref='1')],
+            'og_de':True,
+            'corr_de':None,
+        },
+        'gene_fusion':  {
+            'results':[(True, True), FeatureLocation(3741108, 3746955, strand=-1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
+        'end_greater_than_start':  {
+            'results':[(False, False), FeatureLocation(4064133, 4064322, strand=1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
+        'extend_gap_penalty_delay_stop':  {
+            'results':[(True, False), FeatureLocation(392626, 393316, strand=1, ref='1')],
+            'og_de':True,
+            'corr_de':None,
+        },
+        'insertion_final_interval':  {
+            'results':[(True, False), FeatureLocation(2799744, 2801325, strand=1, ref='refseq|NZ_LR657304.1|chromosome1')],
+            'og_de':True,
+            'corr_de':None,
+        },
+        'early_del_altered_scoring':  {
+            'results':[(True, True), FeatureLocation(3659371, 3659770, strand=1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
+        'alt_start_delicate_scoring':  {
+            'results':[(True, True), FeatureLocation(4060333, 4061209, strand=1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
     }
     results = annomerge.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop, seek_stop=seek_stop)
-    assert [results, feature.location] == expected[feature_type]
+    assert [
+        [results, feature.location],
+        feature.og.de, feature.corr.de
+    ] == [
+        expected[feature_type]['results'],
+        expected[feature_type]['og_de'],
+        expected[feature_type]['corr_de'],
+    ]
 
 @pytest.mark.parametrize('feature_type, seq_ident, seq_covg, attempt_rescue', [
     ['small_badstop_fix_pseudo', 95, 95, True],
