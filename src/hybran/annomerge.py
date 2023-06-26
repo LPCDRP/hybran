@@ -101,22 +101,6 @@ def have_same_stop(loc1, loc2):
         )
     return False
 
-def has_delayed_stop(feature):
-    """
-    A SeqFeature with a "delayed stop" is determined by pseudoscan.
-    The criteria required for having a delayed stop include the following:
-    1) Divisible by three
-    2) No internal/missing stops (is_broken_stop() = False)
-    3) Good start and bad stop (coord_check() = True, False)
-    4) Length of feature is longer than the reference gene
-    :param feature: A SeqFeature object
-    :return: True if the feature has a "delayed stop"
-    """
-    delayed_stop = []
-    if 'note' in feature.qualifiers:
-        delayed_stop = [_ for _ in feature.qualifiers['note'] if "delayed stop" in _]
-    return bool(delayed_stop)
-
 def has_valid_start(feature):
     """
     Finds the first three base pairs in a SeqFeaure and determines if it
@@ -562,8 +546,8 @@ def fusionfisher(feature_list):
             #
             # Conjoined genes
             #
-            if (((len(prev_feature.location) > len(feature.location)) and has_delayed_stop(prev_feature))
-                or ((len(feature.location) > len(prev_feature.location)) and has_delayed_stop(feature))):
+            if (((len(prev_feature.location) > len(feature.location)) and prev_feature.de)
+                or ((len(feature.location) > len(prev_feature.location)) and feature.de)):
                 if feature.strand == -1:
                     upstream = max(feature, prev_feature, key=lambda _: _.location.end)
                     downstream = min(feature, prev_feature, key=lambda _: _.location.end)
@@ -866,6 +850,40 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         )
         return pad_feature
 
+    def has_delayed_end(feature, target, query, found_high, relaxed_found_high, rce):
+        """
+        An AutarkicSeqFeature object with a "delayed end" is determined by coord_check after an alignment
+        has been generated. The "delayed end" criteria is used to identify non-stop mutations and
+        potential gene fusion events.
+        :param feature: An AutarkicSeqFeature object
+        :param target: A numpy.ndarray of aligned positions with respect to reference sequence
+        :param query: A numpy.ndarray of aligned positions with respect to the feature sequence
+        :param found_high: Boolean - feature contains a reference corresponding stop
+        :param relaxed_found_high: Boolean - feature contains a reference corresponding stop (ignoring mismatches)
+        :param rce: Boolean - feature has a positionally identical reference corresponding end
+        :return delayed_end: Boolean  - whether the feature has a delayed end / non-stop mutation.
+        """
+        feature_seq = feature.extract()
+        ref_seq = feature.ref
+        target_high_seq = ref_seq[target[-1][0]:target[-1][1]]
+        query_high_seq = feature_seq[query[-1][0]:query[-1][1]]
+
+        delayed_end = (
+            not rce
+            and (
+                found_high or (target_high_seq == query_high_seq) or relaxed_found_high
+                )
+            and (
+                # the end of the feature extends beyond the last reference base
+                query[-1][1] < len(feature_seq)
+                # The implementation of 'relaxed_found_high' and the change to our internal gap score
+                # should prevent spurious alignment blocks induced by delayed stops. Negating the need for
+                # the statement below.
+                # or (final_target[-1][1] - final_target[-1][0]) < final_interval
+                )
+            )
+        return delayed_end
+
     #First alignment
     found_low, found_high, target, query, target_high_seq, query_high_seq, alignment, padding, first_score, interval, relaxed_found_high = coord_align(ref_seq, feature_seq)
     #Assign initial alignment, but don't overwrite it.
@@ -1036,31 +1054,10 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
     elif feature.corr_possible is None and (fix_start or fix_stop or seek_stop):
         feature.corr_possible = False
 
-    #
-    # Figure out and set delayed end attribute.
-    #
-    # This way isn't ideal since it only sets for either og or corr (not for both when doing corr),
-    # so getting both values set in the end necessitates running coord_check twice: with and without correction.
-    # We currently do that anyway in pseudoscan, so it isn't too consequential.
-    #
-    delayed_end = (
-        not good_stop
-        and (
-            final_found_high or (final_target_hseq == final_query_hseq) or final_relaxed_found_high
-        )
-        and (
-            # the end of the feature extends beyond the last reference base
-            final_query[-1][1] < len(final_feature_seq)
-
-            # The implementation of 'relaxed_found_high' and the change to our internal gap score
-            # should prevent spurious alignment blocks induced by delayed stops.
-            # or (final_target[-1][1] - final_target[-1][0]) < final_interval
-        )
-    )
     if feature.og.de is None:
-        feature.og.de = delayed_end
+        feature.og.de = has_delayed_end(feature, target, query, found_high, relaxed_found_high, good_stop)
     if feature.corr_possible:
-        feature.corr.de = delayed_end
+        feature.corr.de = has_delayed_end(feature, final_target, final_query, final_found_high, final_relaxed_found_high, good_stop)
 
     return good_start, good_stop
 
@@ -1552,8 +1549,8 @@ def thunderdome(abinit_annotation, ratt_annotation):
         - remark (:py:class:`str`) - explanation why the rejected annotation was not included
     """
     logger = logging.getLogger('Thunderdome')
-    abinit_delayed_stop = has_delayed_stop(abinit_annotation)
-    ratt_delayed_stop = has_delayed_stop(ratt_annotation)
+    abinit_delayed_stop = abinit_annotation.de
+    ratt_delayed_stop = ratt_annotation.de
 
     abinit_broken_stop = has_broken_stop(abinit_annotation)[0]
     ratt_broken_stop = has_broken_stop(ratt_annotation)[0]
