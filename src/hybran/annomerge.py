@@ -740,16 +740,32 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         feature.og.location = og_feature.location
 
     def coord_align(ref_seq, feature_seq):
+        """
+        This function generates an alignment between a feature and a reference sequence.
+        :param ref_seq:
+        :param feature_seq:
+        :returns:
+            -found_low - Boolean - if the feature sequence contains a reference corresponding start
+            -found_high - Boolean - if the feature sequence contains a reference corresponding end
+            -target - A numpy.ndarray of aligned positions with respect to reference sequence
+            -query - A numpy.ndarray of aligned positions with respect to the feature sequence
+            -alignment - A Bio.Align.Alignment object illustrating the pairwise sequence alignment
+            -padding - Boolean - if the feature sequence is capable of adding up/downstream context (padding)
+            -score - The alignment score (float)
+            -interval - The number of consecutive matching base pairs needed to establish reference correspondence
+            -relaxed_found_high - Boolean - feature contains a reference corresponding stop (ignoring mismatches)
+        """
         #Probability that the continuous interval used to find good start/stops
         #occurs by chance should be = 1/(ref_seq*10)
         interval = max(ceil((log(len(ref_seq) * 10))/log(4)), 3)
 
         aligner = Align.PairwiseAligner(scoring="blastn", mode = 'global')
         #"blastn" scoring: extend_gap_score = -2.0, open_gap_score = -7.0
-        #Punishing internal gaps slighly more will discourage abhorrent behavior from the aligner.
+        #Punishing internal gaps slighly more will discourage aberrant behavior from the aligner.
         #Prevents the miscalling of found_low/high is some scenarios and encourages continuity.
         #Ex)
         #internal_open_gap_score= -7.0           internal_open_gap_score= -8.0
+        #internal_extend_gap_score = -2.0        internal_extend_gap_score = -2.01
         # GT--------AG                           GTAG--------
         # ||--------||                   ->      ||||--------
         # GTAGTCCGCGAG                           GTAGTCCGCGAG
@@ -767,6 +783,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
         found_high = (target[-1][1] == len(ref_seq)) and (abs(target[-1][0] - target[-1][1])) >= interval
 
+        #If a frameshift exists within the interval of reference correspondence
         frameshift_interval = ("-" in alignment[0][target[-1][1] - interval : target[-1][1] + 1] or
                                "-" in alignment[1][target[-1][1] - interval : target[-1][1] + 1])
         relaxed_found_high = (target[-1][1] == len(ref_seq)) and ((abs(target[-1][0] - target[-1][1]) >= interval) or frameshift_interval)
@@ -807,10 +824,18 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
 
         if not found_low or not found_high:
             padding = True
-        return found_low, found_high, target, query, target_high_seq, query_high_seq, alignment, padding, score, interval, relaxed_found_high
+        return found_low, found_high, target, query, alignment, padding, score, interval, relaxed_found_high
 
     def add_padding(feature, target, query, interval):
-        #If we're looking to make corrections, add some context to help the aligner
+        """
+        If we're looking to make corrections, this function will add up/downstream context
+        to help the aligner search for reference correspondence.
+        :param feature: An AutarkicSeqFeature object
+        :param target: A numpy.ndarray of aligned positions with respect to reference sequence
+        :param query: A numpy.ndarray of aligned positions with respect to the feature sequence
+        :param interval: The number of consecutive matching base pairs needed to establish reference correspondence
+        :return pad_feature: The AutarkicSeqFeature object with additional context (new coordinates).
+        """
         pad_feature = deepcopy(feature)
         feature_start = feature.location.start
         feature_end = feature.location.end
@@ -885,7 +910,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         return delayed_end
 
     #First alignment
-    found_low, found_high, target, query, target_high_seq, query_high_seq, alignment, padding, first_score, interval, relaxed_found_high = coord_align(ref_seq, feature_seq)
+    found_low, found_high, target, query, alignment, padding, first_score, interval, relaxed_found_high = coord_align(ref_seq, feature_seq)
     #Assign initial alignment, but don't overwrite it.
     if feature.og.alignment is None:
         feature.og.alignment = alignment
@@ -898,7 +923,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         #Align again after adding padding to the feature sequence if warranted
         pad_feature = add_padding(feature, target, query, interval)
         pad_feature_seq = pad_feature.extract()
-        pad_found_low, pad_found_high, pad_target, pad_query, pad_target_hseq, pad_query_hseq, pad_alignment, padding, second_score, second_interval, pad_relaxed_found_high = coord_align(ref_seq, pad_feature_seq)
+        pad_found_low, pad_found_high, pad_target, pad_query, pad_alignment, padding, second_score, second_interval, pad_relaxed_found_high = coord_align(ref_seq, pad_feature_seq)
 
         #Don't try to fix what isn't broken
         if found_low:
@@ -998,7 +1023,7 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
                 ref=og_feature_loc_ref,
             )
             corrected_feature_seq = corrected_feature.extract()
-            cor_low, cor_high, cor_target, cor_query, cor_target_hseq, cor_query_hseq, cor_alignment, cor_padding, third_score, third_interval, cor_relaxed_found_high = coord_align(ref_seq, corrected_feature_seq)
+            cor_low, cor_high, cor_target, cor_query, cor_alignment, cor_padding, third_score, third_interval, cor_relaxed_found_high = coord_align(ref_seq, corrected_feature_seq)
 
             if (third_score >= first_score):
                 second_score = third_score + 1
@@ -1017,10 +1042,8 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
                 feature.location = extended_feature.location
 
     final_feature_seq = feature.extract()
-    final_found_low, final_found_high, final_target, final_query, final_target_hseq, final_query_hseq, final_alignment, final_padding, final_score, final_interval, final_relaxed_found_high = coord_align(ref_seq, final_feature_seq)
+    final_found_low, final_found_high, final_target, final_query, final_alignment, final_padding, final_score, final_interval, final_relaxed_found_high = coord_align(ref_seq, final_feature_seq)
 
-    final_target_high_seq = ref_seq[final_target[-1][0]:final_target[-1][1]]
-    final_query_high_seq = final_feature_seq[final_query[-1][0]:final_query[-1][1]]
 
     #Up to this point, good_start/stop would be True if a sequence CONTAINED a reference corresponding start/stop somewhere
     #within its boundaries. This concept was necessary for determining where and when corrections should be made.
