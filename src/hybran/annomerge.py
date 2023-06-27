@@ -783,15 +783,20 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
         found_high = (target[-1][1] == len(ref_seq)) and (abs(target[-1][0] - target[-1][1])) >= interval
 
-        #If a frameshift exists within the interval of reference correspondence
-        frameshift_interval = ("-" in alignment[0][target[-1][1] - interval : target[-1][1] + 1] or
-                               "-" in alignment[1][target[-1][1] - interval : target[-1][1] + 1])
-        relaxed_found_high = (target[-1][1] == len(ref_seq)) and ((abs(target[-1][0] - target[-1][1]) >= interval) or frameshift_interval)
+        target_seq = list(alignment.indices[0])
+        query_seq = list(alignment.indices[1])
 
-        target_low_seq = ref_seq[target[0][0]:target[0][1]]
-        target_high_seq = ref_seq[target[-1][0]:target[-1][1]]
-        query_low_seq = feature_seq[query[0][0]:query[0][1]]
-        query_high_seq = feature_seq[query[-1][0]:query[-1][1]]
+        #Sequence intervals of the lowest and highest aligned bases.
+        target_low_seq = alignment[0][target_seq.index(target[0][0]) : 1 + target_seq.index(target[0][1] - 1)]
+        target_high_seq = alignment[0][target_seq.index(target[-1][0]) : 1 + target_seq.index(target[-1][1] - 1)]
+        query_low_seq = alignment[1][query_seq.index(query[0][0]) : 1 + query_seq.index(query[0][1] - 1)]
+        query_high_seq = alignment[1][query_seq.index(query[-1][0]) : 1 + query_seq.index(query[-1][1] - 1)]
+
+        #Does a frameshift prevent what would have been a reference corresponding stop?
+        target_frameshift_interval_seq = alignment[0][1 + target_seq.index(target[-1][1] - 1)-interval : 1 +  target_seq.index(target[-1][1] - 1)]
+        query_frameshift_interval_seq = alignment[1][1 + query_seq.index(query[-1][1] - 1)-interval : 1 +  query_seq.index(query[-1][1] - 1)]
+
+        relaxed_found_high = found_high or "-" in target_frameshift_interval_seq or "-" in query_frameshift_interval_seq
 
         #make sure there aren't too many mismatches causing falsely assigned found_low/high values
         if (target_low_seq[:3] != query_low_seq[:3]):
@@ -875,35 +880,31 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         )
         return pad_feature
 
-    def has_delayed_end(feature, target, query, found_high, relaxed_found_high, rce):
+    def has_delayed_end(feature_seq, query, found_high, relaxed_found_high, rce):
         """
         An AutarkicSeqFeature object with a "delayed end" is determined by coord_check after an alignment
         has been generated. The "delayed end" criteria is used to identify non-stop mutations and
         potential gene fusion events.
-        :param feature: An AutarkicSeqFeature object
-        :param target: A numpy.ndarray of aligned positions with respect to reference sequence
+        :param feature_seq: String of feature sequence
         :param query: A numpy.ndarray of aligned positions with respect to the feature sequence
         :param found_high: Boolean - feature contains a reference corresponding stop
         :param relaxed_found_high: Boolean - feature contains a reference corresponding stop (ignoring mismatches)
         :param rce: Boolean - feature has a positionally identical reference corresponding end
         :return delayed_end: Boolean  - whether the feature has a delayed end / non-stop mutation.
         """
-        feature_seq = feature.extract()
-        ref_seq = feature.ref
-        target_high_seq = ref_seq[target[-1][0]:target[-1][1]]
-        query_high_seq = feature_seq[query[-1][0]:query[-1][1]]
 
         delayed_end = (
             not rce
             and (
-                found_high or (target_high_seq == query_high_seq) or relaxed_found_high
+                found_high or relaxed_found_high
                 )
             and (
                 # the end of the feature extends beyond the last reference base
                 query[-1][1] < len(feature_seq)
                 # The implementation of 'relaxed_found_high' and the change to our internal gap score
                 # should prevent spurious alignment blocks induced by delayed stops. Negating the need for
-                # the statement below.
+                # the statement below (which was used to identify these spurious alignment blocks that did not
+                # extend beyond the last reference base.)
                 # or (final_target[-1][1] - final_target[-1][0]) < final_interval
                 )
             )
@@ -1078,9 +1079,9 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         feature.corr_possible = False
 
     if feature.og.de is None:
-        feature.og.de = has_delayed_end(feature, target, query, found_high, relaxed_found_high, good_stop)
+        feature.og.de = has_delayed_end(og_feature.extract(), query, found_high, relaxed_found_high, good_stop)
     if feature.corr_possible:
-        feature.corr.de = has_delayed_end(feature, final_target, final_query, final_found_high, final_relaxed_found_high, good_stop)
+        feature.corr.de = has_delayed_end(final_feature_seq, final_query, final_found_high, final_relaxed_found_high, good_stop)
 
     return good_start, good_stop
 
