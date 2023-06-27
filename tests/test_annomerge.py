@@ -323,6 +323,7 @@ def test_fissionfuser(gene_list, tmp_path):
     'redundant_double_hybrid_fusion',
     'misannotation_both_nonpseudo',
     'misannotation_one_pseudo',
+    'idempotence',
 ])
 def test_fusionfisher(gene_list):
     source_genomes = {
@@ -330,6 +331,7 @@ def test_fusionfisher(gene_list):
         'redundant_double_hybrid_fusion':'AZ20',
         'misannotation_both_nonpseudo': 'AZ20',
         'misannotation_one_pseudo': 'AZ20',
+        'idempotence': 'AZ20',
     }
     # create a dummy feature dictionary for the test case that is not in focus in the current invocation to avoid a KeyError when loading all expected inputs and results
     source_features = defaultdict(lambda :defaultdict(dict))
@@ -350,6 +352,10 @@ def test_fusionfisher(gene_list):
         'misannotation_one_pseudo': [
             source_features['ECOLIN_25305']['ratt'],
             source_features['garD']['ratt'],
+        ],
+        'idempotence': [
+            deepcopy(source_features['ECOLIN_24700']['ratt']),
+            deepcopy(source_features['ECOLIN_12095']['prokka']),
         ],
     }
     expected = {
@@ -389,12 +395,18 @@ def test_fusionfisher(gene_list):
                 'remark':"Has no reference-corresponding coordinates, while rival feature has a reference-corresponding start, and both share the same stop position.",
             }],
         ),
+        'idempotence': (
+            inputs['idempotence'],
+            [ inputs['idempotence'][0] ],
+            [ ],
+        ),
     }
     ref_genome = defaultdict(lambda :'H37Rv')
     ref_genome.update({
         'redundant_double_hybrid_fusion': 'nissle-hybrid',
         'misannotation_both_nonpseudo': 'nissle-hybrid',
         'misannotation_one_pseudo': 'nissle-hybrid',
+        'idempotence': 'nissle-hybrid',
     })
     source_genome = source_genomes[gene_list]
 
@@ -413,7 +425,7 @@ def test_fusionfisher(gene_list):
         expected[gene_list][2][0]['superior'] = expected[gene_list][0][0]
 
     assert annomerge.fusionfisher(
-        inputs[gene_list],
+        deepcopy(inputs[gene_list]),
     ) == expected[gene_list]
 
 

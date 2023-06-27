@@ -6,7 +6,7 @@ import pathlib
 from Bio import SeqIO
 from Bio.SeqFeature import FeatureLocation, ExactPosition, CompoundLocation
 
-from hybran.bio import AutarkicSeqFeature
+from hybran.bio import AutarkicSeqFeature, FeatureProperties
 
 
 SeqFeature = AutarkicSeqFeature
@@ -52,6 +52,31 @@ features = {
                 FeatureLocation(3714209, 3716770, strand=-1),
                 type='CDS',
                 qualifiers={'locus_tag':['ECOLIN_02375'],'gene':['secD']}
+            ),
+        },
+        'ECOLIN_24700': {
+            'ratt': SeqFeature(
+                FeatureLocation(1763636, 1765214, strand=1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['ECOLIN_24700'],'gene':['ECOLIN_24700::ECOLIN_12095'],
+                    'pseudo':[],
+                    'note':[
+                        'Hybran/Pseudoscan: Locus does not have reference-corresponding start and end | Poor blastp match at 95% identity and 95% coverage thresholds | No internal stop codons and ends with a valid stop codon | Locus has valid reading frame | Locus has a valid alternative start site | Locus has a valid alternative stop codon | Locus has a delayed stop codon',
+                    ],
+                },
+                og=FeatureProperties(
+                    de=True,
+                ),
+            ),
+        },
+        'ECOLIN_12095': {
+            'prokka': SeqFeature(
+                FeatureLocation(1763777, 1765214, strand=1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['L_01715'],'gene':['ECOLIN_12095'],
+                },
             ),
         },
         'AZ20_03933': {
