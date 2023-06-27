@@ -358,6 +358,23 @@ def test_fusionfisher(gene_list):
             deepcopy(source_features['ECOLIN_12095']['prokka']),
         ],
     }
+    ref_genome = defaultdict(lambda :'H37Rv')
+    ref_genome.update({
+        'redundant_double_hybrid_fusion': 'nissle-hybrid',
+        'misannotation_both_nonpseudo': 'nissle-hybrid',
+        'misannotation_one_pseudo': 'nissle-hybrid',
+        'idempotence': 'nissle-hybrid',
+    })
+    source_genome = source_genomes[gene_list]
+
+    record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
+    for f in inputs[gene_list]:
+        f.references = {record_sequence.id: record_sequence.seq}
+        for part in f.location.parts:
+            part.ref = record_sequence.id
+    annomerge.genetic_code = 11
+    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
     expected = {
         'misannotation_false_delayed_stop': (
             [ source_features['Rv0074']['ratt'] ],
@@ -396,29 +413,15 @@ def test_fusionfisher(gene_list):
             }],
         ),
         'idempotence': (
-            inputs['idempotence'],
+            deepcopy(inputs['idempotence']),
             [ inputs['idempotence'][0] ],
             [ ],
         ),
     }
-    ref_genome = defaultdict(lambda :'H37Rv')
-    ref_genome.update({
-        'redundant_double_hybrid_fusion': 'nissle-hybrid',
-        'misannotation_both_nonpseudo': 'nissle-hybrid',
-        'misannotation_one_pseudo': 'nissle-hybrid',
-        'idempotence': 'nissle-hybrid',
-    })
-    source_genome = source_genomes[gene_list]
-
-    record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
-    for f in inputs[gene_list]:
-        f.references = {record_sequence.id: record_sequence.seq}
-        for part in f.location.parts:
-            part.ref = record_sequence.id
-    annomerge.genetic_code = 11
-    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
-    annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
-
+    if gene_list == 'idempotence':
+        expected['idempotence'][0][1].qualifiers['note'] = [
+            "Upstream gene ECOLIN_24700|ECOLIN_24700::ECOLIN_12095 conjoins with this one."
+        ]
 
     # set the rival feature as the passing one. for these test cases, we're always looking at pairs
     if expected[gene_list][2]:
