@@ -35,6 +35,7 @@ Although the issue severity was mitigated in that the combined annotation would 
 Some final annotations contained two of them: one from RATT and one from Prokka.
 * Fixed issues that occur when sequence IDs contain "|" character (#62).
 * Fixed handling of situations where either RATT or Prokka find no annotations.
+* Fixed problem with redundant fusion gene name components when detected using both RATT and Prokka.
 
 ### Housekeeping
 * Changed default generic ORF prefix to "HYBRA" for greater clarity.

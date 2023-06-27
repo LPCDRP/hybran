@@ -456,6 +456,40 @@ def fissionfuser(flist, seq_ident, seq_covg):
     return outlist, dropped_ltag_features
 
 
+def fusion_name(feature1, feature2):
+    """
+    For use by fusionfisher.
+    Create a fusion gene and product name. Usually, it's just "gene1::gene2" and "product1 / product2",
+    but we need to watch out for redundancies, especially when one of the two features is already a fusion
+    including the second's name.
+    """
+    f1_name_components = extractor.get_gene(feature1).split('::')
+    f2_name_components = extractor.get_gene(feature2).split('::')
+    reduced_f2_name_components = [_ for _ in f2_name_components if _ not in f1_name_components]
+    name = '::'.join(f1_name_components + reduced_f2_name_components)
+
+    f1_source_components = feature1.source.split('::')
+    f2_source_components = feature2.source.split('::')
+    # only get the host sequence IDs corresponding to the gene names we're keeping
+    reduced_f2_source_components = [
+        f2_source_components[i] for i in range(len(f2_source_components)) if f2_name_components[i] not in f1_name_components
+    ]
+    source = '::'.join(f1_source_components + reduced_f2_source_components)
+
+    if 'product' in feature1.qualifiers:
+        f1_product_components = feature1.qualifiers['product'][0].split(' / ')
+    else:
+        f1_product_components = []
+    if 'product' in feature2.qualifiers:
+        f2_product_components = feature2.qualifiers['product'][0].split(' / ')
+    else:
+        f2_product_components = []
+    reduced_f2_product_components = [_ for _ in f2_product_components if _ not in f1_product_components]
+    product = ' / '.join(f1_product_components + reduced_f2_product_components)
+
+    return name, source, product
+
+
 def fusionfisher(feature_list):
     """
     This function parses through a list of CDSs and returns a unique list of CDSs, cleaning up annotation artifacts due to gene fusion events, as well as renaming such genes and those that have conjoined with their neighbor.
@@ -530,9 +564,11 @@ def fusionfisher(feature_list):
                     upstream = prev_feature
                     downstream = feature
 
-                prev_feature.qualifiers['gene'][0] = '::'.join([extractor.get_gene(_) for _ in [upstream, downstream]])
-                prev_feature.source = '::'.join([upstream.source, downstream.source])
-                prev_feature.qualifiers['product'] = [' / '.join([_.qualifiers['product'][0] for _ in [upstream, downstream] if 'product' in _.qualifiers])]
+                gene, source, product = fusion_name(upstream, downstream)
+                prev_feature.qualifiers['gene'][0] = gene
+                prev_feature.source = source
+                if product:
+                    prev_feature.qualifiers['product'] = [product]
 
                 rejects.append({
                     'feature':outlist.pop(),
@@ -561,9 +597,11 @@ def fusionfisher(feature_list):
                     f"Upstream gene {'|'.join([extractor.get_ltag(upstream),extractor.get_gene(upstream)])} conjoins with this one."
                 )
 
-                upstream.qualifiers['gene'][0] = '::'.join([extractor.get_gene(_) for _ in [upstream, downstream]])
-                upstream.source = '::'.join([upstream.source, downstream.source])
-                upstream.qualifiers['product'] = [' / '.join([_.qualifiers['product'][0] for _ in [upstream, downstream] if 'product' in _.qualifiers])]
+                gene, source, product = fusion_name(upstream, downstream)
+                upstream.qualifiers['gene'][0] = gene
+                upstream.source = source
+                if product:
+                    upstream.qualifiers['product'] = [product]
 
                 remarkable['conjoined'].append(upstream)
             #
