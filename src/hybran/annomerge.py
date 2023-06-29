@@ -835,13 +835,13 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
             target_penultimate_interval_seq = get_gapped_sequence(alignment, 'target', target[0][0], target[-2][1])[-interval:]
             query_penultimate_interval_seq = get_gapped_sequence(alignment, 'query', query[0][0], query[-2][1])[-interval:]
 
-            # 1) Penultimate interval need to match exactly (last ~7 bp of second to last alignment block) 
-            # 2) The entire penultimate alignment block needs to be greater than the interval (~7)
-            # 3) The number of gaps between the last and second to last alignment blocks cannot exceed the interval (~7)
             penultimate_found_high = (
-                (target_penultimate_interval_seq == query_penultimate_interval_seq) and
-                (abs(target[-2][0] - target[-2][1]) >= interval) and
-                (target_inter_gaps + query_inter_gaps <= interval)
+                # 1) Penultimate interval need to match exactly (last ~7 bp of second to last alignment block)
+                (target_penultimate_interval_seq == query_penultimate_interval_seq)
+                # 2) The entire penultimate alignment block needs to be greater than the interval (~7)
+                and (abs(target[-2][0] - target[-2][1]) >= interval)
+                # 3) The number of gaps between the last and second to last alignment blocks cannot exceed the interval (~7)
+                #and (target_inter_gaps + query_inter_gaps <= interval)
             )
             relaxed_found_high = penultimate_found_high or found_high
 
