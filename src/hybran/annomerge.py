@@ -821,22 +821,35 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         found_low = (target[0][0] == 0) and (abs(target[0][0] - target[0][1])) >= interval
         found_high = (target[-1][1] == len(ref_seq)) and (abs(target[-1][0] - target[-1][1])) >= interval
 
-        target_seq = list(alignment.indices[0])
-        query_seq = list(alignment.indices[1])
-
         #Sequence intervals of the lowest and highest aligned bases.
-        target_low_seq = alignment[0][target_seq.index(target[0][0]) : 1 + target_seq.index(target[0][1] - 1)]
-        target_high_seq = alignment[0][target_seq.index(target[-1][0]) : 1 + target_seq.index(target[-1][1] - 1)]
-        query_low_seq = alignment[1][query_seq.index(query[0][0]) : 1 + query_seq.index(query[0][1] - 1)]
-        query_high_seq = alignment[1][query_seq.index(query[-1][0]) : 1 + query_seq.index(query[-1][1] - 1)]
+        target_low_seq = get_gapped_sequence(alignment, 'target', target[0][0], target[0][1])
+        target_high_seq = get_gapped_sequence(alignment, 'target', target[-1][0], target[-1][1])
+        query_low_seq = get_gapped_sequence(alignment, 'query', query[0][0], query[0][1])
+        query_high_seq = get_gapped_sequence(alignment, 'query', query[-1][0], query[-1][1])
 
-        #Does a frameshift prevent what would have been a reference corresponding stop?
-        target_frameshift_interval_seq = alignment[0][1 + target_seq.index(target[-1][1] - 1)-interval : 1 +  target_seq.index(target[-1][1] - 1)]
-        query_frameshift_interval_seq = alignment[1][1 + query_seq.index(query[-1][1] - 1)-interval : 1 +  query_seq.index(query[-1][1] - 1)]
+        relaxed_found_high = found_high
+        if len(target) > 1 or len(query) > 1: #more than one interval blocks exist in the alignment sequence - discontinuous at some point.
+            target_inter_gaps = get_gapped_sequence(alignment, 'target', target[-2][0], target[-1][1]).count("-")
+            query_inter_gaps = get_gapped_sequence(alignment, 'query', query[-2][0], query[-1][1]).count("-")
 
-        relaxed_found_high = found_high or "-" in target_frameshift_interval_seq or "-" in query_frameshift_interval_seq
+            target_penultimate_interval_seq = get_gapped_sequence(alignment, 'target', target[0][0], target[-2][1])[-interval:]
+            query_penultimate_interval_seq = get_gapped_sequence(alignment, 'query', query[0][0], query[-2][1])[-interval:]
+
+            penultimate_found_high = (
+                # 1) Penultimate interval need to match exactly (last ~7 bp of second to last alignment block)
+                (target_penultimate_interval_seq == query_penultimate_interval_seq)
+                # 2) The entire penultimate alignment block needs to be greater than the interval (~7)
+                and (abs(target[-2][0] - target[-2][1]) >= interval)
+                # 3) The number of gaps between the last and second to last alignment blocks cannot exceed the interval (~7)
+                #and (target_inter_gaps + query_inter_gaps <= interval)
+            )
+            relaxed_found_high = penultimate_found_high or found_high
 
         #make sure there aren't too many mismatches causing falsely assigned found_low/high values
+        #
+        # relaxed_found_high was determined using found_high before the following adjustments
+        # because we need it to be True in the case of non-stop SNPs. The final found_high
+        # in these cases should be false, though, so the following achieves that.
         if (target_low_seq[:3] != query_low_seq[:3]):
             found_low = False
         elif found_low and target[0][1] < (len(ref_seq)/3):
@@ -868,6 +881,24 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         if not found_low or not found_high:
             padding = True
         return found_low, found_high, target, query, alignment, padding, score, interval, relaxed_found_high
+
+    def get_gapped_sequence(alignment, seq_type, start, stop):
+        seq_types = ['target', 'query']
+        if seq_type not in seq_types:
+            raise ValueError(f"Invalid sequence type. Expected one of: {seq_types}")
+        elif seq_type == 'target':
+            gapped_seq = list(alignment.indices[0])
+            alignment = alignment[0]
+        else:
+            gapped_seq = list(alignment.indices[1])
+            alignment = alignment[1]
+
+        #The index of the stop position is one off from the stop position itself
+        start = int(start)
+        stop = int(stop) - 1
+
+        interval_seq = alignment[gapped_seq.index(start) : gapped_seq.index(stop) + 1]
+        return interval_seq
 
     def add_padding(feature, target, query, interval):
         """
