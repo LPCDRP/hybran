@@ -27,8 +27,7 @@ hybran --genomes assemblies -r H37Rv.gbk -o annotations ...
 ```
 
 If you have annotated several samples already and later receive a new sample to annotate, you can still do so without reannotating everything else, and all previously observed `HYBRA####` names will be used consistently.
-Just pass all your previously annotated genomes as reference genomes together with your primary reference.
-But make sure to set your primary reference as the `--first-reference` since it's the only one used for initial reference matching to the *ab initio* calls.
+Just pass all your previously annotated genomes as reference genomes together with your usual reference(s).
 
 So if your annotations are in the folder `annotations`, as created above, you can create a file of file names (fofn) for your references and use it as follows:
 
