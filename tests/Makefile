@@ -49,8 +49,6 @@ $(OUTDIR)/AZ20-reannotatedref/final.gbk: ref=$(RESDIR)/ECOLIN.gbk
 	-r $(ref) \
 	--nproc $(NPROC) \
 	--verbose \
-	--orf-prefix ORF \
-	--dedupe-references \
 	$(local_HYBRANFLAGS) $(HYBRANFLAGS) \
 	-o $(@D) \
 	$(log)
