@@ -1,5 +1,7 @@
 # Release Notes
 
+## [Version 1.7](https://gitlab.com/LPCDRP/hybran/-/tags/1.7)
+
 ### Enhancements
 * New subcommands:
   - `hybran standardize`: remove generic gene names in the final annotations.
