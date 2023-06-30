@@ -13,6 +13,7 @@ endif
 
 cases = \
  1-0006 \
+ 1-0006-multiref \
  1-0006-filterratt \
  1-0006-ncbi \
  SRR23086714_FLYE \
@@ -33,6 +34,7 @@ $(cases): %: $(OUTDIR)/%/coords.txt
 $(OUTDIR)/1-0006%: genome=$(RESDIR)/1-0006.fasta
 $(OUTDIR)/1-0006/final.gbk $(OUTDIR)/1-0006-filterratt/final.gbk $(OUTDIR)/SRR23086714_FLYE/final.gbk: ref=$(RESDIR)/H37Rv-3.3.3.gbk
 $(OUTDIR)/1-0006-ncbi/final.gbk: ref=$(RESDIR)/h37rv_ncbi_2023_06_07.gbk
+$(OUTDIR)/1-0006-multiref/final.gbk: ref=$(RESDIR)/tb-multiref
 $(OUTDIR)/1-0006-filterratt/final.gbk: local_HYBRANFLAGS += --filter-ratt
 $(OUTDIR)/SRR23086714_FLYE/final.gbk: genome=$(RESDIR)/SRR23086714_FLYE.fasta
 $(OUTDIR)/mpox/final.gbk: genome=$(RESDIR)/UnicyclerMpox.fasta
