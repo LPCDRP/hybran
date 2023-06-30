@@ -242,7 +242,7 @@ def name_cluster(main_ref, cluster, increment, subs, subs_report):
     elif n_unique_names == 0:
         # Make sure there is more than one gene in this case
         if len(cluster) > 1:
-            primaries = [(ref, gene) for ref, ltag, gene in cluster_list if ref==main_ref]
+            primaries = [(ref, gene) for ref, ltag, gene in cluster_list if ref.startswith(f"{main_ref}.")]
             if len(primaries) == 1:
                 name = primaries[0][1]
             else:

@@ -1,5 +1,8 @@
 # Release Notes
 
+### Bugs fixed
+* Fixed issue with `onegene` where unnamed reference genes did not get unified to use the locus tag of the primary reference as a gene name, instead unnecessarily assigning a generic name.
+
 ## [Version 1.7](https://gitlab.com/LPCDRP/hybran/-/tags/1.7)
 
 ### Enhancements
