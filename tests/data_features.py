@@ -374,6 +374,13 @@ features = {
                 qualifiers={'locus_tag':['L_02335'],'gene':['ORF0004']}
                 ),
         },
+        'Rv2023A': {
+            'ratt': SeqFeature(
+                FeatureLocation(2264663, 2265122, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv2023A'],'gene':['Rv2023A']}
+                ),
+        },
         'Rv2079': {
 	    'ratt': SeqFeature(
 		FeatureLocation(2339465, 2341292, strand=1),

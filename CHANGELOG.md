@@ -1,5 +1,10 @@
 # Release Notes
 
+## [Development]
+
+### Bugs fixed
+* Synonymous SNPs in start codons do not automatically invalidate reference-correspondence.
+
 ## [Version 1.7.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.7.1)
 
 ### Bugs fixed

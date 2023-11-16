@@ -109,7 +109,8 @@ def has_valid_start(feature):
     :return: True if valid start codon exists
     """
     start_codons = CodonTable.generic_by_id[genetic_code].start_codons
-    feature_seq = str(feature.extract())[:3]
+    feature_seq = str(feature.extract(parent_sequence=feature.references[feature.ref],
+                                      references=feature.references))[:3]
 
     return feature_seq in start_codons
 
@@ -120,7 +121,9 @@ def has_broken_stop(feature):
     """
     internal_stop = False
     note = ''
-    translation = str(feature.extract().translate(to_stop=False, table=genetic_code))
+    feature_seq = feature.extract(parent_sequence=feature.references[feature.ref],
+                                  references=feature.references)
+    translation = str(feature_seq.translate(to_stop=False, table=genetic_code))
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
@@ -850,7 +853,10 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
         # relaxed_found_high was determined using found_high before the following adjustments
         # because we need it to be True in the case of non-stop SNPs. The final found_high
         # in these cases should be false, though, so the following achieves that.
-        if (target_low_seq[:3] != query_low_seq[:3]):
+        if (
+                (target_low_seq[:3] != query_low_seq[:3])
+                and not ([has_valid_start(ref_feature), has_valid_start(feature)] == [True, True])
+        ):
             found_low = False
         elif found_low and target[0][1] < (len(ref_seq)/3):
             gaps = ident = mismatch = 0

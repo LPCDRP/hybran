@@ -549,6 +549,7 @@ def test_liftover_annotation():
     ['insertion_final_interval', True, True, None],
     ['early_del_altered_scoring', False, False, None],
     ['alt_start_delicate_scoring', True, False, None],
+    ['first_codon_snp_valid_start', True, True, None],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 @pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
@@ -577,6 +578,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'insertion_final_interval':'PAK',
         'early_del_altered_scoring':'1-0006',
         'alt_start_delicate_scoring':'1-0006',
+        'first_codon_snp_valid_start':'1-0006',
 
     }
     ref_genome = defaultdict(lambda :'H37Rv')
@@ -607,6 +609,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'insertion_final_interval': features[source_genome['insertion_final_interval']]['PA2452']['ratt'],
         'early_del_altered_scoring': features[source_genome['early_del_altered_scoring']]['accE5']['ratt'],
         'alt_start_delicate_scoring': features[source_genome['alt_start_delicate_scoring']]['Rv3611']['ratt'],
+        'first_codon_snp_valid_start': features[source_genome['first_codon_snp_valid_start']]['Rv2023A']['ratt'],
 
     }
 
@@ -726,6 +729,11 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         },
         'alt_start_delicate_scoring':  {
             'results':[(True, True), FeatureLocation(4060333, 4061209, strand=1, ref='1')],
+            'og_de':False,
+            'corr_de':None,
+        },
+        'first_codon_snp_valid_start': {
+            'results':[(True, True), FeatureLocation(2264663, 2265122, strand=-1, ref='1')],
             'og_de':False,
             'corr_de':None,
         },
