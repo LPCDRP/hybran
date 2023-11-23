@@ -19,6 +19,7 @@ from . import \
     config, \
     designator, \
     standardize, \
+    compare, \
     __version__
 
 from .argparse import DefaultSubcommandArgumentParser
@@ -81,7 +82,12 @@ def cmds():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     onegenecmd.set_defaults(func=onegene.main)
-
+    comparecmd = subparsers.add_parser(
+        'compare',
+        help='Compare annotations between two .gbk files.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    comparecmd.set_defaults(func=compare.main)
 
     #
     # hybran standardize
@@ -154,6 +160,19 @@ def cmds():
     )
 
 
+    #
+    # hybran compare
+    #
+    comparecmd.add_argument(
+        'annotations',
+        help="Directory, space-separated list of GBKs, or a FOFN containing all annotated genomes.",
+        nargs='+'
+    )
+    comparecmd.add_argument(
+        '-o', '--output',
+        help='Directory to output the results of the comparison.',
+        default='.',
+    )
 
     #
     # hybran annotate
