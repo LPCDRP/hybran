@@ -165,11 +165,11 @@ def cmds():
     #
     comparecmd.add_argument(
         'annotations',
-        help="Directory, space-separated list of GBKs, or a FOFN containing all annotated genomes.",
-        nargs='+'
+        help='The two annotation files to compare, in genbank format.',
+        nargs=2
     )
     comparecmd.add_argument(
-        '-o', '--output',
+        '-o', '--outdir',
         help='Directory to output the results of the comparison.',
         default='.',
     )

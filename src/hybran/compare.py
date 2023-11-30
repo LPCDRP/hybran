@@ -1,7 +1,7 @@
 import os
-
+import csv
 from collections import defaultdict
-
+from . import extractor
 from . import fileManager
 from . import annomerge
 from . import designator
@@ -11,25 +11,26 @@ def main(args):
 
     gbk_file1 = args.annotations[0]
     gbk_file2 = args.annotations[1]
-    outfile = args.output
+    outdir = args.outdir
 
-    results, pseudo_results = compare(gbk_file1, gbk_file2)
+    feature_list, pseudo_list = generate_record(gbk_file1)
+    alt_feature_list, alt_pseudo_list = generate_record(gbk_file2)
 
-    nl = "\n"
-    statement = (
-        f"Overlaps: {len(results['overlap'])} | Exact: {len(results['exact'])} |" +
-        f"X_unique: {len(results['x_unique'])} | Y_unique: {len(results['y_unique'])}{nl}" +
-        f"Pseudo Overlaps: {len(pseudo_results['overlap'])} | Pseudo Exact: {len(pseudo_results['exact'])} |" +
-        f"Pseudo_X_unique: {len(pseudo_results['x_unique'])} | Pseudo_Y_unique: {len(pseudo_results['y_unique'])}"
-    )
-    print(statement)
-    breakpoint()
+    matching, conflicts, uniques, alt_uniques = compare(feature_list, alt_feature_list)
+    pseudo_matching, pseudo_conflicts, pseudo_uniques, alt_pseudo_uniques = compare(pseudo_list, alt_pseudo_list)
+
+    write_reports(matching, conflicts, uniques, alt_uniques,
+                  feature_list, alt_feature_list, gbk_file1, gbk_file2, outdir)
+
+    write_reports(pseudo_matching, pseudo_conflicts, pseudo_uniques, alt_pseudo_uniques,
+                  pseudo_list, alt_pseudo_list, gbk_file1, gbk_file2, outdir, "pseudo")
 
 def furthest_location(loc1, loc2):
     """
-    Returns the SeqFeature.Location that is farthest downstream or returns None if they are exact matches.
+    Finds the SeqFeature.Location that is the farthest downstream.
     :param loc1: SeqFeature location.
     :param loc2: SeqFeature location.
+    :return: Downstream SeqFeature location or None if the locations are exactly the same.
     """
     same_start = False
     same_stop = False
@@ -49,120 +50,233 @@ def furthest_location(loc1, loc2):
             return loc1
         return loc2
 
-def produce_record(gbk):
+def generate_record(gbk):
     """
-    Populate a defaultdictionary with all of the features from an annotation file
-
+    Creates a defaultdictionary with all of the features from a .gbk annotation file.
     :param gbk: String of a path to a .gbk annotation file.
-    :return anno_dict: Defaultdictionary with all CDS features from the input .gbk file.
-    :return anno_list: List of gene names from the input.gbk file ordered by position.
+    :return anno_list: List of features from the input.gbk file ordered by position.
+    :return pseudo_list: List of gene names with a 'pseudo' qualifier from the input.gbk file ordered by position.
     """
     anno_dict = defaultdict(list)
+    pseudo_dict = defaultdict(list)
     anno_list = []
+    pseudo_list = []
     anno_record = SeqIO.read(gbk, "genbank")
+    print(f"Generating record for {gbk.split('/')[-1]}")
+
     for f in anno_record.features:
         if f.type == 'CDS' or f.type == 'pseudo':
             gene_name = (f.qualifiers.get('locus_tag')[0] if f.qualifiers.get('gene') == None else f.qualifiers.get('gene')[0])
+            #Known bug from RATT annotations creates a nonexistent copy of mamB in hybran
             if gene_name == 'mamB' and "RATT" in f.qualifiers['inference'][0]:
                 continue
-            anno_dict[gene_name].append(f)
-            anno_list.append(gene_name)
 
-    return anno_dict, anno_list
-    
+            if designator.is_pseudo(f.qualifiers):
+                pseudo_list.append(f)
+            anno_list.append(f)
+    return anno_list, pseudo_list
 
-def compare(gbk1, gbk2):
+def is_overlap(loc1, loc2):
     """
-    Compare between two .gbk annotation files and produce a summary report
-    
-    :param gbk1: String of a path to a .gbk annotation file
-    :param gbk2: String of a path to a .gbk annotation file
-    :return results: Nested dictionary of the comparison results
-    :return pseudo_results: Nested dictionary of the comparison results of only pseudo genes
+    Determine if two locations overlap.
+    :param loc1: SeqFeature location.
+    :param loc2: SeqFeature location.
+    :return: True if two SeqFeature locations overlap in any way (in frame or out of frame). Otherwise return False.
     """
+    overlap = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start))
+    if loc1.strand == loc2.strand and overlap > 0:
+        return True
+    return False
 
-    results = defaultdict(list)
-    pseudo_results = defaultdict(list)
+def compare(feature_list, alt_feature_list):
+    """
+    Organize each feature into various categories based on overlaps between the annotation files.
+
+    :param feature_list: List of features from the input.gbk file ordered by position.
+    :param alt_feature_list: List of features from the alternative input.gbk file ordered by position.
+    :return matching: List of lists containing information for exactly matching annotations.
+    :return conflicts: List of lists containing information for conflicting annotations.
+    :return unique_features: List of lists containing information for unique features from the first annotation file.
+    :return alt_unique_features: List of lists containing information for unique features from the alternate annotation file.
+    """
     
-    x_anno_dict, x_anno_list = produce_record(gbk1)
-    y_anno_dict, y_anno_list = produce_record(gbk2)
+    def get_surrounding_features(feature, alt_feature_list):
+        """
+        :param feature: A SeqFeature from the first annotation file
+        :param alt_feature_list: List of SeqFeatures from the alternate annotation file
+        :return overlaps: A list of upstream and downstream features from the alternate annotation file
+        that overlap with the input feature
+        """
+        overlaps = []
+        next_index = 0
+        for curr_index, alt_feature in enumerate(alt_feature_list):
+            if is_overlap(feature.location, alt_feature.location):
+                prev_index = curr_index - 1
+                while prev_index >= 0:
+                    if is_overlap(feature.location, alt_feature_list[prev_index].location):
+                        overlaps.insert(0, alt_feature_list[prev_index])
+                        prev_index = prev_index - 1
+                    else:
+                        break
 
-    x_dupes = []
-    y_dupes = []
-
-    x = 0
-    y = 0
-
-    for i in range(x, len(x_anno_list)):
-        x_gene = x_anno_list[i]
-        x_dupes.append(x_gene)
-        #Keeps track of which duplicate gene is being referenced.
-        x_index = x_dupes.count(x_gene) - 1
-        x_feature = x_anno_dict[x_gene][x_index]
-        
-        for j in range(y, len(y_anno_list)):
-            y_gene = y_anno_list[j]
-            y_dupes.append(y_gene)
-            y_index = y_dupes.count(y_gene) - 1
-            y_feature = y_anno_dict[y_gene][y_index]
-
-            farthest_feature = furthest_location(x_feature.location, y_feature.location)
-
-            #x_feature is ahead or both are the in the exact same location
-            if farthest_feature == x_feature.location or farthest_feature == None:
-
-                #exact same
-                if farthest_feature == None:
-                    results['exact'].append([x_feature, y_feature])
-                    if designator.is_pseudo(x_feature.qualifiers) or designator.is_pseudo(y_feature.qualifiers):
-                        pseudo_results['exact'].append([x_feature, y_feature])
-                    
-                #not exact same but overlapping
-                elif annomerge.overlap_inframe(x_feature.location, y_feature.location):
-                     results['overlap'].append([x_feature, y_feature])
-                     if designator.is_pseudo(x_feature.qualifiers) or designator.is_pseudo(y_feature.qualifiers):
-                        pseudo_results['overlap'].append([x_feature, y_feature])
-                     
-                #not exact same, no overlap, and the x_feature is ahead
-                else:
-                    results['x_unique'].append(x_feature)
-                    if designator.is_pseudo(x_feature.qualifiers):
-                        pseudo_results['x_unique'].append(x_feature)
-                        
-                if y+1 == len(y_anno_list):
-                    y = len(y_anno_list)-1
-                else:
-                    y = y + 1
-
-                    #dont need to pop the feature from x_dupes because "continue" will only loop through the 'y' section
-                    continue
-                        
-            #Y_feature is ahead
-            elif farthest_feature == y_feature.location:
-
-                #need to pop feature from y_dupes because "break" will start loop back in the 'x' section and we don't want
-                #to append the y_feature twice.
-                y_dupes.pop()
-
-                #not exact same but overlapping
-                if annomerge.overlap_inframe(x_feature.location, y_feature.location):
-                    results['overlap'].append([x_feature, y_feature])
-                    if designator.is_pseudo(x_feature.qualifiers) or designator.is_pseudo(y_feature.qualifiers):
-                        pseudo_results['overlap'].append([x_feature, y_feature])
-                    
-                #not exact same, no overlap, y_feature is ahead
-                else:
-                    results['y_unique'].append([x_feature, y_feature])
-                    if designator.is_pseudo(y_feature.qualifiers):
-                        pseudo_results['y_unique'].append(x_feature)
-                    
-                if x + 1 == len(x_anno_list):
-                    x = len(x_anno_list)-1
-                else:
-                    x = x + 1
+                overlaps.append(alt_feature_list[curr_index])
+                next_index = curr_index + 1
                 break
-                
-            else:
-                print("something is wrong, shouldn't make it here.")
 
-    return results, pseudo_results
+        for i in range(next_index, len(alt_feature_list)):
+            if is_overlap(feature.location, alt_feature_list[i].location):
+                overlaps.append(alt_feature_list[i])
+            else:
+                break
+        return overlaps
+
+    #Organize each feature into 3 categories: 'matching', 'unique', 'conflicts'
+    #Finds uniques from the first annotation file.
+    matching = []
+    conflicts = []
+    unique_features = []
+    for feature in feature_list:
+        frame = []
+        locus_tag = extractor.get_ltag(feature)
+        gene_name = extractor.get_gene(feature)
+        start = feature.location.start
+        end = feature.location.end
+        strand = feature.location.strand
+        pseudo = designator.is_pseudo(feature.qualifiers)
+        overlaps = get_surrounding_features(feature, alt_feature_list)
+
+        if len(overlaps) > 0:
+            for i in range(len(overlaps)):
+                frame.append(annomerge.overlap_inframe(feature.location, overlaps[i].location))
+        oof_overlaps = overlaps[frame.index(False)] if (len(overlaps) > 0 and False in frame) else frame
+        if_overlaps = overlaps[frame.index(True)] if (len(overlaps) > 0 and True in frame) else frame
+
+        # 'matching' : exact match
+        if (str(feature.location) in [str(_.location) for _ in overlaps]) and any(if_overlaps):
+            match_index = frame.index(True)
+            line = [
+                locus_tag, gene_name, pseudo,
+                extractor.get_ltag(overlaps[match_index]),
+                extractor.get_gene(overlaps[match_index]),
+                designator.is_pseudo(overlaps[match_index].qualifiers),
+                start, end, strand,
+            ]
+            matching.append(line)
+
+        # 'unique' : no overlaps or overlaps out of frame
+        elif not any(overlaps) or (any(oof_overlaps) and not any(if_overlaps)):
+            overlap_note = [f"{extractor.get_gene(_)}:{str(_.location)}" for _ in overlaps]
+            line = [locus_tag, gene_name, start, end, strand, pseudo, overlap_note]
+            unique_features.append(line)
+
+        # 'conflicting' : overlaps in frame
+        else:
+            match_index = frame.index(True)
+            line = [
+                locus_tag, gene_name, start, end, strand, pseudo,
+                extractor.get_ltag(overlaps[match_index]),
+                extractor.get_gene(overlaps[match_index]),
+                overlaps[match_index].location.start,
+                overlaps[match_index].location.end,
+                overlaps[match_index].location.strand,
+                designator.is_pseudo(overlaps[match_index].qualifiers),
+            ]
+            conflicts.append(line)
+
+    print(f"Found all matches and conflicts.")
+
+    #Finds uniques for the alternate annotation file
+    alt_unique_features = []
+    for alt_feature in alt_feature_list:
+        frame = []
+        overlaps = get_surrounding_features(alt_feature, feature_list)
+        if len(overlaps) > 0:
+            for i in range(len(overlaps)):
+                frame.append(annomerge.overlap_inframe(alt_feature.location, overlaps[i].location))
+        oof_overlaps = overlaps[frame.index(False)] if (len(overlaps) > 0 and False in frame) else frame
+        if_overlaps = overlaps[frame.index(True)] if (len(overlaps) > 0 and True in frame) else frame
+
+        # 'unique' : no overlaps or overlaps out of frame
+        if not any(overlaps) or (any(oof_overlaps) and not any(if_overlaps)):
+            overlap_note = [f"{extractor.get_gene(_)}:{str(_.location)}" for _ in overlaps]
+            line = [
+                extractor.get_ltag(alt_feature),
+                extractor.get_gene(alt_feature),
+                alt_feature.location.start,
+                alt_feature.location.end,
+                alt_feature.location.strand,
+                designator.is_pseudo(alt_feature.qualifiers),
+                overlap_note,
+            ]
+            alt_unique_features.append(line)
+    print(f"Found all unique features.")
+    return matching, conflicts, unique_features, alt_unique_features
+
+def write_reports(matching, conflicts, unique_features, alt_unique_features,
+                  feature_list, alt_feature_list, gbk_file1, gbk_file2, outdir, suffix=""):
+    """
+    Write the summary and report files for each type of comparison.
+
+    :param matching: List of lists containing information for exactly matching annotations.
+    :param conflicts: List of lists containing information for conflicting annotations.
+    :param unique_features: List of lists containing information for unique features from the first annotation file.
+    :param alt_unique_features: List of lists containing information for unique features from the alternate annotation file.
+    :param feature_list: List of features from the input.gbk file ordered by position.
+    :param alt_feature_list: List of features from the alternative input.gbk file ordered by position.
+    :param gbk_file1: String of a path to a .gbk annotation file.
+    :param gbk_file2: String of a path to an alternate .gbk annotation file.
+    :param outdir: String name for the out directory
+    :param suffix: Optional argument to change the suffix of report files.
+    """
+
+    file_name1 = os.path.splitext(os.path.basename(gbk_file1))[0]
+    file_name2 = os.path.splitext(os.path.basename(gbk_file2))[0]
+    features_total = len(feature_list)
+    alt_features_total = len(alt_feature_list)
+
+    if not os.path.isdir(outdir):
+        try:
+            os.mkdir(outdir)
+        except:
+            sys.exit(f"Could not create directory {outdir}")
+
+    summary_file = f"{outdir}/summary{'_' if suffix else ''}{suffix}.txt"
+
+    matching_file = f"{outdir}/matching{'_' if suffix else ''}{suffix}.csv"
+    matching_header = [
+                "locus_tag_1", "gene_name_1", "pseudo_1",
+                "locus_tag_2", "gene_name_2", "pseudo_2",
+                "start", "end", "strand",
+    ]
+    conflicts_file = f"{outdir}/conflicts{'_' if suffix else ''}{suffix}.csv"
+    conflicts_header = [
+                "locus_tag_1", "gene_name_1", "start_1", "end_1", "strand_1", "pseudo_1",
+                "locus_tag_2", "gene_name_2", "start_2", "end_2", "strand_2", "pseudo_2",
+    ]
+    uniques_file = f"{outdir}/{file_name1}_uniques{'_' if suffix else ''}{suffix}.csv"
+    alt_uniques_file = f"{outdir}/{file_name2}_uniques{'_' if suffix else ''}{suffix}.csv"
+    uniques_header = [
+        "locus_tag", "gene_name", "start",
+        "end", "strand", "pseudo", "overlaps"
+    ]
+
+
+    files = [matching_file, conflicts_file, uniques_file, alt_uniques_file]
+    headers = [matching_header, conflicts_header, uniques_header, uniques_header]
+    reports = [matching, conflicts, unique_features, alt_unique_features]
+
+    for i in range(len(files)):
+        with open(files[i], 'w') as f:
+            writer = csv.writer(f, lineterminator='\n')
+            header = headers[i]
+            writer.writerow(header)
+            for line in reports[i]:
+                writer.writerow(line)
+
+    with open(summary_file, 'w') as f:
+        print('\t'.join([f"Exact Matches", str(len(matching))]), file=f)
+        print('\t'.join([f"Conflicts", str(len(conflicts))]), file=f)
+        print('\t'.join([f"Unique to {file_name1}", str(len(unique_features))]), file=f)
+        print('\t'.join([f"Unique to {file_name2}", str(len(alt_unique_features))]), file=f)
+        print('\t'.join([f"Total features in {file_name1}", str(features_total)]), file=f)
+        print('\t'.join([f"Total features in {file_name2}", str(alt_features_total)]), file=f)
