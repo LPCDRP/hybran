@@ -69,20 +69,27 @@ def overlap_inframe(loc1, loc2):
     :return: True if both features overlap in-frame
     """
     # overlap determination adapted from https://stackoverflow.com/a/2953979
-    overlap = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start))
+    def overlap_parts(loc1, loc2):
+        overlap = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start))
 
-    if loc1.strand == loc2.strand and overlap > 0:
-        # pseudogenes may occupy multiple reading frames, so
-        # check both the start-defined and stop-defined frames,
-        # as well as the actual overlapping part.
-        if (loc1.start == loc2.start
-            or loc1.end == loc2.end
-            or (
-                ((loc1.start - loc2.start) % 3 == 0
-                 or (loc1.end - loc2.end) % 3 == 0)
-                and (overlap % 3 == 0))
-        ):
-            return True
+        if loc1.strand == loc2.strand and overlap > 0:
+            # pseudogenes may occupy multiple reading frames, so
+            # check both the start-defined and stop-defined frames,
+            # as well as the actual overlapping part.
+            if (loc1.start == loc2.start
+                or loc1.end == loc2.end
+                or (
+                    ((loc1.start - loc2.start) % 3 == 0
+                     or (loc1.end - loc2.end) % 3 == 0)
+                    and (overlap % 3 == 0))
+            ):
+                return True
+        return False
+
+    for i in loc1.parts:
+        for j in loc2.parts:
+            if overlap_parts(i,j):
+                return True
     return False
 
 def have_same_stop(loc1, loc2):

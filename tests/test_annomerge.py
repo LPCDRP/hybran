@@ -83,6 +83,7 @@ def test_upstream_context(location):
     'different_strand',
     'non_overlapping',
     'one_bp_apart',
+    'compound_interval',
 ])
 def test_overlap_inframe(pair):
     pairs = {
@@ -129,6 +130,13 @@ def test_overlap_inframe(pair):
             FeatureLocation(ExactPosition(163764), ExactPosition(164268), strand=1),
             FeatureLocation(ExactPosition(164268), ExactPosition(165291), strand=1),
         ),
+        'compound_interval': (
+            #PGAP annotation of 1-0013
+            CompoundLocation([SimpleLocation(ExactPosition(1931), ExactPosition(2220), strand=1),
+                              SimpleLocation(ExactPosition(2219), ExactPosition(3193), strand=1)], 'join'),
+            CompoundLocation([SimpleLocation(ExactPosition(1931), ExactPosition(2258), strand=1),
+                              SimpleLocation(ExactPosition(2207), ExactPosition(3193), strand=1)], 'join'),
+        ),
     }
     expected = {
         'two_pseudos_same_start': True,
@@ -140,6 +148,7 @@ def test_overlap_inframe(pair):
         'different_strand': False,
         'non_overlapping': False,
         'one_bp_apart': False,
+        'compound_interval': True,
     }
 
     assert annomerge.overlap_inframe(pairs[pair][0], pairs[pair][1]) == expected[pair]
