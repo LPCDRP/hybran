@@ -1,5 +1,6 @@
 import os
 import csv
+import sys
 from collections import defaultdict
 from . import extractor
 from . import fileManager
@@ -19,13 +20,13 @@ def main(args):
     matching, conflicts, uniques = compare(feature_list, alt_feature_list)
     alt_matching, alt_conflicts, alt_uniques = compare(alt_feature_list, feature_list)
 
-    write_reports(matching, conflicts, uniques, alt_uniques,
     pseudo_matching, pseudo_conflicts, pseudo_uniques = compare(pseudo_list, alt_feature_list)
     alt_pseudo_matching, alt_pseudo_conflicts, alt_pseudo_uniques = compare(alt_pseudo_list, feature_list)
 
+    write_reports(matching, alt_matching, conflicts, alt_conflicts, uniques, alt_uniques,
                   feature_list, alt_feature_list, gbk_file1, gbk_file2, outdir)
 
-    write_reports(pseudo_matching, pseudo_conflicts, pseudo_uniques, alt_pseudo_uniques,
+    write_reports(pseudo_matching, alt_pseudo_matching, pseudo_conflicts, alt_pseudo_conflicts, pseudo_uniques, alt_pseudo_uniques,
                   pseudo_list, alt_pseudo_list, gbk_file1, gbk_file2, outdir, "pseudo")
 
 def furthest_location(loc1, loc2):
@@ -180,13 +181,15 @@ def compare(feature_list, alt_feature_list):
     print(f"Found all matches, conflicts, and unique features.")
     return matching, conflicts, unique_features
 
-def write_reports(matching, conflicts, unique_features, alt_unique_features,
+def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_features, alt_unique_features,
                   feature_list, alt_feature_list, gbk_file1, gbk_file2, outdir, suffix=""):
     """
     Write the summary and report files for each type of comparison.
 
     :param matching: List of lists containing information for exactly matching annotations.
-    :param conflicts: List of lists containing information for conflicting annotations.
+    :param alt_matching: List of lists containing information for exactly matching annotations.
+    :param conflicts: List of lists containing information for conflicting annotations from the first annotation file.
+    :param alt_conflicts: List of lists containing information for conflicting annotations from the alternate annotation file.
     :param unique_features: List of lists containing information for unique features from the first annotation file.
     :param alt_unique_features: List of lists containing information for unique features from the alternate annotation file.
     :param feature_list: List of features from the input.gbk file ordered by position.
@@ -241,10 +244,13 @@ def write_reports(matching, conflicts, unique_features, alt_unique_features,
             for line in reports[i]:
                 writer.writerow(line)
 
+    uniq_f = str(len(conflicts) - len(set([str(_[0:6]) for _ in conflicts])))
+    alt_uniq_f = str(len(alt_conflicts) - len(set([str(_[0:6]) for _ in alt_conflicts])))
+
     with open(summary_file, 'w') as f:
-        print('\t'.join([f"Exact Matches", str(len(matching))]), file=f)
-        print('\t'.join([f"Conflicts", str(len(conflicts))]), file=f)
-        print('\t'.join([f"Unique to {file_name1}", str(len(unique_features))]), file=f)
-        print('\t'.join([f"Unique to {file_name2}", str(len(alt_unique_features))]), file=f)
-        print('\t'.join([f"Total features in {file_name1}", str(features_total)]), file=f)
-        print('\t'.join([f"Total features in {file_name2}", str(alt_features_total)]), file=f)
+        print('\t'.join([f"", f"{file_name1}", f"{file_name2}"]), file=f)
+        print('\t'.join([f"Total Features", str(features_total), str(alt_features_total)]), file=f)
+        print('\t'.join([f"Number of Unique Features", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
+        print('\t'.join([f"Number of Exact Matches", str(len(matching)), str(len(alt_matching))]), file=f)
+        print('\t'.join([f"Number of Conflicts", str(len(conflicts)), str(len(alt_conflicts))]), file=f)
+        print('\t'.join([f"Unique Conflicts", uniq_f, alt_uniq_f]), file=f)
