@@ -64,19 +64,20 @@ def generate_record(gbk):
     pseudo_dict = defaultdict(list)
     anno_list = []
     pseudo_list = []
-    anno_record = SeqIO.read(gbk, "genbank")
+    all_records = SeqIO.parse(gbk, "genbank")
     print(f"Generating record for {gbk.split('/')[-1]}")
 
-    for f in anno_record.features:
-        if f.type == 'CDS' or f.type == 'pseudo':
-            gene_name = (f.qualifiers.get('locus_tag')[0] if f.qualifiers.get('gene') == None else f.qualifiers.get('gene')[0])
-            #Known bug from RATT annotations creates a nonexistent copy of mamB in hybran
-            if gene_name == 'mamB' and "RATT" in f.qualifiers['inference'][0]:
-                continue
+    for anno_record in all_records:
+        for f in anno_record.features:
+            if f.type == 'CDS' or f.type == 'pseudo':
+                gene_name = (f.qualifiers.get('locus_tag')[0] if f.qualifiers.get('gene') == None else f.qualifiers.get('gene')[0])
+                #Known bug from RATT annotations creates a nonexistent copy of mamB in hybran
+                if gene_name == 'mamB' and "RATT" in f.qualifiers['inference'][0]:
+                    continue
 
-            if designator.is_pseudo(f.qualifiers):
-                pseudo_list.append(f)
-            anno_list.append(f)
+                if designator.is_pseudo(f.qualifiers):
+                    pseudo_list.append(f)
+                anno_list.append(f)
     return anno_list, pseudo_list
 
 def is_overlap(loc1, loc2):
