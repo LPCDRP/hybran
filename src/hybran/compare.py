@@ -16,10 +16,13 @@ def main(args):
     feature_list, pseudo_list = generate_record(gbk_file1)
     alt_feature_list, alt_pseudo_list = generate_record(gbk_file2)
 
-    matching, conflicts, uniques, alt_uniques = compare(feature_list, alt_feature_list)
-    pseudo_matching, pseudo_conflicts, pseudo_uniques, alt_pseudo_uniques = compare(pseudo_list, alt_pseudo_list)
+    matching, conflicts, uniques = compare(feature_list, alt_feature_list)
+    alt_matching, alt_conflicts, alt_uniques = compare(alt_feature_list, feature_list)
 
     write_reports(matching, conflicts, uniques, alt_uniques,
+    pseudo_matching, pseudo_conflicts, pseudo_uniques = compare(pseudo_list, alt_feature_list)
+    alt_pseudo_matching, alt_pseudo_conflicts, alt_pseudo_uniques = compare(alt_pseudo_list, feature_list)
+
                   feature_list, alt_feature_list, gbk_file1, gbk_file2, outdir)
 
     write_reports(pseudo_matching, pseudo_conflicts, pseudo_uniques, alt_pseudo_uniques,
@@ -97,7 +100,6 @@ def compare(feature_list, alt_feature_list):
     :return matching: List of lists containing information for exactly matching annotations.
     :return conflicts: List of lists containing information for conflicting annotations.
     :return unique_features: List of lists containing information for unique features from the first annotation file.
-    :return alt_unique_features: List of lists containing information for unique features from the alternate annotation file.
     """
     
     def get_surrounding_features(feature, alt_feature_list):
@@ -109,25 +111,10 @@ def compare(feature_list, alt_feature_list):
         """
         overlaps = []
         next_index = 0
-        for curr_index, alt_feature in enumerate(alt_feature_list):
-            if is_overlap(feature.location, alt_feature.location):
-                prev_index = curr_index - 1
-                while prev_index >= 0:
-                    if is_overlap(feature.location, alt_feature_list[prev_index].location):
-                        overlaps.insert(0, alt_feature_list[prev_index])
-                        prev_index = prev_index - 1
-                    else:
-                        break
 
-                overlaps.append(alt_feature_list[curr_index])
-                next_index = curr_index + 1
-                break
-
-        for i in range(next_index, len(alt_feature_list)):
+        for i in range(len(alt_feature_list)):
             if is_overlap(feature.location, alt_feature_list[i].location):
                 overlaps.append(alt_feature_list[i])
-            else:
-                break
         return overlaps
 
     #Organize each feature into 3 categories: 'matching', 'unique', 'conflicts'
@@ -139,8 +126,8 @@ def compare(feature_list, alt_feature_list):
         frame = []
         locus_tag = extractor.get_ltag(feature)
         gene_name = extractor.get_gene(feature)
-        start = feature.location.start
-        end = feature.location.end
+        start = int(feature.location.start)
+        end = int(feature.location.end)
         strand = feature.location.strand
         pseudo = designator.is_pseudo(feature.qualifiers)
         overlaps = get_surrounding_features(feature, alt_feature_list)
@@ -148,69 +135,49 @@ def compare(feature_list, alt_feature_list):
         if len(overlaps) > 0:
             for i in range(len(overlaps)):
                 frame.append(annomerge.overlap_inframe(feature.location, overlaps[i].location))
-        oof_overlaps = overlaps[frame.index(False)] if (len(overlaps) > 0 and False in frame) else frame
-        if_overlaps = overlaps[frame.index(True)] if (len(overlaps) > 0 and True in frame) else frame
 
-        # 'matching' : exact match
-        if (str(feature.location) in [str(_.location) for _ in overlaps]) and any(if_overlaps):
-            match_index = frame.index(True)
-            line = [
-                locus_tag, gene_name, pseudo,
-                extractor.get_ltag(overlaps[match_index]),
-                extractor.get_gene(overlaps[match_index]),
-                designator.is_pseudo(overlaps[match_index].qualifiers),
-                start, end, strand,
-            ]
-            matching.append(line)
+        break_check = False
+        for i in range(len(frame)):
+            # 'matching' : exact match
+            if frame[i] == True and (str(feature.location) == str(overlaps[i].location)):
+                line = [
+                    locus_tag, gene_name, pseudo,
+                    extractor.get_ltag(overlaps[i]),
+                    extractor.get_gene(overlaps[i]),
+                    designator.is_pseudo(overlaps[i].qualifiers),
+                    start, end, strand,
+                ]
+                matching.append(line)
+                break_check = True
+                break
+        if break_check:
+            continue
+
+        for i in range(len(frame)):
+            # 'conflicting' : overlaps in frame
+            if frame[i] == True and (str(feature.location) != str(overlaps[i].location)):
+                line = [
+                    locus_tag, gene_name, start, end, strand, pseudo,
+                    extractor.get_ltag(overlaps[i]),
+                    extractor.get_gene(overlaps[i]),
+                    int(overlaps[i].location.start),
+                    int(overlaps[i].location.end),
+                    overlaps[i].location.strand,
+                    designator.is_pseudo(overlaps[i].qualifiers),
+                ]
+                conflicts.append(line)
+                break_check = True
+        if break_check:
+            continue
 
         # 'unique' : no overlaps or overlaps out of frame
-        elif not any(overlaps) or (any(oof_overlaps) and not any(if_overlaps)):
+        if not any(overlaps) or False in frame:
             overlap_note = [f"{extractor.get_gene(_)}:{str(_.location)}" for _ in overlaps]
             line = [locus_tag, gene_name, start, end, strand, pseudo, overlap_note]
             unique_features.append(line)
 
-        # 'conflicting' : overlaps in frame
-        else:
-            match_index = frame.index(True)
-            line = [
-                locus_tag, gene_name, start, end, strand, pseudo,
-                extractor.get_ltag(overlaps[match_index]),
-                extractor.get_gene(overlaps[match_index]),
-                overlaps[match_index].location.start,
-                overlaps[match_index].location.end,
-                overlaps[match_index].location.strand,
-                designator.is_pseudo(overlaps[match_index].qualifiers),
-            ]
-            conflicts.append(line)
-
-    print(f"Found all matches and conflicts.")
-
-    #Finds uniques for the alternate annotation file
-    alt_unique_features = []
-    for alt_feature in alt_feature_list:
-        frame = []
-        overlaps = get_surrounding_features(alt_feature, feature_list)
-        if len(overlaps) > 0:
-            for i in range(len(overlaps)):
-                frame.append(annomerge.overlap_inframe(alt_feature.location, overlaps[i].location))
-        oof_overlaps = overlaps[frame.index(False)] if (len(overlaps) > 0 and False in frame) else frame
-        if_overlaps = overlaps[frame.index(True)] if (len(overlaps) > 0 and True in frame) else frame
-
-        # 'unique' : no overlaps or overlaps out of frame
-        if not any(overlaps) or (any(oof_overlaps) and not any(if_overlaps)):
-            overlap_note = [f"{extractor.get_gene(_)}:{str(_.location)}" for _ in overlaps]
-            line = [
-                extractor.get_ltag(alt_feature),
-                extractor.get_gene(alt_feature),
-                alt_feature.location.start,
-                alt_feature.location.end,
-                alt_feature.location.strand,
-                designator.is_pseudo(alt_feature.qualifiers),
-                overlap_note,
-            ]
-            alt_unique_features.append(line)
-    print(f"Found all unique features.")
-    return matching, conflicts, unique_features, alt_unique_features
+    print(f"Found all matches, conflicts, and unique features.")
+    return matching, conflicts, unique_features
 
 def write_reports(matching, conflicts, unique_features, alt_unique_features,
                   feature_list, alt_feature_list, gbk_file1, gbk_file2, outdir, suffix=""):
