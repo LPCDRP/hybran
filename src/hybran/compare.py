@@ -261,33 +261,53 @@ def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_featu
     if not os.path.isdir(outdir):
         try:
             os.mkdir(outdir)
+            os.mkdir(f"{outdir}/co-located")
+            os.mkdir(f"{outdir}/conflicting")
+            os.mkdir(f"{outdir}/non-conflicting")
+            os.mkdir(f"{outdir}/pseudo")
+            os.mkdir(f"{outdir}/pseudo/co-located")
+            os.mkdir(f"{outdir}/pseudo/conflicting")
+            os.mkdir(f"{outdir}/pseudo/non-conflicting")
         except:
             sys.exit(f"Could not create directory {outdir}")
 
-    summary_file = f"{outdir}/summary{'_' if suffix else ''}{suffix}.txt"
+    path = f"{outdir}/{suffix + '/' if suffix else ''}"
+    summary_file = f"{path}summary{'_' if suffix else ''}{suffix}.txt"
+    matching_file = f"{path}co-located/{file_name1}_co-located{'_' if suffix else ''}{suffix}.csv"
+    alt_matching_file = f"{path}co-located/{file_name2}_co-located{'_' if suffix else ''}{suffix}.csv"
+    conflicts_file = f"{path}conflicting/{file_name1}_conflicting{'_' if suffix else ''}{suffix}.csv"
+    alt_conflicts_file = f"{path}conflicting/{file_name2}_conflicting{'_' if suffix else ''}{suffix}.csv"
+    uniques_file = f"{path}non-conflicting/{file_name1}_non-conflicting{'_' if suffix else ''}{suffix}.csv"
+    alt_uniques_file = f"{path}non-conflicting/{file_name2}_non-conflicting{'_' if suffix else ''}{suffix}.csv"
 
-    matching_file = f"{outdir}/matching{'_' if suffix else ''}{suffix}.csv"
     matching_header = [
                 "locus_tag_1", "gene_name_1", "pseudo_1", "pseudo_type1",
                 "locus_tag_2", "gene_name_2", "pseudo_2", "pseudo_type2",
                 "start", "end", "strand",
     ]
-    conflicts_file = f"{outdir}/conflicts{'_' if suffix else ''}{suffix}.csv"
     conflicts_header = [
                 "locus_tag_1", "gene_name_1", "start_1", "end_1", "strand_1", "pseudo_1", "pseudo_type1",
                 "locus_tag_2", "gene_name_2", "start_2", "end_2", "strand_2", "pseudo_2", "pseudo_type2",
     ]
-    uniques_file = f"{outdir}/{file_name1}_uniques{'_' if suffix else ''}{suffix}.csv"
-    alt_uniques_file = f"{outdir}/{file_name2}_uniques{'_' if suffix else ''}{suffix}.csv"
     uniques_header = [
         "locus_tag", "gene_name", "start",
         "end", "strand", "pseudo", "pseudo_type", "overlaps"
     ]
-
-
-    files = [matching_file, conflicts_file, uniques_file, alt_uniques_file]
-    headers = [matching_header, conflicts_header, uniques_header, uniques_header]
-    reports = [matching, conflicts, unique_features, alt_unique_features]
+    files = [
+        matching_file, alt_matching_file,
+        conflicts_file, alt_conflicts_file,
+        uniques_file, alt_uniques_file
+    ]
+    headers = [
+        matching_header, matching_header,
+        conflicts_header, conflicts_header,
+        uniques_header, uniques_header
+    ]
+    reports = [
+        matching, alt_matching,
+        conflicts, alt_conflicts,
+        unique_features, alt_unique_features
+    ]
 
     for i in range(len(files)):
         with open(files[i], 'w') as f:
@@ -297,13 +317,12 @@ def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_featu
             for line in reports[i]:
                 writer.writerow(line)
 
-    uniq_f = str(len(conflicts) - len(set([str(_[0:6]) for _ in conflicts])))
-    alt_uniq_f = str(len(alt_conflicts) - len(set([str(_[0:6]) for _ in alt_conflicts])))
+    uniq_c = len(set([tuple(_[0:6]) for _ in conflicts]))
+    alt_uniq_c = len(set([tuple(_[0:6]) for _ in alt_conflicts]))
 
     with open(summary_file, 'w') as f:
         print('\t'.join([f"", f"{file_name1}", f"{file_name2}"]), file=f)
-        print('\t'.join([f"Total Features", str(features_total), str(alt_features_total)]), file=f)
-        print('\t'.join([f"Number of Unique Features", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
-        print('\t'.join([f"Number of Exact Matches", str(len(matching)), str(len(alt_matching))]), file=f)
-        print('\t'.join([f"Number of Conflicts", str(len(conflicts)), str(len(alt_conflicts))]), file=f)
-        print('\t'.join([f"Unique Conflicts", uniq_f, alt_uniq_f]), file=f)
+        print('\t'.join([f"Total", str(features_total), str(alt_features_total)]), file=f)
+        print('\t'.join([f"Non-conflicting", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
+        print('\t'.join([f"Co-located", str(len(matching)), str(len(alt_matching))]), file=f)
+        print('\t'.join([f"Conflicting", str(uniq_c), str(alt_uniq_c)]), file=f)
