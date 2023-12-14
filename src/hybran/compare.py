@@ -54,6 +54,42 @@ def furthest_location(loc1, loc2):
             return loc1
         return loc2
 
+def hybran_np(feature):
+    """
+    Note parser to identify types of pseudogenes specifically from Hybran annotation files
+    :param feature: A SeqFeature
+    :return evidence_code: String of the evidence code generated from pseudoscan
+    """
+    pseudo_notes = [_ for _ in feature.qualifiers['note'] if "Hybran/Pseudoscan:evidence:" in _]
+    evidence_code = pseudo_notes[0].split(":", 2)[2]
+    return evidence_code
+
+def pgap_np(feature):
+    """
+    Note parser to identify types of pseudogenes specifically from PGAP annotation files
+    :param feature: A SeqFeature
+    :return evidence_code: String from the note field of a CDS with a '/pseudo' qualifier
+    """
+    evid = {}
+    evidence_code = []
+    evid['frameshift'] = any([_ for _ in feature.qualifiers['note'] if "frameshifted" in _])
+    evid['internal_stop'] = any([_ for _ in feature.qualifiers['note'] if "internal_stop" in _])
+    evid['incomplete'] = any([_ for _ in feature.qualifiers['note'] if "incomplete" in _])
+    for k, v in evid.items():
+        if v:
+            evidence_code.append(str(k))
+    evidence_code = f"{';'.join(evidence_code) if evidence_code else '.'}"
+    return evidence_code
+
+def which_np(gbk_record):
+    for header, comments in gbk_record.annotations.items():
+        header = str(header).lower()
+        comments = str(comments).lower()
+        if ('hybran' in header) or ('hybran' in comments):
+            return hybran_np
+        if ('pgap' in header) or ('pgap' in comments):
+            return pgap_np
+
 def generate_record(gbk):
     """
     Creates a defaultdictionary with all of the features from a .gbk annotation file.
@@ -69,6 +105,7 @@ def generate_record(gbk):
     print(f"Generating record for {gbk.split('/')[-1]}")
 
     for anno_record in all_records:
+        np = which_np(anno_record)
         for f in anno_record.features:
             if f.type == 'CDS' or f.type == 'pseudo':
                 gene_name = (f.qualifiers.get('locus_tag')[0] if f.qualifiers.get('gene') == None else f.qualifiers.get('gene')[0])
@@ -77,8 +114,10 @@ def generate_record(gbk):
                     continue
 
                 if designator.is_pseudo(f.qualifiers):
+                    f.record = np(f)
                     pseudo_list.append(f)
                 anno_list.append(f)
+
     return anno_list, pseudo_list
 
 def is_overlap(loc1, loc2):
@@ -103,6 +142,8 @@ def compare(feature_list, alt_feature_list):
     :return conflicts: List of lists containing information for conflicting annotations.
     :return unique_features: List of lists containing information for unique features from the first annotation file.
     """
+    def get_pseudo_type(feature):
+        return f"{feature.record if hasattr(feature, 'record') else '.'}"
     
     def get_surrounding_features(feature, alt_feature_list):
         """
@@ -131,7 +172,7 @@ def compare(feature_list, alt_feature_list):
         start = int(feature.location.start)
         end = int(feature.location.end)
         strand = feature.location.strand
-        pseudo = designator.is_pseudo(feature.qualifiers)
+        pseudo = int(designator.is_pseudo(feature.qualifiers))
         overlaps = get_surrounding_features(feature, alt_feature_list)
 
         if len(overlaps) > 0:
@@ -143,10 +184,11 @@ def compare(feature_list, alt_feature_list):
             # 'matching' : exact match
             if frame[i] == True and (str(feature.location) == str(overlaps[i].location)):
                 line = [
-                    locus_tag, gene_name, pseudo,
+                    locus_tag, gene_name, pseudo, get_pseudo_type(feature),
                     extractor.get_ltag(overlaps[i]),
                     extractor.get_gene(overlaps[i]),
-                    designator.is_pseudo(overlaps[i].qualifiers),
+                    int(designator.is_pseudo(overlaps[i].qualifiers)),
+                    get_pseudo_type(overlaps[i]),
                     start, end, strand,
                 ]
                 matching.append(line)
@@ -159,13 +201,14 @@ def compare(feature_list, alt_feature_list):
             # 'conflicting' : overlaps in frame
             if frame[i] == True and (str(feature.location) != str(overlaps[i].location)):
                 line = [
-                    locus_tag, gene_name, start, end, strand, pseudo,
+                    locus_tag, gene_name, start, end, strand, pseudo, get_pseudo_type(feature),
                     extractor.get_ltag(overlaps[i]),
                     extractor.get_gene(overlaps[i]),
                     int(overlaps[i].location.start),
                     int(overlaps[i].location.end),
                     overlaps[i].location.strand,
-                    designator.is_pseudo(overlaps[i].qualifiers),
+                    int(designator.is_pseudo(overlaps[i].qualifiers)),
+                    get_pseudo_type(overlaps[i])
                 ]
                 conflicts.append(line)
                 break_check = True
@@ -174,8 +217,10 @@ def compare(feature_list, alt_feature_list):
 
         # 'unique' : no overlaps or overlaps out of frame
         if not any(overlaps) or False in frame:
-            overlap_note = [f"{extractor.get_gene(_)}:{str(_.location)}" for _ in overlaps]
-            line = [locus_tag, gene_name, start, end, strand, pseudo, overlap_note]
+            overlap_note = [
+                f"{extractor.get_gene(_)}|{str(_.location)}|pseudo={int(designator.is_pseudo(_.qualifiers))}|"
+                f"pseudo_type={get_pseudo_type(_)}" for _ in overlaps]
+            line = [locus_tag, gene_name, start, end, strand, pseudo, get_pseudo_type(feature), overlap_note]
             unique_features.append(line)
 
     print(f"Found all matches, conflicts, and unique features.")
@@ -215,20 +260,20 @@ def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_featu
 
     matching_file = f"{outdir}/matching{'_' if suffix else ''}{suffix}.csv"
     matching_header = [
-                "locus_tag_1", "gene_name_1", "pseudo_1",
-                "locus_tag_2", "gene_name_2", "pseudo_2",
+                "locus_tag_1", "gene_name_1", "pseudo_1", "pseudo_type1",
+                "locus_tag_2", "gene_name_2", "pseudo_2", "pseudo_type2",
                 "start", "end", "strand",
     ]
     conflicts_file = f"{outdir}/conflicts{'_' if suffix else ''}{suffix}.csv"
     conflicts_header = [
-                "locus_tag_1", "gene_name_1", "start_1", "end_1", "strand_1", "pseudo_1",
-                "locus_tag_2", "gene_name_2", "start_2", "end_2", "strand_2", "pseudo_2",
+                "locus_tag_1", "gene_name_1", "start_1", "end_1", "strand_1", "pseudo_1", "pseudo_type1",
+                "locus_tag_2", "gene_name_2", "start_2", "end_2", "strand_2", "pseudo_2", "pseudo_type2",
     ]
     uniques_file = f"{outdir}/{file_name1}_uniques{'_' if suffix else ''}{suffix}.csv"
     alt_uniques_file = f"{outdir}/{file_name2}_uniques{'_' if suffix else ''}{suffix}.csv"
     uniques_header = [
         "locus_tag", "gene_name", "start",
-        "end", "strand", "pseudo", "overlaps"
+        "end", "strand", "pseudo", "pseudo_type", "overlaps"
     ]
 
 
