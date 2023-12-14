@@ -14,6 +14,14 @@ def main(args):
     gbk_file2 = args.annotations[1]
     outdir = args.outdir
 
+    if os.path.basename(gbk_file1) == os.path.basename(gbk_file2):
+        sys.exit(f"Input Genbank file names cannot be identical.")
+    if (
+            os.path.splitext(os.path.basename(gbk_file1))[1] != ".gbk" or
+            os.path.splitext(os.path.basename(gbk_file2))[1] != ".gbk"
+    ):
+        sys.exit(f"Input file must be in Genbank format")
+
     feature_list, pseudo_list = generate_record(gbk_file1)
     alt_feature_list, alt_pseudo_list = generate_record(gbk_file2)
 
