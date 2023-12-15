@@ -37,31 +37,6 @@ def main(args):
     write_reports(pseudo_matching, alt_pseudo_matching, pseudo_conflicts, alt_pseudo_conflicts, pseudo_uniques, alt_pseudo_uniques,
                   pseudo_list, alt_pseudo_list, gbk_file1, gbk_file2, outdir, "pseudo")
 
-def furthest_location(loc1, loc2):
-    """
-    Finds the SeqFeature.Location that is the farthest downstream.
-    :param loc1: SeqFeature location.
-    :param loc2: SeqFeature location.
-    :return: Downstream SeqFeature location or None if the locations are exactly the same.
-    """
-    same_start = False
-    same_stop = False
-    if loc1.start == loc2.start:
-        same_start = True
-    if loc1.end == loc2.end:
-        same_stop = True
-
-    if same_start and same_stop:
-        return None
-    elif not same_start and same_stop:
-        if loc1.start > loc2.start:
-            return loc1
-        return loc2
-    else:
-        if loc1.end > loc2.end:
-            return loc1
-        return loc2
-
 def hybran_np(feature):
     """
     Note parser to identify types of pseudogenes specifically from Hybran annotation files
@@ -116,11 +91,6 @@ def generate_record(gbk):
         np = which_np(anno_record)
         for f in anno_record.features:
             if f.type == 'CDS' or f.type == 'pseudo':
-                gene_name = (f.qualifiers.get('locus_tag')[0] if f.qualifiers.get('gene') == None else f.qualifiers.get('gene')[0])
-                #Known bug from RATT annotations creates a nonexistent copy of mamB in hybran
-                if gene_name == 'mamB' and "RATT" in f.qualifiers['inference'][0]:
-                    continue
-
                 if designator.is_pseudo(f.qualifiers):
                     f.record = np(f)
                     pseudo_list.append(f)
@@ -128,17 +98,6 @@ def generate_record(gbk):
 
     return anno_list, pseudo_list
 
-def is_overlap(loc1, loc2):
-    """
-    Determine if two locations overlap.
-    :param loc1: SeqFeature location.
-    :param loc2: SeqFeature location.
-    :return: True if two SeqFeature locations overlap in any way (in frame or out of frame). Otherwise return False.
-    """
-    overlap = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start))
-    if loc1.strand == loc2.strand and overlap > 0:
-        return True
-    return False
 
 def compare(feature_list, alt_feature_list):
     """
