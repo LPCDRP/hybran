@@ -85,23 +85,16 @@ def generate_record(gbk):
     anno_list = []
     pseudo_list = []
     all_records = SeqIO.parse(gbk, "genbank")
-    print(f"Generating record for {gbk.split('/')[-1]}")
 
     for anno_record in all_records:
         np = which_np(anno_record)
         for f in anno_record.features:
             if f.type == 'CDS' or f.type == 'pseudo':
-                interval = Interval(int(f.location.start), int(f.location.end))
-                f.interval = interval
                 if designator.is_pseudo(f.qualifiers):
                     f.evidence = np(f)
                     pseudo_list.append(f)
                 anno_list.append(f)
-
     return anno_list, pseudo_list
-
-def get_pseudo_type(feature):
-        return f"{feature.evidence if hasattr(feature, 'evidence') else '.'}"
 
 def compare(feature_list, alt_feature_list):
     """
@@ -114,6 +107,12 @@ def compare(feature_list, alt_feature_list):
     :return unique_features: List of lists containing information for unique features from the first annotation file.
     """
 
+    def get_feature_interval(feature):
+        return Interval(int(feature.location.start), int(feature.location.end))
+
+    def get_pseudo_type(feature):
+        return f"{feature.evidence if hasattr(feature, 'evidence') else '.'}"
+
     alt_interval_tree = IntervalTree()
     for alt_feature in alt_feature_list:
         alt_interval_tree.addi(int(alt_feature.location.start), int(alt_feature.location.end), alt_feature)
@@ -125,14 +124,15 @@ def compare(feature_list, alt_feature_list):
     non_conflicting = []
 
     for feature in feature_list:
-        frame = []
+        if feature.type != 'CDS':
+            continue
         locus_tag = extractor.get_ltag(feature)
         gene_name = extractor.get_gene(feature)
         start = feature.location.start
         end = feature.location.end
         strand = feature.location.strand
         pseudo = int(designator.is_pseudo(feature.qualifiers))
-        overlaps = alt_interval_tree.overlap(feature.interval)
+        overlaps = alt_interval_tree.overlap(get_feature_interval(feature))
         if overlaps:
             overlaps = [_[2] for _ in list(overlaps)]
             overlaps = sorted(overlaps, key=lambda _: _.location.start)
@@ -176,8 +176,6 @@ def compare(feature_list, alt_feature_list):
             ])
         line = [locus_tag, gene_name, start, end, strand, pseudo, get_pseudo_type(feature), overlap_note]
         non_conflicting.append(line)
-
-    print(f"Found all matches, conflicts, and unique features.")
     return co_located, conflicting, non_conflicting
 
 def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_features, alt_unique_features,
