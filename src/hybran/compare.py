@@ -207,24 +207,17 @@ def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_featu
     if not os.path.isdir(outdir):
         try:
             os.mkdir(outdir)
-            os.mkdir(f"{outdir}/co-located")
-            os.mkdir(f"{outdir}/conflicting")
-            os.mkdir(f"{outdir}/non-conflicting")
-            os.mkdir(f"{outdir}/pseudo")
-            os.mkdir(f"{outdir}/pseudo/co-located")
-            os.mkdir(f"{outdir}/pseudo/conflicting")
-            os.mkdir(f"{outdir}/pseudo/non-conflicting")
         except:
             sys.exit(f"Could not create directory {outdir}")
 
-    path = f"{outdir}/{suffix + '/' if suffix else ''}"
-    summary_file = f"{path}summary{'_' if suffix else ''}{suffix}.txt"
-    matching_file = f"{path}co-located/{file_name1}_co-located{'_' if suffix else ''}{suffix}.csv"
-    alt_matching_file = f"{path}co-located/{file_name2}_co-located{'_' if suffix else ''}{suffix}.csv"
-    conflicts_file = f"{path}conflicting/{file_name1}_conflicting{'_' if suffix else ''}{suffix}.csv"
-    alt_conflicts_file = f"{path}conflicting/{file_name2}_conflicting{'_' if suffix else ''}{suffix}.csv"
-    uniques_file = f"{path}non-conflicting/{file_name1}_non-conflicting{'_' if suffix else ''}{suffix}.csv"
-    alt_uniques_file = f"{path}non-conflicting/{file_name2}_non-conflicting{'_' if suffix else ''}{suffix}.csv"
+    path = f"{outdir}/"
+    summary_file = f"{path}summary{'.' if suffix else ''}{suffix}.txt"
+    matching_file = f"{path}{file_name1}.colo{'.' if suffix else ''}{suffix}.tsv"
+    alt_matching_file = f"{path}{file_name2}.colo{'.' if suffix else ''}{suffix}.tsv"
+    conflicts_file = f"{path}{file_name1}.confl{'.' if suffix else ''}{suffix}.tsv"
+    alt_conflicts_file = f"{path}{file_name2}.confl{'.' if suffix else ''}{suffix}.tsv"
+    uniques_file = f"{path}{file_name1}.nonconfl{'.' if suffix else ''}{suffix}.tsv"
+    alt_uniques_file = f"{path}{file_name2}.nonconfl{'.' if suffix else ''}{suffix}.tsv"
 
     matching_header = [
                 "locus_tag_1", "gene_name_1", "pseudo_1", "pseudo_type1",
@@ -257,11 +250,10 @@ def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_featu
 
     for i in range(len(files)):
         with open(files[i], 'w') as f:
-            writer = csv.writer(f, lineterminator='\n')
-            header = headers[i]
-            writer.writerow(header)
+            print('\t'.join(headers[i]), file=f)
             for line in reports[i]:
-                writer.writerow(line)
+                line = [str(_) for _ in line]
+                print('\t'.join(line), file=f)
 
     uniq_c = len(set([tuple(_[0:6]) for _ in conflicts]))
     alt_uniq_c = len(set([tuple(_[0:6]) for _ in alt_conflicts]))
