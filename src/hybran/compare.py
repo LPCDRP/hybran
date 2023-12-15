@@ -1,6 +1,6 @@
 import os
-import csv
 import sys
+from intervaltree import Interval, IntervalTree
 from collections import defaultdict
 from . import extractor
 from . import fileManager
@@ -91,13 +91,17 @@ def generate_record(gbk):
         np = which_np(anno_record)
         for f in anno_record.features:
             if f.type == 'CDS' or f.type == 'pseudo':
+                interval = Interval(int(f.location.start), int(f.location.end))
+                f.interval = interval
                 if designator.is_pseudo(f.qualifiers):
-                    f.record = np(f)
+                    f.evidence = np(f)
                     pseudo_list.append(f)
                 anno_list.append(f)
 
     return anno_list, pseudo_list
 
+def get_pseudo_type(feature):
+        return f"{feature.evidence if hasattr(feature, 'evidence') else '.'}"
 
 def compare(feature_list, alt_feature_list):
     """
@@ -109,89 +113,72 @@ def compare(feature_list, alt_feature_list):
     :return conflicts: List of lists containing information for conflicting annotations.
     :return unique_features: List of lists containing information for unique features from the first annotation file.
     """
-    def get_pseudo_type(feature):
-        return f"{feature.record if hasattr(feature, 'record') else '.'}"
-    
-    def get_surrounding_features(feature, alt_feature_list):
-        """
-        :param feature: A SeqFeature from the first annotation file
-        :param alt_feature_list: List of SeqFeatures from the alternate annotation file
-        :return overlaps: A list of upstream and downstream features from the alternate annotation file
-        that overlap with the input feature
-        """
-        overlaps = []
-        next_index = 0
 
-        for i in range(len(alt_feature_list)):
-            if is_overlap(feature.location, alt_feature_list[i].location):
-                overlaps.append(alt_feature_list[i])
-        return overlaps
+    alt_interval_tree = IntervalTree()
+    for alt_feature in alt_feature_list:
+        alt_interval_tree.addi(int(alt_feature.location.start), int(alt_feature.location.end), alt_feature)
 
-    #Organize each feature into 3 categories: 'matching', 'unique', 'conflicts'
+    #Organize each feature into 3 categories: 'co_located', 'conflicting', 'non_conflicting'
     #Finds uniques from the first annotation file.
-    matching = []
-    conflicts = []
-    unique_features = []
+    co_located = []
+    conflicting = []
+    non_conflicting = []
+
     for feature in feature_list:
         frame = []
         locus_tag = extractor.get_ltag(feature)
         gene_name = extractor.get_gene(feature)
-        start = int(feature.location.start)
-        end = int(feature.location.end)
+        start = feature.location.start
+        end = feature.location.end
         strand = feature.location.strand
         pseudo = int(designator.is_pseudo(feature.qualifiers))
-        overlaps = get_surrounding_features(feature, alt_feature_list)
+        overlaps = alt_interval_tree.overlap(feature.interval)
+        if overlaps:
+            overlaps = [_[2] for _ in list(overlaps)]
+            overlaps = sorted(overlaps, key=lambda _: _.location.start)
 
-        if len(overlaps) > 0:
-            for i in range(len(overlaps)):
-                frame.append(annomerge.overlap_inframe(feature.location, overlaps[i].location))
+        colo = [_ for _ in overlaps if (annomerge.overlap_inframe(feature.location, _.location) and
+                                               feature.location == _.location)]
+        conf = [_ for _ in overlaps if (annomerge.overlap_inframe(feature.location, _.location) and
+                                               feature.location != _.location)]
+        non_conf = [_ for _ in overlaps if not annomerge.overlap_inframe(feature.location, _.location)]
 
-        break_check = False
-        for i in range(len(frame)):
-            # 'matching' : exact match
-            if frame[i] == True and (str(feature.location) == str(overlaps[i].location)):
-                line = [
-                    locus_tag, gene_name, pseudo, get_pseudo_type(feature),
-                    extractor.get_ltag(overlaps[i]),
-                    extractor.get_gene(overlaps[i]),
-                    int(designator.is_pseudo(overlaps[i].qualifiers)),
-                    get_pseudo_type(overlaps[i]),
-                    start, end, strand,
-                ]
-                matching.append(line)
-                break_check = True
-                break
-        if break_check:
+        # 'co_located' : exact match
+        if any(colo):
+            _ = colo[0]
+            line = [
+                locus_tag, gene_name, pseudo, get_pseudo_type(feature),
+                extractor.get_ltag(_), extractor.get_gene(_),
+                int(designator.is_pseudo(_.qualifiers)),
+                get_pseudo_type(_), start, end, strand,
+            ]
+            co_located.append(line)
             continue
 
-        for i in range(len(frame)):
-            # 'conflicting' : overlaps in frame
-            if frame[i] == True and (str(feature.location) != str(overlaps[i].location)):
+        # 'conflicting' : overlaps in frame
+        if any(conf):
+            for _ in conf:
                 line = [
                     locus_tag, gene_name, start, end, strand, pseudo, get_pseudo_type(feature),
-                    extractor.get_ltag(overlaps[i]),
-                    extractor.get_gene(overlaps[i]),
-                    int(overlaps[i].location.start),
-                    int(overlaps[i].location.end),
-                    overlaps[i].location.strand,
-                    int(designator.is_pseudo(overlaps[i].qualifiers)),
-                    get_pseudo_type(overlaps[i])
+                    extractor.get_ltag(_), extractor.get_gene(_), (_.location.start),
+                    (_.location.end), _.location.strand, int(designator.is_pseudo(_.qualifiers)),
+                    get_pseudo_type(_)
                 ]
-                conflicts.append(line)
-                break_check = True
-        if break_check:
+                conflicting.append(line)
             continue
 
-        # 'unique' : no overlaps or overlaps out of frame
-        if not any(overlaps) or False in frame:
-            overlap_note = [
+        # 'non-conflicting' : no overlaps at all or overlaps out of frame
+        overlap_note = "."
+        if any(non_conf):
+            overlap_note = ";".join([
                 f"{extractor.get_gene(_)}|{str(_.location)}|pseudo={int(designator.is_pseudo(_.qualifiers))}|"
-                f"pseudo_type={get_pseudo_type(_)}" for _ in overlaps]
-            line = [locus_tag, gene_name, start, end, strand, pseudo, get_pseudo_type(feature), overlap_note]
-            unique_features.append(line)
+                f"pseudo_type={get_pseudo_type(_)}" for _ in non_conf
+            ])
+        line = [locus_tag, gene_name, start, end, strand, pseudo, get_pseudo_type(feature), overlap_note]
+        non_conflicting.append(line)
 
     print(f"Found all matches, conflicts, and unique features.")
-    return matching, conflicts, unique_features
+    return co_located, conflicting, non_conflicting
 
 def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_features, alt_unique_features,
                   feature_list, alt_feature_list, gbk_file1, gbk_file2, outdir, suffix=""):
