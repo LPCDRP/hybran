@@ -16,12 +16,12 @@ def main(args):
     gbk_file1, gbk_file2 = args.annotations
     outdir = args.outdir
 
-    basename1 = os.path.splitext(os.path.basename(gbk_file1))[0]
-    basename2 = os.path.splitext(os.path.basename(gbk_file2))[0]
+    basename1, ext1 = os.path.splitext(os.path.basename(gbk_file1))
+    basename2, ext2 = os.path.splitext(os.path.basename(gbk_file2))
 
     if (
-            os.path.splitext(os.path.basename(gbk_file1))[1] != ".gbk" or
-            os.path.splitext(os.path.basename(gbk_file2))[1] != ".gbk"
+            ext1[1:] not in fileManager.exts['genbank'] or
+            ext2[1:] not in fileManager.exts['genbank']
     ):
         sys.exit(f"Input file must be in Genbank format")
     if basename1 == basename2:
