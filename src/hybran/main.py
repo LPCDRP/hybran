@@ -89,6 +89,7 @@ def cmds():
     )
     comparecmd.set_defaults(func=compare.main)
 
+
     #
     # hybran standardize
     #
