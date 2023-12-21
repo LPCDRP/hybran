@@ -16,6 +16,9 @@ def main(args):
     gbk_file1, gbk_file2 = args.annotations
     outdir = args.outdir
 
+    basename1 = os.path.splitext(os.path.basename(gbk_file1))[0]
+    basename2 = os.path.splitext(os.path.basename(gbk_file2))[0]
+
     if os.path.basename(gbk_file1) == os.path.basename(gbk_file2):
         sys.exit(f"Input Genbank file names cannot be identical.")
     if (
@@ -42,8 +45,8 @@ def main(args):
         alt_uniques,
         feature_list,
         alt_feature_list,
-        gbk_file1,
-        gbk_file2,
+        basename1,
+        basename2,
         outdir,
     )
 
@@ -56,8 +59,8 @@ def main(args):
         alt_pseudo_uniques,
         pseudo_list,
         alt_pseudo_list,
-        gbk_file1,
-        gbk_file2,
+        basename1,
+        basename2,
         outdir,
         "pseudo",
     )
@@ -212,8 +215,8 @@ def write_reports(
         alt_unique_features,
         feature_list,
         alt_feature_list,
-        gbk_file1,
-        gbk_file2,
+        file_name1,
+        file_name2,
         outdir,
         suffix="",
 ):
@@ -228,14 +231,12 @@ def write_reports(
     :param alt_unique_features: List of lists containing information for unique features from the alternate annotation file.
     :param feature_list: List of features from the input.gbk file ordered by position.
     :param alt_feature_list: List of features from the alternative input.gbk file ordered by position.
-    :param gbk_file1: String of a path to a .gbk annotation file.
-    :param gbk_file2: String of a path to an alternate .gbk annotation file.
+    :param file_name1: String label for first annotation file.
+    :param file_name2: String label for second annotation file.
     :param outdir: String name for the out directory
     :param suffix: Optional argument to change the suffix of report files.
     """
 
-    file_name1 = os.path.splitext(os.path.basename(gbk_file1))[0]
-    file_name2 = os.path.splitext(os.path.basename(gbk_file2))[0]
     features_total = len(feature_list)
     alt_features_total = len(alt_feature_list)
 
