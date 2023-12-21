@@ -19,13 +19,23 @@ def main(args):
     basename1 = os.path.splitext(os.path.basename(gbk_file1))[0]
     basename2 = os.path.splitext(os.path.basename(gbk_file2))[0]
 
-    if os.path.basename(gbk_file1) == os.path.basename(gbk_file2):
-        sys.exit(f"Input Genbank file names cannot be identical.")
     if (
             os.path.splitext(os.path.basename(gbk_file1))[1] != ".gbk" or
             os.path.splitext(os.path.basename(gbk_file2))[1] != ".gbk"
     ):
         sys.exit(f"Input file must be in Genbank format")
+    if basename1 == basename2:
+        prefix1 = os.path.splitext(gbk_file1)[0]
+        prefix2 = os.path.splitext(gbk_file2)[0]
+        # same file (or only differing in extension. like x.gbk vs x.gb)
+        if prefix1 == prefix2:
+            basename1 += "_1"
+            basename2 += "_2"
+        # same file name but in different folders.
+        # This is a common scenario for different version runs of the same sample.
+        else:
+            basename1 = prefix1.replace(os.sep, '_')
+            basename2 = prefix2.replace(os.sep, '_')
 
     feature_list, pseudo_list = generate_record(gbk_file1)
     alt_feature_list, alt_pseudo_list = generate_record(gbk_file2)
