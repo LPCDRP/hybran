@@ -13,8 +13,7 @@ from . import designator
 
 def main(args):
 
-    gbk_file1 = args.annotations[0]
-    gbk_file2 = args.annotations[1]
+    gbk_file1, gbk_file2 = args.annotations
     outdir = args.outdir
 
     if os.path.basename(gbk_file1) == os.path.basename(gbk_file2):
@@ -34,11 +33,34 @@ def main(args):
     pseudo_matching, pseudo_conflicts, pseudo_uniques = compare(pseudo_list, alt_feature_list)
     alt_pseudo_matching, alt_pseudo_conflicts, alt_pseudo_uniques = compare(alt_pseudo_list, feature_list)
 
-    write_reports(matching, alt_matching, conflicts, alt_conflicts, uniques, alt_uniques,
-                  feature_list, alt_feature_list, gbk_file1, gbk_file2, outdir)
+    write_reports(
+        matching,
+        alt_matching,
+        conflicts,
+        alt_conflicts,
+        uniques,
+        alt_uniques,
+        feature_list,
+        alt_feature_list,
+        gbk_file1,
+        gbk_file2,
+        outdir,
+    )
 
-    write_reports(pseudo_matching, alt_pseudo_matching, pseudo_conflicts, alt_pseudo_conflicts, pseudo_uniques, alt_pseudo_uniques,
-                  pseudo_list, alt_pseudo_list, gbk_file1, gbk_file2, outdir, "pseudo")
+    write_reports(
+        pseudo_matching,
+        alt_pseudo_matching,
+        pseudo_conflicts,
+        alt_pseudo_conflicts,
+        pseudo_uniques,
+        alt_pseudo_uniques,
+        pseudo_list,
+        alt_pseudo_list,
+        gbk_file1,
+        gbk_file2,
+        outdir,
+        "pseudo",
+    )
 
 def hybran_np(feature):
     """
@@ -181,8 +203,20 @@ def compare(feature_list, alt_feature_list):
         non_conflicting.append(line)
     return co_located, conflicting, non_conflicting
 
-def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_features, alt_unique_features,
-                  feature_list, alt_feature_list, gbk_file1, gbk_file2, outdir, suffix=""):
+def write_reports(
+        matching,
+        alt_matching,
+        conflicts,
+        alt_conflicts,
+        unique_features,
+        alt_unique_features,
+        feature_list,
+        alt_feature_list,
+        gbk_file1,
+        gbk_file2,
+        outdir,
+        suffix="",
+):
     """
     Write the summary and report files for each type of comparison.
 
@@ -221,32 +255,38 @@ def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_featu
     alt_uniques_file = f"{path}{file_name2}.nonconfl{'.' if suffix else ''}{suffix}.tsv"
 
     matching_header = [
-                "locus_tag_1", "gene_name_1", "pseudo_1", "pseudo_type1",
-                "locus_tag_2", "gene_name_2", "pseudo_2", "pseudo_type2",
-                "start", "end", "strand",
+        "locus_tag_1", "gene_name_1", "pseudo_1", "pseudo_type1",
+        "locus_tag_2", "gene_name_2", "pseudo_2", "pseudo_type2",
+        "start", "end", "strand",
     ]
     conflicts_header = [
-                "locus_tag_1", "gene_name_1", "start_1", "end_1", "strand_1", "pseudo_1", "pseudo_type1",
-                "locus_tag_2", "gene_name_2", "start_2", "end_2", "strand_2", "pseudo_2", "pseudo_type2",
+        "locus_tag_1", "gene_name_1", "start_1", "end_1", "strand_1", "pseudo_1", "pseudo_type1",
+        "locus_tag_2", "gene_name_2", "start_2", "end_2", "strand_2", "pseudo_2", "pseudo_type2",
     ]
     uniques_header = [
-        "locus_tag", "gene_name", "start",
-        "end", "strand", "pseudo", "pseudo_type", "overlaps"
+        "locus_tag",
+        "gene_name",
+        "start",
+        "end",
+        "strand",
+        "pseudo",
+        "pseudo_type",
+        "overlaps",
     ]
     files = [
         matching_file, alt_matching_file,
         conflicts_file, alt_conflicts_file,
-        uniques_file, alt_uniques_file
+        uniques_file, alt_uniques_file,
     ]
     headers = [
         matching_header, matching_header,
         conflicts_header, conflicts_header,
-        uniques_header, uniques_header
+        uniques_header, uniques_header,
     ]
     reports = [
         matching, alt_matching,
         conflicts, alt_conflicts,
-        unique_features, alt_unique_features
+        unique_features, alt_unique_features,
     ]
 
     for i in range(len(files)):
@@ -260,7 +300,7 @@ def write_reports(matching, alt_matching, conflicts, alt_conflicts, unique_featu
     alt_uniq_c = len(set([tuple(_[0:6]) for _ in alt_conflicts]))
 
     with open(summary_file, 'w') as f:
-        print('\t'.join([f"", f"{file_name1}", f"{file_name2}"]), file=f)
+        print('\t'.join(["", file_name1, file_name2]), file=f)
         print('\t'.join([f"Total", str(features_total), str(alt_features_total)]), file=f)
         print('\t'.join([f"Non-conflicting", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
         print('\t'.join([f"Co-located", str(len(matching)), str(len(alt_matching))]), file=f)
