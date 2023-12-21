@@ -1,12 +1,15 @@
+from collections import defaultdict
 import os
 import sys
+
 from intervaltree import Interval, IntervalTree
-from collections import defaultdict
+
+from .bio import SeqIO
 from . import extractor
 from . import fileManager
 from . import annomerge
 from . import designator
-from .bio import SeqIO
+
 
 def main(args):
 
