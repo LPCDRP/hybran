@@ -82,6 +82,9 @@ def hybran_np(feature):
     :return evidence_code: String of the evidence code generated from pseudoscan
     """
     pseudo_notes = [_ for _ in feature.qualifiers['note'] if "Hybran/Pseudoscan:evidence:" in _]
+    # older hybran releases don't have these evidence code notes
+    if not pseudo_notes:
+        return '.'
     evidence_code = pseudo_notes[0].split(":", 2)[2]
     return evidence_code
 
