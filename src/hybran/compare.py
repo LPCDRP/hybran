@@ -86,6 +86,8 @@ def hybran_np(feature):
     if not pseudo_notes:
         return '.'
     evidence_code = pseudo_notes[0].split(":", 2)[2]
+    # A long string gets line-wrapped in the genbank file and Biopython doesn't correctly undo the line-wrapping.
+    evidence_code = evidence_code.replace(' ', '')
     return evidence_code
 
 def pgap_np(feature):

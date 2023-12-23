@@ -1460,13 +1460,25 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
 
                 if new_note:
                     new_note = ' | '.join(new_note)
-                    designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan:description:{new_note}'.replace(' ',''))
+                    designator.append_qualifier(
+                        feature.qualifiers,
+                        'note',
+                        f'Hybran/Pseudoscan:description:{new_note}',
+                    )
 
                 if feature.ps_evid:
-                    designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan:evidence:{";".join(feature.ps_evid)}'.replace(' ',''))
+                    designator.append_qualifier(
+                        feature.qualifiers,
+                        'note',
+                        f'Hybran/Pseudoscan:evidence:{";".join(feature.ps_evid)}',
+                    )
 
                 if note_codes:
-                    designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan:barcode:{note_codes}'.replace(' ',''))
+                    designator.append_qualifier(
+                        feature.qualifiers,
+                        'note',
+                        f'Hybran/Pseudoscan:barcode:{note_codes}',
+                    )
     return is_pseudo
 
 def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
