@@ -84,7 +84,7 @@ def cmds():
     onegenecmd.set_defaults(func=onegene.main)
     comparecmd = subparsers.add_parser(
         'compare',
-        help='Compare annotations between two .gbk files.',
+        help='Compare two annotations of the same genome.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     comparecmd.set_defaults(func=compare.main)
