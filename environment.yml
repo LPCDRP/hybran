@@ -12,6 +12,7 @@ dependencies:
   - eggnog-mapper
   - emboss
   - entrez-direct
+  - intervaltree
   - mcl
   - multiprocess
   - mummer
