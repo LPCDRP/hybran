@@ -90,6 +90,13 @@ def hybran_np(feature):
     evidence_code = evidence_code.replace(' ', '')
     return evidence_code
 
+pgap_evidence_codes = [
+    'ambiguous residues',
+    'frameshifted',
+    'incomplete',
+    'internal stop',
+]
+
 def pgap_np(feature):
     """
     Note parser to identify types of pseudogenes specifically from PGAP annotation files
@@ -98,12 +105,14 @@ def pgap_np(feature):
     """
     evid = {}
     evidence_code = []
-    evid['frameshift'] = any([_ for _ in feature.qualifiers['note'] if "frameshifted" in _])
-    evid['internal_stop'] = any([_ for _ in feature.qualifiers['note'] if "internal_stop" in _])
-    evid['incomplete'] = any([_ for _ in feature.qualifiers['note'] if "incomplete" in _])
-    for k, v in evid.items():
-        if v:
-            evidence_code.append(str(k))
+    for note in feature.qualifiers['note']:
+        components = note.split(';')
+        for component in components:
+            component = component.strip()
+            if component in pgap_evidence_codes:
+                evidence_code.append(component.replace(' ', '_'))
+            else:
+                break
     evidence_code = f"{';'.join(evidence_code) if evidence_code else '.'}"
     return evidence_code
 
