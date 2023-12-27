@@ -19,9 +19,32 @@ Hybran comes with associated functionality that can be run independently.
 These are either not part of the pipeline at all or not a component in their own right.
 These tools are:
 
+`hybran compare`
+: Compare two annotations of the same genome
+
 `hybran standardize`
 : Remove generic gene names.
 
+
+### `hybran compare`
+
+Given two annotations in genbank format, `hybran compare` will produce a breakdown of how the features from each annotation relate to each other (currently only CDS types) into the following categories:
+
+- **co-located**
+: features with identical coordinates.
+We don't call the features themselves "identical" because they may have been functionally annotated differently.
+All co-located genes are excluded from further comparison.
+- **conflicting**
+: genes that overlap in-frame, but without identical coordinates.
+- **unique**
+: genes that either do not overlap at all, or overlap out-of-frame.
+The report files for this include an extra column listing all overlapping features (except for any determined to be co-located with another feature) from the other annotation.
+
+A summary report is also generated listing the counts of features/pairs in each category.
+For conflicting genes, a count of the distinct features from each annotation is shown, as genes (in particular, pseudogenes) can potentially conflict with multiple annotations.
+
+An additional set of reports focusing on pseudogenes is also generated.
+This is a strict subset of the data from the standard reports.
 
 ### `hybran standardize`
 
