@@ -200,8 +200,6 @@ def compare(feature_list, alt_feature_list):
     alt_unique = []
 
     for i, feature in enumerate(feature_list):
-        if feature.type != 'CDS':
-            continue
         feature.label = f"X{i}"
         for G in [G_conflict, G_all_partial_overlaps]:
             G.add_node(
