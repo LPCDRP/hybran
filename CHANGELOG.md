@@ -2,6 +2,12 @@
 
 ## [Development]
 
+* hybran now depends on `networkx` and `intervaltree`
+
+### Enhancements
+* New subcommand:
+  - `hybran compare`: compare two annotations of the same genome
+
 ### Bugs fixed
 * Synonymous SNPs in start codons do not automatically invalidate reference-correspondence.
 
