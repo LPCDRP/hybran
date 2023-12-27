@@ -358,8 +358,8 @@ def write_reports(
     summary_file = f"{path}summary{'.' if suffix else ''}{suffix}.txt"
     matching_file = f"{path}colocated{'.' if suffix else ''}{suffix}.tsv"
     conflicts_file = f"{path}conflicting{'.' if suffix else ''}{suffix}.tsv"
-    uniques_file = f"{path}{file_name1}.nonconflicting{'.' if suffix else ''}{suffix}.tsv"
-    alt_uniques_file = f"{path}{file_name2}.nonconflicting{'.' if suffix else ''}{suffix}.tsv"
+    uniques_file = f"{path}{file_name1}.unique{'.' if suffix else ''}{suffix}.tsv"
+    alt_uniques_file = f"{path}{file_name2}.unique{'.' if suffix else ''}{suffix}.tsv"
 
     matching_header = [
         "locus_tag_1", "gene_name_1", "pseudo_1", "pseudo_type1",
@@ -414,6 +414,6 @@ def write_reports(
     with open(summary_file, 'w') as f:
         print('\t'.join(["", file_name1, file_name2]), file=f)
         print('\t'.join([f"Total", str(features_total), str(alt_features_total)]), file=f)
-        print('\t'.join([f"Non-conflicting", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
+        print('\t'.join([f"Unique", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
         print('\t'.join([f"Co-located", str(len(matching))]), file=f)
         print('\t'.join([f"Conflicting", str(uniq_c), str(alt_uniq_c)]), file=f)
