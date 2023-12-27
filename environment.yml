@@ -16,6 +16,7 @@ dependencies:
   - mcl
   - multiprocess
   - mummer
+  - networkx
   - paml
   - prokka>=1.14.0 # for prokka's --coverage
   - python>=3

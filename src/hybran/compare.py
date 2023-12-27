@@ -3,6 +3,7 @@ import os
 import sys
 
 from intervaltree import Interval, IntervalTree
+import networkx as nx
 
 from .bio import SeqIO
 from . import extractor
@@ -40,19 +41,17 @@ def main(args):
     feature_list, pseudo_list = generate_record(gbk_file1)
     alt_feature_list, alt_pseudo_list = generate_record(gbk_file2)
 
-    matching, conflicts, uniques = compare(feature_list, alt_feature_list)
-    alt_matching, alt_conflicts, alt_uniques = compare(alt_feature_list, feature_list)
-
-    pseudo_matching, pseudo_conflicts, pseudo_uniques = compare(pseudo_list, alt_feature_list)
-    alt_pseudo_matching, alt_pseudo_conflicts, alt_pseudo_uniques = compare(alt_pseudo_list, feature_list)
+    matching, conflicts, uniques, alt_uniques, ovl_graph = compare(
+        feature_list,
+        alt_feature_list,
+    )
 
     write_reports(
         matching,
-        alt_matching,
         conflicts,
-        alt_conflicts,
         uniques,
         alt_uniques,
+        ovl_graph,
         feature_list,
         alt_feature_list,
         basename1,
@@ -60,13 +59,19 @@ def main(args):
         outdir,
     )
 
+    pseudo_matching = [(f1, f2) for f1, f2 in matching
+                       if designator.is_pseudo(f1.qualifiers) or designator.is_pseudo(f2.qualifiers)]
+    pseudo_conflicts = [(f1, f2) for f1, f2 in conflicts
+                       if designator.is_pseudo(f1.qualifiers) or designator.is_pseudo(f2.qualifiers)]
+    pseudo_uniques = [f for f in uniques if designator.is_pseudo(f.qualifiers)]
+    alt_pseudo_uniques = [f for f in alt_uniques if designator.is_pseudo(f.qualifiers)]
+
     write_reports(
         pseudo_matching,
-        alt_pseudo_matching,
         pseudo_conflicts,
-        alt_pseudo_conflicts,
         pseudo_uniques,
         alt_pseudo_uniques,
+        ovl_graph,
         pseudo_list,
         alt_pseudo_list,
         basename1,
@@ -148,6 +153,9 @@ def generate_record(gbk):
                 anno_list.append(f)
     return anno_list, pseudo_list
 
+def get_pseudo_type(feature):
+    return f"{feature.evidence if hasattr(feature, 'evidence') else '.'}"
+
 def compare(feature_list, alt_feature_list):
     """
     Organize each feature into various categories based on overlaps between the annotation files.
@@ -162,28 +170,45 @@ def compare(feature_list, alt_feature_list):
     def get_feature_interval(feature):
         return Interval(int(feature.location.start), int(feature.location.end))
 
-    def get_pseudo_type(feature):
-        return f"{feature.evidence if hasattr(feature, 'evidence') else '.'}"
+    # Use a bipartite graph to relate conflicts
+    # We use a directed graph here because we want to be able to rely on edges being F1 -> F2
+    # so that we can identify the source genome easily.
+    #
+    # for node attributes:
+    # bipartite=0 => genome 1
+    # bipartite=1 => genome 2
+    G_conflict = nx.DiGraph()
 
     alt_interval_tree = IntervalTree()
-    for alt_feature in alt_feature_list:
+    for i, alt_feature in enumerate(alt_feature_list):
+        alt_feature.label = f"Y{i}"
+        G_conflict.add_node(
+            alt_feature.label,
+            annotation=alt_feature,
+            bipartite=1,
+        )
         alt_interval_tree.addi(int(alt_feature.location.start), int(alt_feature.location.end), alt_feature)
 
-    #Organize each feature into 3 categories: 'co_located', 'conflicting', 'non_conflicting'
-    #Finds uniques from the first annotation file.
+    # A second bipartite graph to track all overlaps (except exact matches)
+    # we don't want edge direction here because we want to easily identify edges originating from
+    # features from either genome.
+    G_all_partial_overlaps = G_conflict.copy().to_undirected()
+
     co_located = []
     conflicting = []
-    non_conflicting = []
+    unique = []
+    alt_unique = []
 
-    for feature in feature_list:
+    for i, feature in enumerate(feature_list):
         if feature.type != 'CDS':
             continue
-        locus_tag = extractor.get_ltag(feature)
-        gene_name = extractor.get_gene(feature)
-        start = feature.location.start
-        end = feature.location.end
-        strand = feature.location.strand
-        pseudo = int(designator.is_pseudo(feature.qualifiers))
+        feature.label = f"X{i}"
+        for G in [G_conflict, G_all_partial_overlaps]:
+            G.add_node(
+                feature.label,
+                annotation=feature,
+                bipartite=0,
+            )
         overlaps = alt_interval_tree.overlap(get_feature_interval(feature))
         if overlaps:
             overlaps = [_[2] for _ in list(overlaps)]
@@ -197,46 +222,106 @@ def compare(feature_list, alt_feature_list):
 
         # 'co_located' : exact match
         if any(colo):
+            # we don't care about further overlaps with these pairs, as they're fully accounted for.
+            G_conflict.remove_nodes_from([_.label for _ in colo] + [feature.label])
+            # the only time len(colo)>1 is if there are redundant annotation entries.
             _ = colo[0]
-            line = [
-                locus_tag, gene_name, pseudo, get_pseudo_type(feature),
-                extractor.get_ltag(_), extractor.get_gene(_),
-                int(designator.is_pseudo(_.qualifiers)),
-                get_pseudo_type(_), start, end, strand,
-            ]
-            co_located.append(line)
+            co_located.append( (feature, colo[0]) )
             continue
 
         # 'conflicting' : overlaps in frame
         if any(conf):
-            for _ in conf:
-                line = [
-                    locus_tag, gene_name, start, end, strand, pseudo, get_pseudo_type(feature),
-                    extractor.get_ltag(_), extractor.get_gene(_), (_.location.start),
-                    (_.location.end), _.location.strand, int(designator.is_pseudo(_.qualifiers)),
-                    get_pseudo_type(_)
-                ]
-                conflicting.append(line)
-            continue
+            for alt_feature in conf:
+                for G in [G_conflict, G_all_partial_overlaps]:
+                    # alt_feature could have been dropped from the graph in a previous match.
+                    # if so, don't add it back into the graph.
+                    if alt_feature.label in G.nodes:
+                        G.add_edge(feature.label, alt_feature.label, inframe=True)
 
         # 'non-conflicting' : no overlaps at all or overlaps out of frame
-        overlap_note = "."
         if any(non_conf):
-            overlap_note = ";".join([
-                f"{extractor.get_gene(_)}|{str(_.location)}|pseudo={int(designator.is_pseudo(_.qualifiers))}|"
-                f"pseudo_type={get_pseudo_type(_)}" for _ in non_conf
-            ])
-        line = [locus_tag, gene_name, start, end, strand, pseudo, get_pseudo_type(feature), overlap_note]
-        non_conflicting.append(line)
-    return co_located, conflicting, non_conflicting
+            G_all_partial_overlaps.add_edges_from(
+                [(feature.label, _.label) for _ in non_conf],
+                inframe=False,
+            )
+
+    #
+    # See what's left now that the dust has settled
+    #
+    for comp in nx.weakly_connected_components(G_conflict):
+        comp = list(comp)
+        # "connected components" with only one node represent unique features.
+        if len(comp) == 1:
+            annotation = G_conflict.nodes[comp[0]]['annotation']
+            if G_conflict.nodes[comp[0]]['bipartite'] == 0:
+                unique.append(annotation)
+            else:
+                alt_unique.append(annotation)
+        else:
+            conflicting += [
+                (G_conflict.nodes[x]['annotation'], G_conflict.nodes[y]['annotation'])
+                for x,y in G_conflict.edges(comp)
+            ]
+
+    return co_located, conflicting, unique, alt_unique, G_all_partial_overlaps
+
+#
+# Helper functions for write_reports()
+#
+
+def unpack_feature(feature):
+    return {
+        'ltag': extractor.get_ltag(feature),
+        'gene': extractor.get_gene(feature),
+        'start': str(feature.location.start + 1),
+        'end': str(feature.location.end),
+        'strand': str(feature.location.strand),
+        'pseudo': str(int(designator.is_pseudo(feature.qualifiers))),
+        'pseudo_type': get_pseudo_type(feature),
+    }
+
+def format_match(pair, G=None):
+    f1, f2 = [unpack_feature(_) for _ in pair]
+    return [
+        f1['ltag'], f1['gene'], f1['pseudo'], f1['pseudo_type'],
+        f2['ltag'], f2['gene'], f2['pseudo'], f2['pseudo_type'],
+        f1['start'], f1['end'], f1['strand'],
+    ]
+
+def format_conflict(pair, G=None):
+    f1, f2 = [unpack_feature(_) for _ in pair]
+    return [
+        f1['ltag'], f1['gene'], f1['start'], f1['end'], f1['strand'], f1['pseudo'], f1['pseudo_type'],
+        f2['ltag'], f2['gene'], f2['start'], f2['end'], f2['strand'], f2['pseudo'], f2['pseudo_type'],
+    ]
+
+def format_unique(feature, G):
+    f = unpack_feature(feature)
+    overlaps = [G.nodes[_[1]]['annotation'] for _ in G.edges(feature.label)]
+    overlap_note = ";".join([
+        f"{extractor.get_gene(_)}|{str(_.location)}|pseudo={int(designator.is_pseudo(_.qualifiers))}|"
+        f"pseudo_type={get_pseudo_type(_)}" for _ in overlaps
+    ])
+    if not overlap_note:
+        overlap_note = "."
+    return [
+        f['ltag'],
+        f['gene'],
+        f['start'],
+        f['end'],
+        f['strand'],
+        f['pseudo'],
+        f['pseudo_type'],
+        overlap_note,
+    ]
+
 
 def write_reports(
         matching,
-        alt_matching,
         conflicts,
-        alt_conflicts,
         unique_features,
         alt_unique_features,
+        overlap_graph,
         feature_list,
         alt_feature_list,
         file_name1,
@@ -247,12 +332,11 @@ def write_reports(
     """
     Write the summary and report files for each type of comparison.
 
-    :param matching: List of lists containing information for exactly matching annotations.
-    :param alt_matching: List of lists containing information for exactly matching annotations.
-    :param conflicts: List of lists containing information for conflicting annotations from the first annotation file.
-    :param alt_conflicts: List of lists containing information for conflicting annotations from the alternate annotation file.
-    :param unique_features: List of lists containing information for unique features from the first annotation file.
-    :param alt_unique_features: List of lists containing information for unique features from the alternate annotation file.
+    :param matching: List of 2-tuples of SeqFeatures of exactly matching annotations.
+    :param conflicts: List of 2-tuples of SeqFeatures of conflicting annotations.
+    :param unique_features: List of SeqFeatures containing unique features from the first annotation file.
+    :param alt_unique_features: List of SeqFeatures containing unique features from the alternate annotation file.
+    :param overlap_graph: networkx undirected graph with edges between overlapping features
     :param feature_list: List of features from the input.gbk file ordered by position.
     :param alt_feature_list: List of features from the alternative input.gbk file ordered by position.
     :param file_name1: String label for first annotation file.
@@ -270,14 +354,12 @@ def write_reports(
         except:
             sys.exit(f"Could not create directory {outdir}")
 
-    path = f"{outdir}/"
+    path = f"{outdir}{os.sep}"
     summary_file = f"{path}summary{'.' if suffix else ''}{suffix}.txt"
-    matching_file = f"{path}{file_name1}.colo{'.' if suffix else ''}{suffix}.tsv"
-    alt_matching_file = f"{path}{file_name2}.colo{'.' if suffix else ''}{suffix}.tsv"
-    conflicts_file = f"{path}{file_name1}.confl{'.' if suffix else ''}{suffix}.tsv"
-    alt_conflicts_file = f"{path}{file_name2}.confl{'.' if suffix else ''}{suffix}.tsv"
-    uniques_file = f"{path}{file_name1}.nonconfl{'.' if suffix else ''}{suffix}.tsv"
-    alt_uniques_file = f"{path}{file_name2}.nonconfl{'.' if suffix else ''}{suffix}.tsv"
+    matching_file = f"{path}colocated{'.' if suffix else ''}{suffix}.tsv"
+    conflicts_file = f"{path}conflicting{'.' if suffix else ''}{suffix}.tsv"
+    uniques_file = f"{path}{file_name1}.nonconflicting{'.' if suffix else ''}{suffix}.tsv"
+    alt_uniques_file = f"{path}{file_name2}.nonconflicting{'.' if suffix else ''}{suffix}.tsv"
 
     matching_header = [
         "locus_tag_1", "gene_name_1", "pseudo_1", "pseudo_type1",
@@ -299,34 +381,39 @@ def write_reports(
         "overlaps",
     ]
     files = [
-        matching_file, alt_matching_file,
-        conflicts_file, alt_conflicts_file,
+        matching_file,
+        conflicts_file,
         uniques_file, alt_uniques_file,
     ]
     headers = [
-        matching_header, matching_header,
-        conflicts_header, conflicts_header,
+        matching_header,
+        conflicts_header,
         uniques_header, uniques_header,
     ]
     reports = [
-        matching, alt_matching,
-        conflicts, alt_conflicts,
+        matching,
+        conflicts,
         unique_features, alt_unique_features,
+    ]
+    formatters = [
+        format_match,
+        format_conflict,
+        format_unique, format_unique,
     ]
 
     for i in range(len(files)):
         with open(files[i], 'w') as f:
             print('\t'.join(headers[i]), file=f)
-            for line in reports[i]:
-                line = [str(_) for _ in line]
+            for record in reports[i]:
+                line = formatters[i](record, G=overlap_graph)
                 print('\t'.join(line), file=f)
 
-    uniq_c = len(set([tuple(_[0:6]) for _ in conflicts]))
-    alt_uniq_c = len(set([tuple(_[0:6]) for _ in alt_conflicts]))
+    uniq_c = len(set([_[0].label for _ in conflicts]))
+    alt_uniq_c = len(set([_[1].label for _ in conflicts]))
 
     with open(summary_file, 'w') as f:
         print('\t'.join(["", file_name1, file_name2]), file=f)
         print('\t'.join([f"Total", str(features_total), str(alt_features_total)]), file=f)
         print('\t'.join([f"Non-conflicting", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
-        print('\t'.join([f"Co-located", str(len(matching)), str(len(alt_matching))]), file=f)
+        print('\t'.join([f"Co-located", str(len(matching))]), file=f)
         print('\t'.join([f"Conflicting", str(uniq_c), str(alt_uniq_c)]), file=f)
