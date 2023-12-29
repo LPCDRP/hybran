@@ -7,6 +7,8 @@
 ### Enhancements
 * New subcommand:
   - `hybran compare`: compare two annotations of the same genome
+* Annotations now include pseudoscan evidence codes as note fields.
+These were previously only found in the pseudoscan report files.
 
 ### Bugs fixed
 * Synonymous SNPs in start codons do not automatically invalidate reference-correspondence.
