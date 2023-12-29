@@ -409,7 +409,6 @@ def write_reports(
 
     path = f"{outdir}{os.sep}"
     summary_file = f"{path}summary{'.' if suffix else ''}{suffix}.txt"
-    name_summary_file = f"{path}summary.named{'.' if suffix else ''}{suffix}.txt"
     matching_file = f"{path}colocated{'.' if suffix else ''}{suffix}.tsv"
     conflicts_file = f"{path}conflicting{'.' if suffix else ''}{suffix}.tsv"
     uniques_file = f"{path}{file_name1}.unique{'.' if suffix else ''}{suffix}.tsv"
@@ -473,23 +472,24 @@ def write_reports(
     with open(summary_file, 'w') as f:
         print('\t'.join(["", file_name1, file_name2]), file=f)
         print('\t'.join([f"total", str(features_total), str(alt_features_total)]), file=f)
-        print('\t'.join([f"unique", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
-        print('\t'.join([f"co-located", str(len(matching)), str(len(matching))]), file=f)
-        print('\t'.join([f"conflicting", str(uniq_c), str(alt_uniq_c)]), file=f)
-
-
-    with open(name_summary_file, 'w') as f:
-        print('\t'.join(["", file_name1, file_name2]), file=f)
         print('\t'.join([
             f"total_named",
             str(len(get_named(feature_list))),
             str(len(get_named(alt_feature_list))),
         ]), file=f)
+        #
+        print(file=f)
+        #
+        print('\t'.join([f"unique", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
         print('\t'.join([
             f"unique_named",
             str(len(get_named(unique_features))),
             str(len(get_named(alt_unique_features))),
         ]), file=f)
+        #
+        print(file=f)
+        #
+        print('\t'.join([f"co-located", str(len(matching)), str(len(matching))]), file=f)
         print('\t'.join([
             f"co-located_named",
             str(len(get_named(matching, key=lambda _:_[0]))),
@@ -500,6 +500,10 @@ def write_reports(
             str(len(colo_exc_named)),
             str(len(alt_colo_exc_named)),
         ]), file=f)
+        #
+        print(file=f)
+        #
+        print('\t'.join([f"conflicting", str(uniq_c), str(alt_uniq_c)]), file=f)
         print('\t'.join([
             f"conflicting_named",
             str(len(get_named(conflicts, key=lambda _:_[0]))),
