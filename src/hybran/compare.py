@@ -303,10 +303,12 @@ def assign_tags(pair):
     :return: str ;-delimited properties applying to a pair.
     """
     tags = []
-    if is_named(pair[0]) and not is_named(pair[1]):
+    if name(pair[0]) and not name(pair[1]):
         tags.append("exclusively_named_by_1")
-    elif not is_named(pair[0]) and is_named(pair[1]):
+    elif not name(pair[0]) and name(pair[1]):
         tags.append("exclusively_named_by_2")
+    elif name(pair[0]) is not None and name(pair[0]) == name(pair[1]):
+        tags.append("identically_named")
 
     f1_pseudo = designator.is_pseudo(pair[0].qualifiers)
     f2_pseudo = designator.is_pseudo(pair[1].qualifiers)
@@ -320,8 +322,11 @@ def assign_tags(pair):
     else:
         return ';'.join(tags)
 
-def is_named(feature):
-    return 'gene' in feature.qualifiers
+def name(feature):
+    if 'gene' in feature.qualifiers:
+        return feature.qualifiers['gene'][0]
+    else:
+        return None
 
 def get_named(feature_list, key=lambda _:_):
     """
@@ -330,7 +335,7 @@ def get_named(feature_list, key=lambda _:_):
     :param feature_list: list of SeqFeatures or list of containers including SeqFeatures
     :param key: function that returns the SeqFeature from an item in feature_list
     """
-    return [key(_) for _ in feature_list if is_named(key(_))]
+    return [key(_) for _ in feature_list if name(key(_))]
 
 def differentially_named(feature_tuple_list):
     """
@@ -342,11 +347,18 @@ def differentially_named(feature_tuple_list):
     f1_exclusive = []
     f2_exclusive = []
     for f1, f2 in feature_tuple_list:
-        if is_named(f1) and not is_named(f2):
+        if name(f1) and not name(f2):
             f1_exclusive.append((f1, f2))
-        elif not is_named(f1) and is_named(f2):
+        elif not name(f1) and name(f2):
             f2_exclusive.append((f1, f2))
     return f1_exclusive, f2_exclusive
+
+def identically_named(feature_tuple_list):
+    same_names = []
+    for f1, f2 in feature_tuple_list:
+        if name(f1) is not None and name(f1) == name(f2):
+            same_names.append((f1, f2))
+    return same_names
 
 def format_unique(feature, G):
     f = unpack_feature(feature)
@@ -456,7 +468,10 @@ def write_reports(
         format_unique, format_unique,
     ]
 
+    colo_same_names = identically_named(matching)
     colo_exc_named, alt_colo_exc_named = differentially_named(matching)
+
+    confl_same_names = identically_named(conflicts)
     confl_exc_named, alt_confl_exc_named = differentially_named(conflicts)
 
     for i in range(len(files)):
@@ -496,6 +511,11 @@ def write_reports(
             str(len(get_named(matching, key=lambda _:_[1]))),
         ]), file=f)
         print('\t'.join([
+            f"co-located_identically_named",
+            str(len(colo_same_names)),
+            str(len(colo_same_names)),
+        ]), file=f)
+        print('\t'.join([
             f"co-located_exclusively_named",
             str(len(colo_exc_named)),
             str(len(alt_colo_exc_named)),
@@ -508,6 +528,11 @@ def write_reports(
             f"conflicting_named",
             str(len(get_named(conflicts, key=lambda _:_[0]))),
             str(len(get_named(conflicts, key=lambda _:_[1]))),
+        ]), file=f)
+        print('\t'.join([
+            f"conflicting_identically_named",
+            str(len(confl_same_names)),
+            str(len(confl_same_names)),
         ]), file=f)
         print('\t'.join([
             f"conflicting_exclusively_named",
