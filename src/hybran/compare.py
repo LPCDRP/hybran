@@ -284,6 +284,7 @@ def format_match(pair, G=None):
         f1['ltag'], f1['gene'], f1['pseudo'], f1['pseudo_type'],
         f2['ltag'], f2['gene'], f2['pseudo'], f2['pseudo_type'],
         f1['start'], f1['end'], f1['strand'],
+        assign_tags(pair),
     ]
 
 def format_conflict(pair, G=None):
@@ -291,7 +292,33 @@ def format_conflict(pair, G=None):
     return [
         f1['ltag'], f1['gene'], f1['start'], f1['end'], f1['strand'], f1['pseudo'], f1['pseudo_type'],
         f2['ltag'], f2['gene'], f2['start'], f2['end'], f2['strand'], f2['pseudo'], f2['pseudo_type'],
+        assign_tags(pair),
     ]
+
+def assign_tags(pair):
+    """
+    Create a string to label special properties of a pair of opposing features to facilitate filtering.
+
+    :param pair: a 2-tuple of SeqFeatures
+    :return: str ;-delimited properties applying to a pair.
+    """
+    tags = []
+    if is_named(pair[0]) and not is_named(pair[1]):
+        tags.append("exclusively_named_by_1")
+    elif not is_named(pair[0]) and is_named(pair[1]):
+        tags.append("exclusively_named_by_2")
+
+    f1_pseudo = designator.is_pseudo(pair[0].qualifiers)
+    f2_pseudo = designator.is_pseudo(pair[1].qualifiers)
+    if f1_pseudo and not f2_pseudo:
+        tags.append("only_pseudo_in_1")
+    elif not f1_pseudo and f2_pseudo:
+        tags.append("only_pseudo_in_2")
+
+    if not tags:
+        return "."
+    else:
+        return ';'.join(tags)
 
 def is_named(feature):
     return 'gene' in feature.qualifiers
@@ -392,10 +419,12 @@ def write_reports(
         "locus_tag_1", "gene_name_1", "pseudo_1", "pseudo_type1",
         "locus_tag_2", "gene_name_2", "pseudo_2", "pseudo_type2",
         "start", "end", "strand",
+        "tags",
     ]
     conflicts_header = [
         "locus_tag_1", "gene_name_1", "start_1", "end_1", "strand_1", "pseudo_1", "pseudo_type1",
         "locus_tag_2", "gene_name_2", "start_2", "end_2", "strand_2", "pseudo_2", "pseudo_type2",
+        "tags",
     ]
     uniques_header = [
         "locus_tag",
