@@ -69,20 +69,27 @@ def overlap_inframe(loc1, loc2):
     :return: True if both features overlap in-frame
     """
     # overlap determination adapted from https://stackoverflow.com/a/2953979
-    overlap = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start))
+    def overlap_parts(loc1, loc2):
+        overlap = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start))
 
-    if loc1.strand == loc2.strand and overlap > 0:
-        # pseudogenes may occupy multiple reading frames, so
-        # check both the start-defined and stop-defined frames,
-        # as well as the actual overlapping part.
-        if (loc1.start == loc2.start
-            or loc1.end == loc2.end
-            or (
-                ((loc1.start - loc2.start) % 3 == 0
-                 or (loc1.end - loc2.end) % 3 == 0)
-                and (overlap % 3 == 0))
-        ):
-            return True
+        if loc1.strand == loc2.strand and overlap > 0:
+            # pseudogenes may occupy multiple reading frames, so
+            # check both the start-defined and stop-defined frames,
+            # as well as the actual overlapping part.
+            if (loc1.start == loc2.start
+                or loc1.end == loc2.end
+                or (
+                    ((loc1.start - loc2.start) % 3 == 0
+                     or (loc1.end - loc2.end) % 3 == 0)
+                    and (overlap % 3 == 0))
+            ):
+                return True
+        return False
+
+    for i in loc1.parts:
+        for j in loc2.parts:
+            if overlap_parts(i,j):
+                return True
     return False
 
 def have_same_stop(loc1, loc2):
@@ -131,7 +138,7 @@ def has_broken_stop(feature):
         if len(num_stop) == 0:
             note = f"No stop codons detected in the translated sequence"
         else:
-            note = f"Internal stop detected in the following codon(s): {' '.join([str(i) for i in num_internal_stop])}"
+            note = f"Internal stop detected at codon(s) {' '.join([str(i) for i in num_internal_stop])}"
     return internal_stop, note
 
 def stopseeker(feature, circularize=False):
@@ -1349,6 +1356,28 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
                 start_note = f"Locus has {'valid' if valid_start else 'invalid'} start codon"
                 broke_note = f"{'No internal stop codons and ends with a valid stop codon' if not broken_stop else stop_note}"
 
+                #Note codes are categorized by a '0' or '1' and correspond to 'False' and 'True' respectively
+                #D3 = Divisible by three [0/1]
+                #VS = Valid start [0/1]
+                #VE = Valid end [0/1]
+                #RCS = Reference corresponding start [0/1]
+                #RCE = Reference corresponding end [0/1]
+                #BOK = Blast OK [0/1]
+                # represent boolean values as ints but account for N/A (None)
+                nacast = lambda _: int(_) if _ is not None else "."
+                note_codes = ';'.join([
+                    f"D3{nacast(feature.d3)}",
+                    f"VS{nacast(feature.vs)}",
+                    f"VE{nacast(feature.ve)}",
+                    f"RCS{nacast(feature.rcs)}",
+                    f"RCE{nacast(feature.rce)}",
+                    f"BOK{nacast(feature.bok)}",
+                ])
+                #This is the code for a normal non-pseudo gene, with no interesting characteristics.
+                #These codes will not be added to the feature notes.
+                if note_codes == 'D31;VS1;VE1;RCS1;RCE1;BOK1':
+                    note_codes = None
+
                 is_pseudo = True
                 if d3 and not broken_stop:
                     if all(coords_ok):
@@ -1431,8 +1460,25 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
 
                 if new_note:
                     new_note = ' | '.join(new_note)
-                    designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan: {new_note}')
+                    designator.append_qualifier(
+                        feature.qualifiers,
+                        'note',
+                        f'Hybran/Pseudoscan:description:{new_note}',
+                    )
 
+                if feature.ps_evid:
+                    designator.append_qualifier(
+                        feature.qualifiers,
+                        'note',
+                        f'Hybran/Pseudoscan:evidence:{";".join(feature.ps_evid)}',
+                    )
+
+                if note_codes:
+                    designator.append_qualifier(
+                        feature.qualifiers,
+                        'note',
+                        f'Hybran/Pseudoscan:barcode:{note_codes}',
+                    )
     return is_pseudo
 
 def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
