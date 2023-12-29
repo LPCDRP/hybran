@@ -293,6 +293,34 @@ def format_conflict(pair, G=None):
         f2['ltag'], f2['gene'], f2['start'], f2['end'], f2['strand'], f2['pseudo'], f2['pseudo_type'],
     ]
 
+def is_named(feature):
+    return 'gene' in feature.qualifiers
+
+def get_named(feature_list, key=lambda _:_):
+    """
+    Get all features that have a name defined.
+
+    :param feature_list: list of SeqFeatures or list of containers including SeqFeatures
+    :param key: function that returns the SeqFeature from an item in feature_list
+    """
+    return [key(_) for _ in feature_list if is_named(key(_))]
+
+def differentially_named(feature_tuple_list):
+    """
+    :param feature_tuple_list: list of 2-tuples of SeqFeatures
+    :return: two lists of feature pairs.
+    One list where only the first element in the tuple is named and another
+    list where only the second element in the tuple is named.
+    """
+    f1_exclusive = []
+    f2_exclusive = []
+    for f1, f2 in feature_tuple_list:
+        if is_named(f1) and not is_named(f2):
+            f1_exclusive.append((f1, f2))
+        elif not is_named(f1) and is_named(f2):
+            f2_exclusive.append((f1, f2))
+    return f1_exclusive, f2_exclusive
+
 def format_unique(feature, G):
     f = unpack_feature(feature)
     overlaps = [G.nodes[_[1]]['annotation'] for _ in G.edges(feature.label)]
@@ -354,6 +382,7 @@ def write_reports(
 
     path = f"{outdir}{os.sep}"
     summary_file = f"{path}summary{'.' if suffix else ''}{suffix}.txt"
+    name_summary_file = f"{path}summary.named{'.' if suffix else ''}{suffix}.txt"
     matching_file = f"{path}colocated{'.' if suffix else ''}{suffix}.tsv"
     conflicts_file = f"{path}conflicting{'.' if suffix else ''}{suffix}.tsv"
     uniques_file = f"{path}{file_name1}.unique{'.' if suffix else ''}{suffix}.tsv"
@@ -399,6 +428,9 @@ def write_reports(
         format_unique, format_unique,
     ]
 
+    colo_exc_named, alt_colo_exc_named = differentially_named(matching)
+    confl_exc_named, alt_confl_exc_named = differentially_named(conflicts)
+
     for i in range(len(files)):
         with open(files[i], 'w') as f:
             print('\t'.join(headers[i]), file=f)
@@ -415,3 +447,37 @@ def write_reports(
         print('\t'.join([f"unique", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
         print('\t'.join([f"co-located", str(len(matching)), str(len(matching))]), file=f)
         print('\t'.join([f"conflicting", str(uniq_c), str(alt_uniq_c)]), file=f)
+
+
+    with open(name_summary_file, 'w') as f:
+        print('\t'.join(["", file_name1, file_name2]), file=f)
+        print('\t'.join([
+            f"total_named",
+            str(len(get_named(feature_list))),
+            str(len(get_named(alt_feature_list))),
+        ]), file=f)
+        print('\t'.join([
+            f"unique_named",
+            str(len(get_named(unique_features))),
+            str(len(get_named(alt_unique_features))),
+        ]), file=f)
+        print('\t'.join([
+            f"co-located_named",
+            str(len(get_named(matching, key=lambda _:_[0]))),
+            str(len(get_named(matching, key=lambda _:_[1]))),
+        ]), file=f)
+        print('\t'.join([
+            f"co-located_exclusively_named",
+            str(len(colo_exc_named)),
+            str(len(alt_colo_exc_named)),
+        ]), file=f)
+        print('\t'.join([
+            f"conflicting_named",
+            str(len(get_named(conflicts, key=lambda _:_[0]))),
+            str(len(get_named(conflicts, key=lambda _:_[1]))),
+        ]), file=f)
+        print('\t'.join([
+            f"conflicting_exclusively_named",
+            str(len(confl_exc_named)),
+            str(len(alt_confl_exc_named)),
+        ]), file=f)

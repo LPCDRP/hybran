@@ -40,11 +40,19 @@ All co-located genes are excluded from further comparison.
 : genes that either do not overlap at all, or overlap out-of-frame.
 The report files for this include an extra column listing all overlapping features (except for any determined to be co-located with another feature) from the other annotation.
 
-A summary report is also generated listing the counts of features/pairs in each category.
-For conflicting genes, a count of the distinct features from each annotation is shown, as genes (in particular, pseudogenes) can potentially conflict with multiple annotations.
-
 An additional set of reports focusing on pseudogenes is also generated.
 This is a strict subset of the data from the standard reports.
+
+Three summary reports are produced:
+- A general report listing the counts of features/pairs in each category.
+  For conflicting genes, a count of the distinct features from each annotation is shown, as genes (in particular, pseudogenes) can potentially conflict with multiple annotations.
+- A similar report for comparisons involving pseudogenes
+- A summary of named genes.
+Checking whether a gene has a name at all is a cursory check of whether anything is known about a CDS according to the annotation.
+When submitting a hybran-produced annotation for comparison, be sure to first run `hybran standardize` to remove the generic placeholder names, as these will skew the counts.
+For the *co-located* and *conflicting* categories, there is an additional count for "differentially named" genes.
+This is a count of pairs where one annotation assigned a name and the other did not, and vice versa.
+
 
 ### `hybran standardize`
 
