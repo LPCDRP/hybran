@@ -504,19 +504,19 @@ def write_reports(
         #
         print(file=f)
         #
-        print('\t'.join([f"co-located", str(len(matching)), str(len(matching))]), file=f)
+        print('\t'.join([f"colocated", str(len(matching)), str(len(matching))]), file=f)
         print('\t'.join([
-            f"co-located_named",
+            f"colocated_named",
             str(len(get_named(matching, key=lambda _:_[0]))),
             str(len(get_named(matching, key=lambda _:_[1]))),
         ]), file=f)
         print('\t'.join([
-            f"co-located_identically_named",
+            f"colocated_identically_named",
             str(len(colo_same_names)),
             str(len(colo_same_names)),
         ]), file=f)
         print('\t'.join([
-            f"co-located_exclusively_named",
+            f"colocated_exclusively_named",
             str(len(colo_exc_named)),
             str(len(alt_colo_exc_named)),
         ]), file=f)
