@@ -10,6 +10,7 @@ from hybran import standardize
     'named',
     'unnamed',
     'unnamed_with_syn',
+    'refonly_unnamed_with_syn',
     'named_unnamed_with_syn',
     'named_unnamed',
     'named_unlisted',
@@ -27,6 +28,9 @@ def test_standardize(gene):
         ),
         'unnamed_with_syn': SeqFeature(
             qualifiers={'gene':["ORF2395"], 'gene_synonym':['MBT_54632']}
+        ),
+        'refonly_unnamed_with_syn': SeqFeature(
+            qualifiers={'gene':["ORF1111"], 'gene_synonym':['MBT_54632']}
         ),
         'named_unnamed': SeqFeature(
             qualifiers={'gene':["MBT_01234::ORF2346"]}
@@ -57,6 +61,9 @@ def test_standardize(gene):
         'unnamed_with_syn': SeqFeature(
             qualifiers={'gene':["MBT_54632"]},
         ),
+        'refonly_unnamed_with_syn': SeqFeature(
+            qualifiers={'gene_synonym':['MBT_54632']}
+        ),
         'named_unnamed': SeqFeature(
             qualifiers={'gene':["MBT_01234::MBT_3456"]}
         ),
@@ -86,6 +93,7 @@ def test_standardize(gene):
         'ORF5467': 'MBT_4359',
     }
     designator.generic_orf_prefix[0]= 'ORF'
+    ref_only = gene.startswith('refonly')
 
-    standardize.standardize(inputs[gene], generics=generics)
+    standardize.standardize(inputs[gene], generics=generics, ref_only=ref_only)
     assert inputs[gene].qualifiers == expected[gene].qualifiers

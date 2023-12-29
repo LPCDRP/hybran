@@ -114,6 +114,11 @@ def cmds():
         help="reference annotation's unifications.tsv file produced by hybran onegene.",
         required=True,
     )
+    stdize.add_argument(
+        '-r', '--ref-names-only',
+        action='store_true',
+        help="Do not use gene names supplied by the ab initio caller.",
+    )
 
     #
     # hybran onegene

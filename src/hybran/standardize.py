@@ -15,6 +15,7 @@ def main(args):
 
     designator.generic_orf_prefix[0]=args.orf_prefix
     designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"
+    ref_only = args.ref_names_only
 
     if not os.path.isdir(args.output):
         try:
@@ -34,12 +35,12 @@ def main(args):
         records = list(SeqIO.parse(annotation, 'genbank'))
         for record in records:
             for feature in record.features:
-                standardize(feature, generics)
+                standardize(feature, generics, ref_only)
         with open(outfile, 'w') as outfile_handle:
             SeqIO.write(records, outfile_handle, 'genbank')
 
 
-def standardize(feature, generics):
+def standardize(feature, generics, ref_only):
     """
     remove generic gene names.
     If a gene_synonym is available (as from an ab initio call or
@@ -47,6 +48,7 @@ def standardize(feature, generics):
     If not, remove the `gene` qualifier altogether.
 
     :param feature: SeqFeature object
+    :param ref_only: bool whether to leave out ab initio predicted gene names
     """
     if 'gene' in feature.qualifiers:
         gene = feature.qualifiers['gene'][0]
@@ -72,7 +74,9 @@ def standardize(feature, generics):
                 designator.is_unannotated(feature.qualifiers['gene'][0])
                 or designator.is_uniref(feature.qualifiers['gene'][0])
         ):
-            if 'gene_synonym' in feature.qualifiers:
+            if 'gene_synonym' in feature.qualifiers and (
+                    not ref_only or designator.is_uniref(feature.qualifiers['gene'][0])
+            ):
                 if 'inference' in feature.qualifiers:
                     update_inferences(
                         feature.qualifiers['inference'],

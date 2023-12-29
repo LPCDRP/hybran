@@ -7,6 +7,7 @@
 ### Enhancements
 * New subcommand:
   - `hybran compare`: compare two annotations of the same genome
+* New option `-r`/`--ref-names-only` for `hybran standardize`.
 * Annotations now include pseudoscan evidence codes as note fields.
 These were previously only found in the pseudoscan report files.
 
