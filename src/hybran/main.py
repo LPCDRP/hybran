@@ -95,7 +95,11 @@ def cmds():
     #
     stdize.add_argument(
         'annotations',
-        help="Directory, space-separated list of GBKs, or a FOFN containing all annotated genomes.",
+        help=(
+            "Directory, space-separated list of GBKs, or a FOFN containing all annotated genomes. "
+            "If you pass a hybran output directory here, no other arguments will be required. "
+            "Otherwise, you will need to provide the location of the unifications file via -u/--unifications-file."
+        ),
         nargs='+'
     )
     stdize.add_argument(
@@ -112,7 +116,6 @@ def cmds():
     stdize.add_argument(
         '-u', '--unifications-file',
         help="reference annotation's unifications.tsv file produced by hybran onegene.",
-        required=True,
     )
     stdize.add_argument(
         '-r', '--ref-names-only',

@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import warnings
 
 from . import designator
@@ -12,6 +13,26 @@ def main(args):
         args.annotations,
         file_type='genbank'
     )
+
+    # input is from a hybran output folder
+    if (
+            not args.unifications_file
+            and len(args.annotations) == 1
+            and os.path.isdir(args.annotations[0])
+            and os.path.isfile(os.path.join(
+                args.annotations[0],
+                'unified-refs',
+                'unifications.tsv',
+            ))
+    ):
+        args.unifications_file = os.path.join(
+            args.annotations[0],
+            'unified-refs',
+            'unifications.tsv',
+        )
+    elif not args.unifications_file:
+        sys.exit("ERROR: -u/--unifications-file required when not reading from a hybran output folder")
+
 
     designator.generic_orf_prefix[0]=args.orf_prefix
     designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"
