@@ -411,7 +411,7 @@ def write_reports(
 
     with open(summary_file, 'w') as f:
         print('\t'.join(["", file_name1, file_name2]), file=f)
-        print('\t'.join([f"Total", str(features_total), str(alt_features_total)]), file=f)
-        print('\t'.join([f"Unique", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
-        print('\t'.join([f"Co-located", str(len(matching))]), file=f)
-        print('\t'.join([f"Conflicting", str(uniq_c), str(alt_uniq_c)]), file=f)
+        print('\t'.join([f"total", str(features_total), str(alt_features_total)]), file=f)
+        print('\t'.join([f"unique", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
+        print('\t'.join([f"co-located", str(len(matching))]), file=f)
+        print('\t'.join([f"conflicting", str(uniq_c), str(alt_uniq_c)]), file=f)
