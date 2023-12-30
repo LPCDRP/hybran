@@ -15,12 +15,14 @@ from .bio import SeqIO
 def get_ltag(feature):
     return feature.qualifiers['locus_tag'][0]
 
-def get_gene(feature):
-    try:
-        gene = feature.qualifiers['gene'][0]
-    except KeyError:
-        gene = get_ltag(feature)
-    return gene
+def get_gene(feature, tryhard=True):
+    if 'gene' in feature.qualifiers:
+        return feature.qualifiers['gene'][0]
+    elif tryhard:
+        return get_ltag(feature)
+    else:
+        # null entry for gene name
+        return '.'
 
 def get_seq(feature):
     """

@@ -270,7 +270,7 @@ def compare(feature_list, alt_feature_list):
 def unpack_feature(feature):
     return {
         'ltag': extractor.get_ltag(feature),
-        'gene': extractor.get_gene(feature),
+        'gene': extractor.get_gene(feature, tryhard=False),
         'start': str(feature.location.start + 1),
         'end': str(feature.location.end),
         'strand': str(feature.location.strand),
