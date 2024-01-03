@@ -59,27 +59,6 @@ def main(args):
         outdir,
     )
 
-    pseudo_matching = [(f1, f2) for f1, f2 in matching
-                       if designator.is_pseudo(f1.qualifiers) or designator.is_pseudo(f2.qualifiers)]
-    pseudo_conflicts = [(f1, f2) for f1, f2 in conflicts
-                       if designator.is_pseudo(f1.qualifiers) or designator.is_pseudo(f2.qualifiers)]
-    pseudo_uniques = [f for f in uniques if designator.is_pseudo(f.qualifiers)]
-    alt_pseudo_uniques = [f for f in alt_uniques if designator.is_pseudo(f.qualifiers)]
-
-    write_reports(
-        pseudo_matching,
-        pseudo_conflicts,
-        pseudo_uniques,
-        alt_pseudo_uniques,
-        ovl_graph,
-        pseudo_list,
-        alt_pseudo_list,
-        basename1,
-        basename2,
-        outdir,
-        "pseudo",
-    )
-
 def hybran_np(feature):
     """
     Note parser to identify types of pseudogenes specifically from Hybran annotation files
@@ -328,14 +307,22 @@ def name(feature):
     else:
         return None
 
-def get_named(feature_list, key=lambda _:_):
+def get_named(feature_list, key=lambda _:_, unique=False):
     """
     Get all features that have a name defined.
 
     :param feature_list: list of SeqFeatures or list of containers including SeqFeatures
     :param key: function that returns the SeqFeature from an item in feature_list
+    :param unique: bool whether to return a list of unique SeqFeatures meeting the criteria
     """
-    return [key(_) for _ in feature_list if name(key(_))]
+    named_features = [key(_) for _ in feature_list if name(key(_))]
+    if unique:
+        unique_features = []
+        for _ in named_features:
+            if _ not in unique_features:
+                unique_features.append(_)
+        named_features = unique_features
+    return named_features
 
 def differentially_named(feature_tuple_list):
     """
@@ -392,7 +379,6 @@ def write_reports(
         file_name1,
         file_name2,
         outdir,
-        suffix="",
 ):
     """
     Write the summary and report files for each type of comparison.
@@ -407,11 +393,7 @@ def write_reports(
     :param file_name1: String label for first annotation file.
     :param file_name2: String label for second annotation file.
     :param outdir: String name for the out directory
-    :param suffix: Optional argument to change the suffix of report files.
     """
-
-    features_total = len(feature_list)
-    alt_features_total = len(alt_feature_list)
 
     if not os.path.isdir(outdir):
         try:
@@ -420,11 +402,12 @@ def write_reports(
             sys.exit(f"Could not create directory {outdir}")
 
     path = f"{outdir}{os.sep}"
-    summary_file = f"{path}summary{'.' if suffix else ''}{suffix}.txt"
-    matching_file = f"{path}colocated{'.' if suffix else ''}{suffix}.tsv"
-    conflicts_file = f"{path}conflicting{'.' if suffix else ''}{suffix}.tsv"
-    uniques_file = f"{path}{file_name1}.unique{'.' if suffix else ''}{suffix}.tsv"
-    alt_uniques_file = f"{path}{file_name2}.unique{'.' if suffix else ''}{suffix}.tsv"
+    summary_file = f"{path}summary.txt"
+    pseudo_summary_file = f"{path}summary.pseudo.txt"
+    matching_file = f"{path}colocated.tsv"
+    conflicts_file = f"{path}conflicting.tsv"
+    uniques_file = f"{path}{file_name1}.unique.tsv"
+    alt_uniques_file = f"{path}{file_name2}.unique.tsv"
 
     matching_header = [
         "locus_tag_1", "gene_name_1", "pseudo_1", "pseudo_type1",
@@ -468,12 +451,6 @@ def write_reports(
         format_unique, format_unique,
     ]
 
-    colo_same_names = identically_named(matching)
-    colo_exc_named, alt_colo_exc_named = differentially_named(matching)
-
-    confl_same_names = identically_named(conflicts)
-    confl_exc_named, alt_confl_exc_named = differentially_named(conflicts)
-
     for i in range(len(files)):
         with open(files[i], 'w') as f:
             print('\t'.join(headers[i]), file=f)
@@ -481,61 +458,159 @@ def write_reports(
                 line = formatters[i](record, G=overlap_graph)
                 print('\t'.join(line), file=f)
 
-    uniq_c = len(set([_[0].label for _ in conflicts]))
-    alt_uniq_c = len(set([_[1].label for _ in conflicts]))
+    pseudo_feature_list = [_ for _ in feature_list if designator.is_pseudo(_.qualifiers)]
+    alt_pseudo_feature_list = [_ for _ in alt_feature_list if designator.is_pseudo(_.qualifiers)]
+    pseudo_unique_features = [f for f in unique_features if designator.is_pseudo(f.qualifiers)]
+    alt_pseudo_unique_features = [f for f in alt_unique_features if designator.is_pseudo(f.qualifiers)]
+    pseudo_matching = [(f1, f2) for f1, f2 in matching if designator.is_pseudo(f1.qualifiers)]
+    alt_pseudo_matching = [(f1, f2) for f1, f2 in matching if designator.is_pseudo(f2.qualifiers)]
+    pseudo_conflicts = [(f1, f2) for f1, f2 in conflicts if designator.is_pseudo(f1.qualifiers)]
+    alt_pseudo_conflicts = [(f1, f2) for f1, f2 in conflicts if designator.is_pseudo(f2.qualifiers)]
 
-    with open(summary_file, 'w') as f:
-        print('\t'.join(["", file_name1, file_name2]), file=f)
-        print('\t'.join([f"total", str(features_total), str(alt_features_total)]), file=f)
-        print('\t'.join([
-            f"total_named",
-            str(len(get_named(feature_list))),
-            str(len(get_named(alt_feature_list))),
-        ]), file=f)
-        #
-        print(file=f)
-        #
-        print('\t'.join([f"unique", str(len(unique_features)), str(len(alt_unique_features))]), file=f)
-        print('\t'.join([
-            f"unique_named",
-            str(len(get_named(unique_features))),
-            str(len(get_named(alt_unique_features))),
-        ]), file=f)
-        #
-        print(file=f)
-        #
-        print('\t'.join([f"colocated", str(len(matching)), str(len(matching))]), file=f)
-        print('\t'.join([
-            f"colocated_named",
-            str(len(get_named(matching, key=lambda _:_[0]))),
-            str(len(get_named(matching, key=lambda _:_[1]))),
-        ]), file=f)
-        print('\t'.join([
-            f"colocated_identically_named",
-            str(len(colo_same_names)),
-            str(len(colo_same_names)),
-        ]), file=f)
-        print('\t'.join([
-            f"colocated_exclusively_named",
-            str(len(colo_exc_named)),
-            str(len(alt_colo_exc_named)),
-        ]), file=f)
-        #
-        print(file=f)
-        #
-        print('\t'.join([f"conflicting", str(uniq_c), str(alt_uniq_c)]), file=f)
-        print('\t'.join([
-            f"conflicting_named",
-            str(len(get_named(conflicts, key=lambda _:_[0]))),
-            str(len(get_named(conflicts, key=lambda _:_[1]))),
-        ]), file=f)
-        print('\t'.join([
-            f"conflicting_identically_named",
-            str(len(confl_same_names)),
-            str(len(confl_same_names)),
-        ]), file=f)
-        print('\t'.join([
-            f"conflicting_exclusively_named",
-            str(len(confl_exc_named)),
-            str(len(alt_confl_exc_named)),
-        ]), file=f)
+    breakdown = {
+        'all': {
+            'summary_file': summary_file,
+            'file_name1': file_name1,
+            'file_name2': file_name2,
+            'total_features1': str(len(feature_list)),
+            'total_features2': str(len(alt_feature_list)),
+            'total_named_features1': str(len(get_named(feature_list))),
+            'total_named_features2': str(len(get_named(alt_feature_list))),
+            'unique1': str(len(unique_features)),
+            'unique2': str(len(alt_unique_features)),
+            'unique_named1': str(len(get_named(unique_features))),
+            'unique_named2': str(len(get_named(alt_unique_features))),
+            'matching1': str(len(matching)),
+            'matching2': str(len(matching)),
+            'matching_named1': str(len(get_named(matching, key=lambda _:_[0]))),
+            'matching_named2': str(len(get_named(matching, key=lambda _:_[1]))),
+            'matching_ident_named1': str(len(identically_named(matching))),
+            'matching_ident_named2': str(len(identically_named(matching))),
+            'matching_diff_named1': str(len(differentially_named(matching)[0])),
+            'matching_diff_named2': str(len(differentially_named(matching)[1])),
+            'conflicting_genes1': str(len(set([_[0].label for _ in conflicts]))),
+            'conflicting_genes2': str(len(set([_[1].label for _ in conflicts]))),
+            'conflicting_genes_named1': str(len(get_named(conflicts, key=lambda _:_[0], unique=True))),
+            'conflicting_genes_named2': str(len(get_named(conflicts, key=lambda _:_[1], unique=True))),
+            'conflicts1': str(len(conflicts)),
+            'conflicts2': str(len(conflicts)),
+            'conflicts_ident_named1': str(len(identically_named(conflicts))),
+            'conflicts_ident_named2': str(len(identically_named(conflicts))),
+            'conflicts_diff_named1': str(len(differentially_named(conflicts)[0])),
+            'conflicts_diff_named2': str(len(differentially_named(conflicts)[1])),
+        },
+        'pseudo':{
+            'summary_file': pseudo_summary_file,
+            'file_name1': file_name1,
+            'file_name2': file_name2,
+            'total_features1': str(len(pseudo_feature_list)),
+            'total_features2': str(len(alt_pseudo_feature_list)),
+            'total_named_features1': str(len(get_named(pseudo_feature_list))),
+            'total_named_features2': str(len(get_named(alt_pseudo_feature_list))),
+            'unique1': str(len(pseudo_unique_features)),
+            'unique2': str(len(alt_pseudo_unique_features)),
+            'unique_named1': str(len(get_named(pseudo_unique_features))),
+            'unique_named2': str(len(get_named(alt_pseudo_unique_features))),
+            'matching1': str(len(pseudo_matching)),
+            'matching2': str(len(alt_pseudo_matching)),
+            'matching_named1': str(len(get_named(pseudo_matching, key=lambda _:_[0]))),
+            'matching_named2': str(len(get_named(alt_pseudo_matching, key=lambda _:_[1]))),
+            'matching_ident_named1': str(len(identically_named(pseudo_matching))),
+            'matching_ident_named2': str(len(identically_named(alt_pseudo_matching))),
+            'matching_diff_named1': str(len(differentially_named(pseudo_matching)[0])),
+            'matching_diff_named2': str(len(differentially_named(alt_pseudo_matching)[1])),
+            'conflicting_genes1': str(len(set([_[0].label for _ in pseudo_conflicts]))),
+            'conflicting_genes2': str(len(set([_[1].label for _ in alt_pseudo_conflicts]))),
+            'conflicting_genes_named1': str(len(get_named(pseudo_conflicts, key=lambda _:_[0], unique=True))),
+            'conflicting_genes_named2': str(len(get_named(alt_pseudo_conflicts, key=lambda _:_[1], unique=True))),
+            'conflicts1': str(len(pseudo_conflicts)),
+            'conflicts2': str(len(alt_pseudo_conflicts)),
+            'conflicts_ident_named1': str(len(identically_named(pseudo_conflicts))),
+            'conflicts_ident_named2': str(len(identically_named(alt_pseudo_conflicts))),
+            'conflicts_diff_named1': str(len(differentially_named(pseudo_conflicts)[0])),
+            'conflicts_diff_named2': str(len(differentially_named(alt_pseudo_conflicts)[1])),
+        }
+    }
+
+    for summary, results in breakdown.items():
+        breakpoint()
+        with open(results['summary_file'], 'w') as f:
+            print('\t'.join([
+                "",
+                results['file_name1'],
+                results['file_name2'],
+            ]), file=f)
+            print('\t'.join([
+                f"total",
+                results['total_features1'],
+                results['total_features2'],
+            ]), file=f)
+            print('\t'.join([
+                f"total_named",
+                results['total_named_features1'],
+                results['total_named_features2'],
+            ]), file=f)
+            #
+            print(file=f)
+            #
+            print('\t'.join([
+                f"unique",
+                results['unique1'],
+                results['unique2'],
+            ]), file=f)
+            print('\t'.join([
+                f"unique_named",
+                results['unique_named1'],
+                results['unique_named2'],
+            ]), file=f)
+            #
+            print(file=f)
+            #
+            print('\t'.join([
+                f"colocated",
+                results['matching1'],
+                results['matching2'],
+            ]), file=f)
+            print('\t'.join([
+                f"colocated_named",
+                results['matching_named1'],
+                results['matching_named2'],
+            ]), file=f)
+            print('\t'.join([
+                f"colocated_identically_named",
+                results['matching_ident_named1'],
+                results['matching_ident_named2'],
+            ]), file=f)
+            print('\t'.join([
+                f"colocated_exclusively_named",
+                results['matching_diff_named1'],
+                results['matching_diff_named2'],
+            ]), file=f)
+            #
+            print(file=f)
+            #
+            print('\t'.join([
+                f"conflicting_genes",
+                results['conflicting_genes1'],
+                results['conflicting_genes2'],
+            ]), file=f)
+            print('\t'.join([
+                f"conflicting_genes_named",
+                results['conflicting_genes_named1'],
+                results['conflicting_genes_named2'],
+            ]), file=f)
+            print('\t'.join([
+                f"conflicts",
+                results['conflicts1'],
+                results['conflicts2'],
+            ]), file=f)
+            print('\t'.join([
+                f"conflicts_identically_named",
+                results['conflicts_ident_named1'],
+                results['conflicts_ident_named2'],
+            ]), file=f)
+            print('\t'.join([
+                f"conflicts_exclusively_named",
+                results['conflicts_diff_named1'],
+                results['conflicts_diff_named2'],
+            ]), file=f)
