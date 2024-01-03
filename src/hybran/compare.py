@@ -535,7 +535,6 @@ def write_reports(
     }
 
     for summary, results in breakdown.items():
-        breakpoint()
         with open(results['summary_file'], 'w') as f:
             print('\t'.join([
                 "",
