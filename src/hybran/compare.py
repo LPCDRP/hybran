@@ -38,8 +38,8 @@ def main(args):
             basename1 = prefix1.replace(os.sep, '_')
             basename2 = prefix2.replace(os.sep, '_')
 
-    feature_list, pseudo_list = generate_record(gbk_file1)
-    alt_feature_list, alt_pseudo_list = generate_record(gbk_file2)
+    feature_list = generate_record(gbk_file1)
+    alt_feature_list = generate_record(gbk_file2)
 
     matching, conflicts, uniques, alt_uniques, ovl_graph = compare(
         feature_list,
@@ -119,21 +119,29 @@ def generate_record(gbk):
     anno_dict = defaultdict(list)
     pseudo_dict = defaultdict(list)
     anno_list = []
-    pseudo_list = []
     all_records = SeqIO.parse(gbk, "genbank")
+    int_tree = IntervalTree()
 
     for anno_record in all_records:
         np = which_np(anno_record)
         for f in anno_record.features:
-            if f.type == 'CDS' or f.type == 'pseudo':
+            f_interval = get_feature_interval(f)
+            if f.type == 'CDS' and f_interval not in int_tree:
                 if designator.is_pseudo(f.qualifiers):
                     f.evidence = np(f)
-                    pseudo_list.append(f)
                 anno_list.append(f)
-    return anno_list, pseudo_list
+                int_tree.add(f_interval)
+    return anno_list
 
 def get_pseudo_type(feature):
     return f"{feature.evidence if hasattr(feature, 'evidence') else '.'}"
+
+def get_feature_interval(feature):
+    """
+    :param feature: A SeqFeature
+    :return Interval object of feature
+    """
+    return Interval(int(feature.location.start), int(feature.location.end))
 
 def compare(feature_list, alt_feature_list):
     """
@@ -145,9 +153,6 @@ def compare(feature_list, alt_feature_list):
     :return conflicts: List of lists containing information for conflicting annotations.
     :return unique_features: List of lists containing information for unique features from the first annotation file.
     """
-
-    def get_feature_interval(feature):
-        return Interval(int(feature.location.start), int(feature.location.end))
 
     # Use a bipartite graph to relate conflicts
     # We use a directed graph here because we want to be able to rely on edges being F1 -> F2
