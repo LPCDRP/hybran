@@ -291,7 +291,9 @@ def assign_tags(pair):
 
     f1_pseudo = designator.is_pseudo(pair[0].qualifiers)
     f2_pseudo = designator.is_pseudo(pair[1].qualifiers)
-    if f1_pseudo and not f2_pseudo:
+    if f1_pseudo or f2_pseudo:
+        tags.append("involving_pseudo")
+    elif f1_pseudo and not f2_pseudo:
         tags.append("only_pseudo_in_1")
     elif not f1_pseudo and f2_pseudo:
         tags.append("only_pseudo_in_2")
