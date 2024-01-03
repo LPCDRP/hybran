@@ -75,7 +75,7 @@ def hybran_np(feature):
     return evidence_code
 
 pgap_evidence_codes = [
-    'ambiguous residues',
+    'too many ambiguous residues',
     'frameshifted',
     'incomplete',
     'internal stop',
