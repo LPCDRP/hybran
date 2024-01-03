@@ -116,7 +116,7 @@ def has_valid_start(feature):
     :return: True if valid start codon exists
     """
     start_codons = CodonTable.generic_by_id[genetic_code].start_codons
-    feature_seq = str(feature.extract(parent_sequence=feature.references[feature.ref],
+    feature_seq = str(feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
                                       references=feature.references))[:3]
 
     return feature_seq in start_codons
@@ -128,7 +128,7 @@ def has_broken_stop(feature):
     """
     internal_stop = False
     note = ''
-    feature_seq = feature.extract(parent_sequence=feature.references[feature.ref],
+    feature_seq = feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
                                   references=feature.references)
     translation = str(feature_seq.translate(to_stop=False, table=genetic_code))
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
