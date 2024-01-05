@@ -15,6 +15,7 @@ These were previously only found in the pseudoscan report files.
 
 ### Bugs fixed
 * Synonymous SNPs in start codons do not automatically invalidate reference-correspondence.
+* pseudoscan: Fixed typo potentially affecting calls where the reference is pseudo (#68).
 
 ## [Version 1.7.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.7.1)
 

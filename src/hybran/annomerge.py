@@ -1237,8 +1237,8 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
             f"{'' if divisible_by_three(feature) else '-- not divisible by three'}"
         )
         ref_div_note = (
-            f"Reference gene has {'valid' if divisible_by_three(feature) else 'invalid'} reading frame"
-            f"{'' if divisible_by_three(feature) else '-- not divisible by three'}"
+            f"Reference gene has {'valid' if divisible_by_three(ref_feature) else 'invalid'} reading frame"
+            f"{'' if divisible_by_three(ref_feature) else '-- not divisible by three'}"
         )
         broke_note = f"{'No internal stop codons and ends with a valid stop codon' if not broken_stop else stop_note}"
         if feature.de:
