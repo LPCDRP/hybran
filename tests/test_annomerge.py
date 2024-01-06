@@ -377,13 +377,16 @@ def test_fusionfisher(gene_list):
     source_genome = source_genomes[gene_list]
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
+    annomerge.genetic_code = 11
+    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
     for f in inputs[gene_list]:
         f.references = {record_sequence.id: record_sequence.seq}
         for part in f.location.parts:
             part.ref = record_sequence.id
-    annomerge.genetic_code = 11
-    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
-    annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
+        (f.rcs, f.rce) = annomerge.coord_check(
+            f, annomerge.ref_annotation[annomerge.key_ref_gene(f.source, f.qualifiers['gene'][0])]
+        )
     expected = {
         'misannotation_false_delayed_stop': (
             [ source_features['Rv0074']['ratt'] ],

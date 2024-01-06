@@ -525,6 +525,8 @@ def fusionfisher(feature_list):
             continue
         if feature.location.strand in last_feature_by_strand:
             prev_feature = last_feature_by_strand[feature.location.strand]
+            pf_goodstart, pf_goodstop = prev_feature.rcs, prev_feature.rce
+            cf_goodstart, cf_goodstop = feature.rcs, feature.rce
             last_feature_by_strand[feature.location.strand] = feature
         else:
             last_feature_by_strand[feature.location.strand] = feature
@@ -555,14 +557,6 @@ def fusionfisher(feature_list):
             # Artifact due to a gene fusion hybrid
             #
             else:
-                (pf_goodstart, pf_goodstop) = coord_check(
-                    prev_feature,
-                    ref_annotation[key_ref_gene(prev_feature.source, extractor.get_gene(prev_feature))],
-                )
-                (cf_goodstart, cf_goodstop) = coord_check(
-                    feature,
-                    ref_annotation[key_ref_gene(feature.source, extractor.get_gene(feature))],
-                )
                 if (pf_goodstart and not cf_goodstart) or (not pf_goodstop and cf_goodstop):
                     upstream = prev_feature
                     downstream = feature
@@ -618,18 +612,6 @@ def fusionfisher(feature_list):
             # potential RATT misannotation, similar to the one in issue #51
             #
             else:
-                (pf_goodstart, pf_goodstop) = coord_check(
-                    prev_feature,
-                    ref_annotation[
-                        key_ref_gene(prev_feature.source, extractor.get_gene(prev_feature))
-                    ],
-                )
-                (cf_goodstart, cf_goodstop) = coord_check(
-                    feature,
-                    ref_annotation[
-                        key_ref_gene(feature.source, extractor.get_gene(feature))
-                    ],
-                )
                 if pf_goodstop and not cf_goodstop:
                     rejects.append({
                         'feature':outlist.pop(),
