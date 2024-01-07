@@ -127,6 +127,22 @@ features = {
             ),
         },
     },
+    'SEA17020030': {
+        'Rv3382c': {
+            'ratt': SeqFeature(
+                FeatureLocation(3796529, 3797594, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3382c'], 'gene':['lytB1']}
+            ),
+        },
+        'Rv3383c': {
+            'ratt': SeqFeature(
+                FeatureLocation(3796529, 3797582, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv3383c'], 'gene':['idsB']}
+            ),
+        },
+    },
     '1-0006': {
         'dnaA': {
             'ratt': SeqFeature(
@@ -581,6 +597,7 @@ for sample in features:
             '2-0031',
             '4-0041',
             'SEA08151',
+            'SEA17020030',
     ]:
         source = 'H37Rv.NC_000962.3'
     elif sample in [
