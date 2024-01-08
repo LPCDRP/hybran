@@ -106,11 +106,11 @@ def which_np(gbk_record):
         comments = str(comments).lower()
         if ('hybran' in header) or ('hybran' in comments):
             return hybran_np
-        elif ('pgap' in header) or ('pgap' in comments):
+        if ('pgap' in header) or ('pgap' in comments):
             return pgap_np
-        else:
-            #unknown or generic note parser return null entry.
-            return lambda _:'.'
+
+    #unknown or generic note parser return null entry.
+    return lambda _:'.'
 
 def generate_record(gbk):
     """
