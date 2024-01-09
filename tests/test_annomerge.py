@@ -1142,13 +1142,13 @@ def test_check_inclusion_criteria(pair, tmp_path):
         ),
         'overlapping_different_names_ratt_better': (
             False, True,
-            'putative_misannotation',
-            "Has no reference-corresponding coordinates, while rival feature has a reference-corresponding start, and both share the same stop position.",
+            'forfeit',
+            "Equally valid call. RATT annotation is favored due to synteny.",
         ),
         'overlapping_different_names_abinit_better': (
             True, False,
-            'putative_misannotation',
-            "Has no reference-corresponding stop, while rival feature does, and both share the same stop position."
+            'worse_ref_correspondence',
+            "Ab initio annotation more accurately named and delineated compared to the RATT annotation.",
         ),
         'ratt_join_vs_prokka_bad_start': (
             True, False,

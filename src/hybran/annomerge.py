@@ -1774,21 +1774,10 @@ def thunderdome(abinit_annotation, ratt_annotation):
         if ((all(ratt_coord_status) and all(abinit_coord_status)) or ratt_coord_status == abinit_coord_status):
             #Both non-pseudo and equal coord_status, use the more complete annotation.
             if not abinit_is_pseudo:
-                if abinit_longer:
-                    include_abinit = True
-                    include_ratt = False
-                    evid = 'shorter'
-                    remark = "Equally valid call, but the RATT annotation is less complete."
-                elif ratt_longer:
-                    include_abinit = False
-                    include_ratt = True
-                    evid = 'shorter'
-                    remark = "Equally valid call, but the ab initio annotation is less complete."
-                else:
-                    include_abinit = False
-                    include_ratt = True
-                    evid = 'forfeit'
-                    remark = f"Equally valid call. Same length as ab initio annotation, but RATT annotation is favored due to synteny."
+                include_abinit = False
+                include_ratt = True
+                evid = 'forfeit'
+                remark = f"Equally valid call. RATT annotation is favored due to synteny."
             #Both pseudo
             else:
                 if abinit_longer and abinit_delayed_stop and not ratt_delayed_stop:
