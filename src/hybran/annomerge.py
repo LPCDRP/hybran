@@ -540,11 +540,13 @@ def fusion_upgrade(feature, gene, source, product):
         feature.qualifiers['product'][0] = product
     return feature
 
-def fusionfisher(feature_list):
+def fusionfisher(feature_list, adjudicate=True):
     """
     This function parses through a list of CDSs and returns a unique list of CDSs, cleaning up annotation artifacts due to gene fusion events, as well as renaming such genes and those that have conjoined with their neighbor.
 
     :param feature_list: list of sorted SeqFeature objects.
+    :param adjudicate: bool whether to attempt resolution of detected conflicts.
+       This is useful to have as True during RATT postprocessing, but to set False and leave for the thunderdome otherwise.
     :return:
        - list of the SeqFeature objects that were identified and tagged.
        - list of fusion genes
@@ -675,7 +677,7 @@ def fusionfisher(feature_list):
             #
             # potential RATT misannotation, similar to the one in issue #51
             #
-            else:
+            elif adjudicate:
                 if pf_goodstop and not cf_goodstop:
                     rejects.append({
                         'feature':outlist.pop(),
@@ -1895,7 +1897,7 @@ def check_inclusion_criteria(
             include_abinit, include_ratt, evid, remark = thunderdome(abinit_annotation, ratt_annotation)
 
         elif not same_gene_name and overlap_inframe(abinit_annotation.location, ratt_annotation.location):
-            keepers, fusions, rejects = fusionfisher([ratt_annotation, abinit_annotation])
+            keepers, fusions, rejects = fusionfisher([ratt_annotation, abinit_annotation], adjudicate=False)
             for trial in rejects:
                 reject = trial['feature']
                 if reject == ratt_annotation:
