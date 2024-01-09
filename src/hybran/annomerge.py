@@ -300,6 +300,27 @@ def merge_qualifiers(f1quals, f2quals):
             )
     return final_qualifiers
 
+def complementary(f1, f2, f1_status=None, f2_status=None):
+    """
+    Given two (Autarkic)SeqFeatures, check whether their reference-correspondence is complementary.
+    That is, one has a good start and bad stop while the other has a bad start and good stop.
+    :param f1: SeqFeature
+    :param f2: SeqFeature
+    :param f1_status: bool 2-tuple (goodstart, goodstop) for f1
+    :param f2_status: bool 2-tuple (goodstart, goodstop) for f2
+        If None, attempt to use (f1(2).rcs, f1(2).rce). The argument allows flexibility for
+        providing coord_check results for f1 or f2 with respect to alternative reference genes.
+    :return: bool whether the two features are complementary
+    """
+    if f1_status is None:
+        f1_status = (f1.rcs, f1.rce)
+    if f2_status is None:
+        f2_status = (f2.rcs, f2.rce)
+    return (
+        (any(f1_status) and any(f2_status))
+        and (int(f1_status[0])+int(f2_status[0]), int(f1_status[1])+int(f2_status[1]))==(1,1)
+    )
+
 def fissionfuser(flist, seq_ident, seq_covg):
     """
     Given a list of features ordered by genomic position, identify adjacent gene fragments and combine them into a single feature.
@@ -377,8 +398,12 @@ def fissionfuser(flist, seq_ident, seq_covg):
                 feature,
                 ref_annotation[key_ref_gene(ref_gene_source, ref_gene)],
             )
-            if ((any(lg_status) and any(cg_status))
-                and (int(lg_status[0])+int(cg_status[0]), int(lg_status[1])+int(cg_status[1]))==(1,1)):
+            if complementary(
+                    f1=last_gene,
+                    f1_status=lg_status,
+                    f2=feature,
+                    f2_status=cg_status,
+            ):
                 combine = True
                 reason = 'complementary_fragments'
 
@@ -499,6 +524,21 @@ def fusion_name(feature1, feature2):
 
     return name, source, product
 
+def fusion_upgrade(feature, gene, source, product):
+    """
+    Update a feature with fusion attributes (from fusion_name()).
+    Modifies the given feature object.
+    :param feature: AutarkicSeqFeature
+    :param gene: str fusion gene name
+    :param source: str source genome
+    :param product: str product qualifier
+    :returns: the given feature object
+    """
+    feature.qualifiers['gene'][0] = gene
+    feature.source = source
+    if product:
+        feature.qualifiers['product'][0] = product
+    return feature
 
 def fusionfisher(feature_list):
     """
@@ -525,6 +565,8 @@ def fusionfisher(feature_list):
             continue
         if feature.location.strand in last_feature_by_strand:
             prev_feature = last_feature_by_strand[feature.location.strand]
+            pf_goodstart, pf_goodstop = prev_feature.rcs, prev_feature.rce
+            cf_goodstart, cf_goodstop = feature.rcs, feature.rce
             last_feature_by_strand[feature.location.strand] = feature
         else:
             last_feature_by_strand[feature.location.strand] = feature
@@ -555,14 +597,6 @@ def fusionfisher(feature_list):
             # Artifact due to a gene fusion hybrid
             #
             else:
-                (pf_goodstart, pf_goodstop) = coord_check(
-                    prev_feature,
-                    ref_annotation[key_ref_gene(prev_feature.source, extractor.get_gene(prev_feature))],
-                )
-                (cf_goodstart, cf_goodstop) = coord_check(
-                    feature,
-                    ref_annotation[key_ref_gene(feature.source, extractor.get_gene(feature))],
-                )
                 if (pf_goodstart and not cf_goodstart) or (not pf_goodstop and cf_goodstop):
                     upstream = prev_feature
                     downstream = feature
@@ -574,11 +608,7 @@ def fusionfisher(feature_list):
                     upstream = prev_feature
                     downstream = feature
 
-                gene, source, product = fusion_name(upstream, downstream)
-                prev_feature.qualifiers['gene'][0] = gene
-                prev_feature.source = source
-                if product:
-                    prev_feature.qualifiers['product'] = [product]
+                fusion_upgrade(prev_feature, *fusion_name(upstream, downstream))
 
                 rejects.append({
                     'feature':outlist.pop(),
@@ -607,29 +637,30 @@ def fusionfisher(feature_list):
                     f"Upstream gene {'|'.join([extractor.get_ltag(upstream),extractor.get_gene(upstream)])} conjoins with this one."
                 )
 
-                gene, source, product = fusion_name(upstream, downstream)
-                upstream.qualifiers['gene'][0] = gene
-                upstream.source = source
-                if product:
-                    upstream.qualifiers['product'] = [product]
+                fusion_upgrade(upstream, *fusion_name(upstream, downstream))
 
                 remarkable['conjoined'].append(upstream)
+            #
+            # Another signature of a gene fusion hybrid
+            #
+            elif complementary(prev_feature, feature):
+                if feature.rcs:
+                    upstream, downstream = feature, prev_feature
+                else:
+                    upstream, downstream = prev_feature, feature
+                fusion_upgrade(upstream, *fusion_name(upstream, downstream))
+                remarkable['hybrid'].append(upstream)
+                rejects.append({
+                    'feature':downstream,
+                    'superior':upstream,
+                    'evid':'combined_annotation',
+                    'remark':"Apparent hybrid fusion gene.",
+                })
+                outlist.remove(downstream)
             #
             # potential RATT misannotation, similar to the one in issue #51
             #
             else:
-                (pf_goodstart, pf_goodstop) = coord_check(
-                    prev_feature,
-                    ref_annotation[
-                        key_ref_gene(prev_feature.source, extractor.get_gene(prev_feature))
-                    ],
-                )
-                (cf_goodstart, cf_goodstop) = coord_check(
-                    feature,
-                    ref_annotation[
-                        key_ref_gene(feature.source, extractor.get_gene(feature))
-                    ],
-                )
                 if pf_goodstop and not cf_goodstop:
                     rejects.append({
                         'feature':outlist.pop(),

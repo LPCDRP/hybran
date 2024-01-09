@@ -329,6 +329,7 @@ def test_fissionfuser(gene_list, tmp_path):
 
 @pytest.mark.parametrize('gene_list', [
     'misannotation_false_delayed_stop',
+    'hybrid_fusion_diff_start',
     'redundant_double_hybrid_fusion',
     'misannotation_both_nonpseudo',
     'misannotation_one_pseudo',
@@ -336,7 +337,8 @@ def test_fissionfuser(gene_list, tmp_path):
 ])
 def test_fusionfisher(gene_list):
     source_genomes = {
-        'misannotation_false_delayed_stop':'1-0006',
+        'misannotation_false_delayed_stop':'SEA17020030',
+        'hybrid_fusion_diff_start':'1-0006',
         'redundant_double_hybrid_fusion':'AZ20',
         'misannotation_both_nonpseudo': 'AZ20',
         'misannotation_one_pseudo': 'AZ20',
@@ -347,6 +349,10 @@ def test_fusionfisher(gene_list):
     source_features.update(features[source_genomes[gene_list]])
     inputs = {
         'misannotation_false_delayed_stop': [
+            source_features['Rv3382c']['ratt'],
+            source_features['Rv3383c']['ratt'],
+        ],
+        'hybrid_fusion_diff_start': [
             source_features['Rv0074']['ratt'],
             source_features['Rv0071']['ratt'],
         ],
@@ -377,21 +383,34 @@ def test_fusionfisher(gene_list):
     source_genome = source_genomes[gene_list]
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
+    annomerge.genetic_code = 11
+    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
     for f in inputs[gene_list]:
         f.references = {record_sequence.id: record_sequence.seq}
         for part in f.location.parts:
             part.ref = record_sequence.id
-    annomerge.genetic_code = 11
-    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
-    annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
+        (f.rcs, f.rce) = annomerge.coord_check(
+            f, annomerge.ref_annotation[annomerge.key_ref_gene(f.source, f.qualifiers['gene'][0])]
+        )
+
     expected = {
         'misannotation_false_delayed_stop': (
-            [ source_features['Rv0074']['ratt'] ],
+            [ source_features['Rv3383c']['ratt'] ],
             [ ],
             [{
-                'feature':source_features['Rv0071']['ratt'],
+                'feature':source_features['Rv3382c']['ratt'],
                 'evid':'putative_misannotation',
-                'remark':"Has no reference-corresponding stop, while rival feature does, and both share the same stop position.",
+                'remark':'Has no reference-corresponding stop, while rival feature does, and both share the same stop position.',
+            }],
+        ),
+        'hybrid_fusion_diff_start': (
+            [ ],
+            [ ],
+            [{
+                'feature':source_features['Rv0074']['ratt'],
+                'evid':'combined_annotation',
+                'remark':"Apparent hybrid fusion gene.",
             }],
         ),
         'redundant_double_hybrid_fusion': (
@@ -431,6 +450,16 @@ def test_fusionfisher(gene_list):
         expected['idempotence'][0][1].qualifiers['note'] = [
             "Upstream gene ECOLIN_24700|ECOLIN_24700::ECOLIN_12095 conjoins with this one."
         ]
+    elif gene_list == 'hybrid_fusion_diff_start':
+        fusion_result = annomerge.fusion_upgrade(
+            deepcopy(source_features['Rv0071']['ratt']),
+            *annomerge.fusion_name(
+                source_features['Rv0071']['ratt'],
+                source_features['Rv0074']['ratt'],
+            )
+        )
+        for outlist in expected['hybrid_fusion_diff_start'][0:2]:
+            outlist.append(fusion_result)
 
     # set the rival feature as the passing one. for these test cases, we're always looking at pairs
     if expected[gene_list][2]:
