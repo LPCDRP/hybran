@@ -452,11 +452,10 @@ def test_fusionfisher(gene_list):
         ]
     elif gene_list == 'hybrid_fusion_diff_start':
         fusion_result = annomerge.fusion_upgrade(
-            deepcopy(source_features['Rv0071']['ratt']),
-            *annomerge.fusion_name(
-                source_features['Rv0071']['ratt'],
-                source_features['Rv0074']['ratt'],
-            )
+            base=deepcopy(source_features['Rv0071']['ratt']),
+            upstream=source_features['Rv0071']['ratt'],
+            downstream=source_features['Rv0074']['ratt'],
+            update_location=True
         )
         for outlist in expected['hybrid_fusion_diff_start'][0:2]:
             outlist.append(fusion_result)

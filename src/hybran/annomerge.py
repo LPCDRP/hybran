@@ -524,21 +524,49 @@ def fusion_name(feature1, feature2):
 
     return name, source, product
 
-def fusion_upgrade(feature, gene, source, product):
+def fusion_upgrade(base, upstream, downstream, update_location=False):
     """
-    Update a feature with fusion attributes (from fusion_name()).
-    Modifies the given feature object.
-    :param feature: AutarkicSeqFeature
-    :param gene: str fusion gene name
-    :param source: str source genome
-    :param product: str product qualifier
-    :returns: the given feature object
+    Update a feature to represent a fusion. Modifies the first argument.
+    :param base: AutarkicSeqFeature the feature to change to represent the fusion.
+    :param upstream: AutarkicSeqFeature the upstream component (left-most if + strand, right-most if - strand)
+    :param downstream: gene: AutarkicSeqFeature
+    :param update_location: bool whether to update the location to the outer termini of upstream and downstream.
+    :returns: AutarkicSeqFeature base
     """
-    feature.qualifiers['gene'][0] = gene
-    feature.source = source
+    gene, source, product = fusion_name(upstream, downstream)
+    base.qualifiers['gene'][0] = gene
+    base.source = source
     if product:
-        feature.qualifiers['product'][0] = product
-    return feature
+        base.qualifiers['product'][0] = product
+
+    if update_location:
+        if base.strand == 1:
+            new_start = upstream.location.parts[0].start
+            new_end = downstream.location.parts[-1].end
+        else:
+            new_start = downstream.location.parts[0].start
+            new_end = upstream.location.parts[-1].end
+
+        base.location = FeatureLocation(
+            new_start,
+            new_end,
+            base.location.strand,
+            ref=base.location.parts[0].ref,
+        )
+
+    base.bok = None
+    reset_pseudo(base)
+    base.rcs, base.rce = upstream.rcs, downstream.rce
+    base.vs = upstream.vs
+    base.ve = upstream.ve
+    base.d3 = (len(base.location) % 3 == 0)
+    base.vs = has_valid_start(base)
+    base.ve, stop_note = has_broken_stop(base)
+    # TODO: We don't expect fusions to have internal stops, but if they do, we won't be getting the notes applied properly.
+    # Ideally, I'd want to refactor pseudoscan to rewrite notes based on the FeatureProperties values
+    # without trying to compute them anew every time.
+
+    return base
 
 def fusionfisher(feature_list, adjudicate=True):
     """
@@ -610,7 +638,11 @@ def fusionfisher(feature_list, adjudicate=True):
                     upstream = prev_feature
                     downstream = feature
 
-                fusion_upgrade(prev_feature, *fusion_name(upstream, downstream))
+                fusion_upgrade(
+                    base=prev_feature,
+                    upstream=upstream,
+                    downstream=downstream,
+                )
 
                 rejects.append({
                     'feature':outlist.pop(),
@@ -639,7 +671,11 @@ def fusionfisher(feature_list, adjudicate=True):
                     f"Upstream gene {'|'.join([extractor.get_ltag(upstream),extractor.get_gene(upstream)])} conjoins with this one."
                 )
 
-                fusion_upgrade(upstream, *fusion_name(upstream, downstream))
+                fusion_upgrade(
+                    base=upstream,
+                    upstream=upstream,
+                    downstream=downstream,
+                )
 
                 remarkable['conjoined'].append(upstream)
             #
@@ -650,20 +686,11 @@ def fusionfisher(feature_list, adjudicate=True):
                     upstream, downstream = feature, prev_feature
                 else:
                     upstream, downstream = prev_feature, feature
-                fusion_upgrade(upstream, *fusion_name(upstream, downstream))
-
-                if feature.strand == 1:
-                    new_start = upstream.location.parts[0].start
-                    new_end = downstream.location.parts[-1].end
-                else:
-                    new_start = downstream.location.parts[0].start
-                    new_end = upstream.location.parts[-1].end
-
-                upstream.location = FeatureLocation(
-                    new_start,
-                    new_end,
-                    feature.location.strand,
-                    ref=feature.location.parts[0].ref,
+                fusion_upgrade(
+                    base=upstream,
+                    upstream=upstream,
+                    downstream=downstream,
+                    update_location=True,
                 )
 
                 remarkable['hybrid'].append(upstream)
@@ -1215,6 +1242,21 @@ def coord_check(feature, ref_feature, fix_start=False, fix_stop=False, seek_stop
 
     return good_start, good_stop
 
+def reset_pseudo(feature):
+    """
+    Remove pseudoscan notes and the pseudo attribute. Useful if reprocessing.
+    :param feature: SeqFeature to reset
+    :returns feature: reference to the input SeqFeature (which is modified directly)
+    """
+    keeper_notes = []
+    if 'note' in feature.qualifiers:
+        keeper_notes = [_ for _ in feature.qualifiers['note'] if not _.startswith('Hybran/Pseudoscan')]
+        feature.qualifiers['note'] = keeper_notes
+
+    feature.qualifiers.pop('pseudo', None)
+    feature.qualifiers.pop('pseudogene', None)
+    return feature
+
 def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, blast_hit_dict=None
 ):
     """
@@ -1237,14 +1279,10 @@ def pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue=False, 
         pseudo_note = [_ for _ in feature.qualifiers['note'] if _.startswith("*pseudo") or "Reference gene is pseudo" in _]
         if pseudo_note:
             feature.qualifiers['note'].remove(pseudo_note[0])
-        previous_run_notes = [i for i in feature.qualifiers['note'] if 'Hybran/Pseudoscan' in i]
         # We're about to decide for ourselves whether the gene is pseudo in this current run
         # and we don't want the existence of the qualifier from the previous run
         # confounding the ref_was_pseudo determination.
-        if previous_run_notes:
-            feature.qualifiers['note'] = [i for i in feature.qualifiers['note'] if 'Hybran/Pseudoscan' not in i]
-            feature.qualifiers.pop('pseudo', None)
-            feature.qualifiers.pop('pseudogene', None)
+        reset_pseudo(feature)
 
     # checking the feature's pseudo attribute to decide whether the reference is pseudo
     # is only possible with RATT annotations since liftover from the reference may bring
