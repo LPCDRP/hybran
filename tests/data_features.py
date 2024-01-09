@@ -60,10 +60,6 @@ features = {
                 type='CDS',
                 qualifiers={
                     'locus_tag':['ECOLIN_24700'],'gene':['ECOLIN_24700::ECOLIN_12095'],
-                    'pseudo':[],
-                    'note':[
-                        'Hybran/Pseudoscan: Locus does not have reference-corresponding start and end | Poor blastp match at 95% identity and 95% coverage thresholds | No internal stop codons and ends with a valid stop codon | Locus has valid reading frame | Locus has a valid alternative start site | Locus has a valid alternative stop codon | Locus has a delayed stop codon',
-                    ],
                 },
                 og=FeatureProperties(
                     de=True,
