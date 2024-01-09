@@ -1,8 +1,3 @@
-__author__ = "Deepika Gunasekaran"
-__maintainer__ = "Deepika Gunasekaran"
-__email__ = "dgunasekaran@sdsu.edu"
-__status__ = "Development"
-
 # Title: Merge annotation from Prokka for the positions which are not annotated by RATT
 # Description: This program takes as input, a valid EMBL file from RATT annotation or multiple EMBL files in case of
 # multiple contigs/chromosome annotations and a Genbank file (.gbk) file from Prokka annotation run with a reference and

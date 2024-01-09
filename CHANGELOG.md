@@ -1,6 +1,6 @@
 # Release Notes
 
-## [Development]
+## Development
 
 * hybran now depends on `networkx` and `intervaltree`
 
