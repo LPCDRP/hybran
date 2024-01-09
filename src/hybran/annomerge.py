@@ -649,6 +649,21 @@ def fusionfisher(feature_list):
                 else:
                     upstream, downstream = prev_feature, feature
                 fusion_upgrade(upstream, *fusion_name(upstream, downstream))
+
+                if feature.strand == 1:
+                    new_start = upstream.location.parts[0].start
+                    new_end = downstream.location.parts[-1].end
+                else:
+                    new_start = downstream.location.parts[0].start
+                    new_end = upstream.location.parts[-1].end
+
+                upstream.location = FeatureLocation(
+                    new_start,
+                    new_end,
+                    feature.location.strand,
+                    ref=feature.location.parts[0].ref,
+                )
+
                 remarkable['hybrid'].append(upstream)
                 rejects.append({
                     'feature':downstream,
