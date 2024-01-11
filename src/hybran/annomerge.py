@@ -28,18 +28,17 @@ from . import converter
 from . import config
 from . import designator
 from . import extractor
+from . import pseudoscan
 from . import __version__
 from .bio import SeqIO
 from .bio import FeatureProperties
 from .demarcate import (
     coord_check,
     has_broken_stop,
-    has_valid_start,
 )
 from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos
-from .pseudoscan import pseudoscan, reset_pseudo
 from .util import keydefaultdict, mpbreakpoint
 
 def get_and_remove_ref_tracer(feature):
@@ -381,7 +380,7 @@ def fissionfuser(flist, seq_ident, seq_covg):
                 new_feature.corr = FeatureProperties()
                 new_feature.corr_accepted = new_feature.corr_possible = None
                 # Re-call pseudoscan for updated notes
-                pseudoscan(
+                pseudoscan.pseudoscan(
                     new_feature,
                     ref_annotation[key_ref_gene(new_feature.source, new_feature.qualifiers['gene'][0])],
                     seq_ident=seq_ident,
@@ -462,16 +461,10 @@ def fusion_upgrade(base, upstream, downstream, update_location=False):
         )
 
     base.bok = None
-    reset_pseudo(base)
+    pseudoscan.reset_pseudo(base)
     base.rcs, base.rce = upstream.rcs, downstream.rce
-    base.vs = upstream.vs
-    base.ve = upstream.ve
-    base.d3 = (len(base.location) % 3 == 0)
-    base.vs = has_valid_start(base)
-    base.ve, stop_note = has_broken_stop(base)
-    # TODO: We don't expect fusions to have internal stops, but if they do, we won't be getting the notes applied properly.
-    # Ideally, I'd want to refactor pseudoscan to rewrite notes based on the FeatureProperties values
-    # without trying to compute them anew every time.
+    base.de = False # With the fusion identity, it's no longer a delayed stop
+    pseudoscan.call(base, ref_was_pseudo=False)
 
     return base
 
