@@ -199,6 +199,12 @@ def call(
     feature.ve = not broken_stop
     blast_ok = feature.bok
 
+    have_blast_info = (
+        blast_ok is not None
+        and blast_seq_ident is not None
+        and blast_seq_covg is not None
+    )
+
     # Notes that are only interesting if we end up tagging the gene a certain way.
     new_note = []
 
@@ -250,10 +256,13 @@ def call(
             f"Locus has {'valid' if d3 else 'invalid'} reading frame"
             f"{'' if d3 else '-- not divisible by three'}"
         )
-        blast_note = (
-            f"{'Strong' if blast_ok else 'Poor'} blastp match at "
-            f"{blast_seq_ident}% identity and {blast_seq_covg}% coverage thresholds"
-        )
+        if have_blast_info:
+            blast_note = (
+                f"{'Strong' if blast_ok else 'Poor'} blastp match at "
+                f"{blast_seq_ident}% identity and {blast_seq_covg}% coverage thresholds"
+            )
+        else:
+            blast_note = ''
         start_note = f"Locus has {'valid' if valid_start else 'invalid'} start codon"
         broke_note = f"{'No internal stop codons and ends with a valid stop codon' if not broken_stop else stop_note}"
 
@@ -312,7 +321,7 @@ def call(
                         new_note.append("Locus has a delayed stop codon")
 
                 #Primary reason for non-pseudo is all(coords_ok). Interesting because blast_ok == False.
-                else:
+                elif blast_ok is not None:
                     new_note.extend([coord_note, blast_note])
                     new_note.extend([broke_note, div_note])
                     feature.ps_evid.append('noisy_seq')
@@ -362,7 +371,7 @@ def call(
                         new_note.append(f"Locus is {len(feature) - ref_len} base pair(s) longer than the reference")
 
         if new_note:
-            new_note = ' | '.join(new_note)
+            new_note = ' | '.join(filter(None, new_note))
             designator.append_qualifier(
                 feature.qualifiers,
                 'note',
