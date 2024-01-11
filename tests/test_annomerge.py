@@ -241,7 +241,7 @@ def test_fissionfuser(gene_list, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
     source_genome = source_genomes[gene_list]
     record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
-    annomerge.genetic_code = demarcate.genetic_code = pseudoscan.genetic_code = 11
+    config.cnf.genetic_code = 11
     annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
     annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
 
@@ -385,7 +385,7 @@ def test_fusionfisher(gene_list):
     source_genome = source_genomes[gene_list]
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
-    annomerge.genetic_code = demarcate.genetic_code = 11
+    config.cnf.genetic_code = 11
     annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
     annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
     for f in inputs[gene_list]:
@@ -799,7 +799,7 @@ def test_check_inclusion_criteria(pair, tmp_path):
         for part in f.location.parts:
             part.ref = record_sequence.id
     annomerge.ref_annotation = ref_features[ref_genome[pair]]
-    annomerge.genetic_code = demarcate.genetic_code = 11
+    config.cnf.genetic_code = 11
 
     config.hybran_tmp_dir = tmp_path
     annomerge.record_sequence = list(SeqIO.parse(f'data/{source_genome[pair]}.fasta', 'fasta'))[0].seq

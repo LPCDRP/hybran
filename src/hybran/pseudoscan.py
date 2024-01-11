@@ -9,18 +9,13 @@ from . import (
     extractor,
     designator,
 )
+from .config import cnf
 from .demarcate import (
     coord_check,
     has_broken_stop,
     has_valid_start,
 )
 
-
-# try/except needed for unit tests
-try:
-    genetic_code = config.genetic_code
-except AttributeError:
-    pass
 
 def reset_pseudo(feature):
     """
@@ -148,9 +143,9 @@ def pseudoscan(
 
             ref_seq = translate(
                 extractor.get_seq(ref_feature),
-                table=genetic_code, to_stop=True
+                table=cnf.genetic_code, to_stop=True
             )
-            feature_seq = translate(feature.extract(), table=genetic_code, to_stop=True)
+            feature_seq = translate(feature.extract(), table=cnf.genetic_code, to_stop=True)
             #ref_match with 'thresholds enforced'
             top_hit, low_covg, blast_stats = BLAST.reference_match(
                 query=SeqRecord(feature_seq),

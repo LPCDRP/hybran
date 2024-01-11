@@ -19,6 +19,7 @@ from .annomerge import get_and_remove_ref_tracer
 from .annomerge import get_ordered_features
 from .annomerge import key_ref_gene
 from .bio import AutarkicSeqFeature, SeqIO, FeatureProperties
+from .config import cnf
 from .demarcate import coord_check, has_broken_stop
 from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
@@ -57,9 +58,6 @@ def postprocess(
         postprocess_outdir,
         exist_ok=True,
     )
-
-    global genetic_code
-    genetic_code = config.genetic_code
 
     ratt_correction_files = []
     ratt_features = {}
@@ -302,7 +300,7 @@ def validate(
     if unbroken:
         feature_sequence = translate(
             feature.extract(),
-            table=genetic_code,
+            table=cnf.genetic_code,
             to_stop=True,
         )
         # TODO: if we want to keep track of the blast stats, we should add it as an attribute to the AutarkicSeqFeature object
@@ -320,7 +318,7 @@ def validate(
             except KeyError:
                 ref_seq = translate(
                     extractor.get_seq(ref_feature),
-                    table=genetic_code, to_stop=True
+                    table=cnf.genetic_code, to_stop=True
                 )
 
             if len(feature_sequence) == 0:

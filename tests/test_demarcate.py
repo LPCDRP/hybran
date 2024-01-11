@@ -6,6 +6,7 @@ import pytest
 
 from hybran import (
     annomerge,
+    config,
     demarcate,
 )
 from hybran.bio import SeqIO
@@ -103,7 +104,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
     test_features[feature_type].ref = record_sequence.id
     test_features[feature_type].references = {record_sequence.id: record_sequence.seq}
-    demarcate.genetic_code = 11
+    config.cnf.genetic_code = 11
     annomerge.corrected_orf_report = []
     annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
     annomerge.ref_annotation.update(ref_features[ref_genome[feature_type]])

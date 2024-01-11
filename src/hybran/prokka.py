@@ -60,9 +60,6 @@ def postprocess(
         isolate_id + '.gbk',
     )
 
-    global genetic_code
-    genetic_code = config.genetic_code
-
     prokka_features = {}
     prokka_records = []
     for i, record in enumerate(SeqIO.parse(input_prokka_genbank, 'genbank')):

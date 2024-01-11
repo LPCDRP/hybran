@@ -1,15 +1,26 @@
 import tempfile
+from types import SimpleNamespace
 
 from Bio.Data import CodonTable
 
+
+# TODO: update rest of code base to use this data
+#       structure for tmpdir and other things,
+#       like the generic ORF prefix.
+cnf = SimpleNamespace(
+    tmpdir=None,
+    genetic_code=None,
+)
+
 def init():
+    # TODO: stop using this global variable and move towards using cnf.tmpdir
     global hybran_tmp_dir
     # Make the temporary files directory
     hybran_tmp_dir = tempfile.mkdtemp()
+    cnf.tmpdir = hybran_tmp_dir
 
 def set_genetic_code(code):
-    global genetic_code
-    genetic_code = code
+    cnf.genetic_code = code
 
 def ratt(path, genetic_code, splice, correct_splice, correct_pseudo):
     """

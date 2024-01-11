@@ -18,13 +18,8 @@ from . import (
     designator,
     extractor,
 )
+from .config import cnf
 
-
-# try/except needed for unit tests
-try:
-    genetic_code = config.genetic_code
-except AttributeError:
-    pass
 
 def has_valid_start(feature):
     """
@@ -33,7 +28,7 @@ def has_valid_start(feature):
     :param feature: A SeqFeature object
     :return: True if valid start codon exists
     """
-    start_codons = CodonTable.generic_by_id[genetic_code].start_codons
+    start_codons = CodonTable.generic_by_id[cnf.genetic_code].start_codons
     feature_seq = str(feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
                                       references=feature.references))[:3]
 
@@ -48,7 +43,7 @@ def has_broken_stop(feature):
     note = ''
     feature_seq = feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
                                   references=feature.references)
-    translation = str(feature_seq.translate(to_stop=False, table=genetic_code))
+    translation = str(feature_seq.translate(to_stop=False, table=cnf.genetic_code))
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
@@ -93,7 +88,7 @@ def stopseeker(feature, circularize=False):
             extended_feature.location = extended_feature.location + circularize
         else:
             extended_feature.location = circularize + extended_feature.location
-    extended_seq = extended_feature.extract().translate(to_stop=True, table=genetic_code)
+    extended_seq = extended_feature.extract().translate(to_stop=True, table=cnf.genetic_code)
 
     #Translation extends up to, but not including the stop codon, so we need to add 3 to the end
     if feature.strand == 1:
@@ -513,7 +508,7 @@ def coord_check(
         feature.qualifiers['translation'] = [
             str(translate(
                 feature.extract(),
-                table=genetic_code,
+                table=cnf.genetic_code,
                 to_stop=True,
             ))
         ]

@@ -1184,7 +1184,7 @@ def run(
     global script_dir
     script_dir = script_directory
     global genetic_code
-    genetic_code = config.genetic_code
+    genetic_code = config.cnf.genetic_code
     logger = logging.getLogger('Annomerge')
 
     if annotation_fp.endswith('/'):

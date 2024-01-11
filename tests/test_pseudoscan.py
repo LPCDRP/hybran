@@ -7,6 +7,7 @@ from hybran import (
     pseudoscan,
 )
 from hybran.bio import SeqIO
+from hybran.config import cnf
 
 from .data_features import *
 
@@ -77,7 +78,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
     test_features[feature_type].ref = record_sequence.id
     test_features[feature_type].references = {record_sequence.id: record_sequence.seq}
-    pseudoscan.genetic_code = demarcate.genetic_code = 11
+    cnf.genetic_code = 11
     annomerge.corrected_orf_report = []
     expected = {
         'small_badstop_fix_pseudo': [True, FeatureLocation(66693, 67032, strand=-1, ref='1')],
