@@ -9,14 +9,18 @@ from . import (
     extractor,
     designator,
 )
-# avoid circular import error
-import hybran.annomerge
-#from hybran.annomerge import (
-#    coord_check,
-#    has_broken_stop,
-#    has_valid_start,
-#)
+from .demarcate import (
+    coord_check,
+    has_broken_stop,
+    has_valid_start,
+)
 
+
+# try/except needed for unit tests
+try:
+    genetic_code = config.genetic_code
+except AttributeError:
+    pass
 
 def reset_pseudo(feature):
     """

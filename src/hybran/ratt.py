@@ -14,13 +14,12 @@ from . import config
 from . import converter
 from . import designator
 from . import extractor
-from .annomerge import coord_check
 from .annomerge import fusionfisher
 from .annomerge import get_and_remove_ref_tracer
 from .annomerge import get_ordered_features
-from .annomerge import has_broken_stop
 from .annomerge import key_ref_gene
 from .bio import AutarkicSeqFeature, SeqIO, FeatureProperties
+from .demarcate import coord_check, has_broken_stop
 from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos

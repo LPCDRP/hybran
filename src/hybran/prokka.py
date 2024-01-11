@@ -12,11 +12,11 @@ import multiprocess as multiprocessing
 from . import BLAST
 from . import config
 from . import designator
-from .annomerge import coord_check
 from .annomerge import fissionfuser
 from .annomerge import key_ref_gene
 from .annomerge import liftover_annotation
 from .bio import AutarkicSeqFeature, SeqIO
+from .demarcate import coord_check
 from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos
