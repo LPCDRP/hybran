@@ -184,6 +184,11 @@ class AutarkicSeqFeature(SeqFeature):
         else:
             object.__setattr__(self, name, val)
 
+    def __repr__(self):
+        return f"""
+{self.location}
+{self.qualifiers}
+"""
 
 # keep track of the original Location.fromstring function before we mask it
 super_fromstring = GenBank.Location.fromstring
