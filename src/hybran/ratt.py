@@ -20,11 +20,11 @@ from .annomerge import get_and_remove_ref_tracer
 from .annomerge import get_ordered_features
 from .annomerge import has_broken_stop
 from .annomerge import key_ref_gene
-from .annomerge import pseudoscan
 from .bio import AutarkicSeqFeature, SeqIO, FeatureProperties
 from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos
+from .pseudoscan import pseudoscan
 from .util import mpbreakpoint
 
 def postprocess(

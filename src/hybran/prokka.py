@@ -16,11 +16,11 @@ from .annomerge import coord_check
 from .annomerge import fissionfuser
 from .annomerge import key_ref_gene
 from .annomerge import liftover_annotation
-from .annomerge import pseudoscan
 from .bio import AutarkicSeqFeature, SeqIO
 from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
 from .lumberjack import log_pseudos
+from .pseudoscan import pseudoscan
 from .util import mpbreakpoint
 
 
