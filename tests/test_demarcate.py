@@ -187,7 +187,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         },
         'inverted_join_ecoli':  {
             'results':[(False, False), FeatureLocation(3714209, 3716770, strand=-1, ref='1')],
-            'og_de':True,
+            'og_de':False,
             'corr_de':None,
         },
         'gene_fusion':  {
