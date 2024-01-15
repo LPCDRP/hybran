@@ -60,9 +60,17 @@ features = {
                 type='CDS',
                 qualifiers={
                     'locus_tag':['ECOLIN_24700'],'gene':['ECOLIN_24700::ECOLIN_12095'],
+                    'pseudo': [''],
+                    'note': [
+                        'Hybran/Pseudoscan:description:Locus does not have reference-corresponding start | No internal stop codons and ends with a valid stop codon | Locus has valid reading frame | Locus has a valid alternative start site',
+                        'Hybran/Pseudoscan:evidence:no_rcc',
+                        'Hybran/Pseudoscan:barcode:D31;VS1;VE1;RCS0;RCE1;BOK.',
+                    ],
                 },
                 og=FeatureProperties(
                     de=True,
+                    rcs=False,
+                    rce=True,
                 ),
             ),
         },
@@ -73,6 +81,10 @@ features = {
                 qualifiers={
                     'locus_tag':['L_01715'],'gene':['ECOLIN_12095'],
                 },
+                og=FeatureProperties(
+                    rcs=True,
+                    rce=True,
+                ),
             ),
         },
         'AZ20_03933': {
