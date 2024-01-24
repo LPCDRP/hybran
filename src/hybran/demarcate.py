@@ -112,6 +112,26 @@ def stopseeker(feature, circularize=False):
     )
     return return_feature
 
+def update_termini(base_location, start, end):
+    """
+    Update a feature location object with a new start and end position,
+    while preserving compound location components if the exist.
+    :param base_location: FeatureLocation or CompoundLocation object
+    :param start: int or ExactPosition or the like new start position
+    :param end: int or ExactPosition or the like new end position
+    :returns: modified input location object. the given object is also modified directly
+    """
+    #
+    # Setting .start and .end directly is not allowed, but these
+    # _start and _end properties have the right effect.
+    # If it ever breaks, the recourse will be to make a new location object
+    # (either SimpleLocation or CompoundLocation) and replicate everything
+    # but the parts[0] start and parts[-1] end.
+    #
+    base_location.parts[0]._start = start
+    base_location.parts[-1]._end = end
+    return base_location
+
 def coord_check(
         feature,
         ref_feature,
@@ -317,12 +337,7 @@ def coord_check(
             if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
                 feature_end = padded_feature_end
 
-        pad_feature.location = FeatureLocation(
-            feature_start,
-            feature_end,
-            strand=feature.strand,
-            ref=og_feature_loc_ref,
-        )
+        update_termini(pad_feature.location, feature_start, feature_end)
         return pad_feature
 
     def has_delayed_end(feature_seq, query, found_high, relaxed_found_high, rce):
@@ -436,12 +451,7 @@ def coord_check(
             feature_start = og_feature_start
             feature_end = og_feature_end
             logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
-        feature.location = FeatureLocation(
-            int(feature_start),
-            int(feature_end),
-            strand=feature.strand,
-            ref=og_feature_loc_ref,
-        )
+        update_termini(feature.location, int(feature_start), int(feature_end))
         feature_seq = feature.extract()
 
         if i == 1:
@@ -454,19 +464,17 @@ def coord_check(
 
             #Same corner case 'catch' as the one found above
             if corrected_feature_start > corrected_feature_end:
-                 feature.location = FeatureLocation(
+                 update_termini(
+                     feature.location,
                      int(og_feature_start),
                      int(og_feature_end),
-                     strand=feature.strand,
-                     ref=og_feature_loc_ref,
                  )
                  logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
                  break
-            corrected_feature.location = FeatureLocation(
+            update_termini(
+                corrected_feature.location,
                 int(corrected_feature_start),
                 int(corrected_feature_end),
-                strand=feature.strand,
-                ref=og_feature_loc_ref,
             )
             corrected_feature_seq = corrected_feature.extract()
             cor_low, cor_high, cor_target, cor_query, cor_alignment, cor_padding, third_score, third_interval, cor_relaxed_found_high = coord_align(ref_seq, corrected_feature_seq)
