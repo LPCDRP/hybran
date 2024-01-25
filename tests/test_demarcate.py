@@ -15,6 +15,38 @@ from hybran.util import keydefaultdict
 from .data_features import *
 
 
+@pytest.mark.parametrize('case,circular', [
+    ['softball', False],
+    ['minus_strand', False],
+    ['compound', False],
+])
+def test_stopseeker(case, circular):
+    if case == 'softball':
+        source_genome = '1-0006'
+        gene = features[source_genome]['dnaA']['ratt']
+        expected = deepcopy(gene)
+        # artificially shorten the gene to let stopseeker fix it
+        gene.location._end -= 33
+    elif case == 'minus_strand':
+        source_genome = '1-0006'
+        gene = features[source_genome]['PPE5']['ratt']
+        expected = deepcopy(gene)
+        gene.location._start += 8
+    elif case == 'compound':
+        source_genome = 'PAK'
+        gene = features[source_genome]['PA3701']['ratt']
+        expected = deepcopy(gene)
+        gene.location.parts[-1]._end -= 33
+
+
+    config.cnf.genetic_code = 11
+    record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
+    for part in gene.location.parts + expected.location.parts:
+        part.ref = record_sequence.id
+    gene.references = {record_sequence.id: record_sequence.seq}
+
+    assert demarcate.stopseeker(gene, circular) == expected
+
 @pytest.mark.parametrize('feature_type,fix_start,fix_stop,seek_stop', [
     ['abinit_start_bad_minus', True, False, None],
     ['bad_translation', True, False, None],
