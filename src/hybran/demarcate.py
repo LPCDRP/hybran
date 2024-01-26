@@ -376,6 +376,10 @@ def coord_check(
     if feature.og.alignment is None:
         feature.og.alignment = alignment
 
+        # update transl_except coordinates if applicable
+        if designator.is_transl_except(feature.qualifiers):
+            extractor.update_transl_except(feature, ref_feature, alignment)
+
     corrected_feature = deepcopy(feature)
     corrected_feature_start = corrected_feature.location.start
     corrected_feature_end = corrected_feature.location.end
