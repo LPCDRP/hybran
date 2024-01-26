@@ -68,9 +68,9 @@ def stopseeker(feature, circularize=False):
     rec_len = len(record_sequence) -1
 
     if feature.strand == 1:
-        extended_feature.location.parts[-1]._end = len(record_sequence) - 1
+        extended_feature.location.parts[-1]._end = ExactPosition(len(record_sequence) - 1)
     else:
-        extended_feature.location.parts[0]._start = 0
+        extended_feature.location.parts[0]._start = ExactPosition(0)
 
     if circularize and ((0 in feature) or (rec_len in feature)):
         circ = FeatureLocation(int(0), int(rec_len), strand=feature.strand, ref=feature_ref)
@@ -91,14 +91,18 @@ def stopseeker(feature, circularize=False):
             #Annotation will look like [feature.start ... >(rec_len)]
             extended_feature_end = AfterPosition(rec_len)
 
-        extended_feature.location.parts[-1]._end = extended_feature_end
+        extended_feature.location.parts[-1]._end = ExactPosition(
+            extended_feature_end
+        )
     else:
         extended_feature_start = feature.location.parts[0].start - (len_difference - 1)
         if extended_feature_start < 0:
             #Annotation will look like [<0 ... feature.end]
             extended_feature_start = BeforePosition(0)
 
-        extended_feature.location.parts[0]._start = extended_feature_start
+        extended_feature.location.parts[0]._start = ExactPosition(
+            extended_feature_start
+        )
 
     feature.location = extended_feature.location
 
@@ -120,8 +124,8 @@ def update_termini(base_location, start, end):
     # (either SimpleLocation or CompoundLocation) and replicate everything
     # but the parts[0] start and parts[-1] end.
     #
-    base_location.parts[0]._start = start
-    base_location.parts[-1]._end = end
+    base_location.parts[0]._start = ExactPosition(start)
+    base_location.parts[-1]._end = ExactPosition(end)
     return base_location
 
 def coord_check(
@@ -149,14 +153,14 @@ def coord_check(
     logger = logging.getLogger('CoordCheck')
     record_sequence = feature.references[feature.location.parts[0].ref]
     ref_seq = extractor.get_seq(ref_feature)
-    feature_start = int(feature.location.start)
-    feature_end = int(feature.location.end)
+    feature_start = feature.location.start
+    feature_end = feature.location.end
     feature_seq = feature.extract()
     og_feature = deepcopy(feature)
     if 'gene' not in og_feature.qualifiers:
         og_feature.qualifiers['gene'] = [ref_gene_name]
-    og_feature_start = int(og_feature.location.start)
-    og_feature_end = int(og_feature.location.end)
+    og_feature_start = og_feature.location.start
+    og_feature_end = og_feature.location.end
     og_feature_loc_ref = og_feature.location.parts[0].ref
 
     if feature.og.location is None:
@@ -282,8 +286,7 @@ def coord_check(
             alignment = alignment[1]
 
         #The index of the stop position is one off from the stop position itself
-        start = int(start)
-        stop = int(stop) - 1
+        stop -= 1
 
         interval_seq = alignment[gapped_seq.index(start) : gapped_seq.index(stop) + 1]
         return interval_seq
@@ -443,7 +446,7 @@ def coord_check(
             feature_start = og_feature_start
             feature_end = og_feature_end
             logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
-        update_termini(feature.location, int(feature_start), int(feature_end))
+        update_termini(feature.location, feature_start, feature_end)
         feature_seq = feature.extract()
 
         if i == 1:
@@ -458,15 +461,15 @@ def coord_check(
             if corrected_feature_start > corrected_feature_end:
                  update_termini(
                      feature.location,
-                     int(og_feature_start),
-                     int(og_feature_end),
+                     og_feature_start,
+                     og_feature_end,
                  )
                  logger.warning(f"Attempted to correct {feature.qualifiers['gene'][0]} with invalid coordinates. Restoring original positions.")
                  break
             update_termini(
                 corrected_feature.location,
-                int(corrected_feature_start),
-                int(corrected_feature_end),
+                corrected_feature_start,
+                corrected_feature_end,
             )
             corrected_feature_seq = corrected_feature.extract()
             cor_low, cor_high, cor_target, cor_query, cor_alignment, cor_padding, third_score, third_interval, cor_relaxed_found_high = coord_align(ref_seq, corrected_feature_seq)
