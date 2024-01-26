@@ -231,18 +231,18 @@ def coord_check(
         found_high = (target[-1][1] == len(ref_seq)) and (abs(target[-1][0] - target[-1][1])) >= interval
 
         #Sequence intervals of the lowest and highest aligned bases.
-        target_low_seq = get_gapped_sequence(alignment, 'target', target[0][0], target[0][1])
-        target_high_seq = get_gapped_sequence(alignment, 'target', target[-1][0], target[-1][1])
-        query_low_seq = get_gapped_sequence(alignment, 'query', query[0][0], query[0][1])
-        query_high_seq = get_gapped_sequence(alignment, 'query', query[-1][0], query[-1][1])
+        target_low_seq = extractor.get_gapped_sequence(alignment, 'target', target[0][0], target[0][1])
+        target_high_seq = extractor.get_gapped_sequence(alignment, 'target', target[-1][0], target[-1][1])
+        query_low_seq = extractor.get_gapped_sequence(alignment, 'query', query[0][0], query[0][1])
+        query_high_seq = extractor.get_gapped_sequence(alignment, 'query', query[-1][0], query[-1][1])
 
         relaxed_found_high = found_high
         if len(target) > 1 or len(query) > 1: #more than one interval blocks exist in the alignment sequence - discontinuous at some point.
-            target_inter_gaps = get_gapped_sequence(alignment, 'target', target[-2][0], target[-1][1]).count("-")
-            query_inter_gaps = get_gapped_sequence(alignment, 'query', query[-2][0], query[-1][1]).count("-")
+            target_inter_gaps = extractor.get_gapped_sequence(alignment, 'target', target[-2][0], target[-1][1]).count("-")
+            query_inter_gaps = extractor.get_gapped_sequence(alignment, 'query', query[-2][0], query[-1][1]).count("-")
 
-            target_penultimate_interval_seq = get_gapped_sequence(alignment, 'target', target[0][0], target[-2][1])[-interval:]
-            query_penultimate_interval_seq = get_gapped_sequence(alignment, 'query', query[0][0], query[-2][1])[-interval:]
+            target_penultimate_interval_seq = extractor.get_gapped_sequence(alignment, 'target', target[0][0], target[-2][1])[-interval:]
+            query_penultimate_interval_seq = extractor.get_gapped_sequence(alignment, 'query', query[0][0], query[-2][1])[-interval:]
 
             penultimate_found_high = (
                 # 1) Penultimate interval need to match exactly (last ~7 bp of second to last alignment block)
@@ -294,22 +294,7 @@ def coord_check(
             padding = True
         return found_low, found_high, target, query, alignment, padding, score, interval, relaxed_found_high
 
-    def get_gapped_sequence(alignment, seq_type, start, stop):
-        seq_types = ['target', 'query']
-        if seq_type not in seq_types:
-            raise ValueError(f"Invalid sequence type. Expected one of: {seq_types}")
-        elif seq_type == 'target':
-            gapped_seq = list(alignment.indices[0])
-            alignment = alignment[0]
-        else:
-            gapped_seq = list(alignment.indices[1])
-            alignment = alignment[1]
 
-        #The index of the stop position is one off from the stop position itself
-        stop -= 1
-
-        interval_seq = alignment[gapped_seq.index(start) : gapped_seq.index(stop) + 1]
-        return interval_seq
 
     def add_padding(feature, target, query, interval):
         """

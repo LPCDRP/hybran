@@ -24,6 +24,30 @@ def get_gene(feature, tryhard=True):
         # null entry for gene name
         return '.'
 
+def get_gapped_sequence(alignment, seq_type, start, stop):
+    """
+    :param alignment: A Bio.Align.Alignment object illustrating a pairwise sequence alignment
+    :param seq_type: Can be 'target' (reference) or 'query' (isolate)
+    :param start: Relative starting position to slice the target or query sequence.
+    :param stop: Relative stopping position to slice the target or query sequence.
+    :return: String representation of the sliced sequence
+    """
+    seq_types = ['target', 'query']
+    if seq_type not in seq_types:
+        raise ValueError(f"Invalid sequence type. Expected one of: {seq_types}")
+    elif seq_type == 'target':
+        gapped_seq = list(alignment.indices[0])
+        alignment = alignment[0]
+    else:
+        gapped_seq = list(alignment.indices[1])
+        alignment = alignment[1]
+
+    #The index of the stop position is one off from the stop position itself
+    start = int(start)
+    stop = int(stop) - 1
+    interval_seq = alignment[gapped_seq.index(start) : gapped_seq.index(stop) + 1]
+    return interval_seq
+
 def get_seq(feature):
     """
     Adapted from Bio.SeqFeature CompoundLocation.extract()
