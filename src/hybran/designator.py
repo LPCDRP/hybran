@@ -159,6 +159,12 @@ def find_next_increment(fasta, prefix=generic_orf_prefix):
     else:
         return 1
 
+def is_transl_except(qualifiers):
+    """
+    :param qualifiers: dict (pass feature.qualifiers here)
+    :return: True if transl_except exists
+    """
+    return 'transl_except' in qualifiers.keys()
 
 def is_pseudo(qualifiers):
     """
