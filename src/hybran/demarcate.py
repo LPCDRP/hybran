@@ -14,6 +14,7 @@ from Bio.SeqFeature import (
 )
 
 from . import (
+    annomerge,
     config,
     designator,
     extractor,
@@ -39,11 +40,31 @@ def has_broken_stop(feature):
     Finds the amount and location of internal stops.
     :param feature: A SeqFeature object
     """
+    #Check if feature has valid transl_except qualifier and check if its in frame.
+    #Features with a valid transl_except qualifier have a recoded stop codon that
+    #should be ignored because it's actually a selenocysteine amino acid.
+    fake_stops = []
+    if designator.is_transl_except(feature.qualifiers):
+        loc_list = extractor.parse_transl_except(feature)
+        for i in range(len(loc_list)):
+            temp_feature = SeqFeature(FeatureLocation(loc_list[i][0], loc_list[i][1], strand=feature.location.strand))
+            if annomerge.overlap_inframe(feature.location, temp_feature.location):
+                #list of indices denoting where fake stops exist in the translated sequence
+                if feature.location.strand == 1:
+                    fake_stops.append(int((temp_feature.location.start - feature.location.start)/3))
+                else:
+                    fake_stops.append(int((feature.location.end - temp_feature.location.end)/3))
     internal_stop = False
     note = ''
     feature_seq = feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
                                   references=feature.references)
     translation = str(feature_seq.translate(to_stop=False, table=cnf.genetic_code))
+
+    #Replace mididentified stop codons with selenocysteine amino acid symbol 'U'
+    if fake_stops:
+        for i in range(len(fake_stops)):
+            translation = translation[:fake_stops[i]] + 'U' + translation[fake_stops[i]+1:]
+
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
