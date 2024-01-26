@@ -63,24 +63,15 @@ def stopseeker(feature, circularize=False):
     :return: SeqFeature object that contains a valid stop codon
     """
     extended_feature = deepcopy(feature)
-    return_feature = deepcopy(feature)
     feature_ref = feature.location.parts[0].ref
     record_sequence = feature.references[feature.location.parts[0].ref]
     rec_len = len(record_sequence) -1
 
     if feature.strand == 1:
-        extended_feature_start = feature.location.start
-        extended_feature_end = len(record_sequence) - 1
+        extended_feature.location.parts[-1]._end = len(record_sequence) - 1
     else:
-        extended_feature_start = 0
-        extended_feature_end = feature.location.end
+        extended_feature.location.parts[0]._start = 0
 
-    extended_feature.location = FeatureLocation(
-        int(extended_feature_start),
-        int(extended_feature_end),
-        strand=feature.strand,
-        ref=feature_ref,
-    )
     if circularize and ((0 in feature) or (rec_len in feature)):
         circ = FeatureLocation(int(0), int(rec_len), strand=feature.strand, ref=feature_ref)
         #Creates CompoundLocation
@@ -89,28 +80,29 @@ def stopseeker(feature, circularize=False):
         else:
             extended_feature.location = circularize + extended_feature.location
     extended_seq = extended_feature.extract().translate(to_stop=True, table=cnf.genetic_code)
-
     #Translation extends up to, but not including the stop codon, so we need to add 3 to the end
+    extended_seq_len = len(extended_seq)*3 + 3
+    original_seq_len = len(feature.extract())
+    len_difference = extended_seq_len - original_seq_len
+
     if feature.strand == 1:
-        extended_feature_start = feature.location.start
-        extended_feature_end = feature.location.start + (3*len(extended_seq)) + 3
+        extended_feature_end = feature.location.parts[-1].end + len_difference
         if extended_feature_end > rec_len:
             #Annotation will look like [feature.start ... >(rec_len)]
             extended_feature_end = AfterPosition(rec_len)
+
+        extended_feature.location.parts[-1]._end = extended_feature_end
     else:
-        extended_feature_start = feature.location.end - (3*len(extended_seq)) - 3
-        extended_feature_end = feature.location.end
+        extended_feature_start = feature.location.parts[0].start - (len_difference - 1)
         if extended_feature_start < 0:
             #Annotation will look like [<0 ... feature.end]
             extended_feature_start = BeforePosition(0)
 
-    return_feature.location = FeatureLocation(
-        int(extended_feature_start),
-        int(extended_feature_end),
-        strand=feature.strand,
-        ref=feature_ref,
-    )
-    return return_feature
+        extended_feature.location.parts[0]._start = extended_feature_start
+
+    feature.location = extended_feature.location
+
+    return feature
 
 def update_termini(base_location, start, end):
     """
