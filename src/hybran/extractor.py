@@ -2,6 +2,7 @@ import functools
 import logging
 import os
 import subprocess
+import re
 from urllib.error import HTTPError
 
 from Bio import Entrez
@@ -23,6 +24,20 @@ def get_gene(feature, tryhard=True):
     else:
         # null entry for gene name
         return '.'
+
+def parse_transl_except(feature):
+    """
+    :param feature: A SeqFeature object
+    :return: list of tuples corresponding to the coordinates from the transl_except note
+    """
+    loc_list = []
+    #Ex) string from a transl_except qualifier dealing with a Selenoprotein (fake stop):
+    #'transl_except': ['(pos:complement(5401118..5401120),aa:Sec)']
+    except_str = [_ for _ in feature.qualifiers['transl_except']]
+    for _ in except_str:
+        pos1, pos2 = [int(_) for _ in re.findall(r'\d+', _)]
+        loc_list.append((pos1,pos2))
+    return loc_list
 
 def get_gapped_sequence(alignment, seq_type, start, stop):
     """
