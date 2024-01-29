@@ -1,4 +1,4 @@
-from copy import copy
+from copy import copy, deepcopy
 
 from Bio import GenBank
 from Bio import SeqIO
@@ -229,8 +229,12 @@ class HybGenBankWriter(InsdcIO.GenBankWriter):
         intercept the .ref attributes to prevent locations from being printed
         with f"{ref}:" sort of prefixed to it.
         """
+        # our AutarkicSeqFeature stores the contig associated with the feature, so
+        # regular copy here instead of deepcopy to avoid spiking memory usage.
         temp_feature = copy(feature)
-        temp_loc = copy(feature.location)
+        # But we need a deepcopy of the location because CompoundLocations have
+        # component SimpleLocations and we don't want to change the originals
+        temp_loc = deepcopy(feature.location)
         temp_feature.location = temp_loc
         for part in temp_feature.location.parts:
             part.ref = None
