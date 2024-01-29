@@ -95,7 +95,7 @@ def stopseeker(feature, circularize=False):
             extended_feature_end
         )
     else:
-        extended_feature_start = feature.location.parts[0].start - (len_difference - 1)
+        extended_feature_start = feature.location.parts[0].start - len_difference
         if extended_feature_start < 0:
             #Annotation will look like [<0 ... feature.end]
             extended_feature_start = BeforePosition(0)

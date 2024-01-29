@@ -29,7 +29,7 @@ def test_stopseeker(case, circular):
         gene.location._end -= 33
     elif case == 'minus_strand':
         source_genome = '1-0006'
-        gene = features[source_genome]['PPE5']['ratt']
+        gene = features[source_genome]['Rv1075c']['ratt']
         expected = deepcopy(gene)
         gene.location._start += 8
     elif case == 'compound':
