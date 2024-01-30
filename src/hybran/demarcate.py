@@ -161,7 +161,6 @@ def coord_check(
         og_feature.qualifiers['gene'] = [ref_gene_name]
     og_feature_start = og_feature.location.start
     og_feature_end = og_feature.location.end
-    og_feature_loc_ref = og_feature.location.parts[0].ref
 
     if feature.og.location is None:
         feature.og.location = og_feature.location
