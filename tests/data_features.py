@@ -38,6 +38,16 @@ for ref in [
 
 features = {
     'PAK':{
+        'PA3701': {
+            'ratt': SeqFeature(
+                CompoundLocation([
+                    FeatureLocation(1355921, 1355992, strand=1),
+                    FeatureLocation(1355993, 1357017, strand=1),
+                ]),
+                type='CDS',
+                qualifiers={'locus_tag':['PA3701'],'gene':['prfB'], 'ribosomal_slippage':[]}
+            ),
+        },
         'PA2452': {
             'ratt': SeqFeature(
                 FeatureLocation(2799744, 2801325, strand=1),
@@ -611,7 +621,7 @@ for sample in features:
     elif sample in [
             'PAK',
     ]:
-        source = 'PAO1_107.NC_002516.2'
+        source = 'PAO1_107.AE004091'
     else:
         source = 'nissle-hybrid.CP007799'
     for gene in features[sample]:

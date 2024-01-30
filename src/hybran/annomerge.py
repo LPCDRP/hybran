@@ -21,7 +21,7 @@ import Bio
 from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
-from Bio.SeqFeature import FeatureLocation, SeqFeature
+from Bio.SeqFeature import SeqFeature
 
 from . import BLAST
 from . import converter
@@ -35,6 +35,7 @@ from .bio import FeatureProperties
 from .demarcate import (
     coord_check,
     has_broken_stop,
+    update_termini,
 )
 from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
@@ -327,12 +328,7 @@ def fissionfuser(flist, seq_ident, seq_covg):
                 dropped_feature = last_gene
             dropped_feature_name = f"{extractor.get_ltag(dropped_feature)}:{extractor.get_gene(dropped_feature)}"
             new_feature_name = f"{extractor.get_ltag(new_feature)}:{extractor.get_gene(new_feature)}"
-            new_feature.location = FeatureLocation(
-                new_start,
-                new_end,
-                feature.location.strand,
-                ref=feature.location.parts[0].ref,
-            )
+            update_termini(new_feature.location, new_start, new_end)
             new_feature.og = FeatureProperties()
             new_feature.corr = FeatureProperties()
             new_feature.corr_accepted = new_feature.corr_possible = None
@@ -452,13 +448,7 @@ def fusion_upgrade(base, upstream, downstream, update_location=False):
         else:
             new_start = downstream.location.parts[0].start
             new_end = upstream.location.parts[-1].end
-
-        base.location = FeatureLocation(
-            new_start,
-            new_end,
-            base.location.strand,
-            ref=base.location.parts[0].ref,
-        )
+        update_termini(base.location, new_start, new_end)
 
     base.bok = None
     pseudoscan.reset_pseudo(base)

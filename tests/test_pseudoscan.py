@@ -29,9 +29,11 @@ from .data_features import *
     ['start_correction_induces_delayed_stop', 95, 95, True],
     ['start_correction_induces_delayed_stop2', 95, 95, True],
     ['reject_coord_correction', 95, 95, True],
+    ['compound_location', 95, 95, True],
 ])
 def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
+    ref_genome['compound_location'] = 'PAO1_107'
     source_genome = {
         'small_badstop_fix_pseudo':'1-0006',
         'small_badstart_fix_nopseudo':'1-0006',
@@ -49,6 +51,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'start_correction_induces_delayed_stop': '1-0006',
         'start_correction_induces_delayed_stop2': '1-0006',
         'reject_coord_correction': '1-0006',
+        'compound_location': 'PAK',
     }
 
     test_features = {
@@ -68,6 +71,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'start_correction_induces_delayed_stop': features[source_genome['start_correction_induces_delayed_stop']]['Rv1225c']['abinit_raw'],
         'start_correction_induces_delayed_stop2': features[source_genome['start_correction_induces_delayed_stop2']]['Rv2561']['ratt_raw'],
         'reject_coord_correction': features[source_genome['reject_coord_correction']]['pks6']['abinit'],
+        'compound_location': features[source_genome['compound_location']]['PA3701']['ratt'],
     }
 
     feature = test_features[feature_type]
@@ -76,7 +80,8 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         annomerge.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
     ]
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
-    test_features[feature_type].ref = record_sequence.id
+    for part in test_features[feature_type].location.parts:
+        part.ref = record_sequence.id
     test_features[feature_type].references = {record_sequence.id: record_sequence.seq}
     cnf.genetic_code = 11
     annomerge.corrected_orf_report = []
@@ -97,6 +102,11 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'start_correction_induces_delayed_stop': [True, FeatureLocation(1370377, 1371385, strand=-1, ref='1')],
         'start_correction_induces_delayed_stop2': [True, FeatureLocation(2881559, 2882297, strand=1, ref='1')],
         'reject_coord_correction': [False, FeatureLocation(486288, 490458, strand=1, ref='1')],
+        'compound_location': [
+            False,
+            FeatureLocation(1355921, 1355992, strand=1, ref='refseq|NZ_LR657304.1|chromosome1') \
+            + FeatureLocation(1355993, 1357017, strand=1, ref='refseq|NZ_LR657304.1|chromosome1'),
+        ],
     }
     results = pseudoscan.pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]
