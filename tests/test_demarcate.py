@@ -1,6 +1,7 @@
 import os
 from collections import defaultdict
 
+from Bio.Seq import Seq
 from Bio.SeqFeature import FeatureLocation
 import pytest
 
@@ -8,12 +9,74 @@ from hybran import (
     annomerge,
     config,
     demarcate,
+    extractor,
+    pseudoscan,
 )
 from hybran.bio import SeqIO
 from hybran.util import keydefaultdict
 
 from .data_features import *
 
+@pytest.mark.parametrize('case', [
+    'selenocysteine',
+    'no_stop_in_ref',
+    'no_stop_in_feature',
+])
+def test_update_transl_except(case, tmp_path):
+    config.cnf.genetic_code = 11
+    config.hybran_tmp_dir = tmp_path
+
+    if case == 'selenocysteine':
+        ref_genome = 'PAO1_107'
+        source_genome = 'PAK'
+        record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
+        feature = deepcopy(features[source_genome]['fdnG']['ratt'])
+        feature.ref = record_sequence.id
+        feature.references = {record_sequence.id: record_sequence.seq}
+        ref_feature = deepcopy(ref_features[ref_genome][f"{feature.source}@@@{feature.qualifiers['gene'][0]}"])
+        expected = deepcopy(feature)
+
+        expected.qualifiers['transl_except'] = ['(pos:5520855..5520853,aa:Sec)']
+
+    elif case == 'no_stop_in_ref':
+        ref_genome = 'PAO1_107'
+        source_genome = 'PAK'
+        record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
+        feature = deepcopy(features[source_genome]['fdnG']['ratt'])
+        feature.ref = record_sequence.id
+        feature.references = {record_sequence.id: record_sequence.seq}
+
+        #Modify the selenocysteine codon in the reference
+        ref_feature = deepcopy(ref_features[ref_genome][f"{feature.source}@@@{feature.qualifiers['gene'][0]}"])
+        mutant_refseq = list(ref_feature.references[feature.source])
+        mutant_refseq[5401118] = 'A'
+        mutant_refseq = Seq(''.join(mutant_refseq))
+        ref_feature.ref = feature.source
+        ref_feature.references[feature.source] = mutant_refseq
+        expected = deepcopy(feature)
+
+        expected.qualifiers.pop('transl_except')
+
+    elif case == 'no_stop_in_feature':
+        ref_genome = 'PAO1_107'
+        source_genome = 'PAK'
+        record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
+
+        #Modify the selenocysteine codon in the feature
+        mutant_seq = list(record_sequence)
+        mutant_seq[5520854] = 'A'
+        mutant_seq = Seq(''.join(mutant_seq))
+        feature = deepcopy(features[source_genome]['fdnG']['ratt'])
+        feature.ref = record_sequence.id
+        feature.references = {record_sequence.id: mutant_seq}
+        ref_feature = deepcopy(ref_features[ref_genome][f"{feature.source}@@@{feature.qualifiers['gene'][0]}"])
+        expected = deepcopy(feature)
+
+        expected.qualifiers.pop('transl_except')
+
+    pseudoscan.pseudoscan(expected, ref_feature, 95, 95)
+    pseudoscan.pseudoscan(feature, ref_feature, 95, 95)
+    assert feature == expected
 
 @pytest.mark.parametrize('case,circular', [
     ['softball', False],

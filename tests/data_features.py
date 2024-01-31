@@ -38,6 +38,15 @@ for ref in [
 
 features = {
     'PAK':{
+        'fdnG': {
+            'ratt': SeqFeature(
+                FeatureLocation(5518363, 5521444, strand=-1),
+                type='CDS',
+                qualifiers={'locus_tag':['PA4812'],'gene':['fdnG'],
+                            'transl_except':['(pos:complement(5401118..5401120),aa:Sec)'],
+                }
+            ),
+        },
         'PA3701': {
             'ratt': SeqFeature(
                 CompoundLocation([
