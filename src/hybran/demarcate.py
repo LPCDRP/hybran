@@ -1,4 +1,5 @@
 import logging
+import re
 from copy import deepcopy
 from math import log, ceil
 
@@ -149,6 +150,94 @@ def update_termini(base_location, start, end):
     base_location.parts[-1]._end = ExactPosition(end)
     return base_location
 
+def parse_transl_except(feature):
+    """
+    :param feature: A SeqFeature object
+    :return: list of tuples corresponding to the coordinates from the transl_except note
+    """
+    loc_list = []
+    #Ex) string from a transl_except qualifier dealing with a Selenoprotein (fake stop):
+    #'transl_except': ['(pos:complement(5401118..5401120),aa:Sec)']
+    except_str = [_ for _ in feature.qualifiers['transl_except']]
+    for _ in except_str:
+        pos1, pos2 = [int(_) for _ in re.findall(r'\d+', _)]
+        if pos1 > pos2:
+            pos1, pos2 = pos2, pos1
+        loc_list.append((pos1,pos2))
+    return loc_list
+
+def update_transl_except(feature, ref_feature, alignment):
+    """
+    Replaces transl_except qualifier to reflect the coordinates of a selenocysteine protein in the query
+    gene as opposed to the reference gene.
+    :param feature: A SeqFeature object
+    :param ref_feature: A SeqFeature object of the reference gene
+    :param alignment: A Bio.Align.Alignment object illustrating a pairwise sequence alignment
+    """
+    ref_te_absloc = parse_transl_except(ref_feature)
+
+    if ref_feature.strand == 1:
+        ref_te_relloc = [(pos1 - ref_feature.location.start,
+                          pos2 - ref_feature.location.start + 1) for pos1,pos2 in ref_te_absloc]
+    else:
+        ref_te_relloc = [(ref_feature.location.end - pos2,
+                          ref_feature.location.end - pos1 + 1) for pos1,pos2 in ref_te_absloc]
+    try:
+        #If the alignment is really bad, getting the gapped sequence might not be possible. In these cases,
+        #return nothing and pseudoscan can handle the removal of the transl_except qualifier
+        ref_te_codons = [get_gapped_sequence(alignment, 'target', _[0], _[1]) for _ in ref_te_relloc]
+        feature_te_codons = [get_gapped_sequence(alignment, 'query', _[0], _[1]) for _ in ref_te_relloc]
+
+        gapped_feature = list(alignment.indices[1])
+        feature_te_relloc = [(gapped_feature.index(pos1), gapped_feature.index(pos2)) for pos1,pos2 in ref_te_relloc]
+    except:
+        return
+
+    if feature.strand == 1:
+        feature_te_absloc = [(pos1 + feature.location.start,
+                              pos2 + feature.location.start - 1) for pos1,pos2 in feature_te_relloc]
+    else:
+        feature_te_absloc = [(feature.location.end - pos2,
+                              feature.location.end - pos1 - 1) for pos1,pos2 in feature_te_relloc]
+
+    #Invalid transl except qualifiers will be removed later on in pseudoscan.
+    for i in range(len(ref_te_codons)):
+        try:
+            if '*' in translate(ref_te_codons[i], table=cnf.genetic_code) and '*' in translate(feature_te_codons[i], table=cnf.genetic_code):
+                new_numbers = feature_te_absloc[i]
+                #Compliant with NCBI Genome Annotation Guidelines: Selenocysteine-containing coding regions
+                if feature.strand == 1:
+                    new_string = f"(pos:{new_numbers[0]}..{new_numbers[1]},aa:Sec)"
+                else:
+                    new_string = f"(pos:{new_numbers[1]}..{new_numbers[0]},aa:Sec)"
+                feature.transl_except = new_string
+        except:
+            continue
+
+def get_gapped_sequence(alignment, seq_type, start, stop):
+    """
+    :param alignment: A Bio.Align.Alignment object illustrating a pairwise sequence alignment
+    :param seq_type: Can be 'target' (reference) or 'query' (isolate)
+    :param start: Relative starting position to slice the target or query sequence.
+    :param stop: Relative stopping position to slice the target or query sequence.
+    :return: String representation of the sliced sequence
+    """
+    seq_types = ['target', 'query']
+    if seq_type not in seq_types:
+        raise ValueError(f"Invalid sequence type. Expected one of: {seq_types}")
+    elif seq_type == 'target':
+        gapped_seq = list(alignment.indices[0])
+        alignment = alignment[0]
+    else:
+        gapped_seq = list(alignment.indices[1])
+        alignment = alignment[1]
+
+    #The index of the stop position is one off from the stop position itself
+    start = int(start)
+    stop = int(stop) - 1
+    interval_seq = alignment[gapped_seq.index(start) : gapped_seq.index(stop) + 1]
+    return interval_seq
+
 def coord_check(
         feature,
         ref_feature,
@@ -231,18 +320,18 @@ def coord_check(
         found_high = (target[-1][1] == len(ref_seq)) and (abs(target[-1][0] - target[-1][1])) >= interval
 
         #Sequence intervals of the lowest and highest aligned bases.
-        target_low_seq = extractor.get_gapped_sequence(alignment, 'target', target[0][0], target[0][1])
-        target_high_seq = extractor.get_gapped_sequence(alignment, 'target', target[-1][0], target[-1][1])
-        query_low_seq = extractor.get_gapped_sequence(alignment, 'query', query[0][0], query[0][1])
-        query_high_seq = extractor.get_gapped_sequence(alignment, 'query', query[-1][0], query[-1][1])
+        target_low_seq = get_gapped_sequence(alignment, 'target', target[0][0], target[0][1])
+        target_high_seq = get_gapped_sequence(alignment, 'target', target[-1][0], target[-1][1])
+        query_low_seq = get_gapped_sequence(alignment, 'query', query[0][0], query[0][1])
+        query_high_seq = get_gapped_sequence(alignment, 'query', query[-1][0], query[-1][1])
 
         relaxed_found_high = found_high
         if len(target) > 1 or len(query) > 1: #more than one interval blocks exist in the alignment sequence - discontinuous at some point.
-            target_inter_gaps = extractor.get_gapped_sequence(alignment, 'target', target[-2][0], target[-1][1]).count("-")
-            query_inter_gaps = extractor.get_gapped_sequence(alignment, 'query', query[-2][0], query[-1][1]).count("-")
+            target_inter_gaps = get_gapped_sequence(alignment, 'target', target[-2][0], target[-1][1]).count("-")
+            query_inter_gaps = get_gapped_sequence(alignment, 'query', query[-2][0], query[-1][1]).count("-")
 
-            target_penultimate_interval_seq = extractor.get_gapped_sequence(alignment, 'target', target[0][0], target[-2][1])[-interval:]
-            query_penultimate_interval_seq = extractor.get_gapped_sequence(alignment, 'query', query[0][0], query[-2][1])[-interval:]
+            target_penultimate_interval_seq = get_gapped_sequence(alignment, 'target', target[0][0], target[-2][1])[-interval:]
+            query_penultimate_interval_seq = get_gapped_sequence(alignment, 'query', query[0][0], query[-2][1])[-interval:]
 
             penultimate_found_high = (
                 # 1) Penultimate interval need to match exactly (last ~7 bp of second to last alignment block)
@@ -375,10 +464,9 @@ def coord_check(
     #Assign initial alignment, but don't overwrite it.
     if feature.og.alignment is None:
         feature.og.alignment = alignment
-
         # update transl_except coordinates if applicable
         if designator.is_transl_except(feature.qualifiers):
-            extractor.update_transl_except(feature, ref_feature, alignment)
+            update_transl_except(feature, ref_feature, alignment)
 
     corrected_feature = deepcopy(feature)
     corrected_feature_start = corrected_feature.location.start

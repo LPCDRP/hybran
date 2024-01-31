@@ -2,7 +2,6 @@ import functools
 import logging
 import os
 import subprocess
-import re
 from urllib.error import HTTPError
 
 from Bio import Entrez
@@ -24,95 +23,6 @@ def get_gene(feature, tryhard=True):
     else:
         # null entry for gene name
         return '.'
-
-def parse_transl_except(feature):
-    """
-    :param feature: A SeqFeature object
-    :return: list of tuples corresponding to the coordinates from the transl_except note
-    """
-    loc_list = []
-    #Ex) string from a transl_except qualifier dealing with a Selenoprotein (fake stop):
-    #'transl_except': ['(pos:complement(5401118..5401120),aa:Sec)']
-    except_str = [_ for _ in feature.qualifiers['transl_except']]
-    for _ in except_str:
-        pos1, pos2 = [int(_) for _ in re.findall(r'\d+', _)]
-        loc_list.append((pos1,pos2))
-    return loc_list
-
-def update_transl_except(feature, ref_feature, alignment):
-    """
-    Replaces transl_except qualifier to reflect the coordinates of a selenocysteine protein in the query
-    gene as opposed to the reference gene.
-    :param feature: A SeqFeature object
-    :param ref_feature: A SeqFeature object of the reference gene
-    :param alignment: A Bio.Align.Alignment object illustrating a pairwise sequence alignment
-    """
-    ref_te_absloc = parse_transl_except(ref_feature)
-    if ref_feature.strand == 1:
-        ref_te_relloc = [(pos1 - ref_feature.location.start,
-                          pos2 - ref_feature.location.start + 1) for pos1,pos2 in ref_te_absloc]
-    else:
-        ref_te_relloc = [(ref_feature.location.end - pos2,
-                          ref_feature.location.end - pos1 + 1) for pos1,pos2 in ref_te_absloc]
-
-    ref_te_codons = [get_gapped_sequence(alignment, 'target', _[0], _[1]) for _ in ref_te_relloc]
-    feature_te_codons = [get_gapped_sequence(alignment, 'query', _[0], _[1]) for _ in ref_te_relloc]
-
-    gapped_feature = list(alignment.indices[1])
-    feature_te_relloc = [(gapped_feature.index(pos1), gapped_feature.index(pos2)) for pos1,pos2 in ref_te_relloc]
-
-    if feature.strand == 1:
-        feature_te_absloc = [(pos1 + feature.location.start,
-                              pos2 + feature.location.start) for pos1,pos2 in feature_te_relloc]
-    else:
-        feature_te_absloc = [(feature.location.end - pos2,
-                              feature.location.end - pos1) for pos1,pos2 in feature_te_relloc]
-
-    og_transl_except = feature.qualifiers['transl_except']
-    feature.qualifiers.pop('transl_except', None)
-
-    #Either update a valid_transl except qualifier, or add back the original. Invalid
-    #transl except qualifiers will be removed later on in pseudoscan.
-    for i in range(len(ref_te_codons)):
-        try:
-            if '*' in translate(ref_te_codons[i]) and '*' in translate(feature_te_codons[i]):
-                new_numbers = feature_te_absloc[i]
-                new_string = re.sub(r'(\d+)\.{2}(\d+)', lambda _: '{}..{}'.format(*new_numbers), og_transl_except[i])
-                designator.append_qualifier(
-                    feature.qualifiers,
-                    'transl_except',
-                    new_string,
-                )
-        except:
-            designator.append_qualifier(
-                feature.qualifiers,
-                'transl_except',
-                og_transl_except[i],
-            )
-
-def get_gapped_sequence(alignment, seq_type, start, stop):
-    """
-    :param alignment: A Bio.Align.Alignment object illustrating a pairwise sequence alignment
-    :param seq_type: Can be 'target' (reference) or 'query' (isolate)
-    :param start: Relative starting position to slice the target or query sequence.
-    :param stop: Relative stopping position to slice the target or query sequence.
-    :return: String representation of the sliced sequence
-    """
-    seq_types = ['target', 'query']
-    if seq_type not in seq_types:
-        raise ValueError(f"Invalid sequence type. Expected one of: {seq_types}")
-    elif seq_type == 'target':
-        gapped_seq = list(alignment.indices[0])
-        alignment = alignment[0]
-    else:
-        gapped_seq = list(alignment.indices[1])
-        alignment = alignment[1]
-
-    #The index of the stop position is one off from the stop position itself
-    start = int(start)
-    stop = int(stop) - 1
-    interval_seq = alignment[gapped_seq.index(start) : gapped_seq.index(stop) + 1]
-    return interval_seq
 
 def get_seq(feature):
     """
