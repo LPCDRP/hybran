@@ -162,12 +162,19 @@ def pseudoscan(
         if blast_hit_dict:
             blast_hit_dict.update(blast_stats[ref_feature.qualifiers['gene'][0]])
 
-    #If a transl_except qualifier has not been updated at this point, it is invalid.
-    #Either the reference or the isolate gene does not have a recoded stop codon.
-    if designator.is_transl_except(feature.qualifiers) and designator.is_transl_except(ref_feature.qualifiers):
-        if ref_feature.qualifiers['transl_except'] == feature.qualifiers['transl_except']:
-            feature.qualifiers.pop('transl_except', None)
+    #Remove all transl_except qualifiers from the feature here because they are
+    #referencing the location in the reference genome.
+    if designator.is_transl_except(feature.qualifiers):
+        feature.qualifiers.pop('transl_except', None)
 
+    #If we managed to confirm the existence of a valid selenocysteine in coord_check,
+    #the transl_except attribute will have stored the updated transl_except qualifier string/location.
+    if feature.transl_except:
+        designator.append_qualifier(
+            feature.qualifiers,
+            'transl_except',
+            feature.transl_except,
+        )
     return call(feature, ref_was_pseudo, ref_d3, ref_len, seq_ident, seq_covg)
 
 def call(
