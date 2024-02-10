@@ -228,7 +228,7 @@ def call(
         if feature.de:
             new_note.append("Locus has a delayed stop codon")
 
-        if (not all(coords_ok)) and (d3 and not ref_d3) and not broken_stop:
+        if (d3 and not ref_d3) and not broken_stop:
             feature.qualifiers.pop('pseudo', None)
             feature.qualifiers.pop('pseudogene', None)
             is_pseudo = False
