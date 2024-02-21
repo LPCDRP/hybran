@@ -254,8 +254,8 @@ def get_gapped_sequence(alignment, seq_type, start, stop):
         alignment = alignment[1]
 
     #The index of the stop position is one off from the stop position itself
-    start = int(start)
-    stop = int(stop) - 1
+    start = start
+    stop = stop - 1
     interval_seq = alignment[gapped_seq.index(start) : gapped_seq.index(stop) + 1]
     return interval_seq
 
