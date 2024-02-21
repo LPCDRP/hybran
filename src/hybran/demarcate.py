@@ -43,7 +43,7 @@ def has_broken_stop(feature):
     """
     #Check if feature has valid transl_except qualifier and check if its in frame.
     #Features with a valid transl_except qualifier have a recoded stop codon that
-    #should be ignored because it's actually a selenocysteine amino acid.
+    #should be ignored because it's either a selenocysteine or pyrrolysine amino acid.
     fake_stops = []
     if feature.transl_except:
         temp_feature = SeqFeature()
@@ -51,12 +51,27 @@ def has_broken_stop(feature):
         loc_list = parse_transl_except(temp_feature)
         for i in range(len(loc_list)):
             temp_feature.location = FeatureLocation(loc_list[i][0], loc_list[i][1]+1, strand=feature.location.strand)
+
             if annomerge.overlap_inframe(feature.location, temp_feature.location):
-                #list of indices denoting where fake stops exist in the translated sequence
+                temp_feature_seq = temp_feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
+                                                        references=feature.references)
+                #Replace misidentified stop codons with selenocysteine amino acid symbol 'U' or pyrrolysine amino acid symbol 'O'
+                temp_feature_translation = "*"
+                if temp_feature_seq == 'TGA':
+                    temp_feature_translation = 'U'
+                elif temp_feature_seq == 'TAG':
+                    temp_feature_translation = 'O'
+
+                #List of tuples where the first value represents the index of the fake stop in the translated sequence,
+                #second value represents the aa symbol for a selenocysteine or pyrrolysine.
                 if feature.location.strand == 1:
-                    fake_stops.append(int((temp_feature.location.start - feature.location.start)/3))
+                    fake_stops.append(
+                        (int((temp_feature.location.start - feature.location.start)/3), temp_feature_translation)
+                    )
                 else:
-                    fake_stops.append(int((feature.location.end - temp_feature.location.end)/3))
+                    fake_stops.append(
+                        (int((feature.location.end - temp_feature.location.end)/3), temp_feature_translation)
+                    )
     internal_stop = False
     note = ''
     feature_seq = feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
@@ -64,13 +79,12 @@ def has_broken_stop(feature):
     translation = str(feature_seq.translate(to_stop=False, table=cnf.genetic_code))
 
     #Dont accidently call the last codon a selenocysteine.
-    fake_stops = [_ for _ in fake_stops if _ != len(translation)-1]
+    fake_stops = [_ for _ in fake_stops if _[0] != len(translation)-1]
 
-    #Replace misidentified stop codons with selenocysteine amino acid symbol 'U'
     if fake_stops:
         translation = list(translation)
         for _ in fake_stops:
-            translation[_] = 'U'
+            translation[_[0]] = _[1]
         translation = ''.join(translation)
 
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
