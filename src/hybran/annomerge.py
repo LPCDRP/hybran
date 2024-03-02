@@ -396,7 +396,7 @@ def fusion_upgrade(base, upstream, downstream, update_location=False):
         base.qualifiers['product'][0] = product
 
     if update_location:
-        if base.strand == 1:
+        if base.location.strand == 1:
             new_start = upstream.location.parts[0].start
             new_end = downstream.location.parts[-1].end
         else:
@@ -502,7 +502,7 @@ def fusionfisher(feature_list, adjudicate=True):
             #
             if (((len(prev_feature.location) > len(feature.location)) and prev_feature.de)
                 or ((len(feature.location) > len(prev_feature.location)) and feature.de)):
-                if feature.strand == -1:
+                if feature.location.strand == -1:
                     upstream = max(feature, prev_feature, key=lambda _: _.location.end)
                     downstream = min(feature, prev_feature, key=lambda _: _.location.end)
                 else:
@@ -757,11 +757,11 @@ def get_interregions(feature_list, intergene_length=1):
             continue
         mystart = feature.location.start
         myend = feature.location.end
-        if feature.strand == -1:
+        if feature.location.strand == -1:
             cds_list_minus.append((mystart, myend, -1))
             pre_intergene[(myend, -1)] = feature
             post_intergene[(mystart, -1)] = feature
-        elif feature.strand == 1:
+        elif feature.location.strand == 1:
             cds_list_plus.append((mystart, myend, 1))
             pre_intergene[(myend, 1)] = feature
             post_intergene[(mystart, 1)] = feature

@@ -248,7 +248,7 @@ def validate(
         #The earliest start and the latest end of the joined feature will be bridged together
         feature_start = feature.location.start
         feature_end = feature.location.end
-        feature_strand = feature.strand
+        feature_strand = feature.location.strand
         feature.location = SimpleLocation(
             feature_start,
             feature_end,

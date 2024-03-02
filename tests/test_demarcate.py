@@ -33,7 +33,7 @@ def test_update_transl_except(case, tmp_path):
         source_genome = 'PAK'
         record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
         feature = deepcopy(features[source_genome]['fdnG']['ratt'])
-        feature.ref = record_sequence.id
+        feature.location.ref = record_sequence.id
         feature.references = {record_sequence.id: record_sequence.seq}
         ref_feature = deepcopy(ref_features[ref_genome][f"{feature.source}@@@{feature.qualifiers['gene'][0]}"])
         expected = deepcopy(feature)
@@ -45,7 +45,7 @@ def test_update_transl_except(case, tmp_path):
         source_genome = 'PAK'
         record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
         feature = deepcopy(features[source_genome]['fdnG']['ratt'])
-        feature.ref = record_sequence.id
+        feature.location.ref = record_sequence.id
         feature.references = {record_sequence.id: record_sequence.seq}
 
         #Modify the selenocysteine codon in the reference
@@ -56,7 +56,7 @@ def test_update_transl_except(case, tmp_path):
         #which becomes 'TCA' reverse complemented to 'TGA'
         mutant_refseq[5401119] = 'T' #becomes 'AGA'
         mutant_refseq = Seq(''.join(mutant_refseq))
-        ref_feature.ref = feature.source
+        ref_feature.location.ref = feature.source
         ref_feature.references[feature.source] = mutant_refseq
         expected = deepcopy(feature)
 
@@ -75,7 +75,7 @@ def test_update_transl_except(case, tmp_path):
         mutant_seq[5520855] = 'T' #becomes 'AGA'
         mutant_seq = Seq(''.join(mutant_seq))
         feature = deepcopy(features[source_genome]['fdnG']['ratt'])
-        feature.ref = record_sequence.id
+        feature.location.ref = record_sequence.id
         feature.references = {record_sequence.id: mutant_seq}
         ref_feature = deepcopy(ref_features[ref_genome][f"{feature.source}@@@{feature.qualifiers['gene'][0]}"])
         expected = deepcopy(feature)
@@ -250,7 +250,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
     }
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
-    test_features[feature_type].ref = record_sequence.id
+    test_features[feature_type].location.ref = record_sequence.id
     test_features[feature_type].references = {record_sequence.id: record_sequence.seq}
     config.cnf.genetic_code = 11
     annomerge.corrected_orf_report = []

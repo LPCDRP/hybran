@@ -73,7 +73,7 @@ def log_coord_correction(feature, logfile):
     """
     locus_tag = feature.qualifiers['locus_tag'][0]
     gene_name = feature.qualifiers['gene'][0]
-    strand = str(feature.strand)
+    strand = str(feature.location.strand)
     og_start = (int(feature.og.location.start) + 1)
     og_end = (int(feature.og.location.end))
     new_start = (int(feature.corr.location.start) + 1)
@@ -82,7 +82,7 @@ def log_coord_correction(feature, logfile):
     stop_fixed = str(og_end != new_end).lower()
     gene_length_ratio = f"{(og_end - og_start)/(new_end - new_start):.3f}"
 
-    if feature.strand == -1:
+    if feature.location.strand == -1:
         start_fixed, stop_fixed = stop_fixed, start_fixed
 
     line = [
