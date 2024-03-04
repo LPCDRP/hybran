@@ -11,6 +11,7 @@ from hybran import (
     demarcate,
     extractor,
     pseudoscan,
+    designator,
 )
 from hybran.bio import SeqIO
 from hybran.util import keydefaultdict
@@ -21,6 +22,7 @@ from .data_features import *
     'selenocysteine',
     'no_stop_in_ref',
     'no_stop_in_feature',
+    'multi_transl_except',
 ])
 def test_update_transl_except(case, tmp_path):
     config.cnf.genetic_code = 11
@@ -49,7 +51,10 @@ def test_update_transl_except(case, tmp_path):
         #Modify the selenocysteine codon in the reference
         ref_feature = deepcopy(ref_features[ref_genome][f"{feature.source}@@@{feature.qualifiers['gene'][0]}"])
         mutant_refseq = list(ref_feature.references[feature.source])
-        mutant_refseq[5401118] = 'A'
+
+        #mutant_refseq[5401117:5401120] corresponds to '(pos:complement(5401118..5401120),aa:Sec)'
+        #which becomes 'TCA' reverse complemented to 'TGA'
+        mutant_refseq[5401119] = 'T' #becomes 'AGA'
         mutant_refseq = Seq(''.join(mutant_refseq))
         ref_feature.ref = feature.source
         ref_feature.references[feature.source] = mutant_refseq
@@ -64,7 +69,10 @@ def test_update_transl_except(case, tmp_path):
 
         #Modify the selenocysteine codon in the feature
         mutant_seq = list(record_sequence)
-        mutant_seq[5520854] = 'A'
+
+        #mutant_seq[5520853:5520856] corresponds to '(pos:5520855..5520853,aa:Sec)'
+        #which becomes 'TCA' reverse complemented to 'TGA'
+        mutant_seq[5520855] = 'T' #becomes 'AGA'
         mutant_seq = Seq(''.join(mutant_seq))
         feature = deepcopy(features[source_genome]['fdnG']['ratt'])
         feature.ref = record_sequence.id
@@ -73,6 +81,42 @@ def test_update_transl_except(case, tmp_path):
         expected = deepcopy(feature)
 
         expected.qualifiers.pop('transl_except')
+
+    elif case == 'multi_transl_except':
+        ref_genome = 'PAO1_107'
+        source_genome = 'PAK'
+        record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
+
+        #Modify the Pyrrolysine codon in the feature
+        #For reference mutant_seq[5520853:5520863] and mutant_refseq[5401117:5401127] is
+        #['T', 'C', 'A', 'G', 'A', 'C', 'A', 'C', 'G', 'C']
+
+        mutant_seq = list(record_sequence)
+        mutant_seq[5520859:5520862] = 'CTA' #reverse complemented to 'TAG' (originally 'ACG')
+        mutant_seq = Seq(''.join(mutant_seq))
+        feature = deepcopy(features[source_genome]['fdnG']['ratt'])
+        feature.ref = record_sequence.id
+        feature.references = {record_sequence.id: mutant_seq}
+
+        #Modify the Pyrrolysine codon in the reference
+        ref_feature = deepcopy(ref_features[ref_genome][f"{feature.source}@@@{feature.qualifiers['gene'][0]}"])
+        mutant_refseq = list(ref_feature.references[feature.source])
+        mutant_refseq[5401123:5401126] = 'CTA' #reverse complemented to 'TAG' (originally 'ACG')
+        mutant_refseq = Seq(''.join(mutant_refseq))
+        designator.append_qualifier(
+            ref_feature.qualifiers,
+            'transl_except',
+            '(pos:5401124..5401126,aa:Pyl)',
+        )
+
+        ref_feature.ref = feature.source
+        ref_feature.references[feature.source] = mutant_refseq
+
+        expected = deepcopy(feature)
+        expected.qualifiers['transl_except'] = [
+            '(pos:5520855..5520853,aa:Sec)',
+            '(pos:5520861..5520859,aa:Pyl)'
+        ]
 
     pseudoscan.pseudoscan(expected, ref_feature, 95, 95)
     pseudoscan.pseudoscan(feature, ref_feature, 95, 95)
