@@ -236,14 +236,18 @@ def update_transl_except(feature, ref_feature, alignment):
     #Invalid transl except qualifiers will be removed later on in pseudoscan.
     for i in range(len(ref_te_codons)):
         try:
-            if '*' in translate(ref_te_codons[i], table=cnf.genetic_code) and '*' in translate(feature_te_codons[i], table=cnf.genetic_code):
+            if (
+                    (aa_names[i] == 'Sec' or aa_names[i] == 'Pyl') and
+                    ref_te_codons[i] == feature_te_codons[i] and
+                    '*' in translate(ref_te_codons[i], table=cnf.genetic_code)
+            ):
                 new_numbers = feature_te_absloc[i]
                 #Compliant with NCBI Genome Annotation Guidelines: Selenocysteine-containing coding regions
                 if feature.strand == 1:
-                    new_string = f"(pos:{new_numbers[0]}..{new_numbers[1]},aa:Sec)"
+                    new_string = f"(pos:{new_numbers[0]}..{new_numbers[1]},aa:{aa_names[i]})"
                 else:
-                    new_string = f"(pos:{new_numbers[1]}..{new_numbers[0]},aa:Sec)"
-                feature.transl_except = new_string
+                    new_string = f"(pos:{new_numbers[1]}..{new_numbers[0]},aa:{aa_names[i]})"
+                feature.transl_except.append(new_string)
         except:
             continue
 
