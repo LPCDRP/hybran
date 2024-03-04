@@ -47,31 +47,32 @@ def has_broken_stop(feature):
     fake_stops = []
     if feature.transl_except:
         temp_feature = SeqFeature()
-        temp_feature.qualifiers['transl_except'] = [feature.transl_except]
-        loc_list = parse_transl_except(temp_feature)
-        for i in range(len(loc_list)):
-            temp_feature.location = FeatureLocation(loc_list[i][0], loc_list[i][1]+1, strand=feature.location.strand)
+        temp_feature.qualifiers['transl_except'] = feature.transl_except
+        loc_list, aa_names = parse_transl_except(temp_feature)
+        if loc_list and aa_names:
+            for i in range(len(loc_list)):
+                temp_feature.location = FeatureLocation(loc_list[i][0], loc_list[i][1]+1, strand=feature.location.strand)
 
-            if annomerge.overlap_inframe(feature.location, temp_feature.location):
-                temp_feature_seq = temp_feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
-                                                        references=feature.references)
-                #Replace misidentified stop codons with selenocysteine amino acid symbol 'U' or pyrrolysine amino acid symbol 'O'
-                temp_feature_translation = "*"
-                if temp_feature_seq == 'TGA':
-                    temp_feature_translation = 'U'
-                elif temp_feature_seq == 'TAG':
-                    temp_feature_translation = 'O'
+                if annomerge.overlap_inframe(feature.location, temp_feature.location):
+                    temp_feature_seq = temp_feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
+                                                            references=feature.references)
+                    #Replace misidentified stop codons with selenocysteine amino acid symbol 'U' or pyrrolysine amino acid symbol 'O'
+                    temp_feature_translation = "*"
+                    if aa_names[i] == 'Sec':
+                        temp_feature_translation = 'U'
+                    elif aa_names[i] == 'Pyl':
+                        temp_feature_translation = 'O'
 
-                #List of tuples where the first value represents the index of the fake stop in the translated sequence,
-                #second value represents the aa symbol for a selenocysteine or pyrrolysine.
-                if feature.location.strand == 1:
-                    fake_stops.append(
-                        (int((temp_feature.location.start - feature.location.start)/3), temp_feature_translation)
-                    )
-                else:
-                    fake_stops.append(
-                        (int((feature.location.end - temp_feature.location.end)/3), temp_feature_translation)
-                    )
+                    #List of tuples where the first value represents the index of the fake stop in the translated sequence,
+                    #second value represents the aa symbol for a selenocysteine or pyrrolysine.
+                    if feature.location.strand == 1:
+                        fake_stops.append(
+                            (int((temp_feature.location.start - feature.location.start)/3), temp_feature_translation)
+                        )
+                    else:
+                        fake_stops.append(
+                            (int((feature.location.end - temp_feature.location.end)/3), temp_feature_translation)
+                        )
     internal_stop = False
     note = ''
     feature_seq = feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
@@ -175,17 +176,26 @@ def parse_transl_except(feature):
     """
     :param feature: A SeqFeature object
     :return: list of tuples corresponding to the coordinates from the transl_except note
+    :return: list of strings corresponding to the AA associated with the transl_except note
     """
     loc_list = []
+    aa_list = []
     #Ex) string from a transl_except qualifier dealing with a Selenoprotein (fake stop):
     #'transl_except': ['(pos:complement(5401118..5401120),aa:Sec)']
-    except_str = [_ for _ in feature.qualifiers['transl_except']]
-    for _ in except_str:
-        pos1, pos2 = [int(_) for _ in re.findall(r'\d+', _)]
-        if pos1 > pos2:
-            pos1, pos2 = pos2, pos1
-        loc_list.append((pos1,pos2))
-    return loc_list
+    try:
+        except_str = [_ for _ in feature.qualifiers['transl_except']]
+        for _ in except_str:
+            pos1, pos2 = [int(_) for _ in re.findall(r'\d+', _)]
+            if pos1 > pos2:
+                pos1, pos2 = pos2, pos1
+            loc_list.append((pos1,pos2))
+
+            aa_match = re.search(r'aa:(\w+)', _)
+            if aa_match:
+                aa_list.append(aa_match.group(1))
+    except:
+        pass
+    return loc_list, aa_list
 
 def update_transl_except(feature, ref_feature, alignment):
     """
@@ -195,9 +205,11 @@ def update_transl_except(feature, ref_feature, alignment):
     :param ref_feature: A SeqFeature object of the reference gene
     :param alignment: A Bio.Align.Alignment object illustrating a pairwise sequence alignment
     """
-    ref_te_absloc = parse_transl_except(ref_feature)
-
-    if ref_feature.strand == 1:
+    ref_te_absloc, aa_names = parse_transl_except(ref_feature)
+    #If parsing fails, just move on...
+    if not ref_te_absloc or not aa_names:
+        return
+    elif ref_feature.strand == 1:
         ref_te_relloc = [(pos1 - ref_feature.location.start,
                           pos2 - ref_feature.location.start + 1) for pos1,pos2 in ref_te_absloc]
     else:
