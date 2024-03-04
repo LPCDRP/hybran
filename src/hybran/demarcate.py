@@ -502,7 +502,7 @@ def coord_check(
     if feature.og.alignment is None:
         feature.og.alignment = alignment
         # update transl_except coordinates if applicable
-        if designator.is_transl_except(feature.qualifiers):
+        if 'transl_except' in feature.qualifiers or 'transl_except' in ref_feature.qualifiers:
             update_transl_except(feature, ref_feature, alignment)
 
     corrected_feature = deepcopy(feature)

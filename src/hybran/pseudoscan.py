@@ -164,7 +164,7 @@ def pseudoscan(
 
     #Remove all transl_except qualifiers from the feature here because they are
     #referencing the location in the reference genome.
-    if designator.is_transl_except(feature.qualifiers):
+    if 'transl_except' in feature.qualifiers:
         feature.qualifiers.pop('transl_except', None)
 
     #If we managed to confirm the existence of a valid selenocysteine in coord_check,
