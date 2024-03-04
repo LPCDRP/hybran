@@ -53,7 +53,10 @@ class FeatureProperties():
         self.alts = alts
         self.alte = alte
         self.de = de
-        self.transl_except = transl_except
+        if transl_except is None:
+            self.transl_except = []
+        else:
+            self.transl_except = transl_except
 
         if ps_evid is None:
             self.ps_evid = []
