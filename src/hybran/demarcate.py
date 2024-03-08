@@ -4,7 +4,7 @@ from copy import deepcopy
 from math import log, ceil
 
 from Bio import Align
-from Bio.Data import CodonTable
+from Bio.Data import CodonTable, IUPACData
 from Bio.Seq import translate
 from Bio.SeqFeature import (
     FeatureLocation,
@@ -57,11 +57,10 @@ def has_broken_stop(feature):
                     temp_feature_seq = temp_feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
                                                             references=feature.references)
                     #Replace misidentified stop codons with selenocysteine amino acid symbol 'U' or pyrrolysine amino acid symbol 'O'
-                    temp_feature_translation = "*"
-                    if aa_names[i] == 'Sec':
-                        temp_feature_translation = 'U'
-                    elif aa_names[i] == 'Pyl':
-                        temp_feature_translation = 'O'
+                    try:
+                        temp_feature_translation = IUPACData.protein_letters_3to1_extended[aa_names[i]]
+                    except KeyError:
+                        temp_feature_translation = "*"
 
                     #List of tuples where the first value represents the index of the fake stop in the translated sequence,
                     #second value represents the aa symbol for a selenocysteine or pyrrolysine.
