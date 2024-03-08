@@ -1,8 +1,96 @@
-from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
+from Bio.SeqFeature import (
+    SeqFeature,
+    SimpleLocation,
+    CompoundLocation,
+    FeatureLocation,
+    ExactPosition,
+)
 import pytest
 
 from hybran import compare
 
+from .data_features import *
+
+
+@pytest.mark.parametrize('pair', [
+    'two_pseudos_same_start',
+    'same_stop',
+    'inframe_pseudo_same_start_different_stop',
+    'inframe_pseudo_different_start_different_stop',
+    'inframe_pseudo_on_nonoverlapping_part',
+    'overlapping_out_of_frame',
+    'different_strand',
+    'non_overlapping',
+    'one_bp_apart',
+    'compound_interval',
+])
+def test_overlap_inframe(pair):
+    pairs = {
+        'two_pseudos_same_start': (
+            # ECOLIN_05405 and ECOLIN_01620 in AZ20
+            SimpleLocation(ExactPosition(3888888), ExactPosition(3889127), strand=-1),
+            SimpleLocation(ExactPosition(3888919), ExactPosition(3889127), strand=-1),
+        ),
+        'same_stop': (
+            features['1-0006']['Rv2879c']['ratt'].location,
+            features['1-0006']['Rv2880c']['ratt'].location,
+        ),
+        'inframe_pseudo_same_start_different_stop': (
+            # 1-0006 RATT \pseudo SpmT with an internal stop codon
+            SimpleLocation(ExactPosition(989728), ExactPosition(991202), strand=1),
+            SimpleLocation(ExactPosition(989728), ExactPosition(990112), strand=1),
+        ),
+        'inframe_pseudo_different_start_different_stop': (
+            # 1-0006 Rv2084 different start positions, but in-frame and there's an internal stop
+            SimpleLocation(ExactPosition(2345919), ExactPosition(2346942), strand=1),
+            SimpleLocation(ExactPosition(2345913), ExactPosition(2346915), strand=1),
+        ),
+        # 1-0006 combined CDS L_01053 and L_01054 compared to start-corrected
+        'inframe_pseudo_on_nonoverlapping_part': (
+            SimpleLocation(ExactPosition(1104310), ExactPosition(1105056), strand=1),
+            SimpleLocation(ExactPosition(1105048), ExactPosition(1107616), strand=1),
+        ),
+        'overlapping_out_of_frame': (
+            # 1-0006 espH and eccA1
+            SimpleLocation(ExactPosition(4350755), ExactPosition(4351307), strand=1),
+            # not a multiple of 3
+            SimpleLocation(ExactPosition(4351299), ExactPosition(4353020), strand=1),
+        ),
+        'different_strand': (
+            SimpleLocation(ExactPosition(0), ExactPosition(300), strand=1),
+            SimpleLocation(ExactPosition(0), ExactPosition(300), strand=-1),
+        ),
+        'non_overlapping': (
+            SimpleLocation(ExactPosition(0), ExactPosition(300), strand=1),
+            SimpleLocation(ExactPosition(304), ExactPosition(335), strand=-1),
+        ),
+        'one_bp_apart': (
+            # 1-0006's Rv0138 and Rv0139
+            SimpleLocation(ExactPosition(163764), ExactPosition(164268), strand=1),
+            SimpleLocation(ExactPosition(164268), ExactPosition(165291), strand=1),
+        ),
+        'compound_interval': (
+            #PGAP annotation of 1-0013
+            CompoundLocation([SimpleLocation(ExactPosition(1931), ExactPosition(2220), strand=1),
+                              SimpleLocation(ExactPosition(2219), ExactPosition(3193), strand=1)], 'join'),
+            CompoundLocation([SimpleLocation(ExactPosition(1931), ExactPosition(2258), strand=1),
+                              SimpleLocation(ExactPosition(2207), ExactPosition(3193), strand=1)], 'join'),
+        ),
+    }
+    expected = {
+        'two_pseudos_same_start': True,
+        'same_stop': True,
+        'inframe_pseudo_same_start_different_stop': True,
+        'inframe_pseudo_different_start_different_stop': True,
+        'inframe_pseudo_on_nonoverlapping_part': False,
+        'overlapping_out_of_frame': False,
+        'different_strand': False,
+        'non_overlapping': False,
+        'one_bp_apart': False,
+        'compound_interval': True,
+    }
+
+    assert compare.overlap_inframe(pairs[pair][0], pairs[pair][1]) == expected[pair]
 
 @pytest.mark.parametrize('case', [
     'two_word_code',

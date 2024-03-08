@@ -15,11 +15,11 @@ from Bio.SeqFeature import (
 )
 
 from . import (
-    annomerge,
     config,
     designator,
     extractor,
 )
+from .compare import overlap_inframe
 from .config import cnf
 
 
@@ -53,7 +53,7 @@ def has_broken_stop(feature):
             for i in range(len(loc_list)):
                 temp_feature.location = FeatureLocation(loc_list[i][0], loc_list[i][1]+1, strand=feature.location.strand)
 
-                if annomerge.overlap_inframe(feature.location, temp_feature.location):
+                if overlap_inframe(feature.location, temp_feature.location):
                     temp_feature_seq = temp_feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
                                                             references=feature.references)
                     #Replace misidentified stop codons with selenocysteine amino acid symbol 'U' or pyrrolysine amino acid symbol 'O'
