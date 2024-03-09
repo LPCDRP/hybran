@@ -82,11 +82,19 @@ def has_broken_stop(feature):
     fake_stops = [_ for _ in fake_stops if _[0] != len(translation)-1]
 
     if fake_stops:
+        #At this point, we know valid transl_except amino acids exist in the sequence
         translation = list(translation)
         for _ in fake_stops:
             translation[_[0]] = _[1]
         translation = ''.join(translation)
 
+        #update the feature's translation qualifier to the new amino acid sequence.
+        feature.qualifiers.pop('translation', None)
+        designator.append_qualifier(
+            feature.qualifiers,
+            'translation',
+            translation,
+        )
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
