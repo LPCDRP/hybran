@@ -112,14 +112,12 @@ def pseudoscan(
                 feature.corr.vs = has_valid_start(feature)
                 feature.corr.ve = not broken_stop
 
-            ref_seq = translate(
-                extractor.get_seq(ref_feature),
-                table=cnf.genetic_code, to_stop=True
-            )
-            feature_seq = translate(feature.extract(), table=cnf.genetic_code, to_stop=True)
+            ref_seq = ref_feature.qualifiers['translation'][0]
+            feature_seq = feature.qualifiers['translation'][0]
+
             #ref_match with 'thresholds enforced'
             top_hit, low_covg, blast_stats = BLAST.reference_match(
-                query=SeqRecord(feature_seq),
+                query=SeqRecord(Seq(feature_seq)),
                 subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
                 seq_ident=seq_ident,
                 seq_covg=seq_covg,
