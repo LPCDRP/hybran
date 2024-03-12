@@ -89,12 +89,9 @@ def has_broken_stop(feature):
         translation = ''.join(translation)
 
         #update the feature's translation qualifier to the new amino acid sequence.
-        feature.qualifiers.pop('translation', None)
-        designator.append_qualifier(
-            feature.qualifiers,
-            'translation',
-            translation,
-        )
+        # TODO: updating the translation here is probably an unexpected side effect of this function.
+        #       Some refactoring is in order to take care of that.
+        feature.qualifiers['translation'] = [ translation ]
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
