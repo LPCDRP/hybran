@@ -306,7 +306,7 @@ def test_fissionfuser(gene_list, tmp_path):
                         ('Hybran/Pseudoscan:description:Internal stop detected at '
                          'codon(s) 53 | Locus has valid reading frame | Locus does not have '
                          'reference-corresponding end | Poor blastp match at 95% identity and '
-                         '95% coverage thresholds | Locus has a delayed stop codon'),
+                         '95% coverage thresholds'),
                         'Hybran/Pseudoscan:evidence:internal_stop',
                         'Hybran/Pseudoscan:barcode:D31;VS1;VE0;RCS1;RCE0;BOK0',
                     ],
