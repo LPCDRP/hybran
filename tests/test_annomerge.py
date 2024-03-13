@@ -257,11 +257,13 @@ def test_fissionfuser(gene_list, tmp_path):
                     'gene': ['dosT'],
                     'locus_tag': ['L_02174'],
                     'note': [
-                        ('Hybran/Pseudoscan: Internal stop detected in the following '
-                         'codon(s): 270 283 353 380 | Locus has invalid reading frame-- not '
+                        ('Hybran/Pseudoscan:description:Internal stop detected at '
+                         'codon(s) 270 283 353 380 | Locus has invalid reading frame-- not '
                          'divisible by three | Locus has reference-corresponding start and '
                          'end | Poor blastp match at 95% identity and 95% coverage thresholds '
-                         '| Locus is 1 base pair(s) shorter than the reference')
+                         '| Locus is 1 base pair(s) shorter than the reference'),
+                        'Hybran/Pseudoscan:evidence:not_div_by_3;internal_stop',
+                        'Hybran/Pseudoscan:barcode:D30;VS1;VE0;RCS1;RCE1;BOK0',
                     ],
                     'pseudo': [''],
                 }
@@ -278,11 +280,13 @@ def test_fissionfuser(gene_list, tmp_path):
                     'gene': ['Rv0986'],
                     'locus_tag': ['L_01054'],
                     'note': [
-                        ('Hybran/Pseudoscan: Internal stop detected in the following '
-                         'codon(s): 98 168 199 208 215 223 227 | Locus has invalid reading '
+                        ('Hybran/Pseudoscan:description:Internal stop detected at '
+                         'codon(s) 98 168 199 208 215 223 227 | Locus has invalid reading '
                          'frame-- not divisible by three | Locus has reference-corresponding '
                          'start and end | Poor blastp match at 95% identity and 95% coverage '
-                         'thresholds | Locus is 1 base pair(s) shorter than the reference')
+                         'thresholds | Locus is 1 base pair(s) shorter than the reference'),
+                        'Hybran/Pseudoscan:evidence:not_div_by_3;internal_stop',
+                        'Hybran/Pseudoscan:barcode:D30;VS1;VE0;RCS1;RCE1;BOK0',
                     ],
                     'pseudo': [''],
                 }
@@ -299,10 +303,12 @@ def test_fissionfuser(gene_list, tmp_path):
                     'gene': ['Rv3327'],
                     'locus_tag': ['L_03352'],
                     'note': [
-                        ('Hybran/Pseudoscan: Internal stop detected in the following '
-                         'codon(s): 53 | Locus has valid reading frame | Locus does not have '
+                        ('Hybran/Pseudoscan:description:Internal stop detected at '
+                         'codon(s) 53 | Locus has valid reading frame | Locus does not have '
                          'reference-corresponding end | Poor blastp match at 95% identity and '
-                         '95% coverage thresholds | Locus has a delayed stop codon')
+                         '95% coverage thresholds | Locus has a delayed stop codon'),
+                        'Hybran/Pseudoscan:evidence:internal_stop',
+                        'Hybran/Pseudoscan:barcode:D31;VS1;VE0;RCS1;RCE0;BOK0',
                     ],
                     'pseudo': [''],
                 }
