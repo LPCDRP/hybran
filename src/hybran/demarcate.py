@@ -84,20 +84,19 @@ def has_broken_stop(feature):
 
         if fake_stops:
             #At this point, we know valid transl_except amino acids exist in the sequence
-            update_translation = list(translation)
+            translation = list(translation)
             for (loc, aa) in fake_stops:
-                update_translation[loc] = aa
+                translation[loc] = aa
+            translation = ''.join(translation)
 
             #All other annotations with translation qualifiers are generated with to_stop=True.
             #Because we manually update this specific translation qualifier, the last stop codon needs to be removed.
-            if update_translation[-1] == '*':
-                update_translation.pop()
-            update_translation = ''.join(update_translation)
+            translation_to_stop = translation[:-1] if translation[-1] == '*' else translation
 
             #update the feature's translation qualifier to the new amino acid sequence.
             # TODO: updating the translation here is probably an unexpected side effect of this function.
             #       Some refactoring is in order to take care of that.
-            feature.qualifiers['translation'] = [ update_translation ]
+            feature.qualifiers['translation'] = [ translation_to_stop ]
 
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
