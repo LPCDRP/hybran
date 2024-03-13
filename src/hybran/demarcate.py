@@ -41,11 +41,17 @@ def has_broken_stop(feature):
     Finds the amount and location of internal stops.
     :param feature: A SeqFeature object
     """
+    internal_stop = False
+    note = ''
+    feature_seq = feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
+                                  references=feature.references)
+    translation = str(feature_seq.translate(to_stop=False, table=cnf.genetic_code))
+
     #Check if feature has valid transl_except qualifier and check if its in frame.
     #Features with a valid transl_except qualifier have a recoded stop codon that
     #should be ignored because it's either a selenocysteine or pyrrolysine amino acid.
-    fake_stops = []
     if feature.transl_except:
+        fake_stops = []
         temp_feature = SeqFeature()
         temp_feature.qualifiers['transl_except'] = feature.transl_except
         loc_list, aa_names = parse_transl_except(temp_feature)
@@ -72,26 +78,27 @@ def has_broken_stop(feature):
                         fake_stops.append(
                             (int((feature.location.end - temp_feature.location.end)/3), temp_feature_translation)
                         )
-    internal_stop = False
-    note = ''
-    feature_seq = feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
-                                  references=feature.references)
-    translation = str(feature_seq.translate(to_stop=False, table=cnf.genetic_code))
 
-    #Dont accidently call the last codon a selenocysteine.
-    fake_stops = [_ for _ in fake_stops if _[0] != len(translation)-1]
+        #Dont accidently call the last codon a selenocysteine.
+        fake_stops = [(loc, aa) for (loc, aa) in fake_stops if loc != len(translation)-1]
 
-    if fake_stops:
-        #At this point, we know valid transl_except amino acids exist in the sequence
-        translation = list(translation)
-        for _ in fake_stops:
-            translation[_[0]] = _[1]
-        translation = ''.join(translation)
+        if fake_stops:
+            #At this point, we know valid transl_except amino acids exist in the sequence
+            update_translation = list(translation)
+            for (loc, aa) in fake_stops:
+                update_translation[loc] = aa
 
-        #update the feature's translation qualifier to the new amino acid sequence.
-        # TODO: updating the translation here is probably an unexpected side effect of this function.
-        #       Some refactoring is in order to take care of that.
-        feature.qualifiers['translation'] = [ translation ]
+            #All other annotations with translation qualifiers are generated with to_stop=True.
+            #Because we manually update this specific translation qualifier, the last stop codon needs to be removed.
+            if update_translation[-1] == '*':
+                update_translation.pop()
+            update_translation = ''.join(update_translation)
+
+            #update the feature's translation qualifier to the new amino acid sequence.
+            # TODO: updating the translation here is probably an unexpected side effect of this function.
+            #       Some refactoring is in order to take care of that.
+            feature.qualifiers['translation'] = [ update_translation ]
+
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
