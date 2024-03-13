@@ -169,6 +169,15 @@ def test_fissionfuser(gene_list, tmp_path):
         f.source = 'H37Rv.NC_000962.3' # TODO - clean this up
         f.ref = record_sequence.id
         f.references = {record_sequence.id: record_sequence.seq}
+        # TODO: translations need to be done with cds=True to get alternative methionine codons considered properly,
+        # but it doesn't work when we have internal stops and we like to translate those during the pipeline.
+        f.qualifiers['translation'] = [ str(f.translate(
+            record_sequence.seq,
+            table=config.cnf.genetic_code,
+            to_stop=True,
+            cds=False,
+        )) ]
+
 
     expected = {
         'complementary_fragments': ([
@@ -186,6 +195,7 @@ def test_fissionfuser(gene_list, tmp_path):
                         'Hybran/Pseudoscan:barcode:D30;VS1;VE0;RCS1;RCE1;BOK0',
                     ],
                     'pseudo': [''],
+                    'translation': ['VTHPDRANVNPGSPPLRETLSQLRLRELLLEVQDRIEQIVEGRDRLDGLIDAILAITSGLKLDATLRAIVHTAAELVDARYGALGVRGYDHRLVEFVYEGIDEETRHLIGSLPEGRGVLGALIEEPKPIRLDDISRHPASVGFPLHHPPMRTFLGVPVRIRDEVFGNLYLTEKADGQPFSDDDEVLVQALAAAAGIAVDNARLFEESRTREAWIEATRDIGTQMLAGADPAMVFRLIAEEALTLMAGAATLVAVPLDDKRRLARSTTWSS'],
                 }
             )],
             [{
@@ -209,6 +219,7 @@ def test_fissionfuser(gene_list, tmp_path):
                         'Hybran/Pseudoscan:barcode:D30;VS1;VE0;RCS1;RCE1;BOK0',
                     ],
                     'pseudo': [''],
+                    'translation': ['LFRRDQIGIVFQFFNLIPTLTVLENITLPQELAGVSQRKAAVVARDLLEKVGMADRERTFPDKLSGGEQQRVAISRALAHNPMLVLADEPTGNLDSDTGDKVLDVLLDLTRQAGKTLIMATHSPSMTQHADRVVNLQGGRLIPAVNRENQTDQPASTILLPTSYE'],
                 }
             )],
             [{
@@ -231,6 +242,7 @@ def test_fissionfuser(gene_list, tmp_path):
                         'Hybran/Pseudoscan:barcode:D31;VS1;VE0;RCS1;RCE0;BOK0',
                     ],
                     'pseudo': [''],
+                    'translation': ['MVVVGTDAHKYSHTFVATDEVGRQLGEKTVKATTAGHATAIMWAREQFGLELI'],
                 }
             )],
             [{

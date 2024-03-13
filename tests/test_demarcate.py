@@ -118,6 +118,15 @@ def test_update_transl_except(case, tmp_path):
             '(pos:5520861..5520859,aa:Pyl)'
         ]
 
+
+    for f in [feature, expected]:
+        f.qualifiers['translation'] = [ str(f.translate(
+            record_sequence.seq,
+            table=config.cnf.genetic_code,
+            to_stop=True,
+            cds=False,
+        )) ]
+
     pseudoscan.pseudoscan(expected, ref_feature, 95, 95)
     pseudoscan.pseudoscan(feature, ref_feature, 95, 95)
     assert feature == expected
