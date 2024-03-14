@@ -284,6 +284,14 @@ def validate(
             feature.corr = FeatureProperties()
             feature.corr_possible = None
 
+
+    # RATT CDSs don't come with any translations
+    feature.qualifiers['translation'] =[str(translate(
+        feature.extract(),
+        table=cnf.genetic_code,
+        to_stop=True,
+    ))]
+
     feature_is_pseudo = pseudoscan(
         feature,
         ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
@@ -298,14 +306,9 @@ def validate(
         unbroken = True
 
     if unbroken:
-        feature_sequence = translate(
-            feature.extract(),
-            table=cnf.genetic_code,
-            to_stop=True,
-        )
+        feature_sequence = feature.qualifiers['translation'][0]
         # TODO: if we want to keep track of the blast stats, we should add it as an attribute to the AutarkicSeqFeature object
         #ratt_blast_results.update(blast_stats)
-        feature.qualifiers['translation'] = [str(feature_sequence)]
 
         if not enforce_thresholds:
             valid = True
@@ -326,7 +329,7 @@ def validate(
                 remark = 'length of AA sequence is 0'
             else:
                 top_hit, low_covg, blast_stats = BLAST.reference_match(
-                    query=SeqRecord(feature_sequence),
+                    query=SeqRecord(Seq(feature_sequence)),
                     subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
                     seq_ident=seq_ident,
                     seq_covg=seq_covg,

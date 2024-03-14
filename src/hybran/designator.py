@@ -159,7 +159,6 @@ def find_next_increment(fasta, prefix=generic_orf_prefix):
     else:
         return 1
 
-
 def is_pseudo(qualifiers):
     """
     :param qualifiers: dict (pass feature.qualifiers here)

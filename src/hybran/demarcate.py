@@ -1,9 +1,10 @@
 import logging
+import re
 from copy import deepcopy
 from math import log, ceil
 
 from Bio import Align
-from Bio.Data import CodonTable
+from Bio.Data import CodonTable, IUPACData
 from Bio.Seq import translate
 from Bio.SeqFeature import (
     FeatureLocation,
@@ -18,6 +19,7 @@ from . import (
     designator,
     extractor,
 )
+from .compare import overlap_inframe
 from .config import cnf
 
 
@@ -44,6 +46,58 @@ def has_broken_stop(feature):
     feature_seq = feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
                                   references=feature.references)
     translation = str(feature_seq.translate(to_stop=False, table=cnf.genetic_code))
+
+    #Check if feature has valid transl_except qualifier and check if its in frame.
+    #Features with a valid transl_except qualifier have a recoded stop codon that
+    #should be ignored because it's either a selenocysteine or pyrrolysine amino acid.
+    if feature.transl_except:
+        fake_stops = []
+        temp_feature = SeqFeature()
+        temp_feature.qualifiers['transl_except'] = feature.transl_except
+        loc_list, aa_names = parse_transl_except(temp_feature)
+        if loc_list and aa_names:
+            for i in range(len(loc_list)):
+                temp_feature.location = FeatureLocation(loc_list[i][0], loc_list[i][1]+1, strand=feature.location.strand)
+
+                if overlap_inframe(feature.location, temp_feature.location):
+                    temp_feature_seq = temp_feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
+                                                            references=feature.references)
+                    #Replace misidentified stop codons with selenocysteine amino acid symbol 'U' or pyrrolysine amino acid symbol 'O'
+                    try:
+                        temp_feature_translation = IUPACData.protein_letters_3to1_extended[aa_names[i]]
+                    except KeyError:
+                        temp_feature_translation = "*"
+
+                    #List of tuples where the first value represents the index of the fake stop in the translated sequence,
+                    #second value represents the aa symbol for a selenocysteine or pyrrolysine.
+                    if feature.location.strand == 1:
+                        fake_stops.append(
+                            (int((temp_feature.location.start - feature.location.start)/3), temp_feature_translation)
+                        )
+                    else:
+                        fake_stops.append(
+                            (int((feature.location.end - temp_feature.location.end)/3), temp_feature_translation)
+                        )
+
+        #Dont accidently call the last codon a selenocysteine.
+        fake_stops = [(loc, aa) for (loc, aa) in fake_stops if loc != len(translation)-1]
+
+        if fake_stops:
+            #At this point, we know valid transl_except amino acids exist in the sequence
+            translation = list(translation)
+            for (loc, aa) in fake_stops:
+                translation[loc] = aa
+            translation = ''.join(translation)
+
+            #All other annotations with translation qualifiers are generated with to_stop=True.
+            #Because we manually update this specific translation qualifier, the last stop codon needs to be removed.
+            translation_to_stop = translation[:-1] if translation[-1] == '*' else translation
+
+            #update the feature's translation qualifier to the new amino acid sequence.
+            # TODO: updating the translation here is probably an unexpected side effect of this function.
+            #       Some refactoring is in order to take care of that.
+            feature.qualifiers['translation'] = [ translation_to_stop ]
+
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
     if len(num_internal_stop) >= 1 or translation[-1] != "*":
@@ -127,6 +181,109 @@ def update_termini(base_location, start, end):
     base_location.parts[0]._start = ExactPosition(start)
     base_location.parts[-1]._end = ExactPosition(end)
     return base_location
+
+def parse_transl_except(feature):
+    """
+    :param feature: A SeqFeature object
+    :return: list of tuples corresponding to the coordinates from the transl_except note
+    :return: list of strings corresponding to the AA associated with the transl_except note
+    """
+    loc_list = []
+    aa_list = []
+    #Ex) string from a transl_except qualifier dealing with a Selenoprotein (fake stop):
+    #'transl_except': ['(pos:complement(5401118..5401120),aa:Sec)']
+    try:
+        except_str = [_ for _ in feature.qualifiers['transl_except']]
+        for _ in except_str:
+            pos1, pos2 = [int(_) for _ in re.findall(r'\d+', _)]
+            if pos1 > pos2:
+                pos1, pos2 = pos2, pos1
+            loc_list.append((pos1,pos2))
+
+            aa_match = re.search(r'aa:(\w+)', _)
+            if aa_match:
+                aa_list.append(aa_match.group(1))
+    except:
+        pass
+    return loc_list, aa_list
+
+def update_transl_except(feature, ref_feature, alignment):
+    """
+    Replaces transl_except qualifier to reflect the coordinates of a selenocysteine protein in the query
+    gene as opposed to the reference gene.
+    :param feature: A SeqFeature object
+    :param ref_feature: A SeqFeature object of the reference gene
+    :param alignment: A Bio.Align.Alignment object illustrating a pairwise sequence alignment
+    """
+    ref_te_absloc, aa_names = parse_transl_except(ref_feature)
+    #If parsing fails, just move on...
+    if not ref_te_absloc or not aa_names:
+        return
+    elif ref_feature.strand == 1:
+        ref_te_relloc = [(pos1 - ref_feature.location.start,
+                          pos2 - ref_feature.location.start + 1) for pos1,pos2 in ref_te_absloc]
+    else:
+        ref_te_relloc = [(ref_feature.location.end - pos2,
+                          ref_feature.location.end - pos1 + 1) for pos1,pos2 in ref_te_absloc]
+    try:
+        #If the alignment is really bad, getting the gapped sequence might not be possible. In these cases,
+        #return nothing and pseudoscan can handle the removal of the transl_except qualifier
+        ref_te_codons = [get_gapped_sequence(alignment, 'target', _[0], _[1]) for _ in ref_te_relloc]
+        feature_te_codons = [get_gapped_sequence(alignment, 'query', _[0], _[1]) for _ in ref_te_relloc]
+
+        gapped_feature = list(alignment.indices[1])
+        feature_te_relloc = [(gapped_feature.index(pos1), gapped_feature.index(pos2)) for pos1,pos2 in ref_te_relloc]
+    except:
+        return
+
+    if feature.strand == 1:
+        feature_te_absloc = [(pos1 + feature.location.start,
+                              pos2 + feature.location.start - 1) for pos1,pos2 in feature_te_relloc]
+    else:
+        feature_te_absloc = [(feature.location.end - pos2,
+                              feature.location.end - pos1 - 1) for pos1,pos2 in feature_te_relloc]
+
+    #Invalid transl except qualifiers will be removed later on in pseudoscan.
+    for i in range(len(ref_te_codons)):
+        try:
+            if (
+                    (aa_names[i] == 'Sec' or aa_names[i] == 'Pyl') and
+                    ref_te_codons[i] == feature_te_codons[i] and
+                    '*' in translate(ref_te_codons[i], table=cnf.genetic_code)
+            ):
+                new_numbers = feature_te_absloc[i]
+                #Compliant with NCBI Genome Annotation Guidelines: Selenocysteine-containing coding regions
+                if feature.strand == 1:
+                    new_string = f"(pos:{new_numbers[0]}..{new_numbers[1]},aa:{aa_names[i]})"
+                else:
+                    new_string = f"(pos:{new_numbers[1]}..{new_numbers[0]},aa:{aa_names[i]})"
+                feature.transl_except.append(new_string)
+        except:
+            continue
+
+def get_gapped_sequence(alignment, seq_type, start, stop):
+    """
+    :param alignment: A Bio.Align.Alignment object illustrating a pairwise sequence alignment
+    :param seq_type: Can be 'target' (reference) or 'query' (isolate)
+    :param start: Relative starting position to slice the target or query sequence.
+    :param stop: Relative stopping position to slice the target or query sequence.
+    :return: String representation of the sliced sequence
+    """
+    seq_types = ['target', 'query']
+    if seq_type not in seq_types:
+        raise ValueError(f"Invalid sequence type. Expected one of: {seq_types}")
+    elif seq_type == 'target':
+        gapped_seq = list(alignment.indices[0])
+        alignment = alignment[0]
+    else:
+        gapped_seq = list(alignment.indices[1])
+        alignment = alignment[1]
+
+    #The index of the stop position is one off from the stop position itself
+    start = start
+    stop = stop - 1
+    interval_seq = alignment[gapped_seq.index(start) : gapped_seq.index(stop) + 1]
+    return interval_seq
 
 def coord_check(
         feature,
@@ -273,22 +430,7 @@ def coord_check(
             padding = True
         return found_low, found_high, target, query, alignment, padding, score, interval, relaxed_found_high
 
-    def get_gapped_sequence(alignment, seq_type, start, stop):
-        seq_types = ['target', 'query']
-        if seq_type not in seq_types:
-            raise ValueError(f"Invalid sequence type. Expected one of: {seq_types}")
-        elif seq_type == 'target':
-            gapped_seq = list(alignment.indices[0])
-            alignment = alignment[0]
-        else:
-            gapped_seq = list(alignment.indices[1])
-            alignment = alignment[1]
 
-        #The index of the stop position is one off from the stop position itself
-        stop -= 1
-
-        interval_seq = alignment[gapped_seq.index(start) : gapped_seq.index(stop) + 1]
-        return interval_seq
 
     def add_padding(feature, target, query, interval):
         """
@@ -369,6 +511,9 @@ def coord_check(
     #Assign initial alignment, but don't overwrite it.
     if feature.og.alignment is None:
         feature.og.alignment = alignment
+        # update transl_except coordinates if applicable
+        if 'transl_except' in feature.qualifiers or 'transl_except' in ref_feature.qualifiers:
+            update_transl_except(feature, ref_feature, alignment)
 
     corrected_feature = deepcopy(feature)
     corrected_feature_start = corrected_feature.location.start

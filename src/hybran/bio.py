@@ -19,6 +19,7 @@ loc_props = [
     'alte',
     'de',
     'ps_evid',
+    'transl_except',
 ]
 
 class FeatureProperties():
@@ -38,6 +39,7 @@ class FeatureProperties():
             alte=None, # has alternative stop
             de=None, # has delayed end
             ps_evid=None, # list of pseudoscan evidence codes
+            transl_except=None, # string of valid 'transl_except' qualifier
     ):
         self.location = location
         self.alignment = alignment
@@ -51,6 +53,10 @@ class FeatureProperties():
         self.alts = alts
         self.alte = alte
         self.de = de
+        if transl_except is None:
+            self.transl_except = []
+        else:
+            self.transl_except = transl_except
 
         if ps_evid is None:
             self.ps_evid = []

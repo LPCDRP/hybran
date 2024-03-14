@@ -8,7 +8,6 @@ import networkx as nx
 from .bio import SeqIO
 from . import extractor
 from . import fileManager
-from . import annomerge
 from . import designator
 
 
@@ -58,6 +57,56 @@ def main(args):
         basename2,
         outdir,
     )
+
+def overlap_inframe(loc1, loc2):
+    """
+    Say whether two FeatureLocations are overlapping and share the same reading frame.
+    This is for the purpose of CDSs to determine whether they should be corresponding to the
+    same genomic feature or whether one gene has lost its stop codon and merged into its neighbor.
+
+    :param loc1: FeatureLocation
+    :param loc2: FeatureLocation
+    :return: True if both features overlap in-frame
+    """
+    # overlap determination adapted from https://stackoverflow.com/a/2953979
+    def overlap_parts(loc1, loc2):
+        overlap = (min(loc1.end, loc2.end) - max(loc1.start, loc2.start))
+
+        if loc1.strand == loc2.strand and overlap > 0:
+            # pseudogenes may occupy multiple reading frames, so
+            # check both the start-defined and stop-defined frames,
+            # as well as the actual overlapping part.
+            if (loc1.start == loc2.start
+                or loc1.end == loc2.end
+                or (
+                    ((loc1.start - loc2.start) % 3 == 0
+                     or (loc1.end - loc2.end) % 3 == 0)
+                    and (overlap % 3 == 0))
+            ):
+                return True
+        return False
+
+    for i in loc1.parts:
+        for j in loc2.parts:
+            if overlap_parts(i,j):
+                return True
+    return False
+
+def have_same_stop(loc1, loc2):
+    """
+    Say whether two FeatureLocations have the same stop position.
+    This is a special case of overlap_inframe().
+    :param loc1: FeatureLocation
+    :param loc2: FeatureLocation
+    :return: True if both features have the same stop position
+    """
+    if loc1.strand == loc2.strand:
+        return (
+            (loc1.strand == 1 and loc1.end == loc2.end)
+            or
+            (loc1.strand == -1 and loc1.start == loc2.start)
+        )
+    return False
 
 def hybran_np(feature):
     """
@@ -199,11 +248,11 @@ def compare(feature_list, alt_feature_list):
             overlaps = [_[2] for _ in list(overlaps)]
             overlaps = sorted(overlaps, key=lambda _: _.location.start)
 
-        colo = [_ for _ in overlaps if (annomerge.overlap_inframe(feature.location, _.location) and
+        colo = [_ for _ in overlaps if (overlap_inframe(feature.location, _.location) and
                                                feature.location == _.location)]
-        conf = [_ for _ in overlaps if (annomerge.overlap_inframe(feature.location, _.location) and
+        conf = [_ for _ in overlaps if (overlap_inframe(feature.location, _.location) and
                                                feature.location != _.location)]
-        non_conf = [_ for _ in overlaps if not annomerge.overlap_inframe(feature.location, _.location)]
+        non_conf = [_ for _ in overlaps if not overlap_inframe(feature.location, _.location)]
 
         # 'co_located' : exact match
         if any(colo):
