@@ -20,6 +20,7 @@ These were previously only found in the pseudoscan report files.
   - Identify another signature of hybrid fusion genes (previously identified as misannotations)
   - Update FeatureProperties for fusion genes based on their components. Fusions no longer categorically pseudo.
 * Coordinate corrections no longer collapse compound locations ("joins") into single intervals (#70).
+* Include handling of `transl_except` qualifiers for amino acids introduced through translational recoding.
 
 ## [Version 1.7.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.7.1)
 
