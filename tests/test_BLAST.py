@@ -127,6 +127,12 @@ def test_reference_match(feature):
         ),
     }
 
+    for ex_hit, ex_lowcovg, ex_results in expected.values():
+        for key in ex_results:
+            for datum in ['iden', 'qcov', 'scov']:
+                if ex_results[key][datum] not in [0., 100.]:
+                    ex_results[key][datum] = pytest.approx(ex_results[key][datum])
+
     (result, low_covg, hits) = BLAST.reference_match(
         query=SeqRecord(Seq(inputs[feature].qualifiers['translation'][0])),
         subject="data/H37Rv.faa",
