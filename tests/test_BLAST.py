@@ -1,6 +1,7 @@
 from collections import defaultdict
 import os
 
+from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
 from Bio.SeqRecord import SeqRecord
 import pytest
@@ -60,18 +61,61 @@ def test_reference_match(feature):
         'Rv0205_1': (
             None, False,
             {
-                'Rv0205': {'iden': 92.611, 'qcov': 60.23738872403561, 'scov': 55.04087193460491},
-                'betP': {'iden': 28.814, 'qcov': 15.43026706231454, 'scov': 9.949409780775717},
-                'pks3': {'iden': 32.308, 'qcov': 18.694362017804153, 'scov': 13.319672131147541},
+                'Rv0205': {
+                    'iden': 92.611,
+                    'qcov': 96.2085308056872,
+                    'scov': 55.04087193460491,
+                },
+                'Rv2018': {
+                    'iden': 32.143,
+                    'qcov': 26.540284360189574,
+                    'scov': 20.502092050209207,
+                },
+                'Rv3736': {
+                    'iden': 40.0,
+                    'qcov': 14.218009478672986,
+                    'scov': 9.91501416430595,
+                },
+                'asnB': {
+                    'iden': 22.656,
+                    'qcov': 60.66350710900474,
+                    'scov': 17.177914110429448,
+                },
+                'betP': {
+                    'iden': 28.814,
+                    'qcov': 24.644549763033176,
+                    'scov': 9.949409780775717,
+                },
+                'bkdC': {
+                    'iden': 43.75,
+                    'qcov': 15.165876777251185,
+                    'scov': 6.106870229007633,
+                },
+                'gnd1': {
+                    'iden': 47.619,
+                    'qcov': 9.95260663507109,
+                    'scov': 4.329896907216495,
+                },
+                'pks3': {
+                    'iden': 29.73,
+                    'qcov': 34.12322274881517,
+                    'scov': 15.163934426229508,
+                },
             },
         ),
         'rplB': (
-            'rplB', True,
-            {'rplB': {'iden': 100.0, 'qcov': 71.06598984771574, 'scov': 100.0}},
+            'rplB', False,
+            {'rplB': {'iden': 100.0, 'qcov': 100.0, 'scov': 100.0}},
         ),
         'mamB': (
             'mamB', True,
-            {'mamB': {'iden': 99.605, 'qcov': 29.418604651162788, 'scov': 98.25242718446601}},
+            {
+                'mamB': {
+                    'iden': 99.605,
+                    'qcov': 31.506849315068493,
+                    'scov': 98.25242718446601,
+                },
+            },
         ),
         'no_hit': (
             None, False,
@@ -84,7 +128,7 @@ def test_reference_match(feature):
     }
 
     (result, low_covg, hits) = BLAST.reference_match(
-        query=SeqRecord(inputs[feature]),
+        query=SeqRecord(Seq(inputs[feature].qualifiers['translation'][0])),
         subject="data/H37Rv.faa",
         seq_ident=95,
         seq_covg=95,
