@@ -95,7 +95,7 @@ def test_update_transl_except(case, tmp_path):
         mutant_seq[5520859:5520862] = 'CTA' #reverse complemented to 'TAG' (originally 'ACG')
         mutant_seq = Seq(''.join(mutant_seq))
         feature = deepcopy(features[source_genome]['fdnG']['ratt'])
-        feature.ref = record_sequence.id
+        feature.location.ref = record_sequence.id
         feature.references = {record_sequence.id: mutant_seq}
 
         #Modify the Pyrrolysine codon in the reference
@@ -109,7 +109,7 @@ def test_update_transl_except(case, tmp_path):
             '(pos:5401124..5401126,aa:Pyl)',
         )
 
-        ref_feature.ref = feature.source
+        ref_feature.location.ref = feature.source
         ref_feature.references[feature.source] = mutant_refseq
 
         expected = deepcopy(feature)
