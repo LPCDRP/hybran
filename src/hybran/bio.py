@@ -97,10 +97,8 @@ class AutarkicSeqFeature(SeqFeature):
             #
             location=None,
             type='',
-            strand=None,
             id='<unknown_id>',
             qualifiers=None,
-            sub_features=None,
             #
             # our custom attributes
             #
@@ -122,10 +120,8 @@ class AutarkicSeqFeature(SeqFeature):
         super().__init__(
             location=location,
             type=type,
-            strand=strand,
             id=id,
             qualifiers=qualifiers,
-            sub_features=sub_features,
         )
 
         self.references = references
