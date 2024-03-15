@@ -21,6 +21,7 @@ These were previously only found in the pseudoscan report files.
   - Update FeatureProperties for fusion genes based on their components. Fusions no longer categorically pseudo.
 * Coordinate corrections no longer collapse compound locations ("joins") into single intervals (#70).
 * Include handling of `transl_except` qualifiers for amino acids introduced through translational recoding.
+* Restored compatibility with biopython >=1.82 and applied more preventitive maintenance in response to deprecation warnings.
 
 ## [Version 1.7.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.7.1)
 
