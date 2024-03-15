@@ -167,7 +167,7 @@ def test_fissionfuser(gene_list, tmp_path):
 
     for f in inputs[gene_list]:
         f.source = 'H37Rv.NC_000962.3' # TODO - clean this up
-        f.ref = record_sequence.id
+        f.location.ref = record_sequence.id
         f.references = {record_sequence.id: record_sequence.seq}
         # TODO: translations need to be done with cds=True to get alternative methionine codons considered properly,
         # but it doesn't work when we have internal stops and we like to translate those during the pipeline.

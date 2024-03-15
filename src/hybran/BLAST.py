@@ -1,9 +1,9 @@
 from collections import defaultdict
 import logging
 import os
+import subprocess
 import tempfile
 
-from Bio.Blast.Applications import NcbiblastpCommandline, NcbiblastnCommandline
 import multiprocessing
 from Bio.SeqRecord import SeqRecord
 
@@ -16,6 +16,11 @@ from .bio import SeqIO
 # and don't want to slow down the program, especially if
 # you have no network connection.
 os.environ["BLAST_USAGE_REPORT"] = "false"
+
+blast_prog = {
+    'n': 'blastn',
+    'p': 'blastp',
+}
 
 def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, metric='iden', blast_type = "p", strict=False):
     """
@@ -169,13 +174,19 @@ def blast(query, subject, seq_ident, seq_covg, blast_type = "p"):
                                '','','','','1','0','1','1','',''])+'\n'
     else:
         dummy_hit = ''
-    if blast_type == "n":
-        blast_func = NcbiblastnCommandline
-    elif blast_type == "p":
-        blast_func = NcbiblastpCommandline
-    blast_to_all = blast_func(subject=fa, outfmt=blast_outfmt)
-    stdout, stderr=blast_to_all(stdin=str(query.seq))
-    stdout += dummy_hit
+    blast_cmd = [
+        blast_prog[blast_type],
+        '-subject', fa,
+        '-outfmt', blast_outfmt,
+    ]
+    blast_ps = subprocess.run(
+        blast_cmd,
+        input=str(query.seq),
+        text=True,
+        check=True,
+        capture_output=True,
+    )
+    stdout = blast_ps.stdout + dummy_hit
     blast_filtered = []
     blast_rejects = []
     blast_truncation = []

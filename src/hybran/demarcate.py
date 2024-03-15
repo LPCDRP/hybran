@@ -121,15 +121,15 @@ def stopseeker(feature, circularize=False):
     record_sequence = feature.references[feature.location.parts[0].ref]
     rec_len = len(record_sequence) -1
 
-    if feature.strand == 1:
+    if feature.location.strand == 1:
         extended_feature.location.parts[-1]._end = ExactPosition(len(record_sequence) - 1)
     else:
         extended_feature.location.parts[0]._start = ExactPosition(0)
 
     if circularize and ((0 in feature) or (rec_len in feature)):
-        circ = FeatureLocation(int(0), int(rec_len), strand=feature.strand, ref=feature_ref)
+        circ = FeatureLocation(int(0), int(rec_len), strand=feature.location.strand, ref=feature_ref)
         #Creates CompoundLocation
-        if feature.strand == 1:
+        if feature.location.strand == 1:
             extended_feature.location = extended_feature.location + circularize
         else:
             extended_feature.location = circularize + extended_feature.location
@@ -139,7 +139,7 @@ def stopseeker(feature, circularize=False):
     original_seq_len = len(feature.extract())
     len_difference = extended_seq_len - original_seq_len
 
-    if feature.strand == 1:
+    if feature.location.strand == 1:
         extended_feature_end = feature.location.parts[-1].end + len_difference
         if extended_feature_end > rec_len:
             #Annotation will look like [feature.start ... >(rec_len)]
@@ -219,7 +219,7 @@ def update_transl_except(feature, ref_feature, alignment):
     #If parsing fails, just move on...
     if not ref_te_absloc or not aa_names:
         return
-    elif ref_feature.strand == 1:
+    elif ref_feature.location.strand == 1:
         ref_te_relloc = [(pos1 - ref_feature.location.start,
                           pos2 - ref_feature.location.start + 1) for pos1,pos2 in ref_te_absloc]
     else:
@@ -236,7 +236,7 @@ def update_transl_except(feature, ref_feature, alignment):
     except:
         return
 
-    if feature.strand == 1:
+    if feature.location.strand == 1:
         feature_te_absloc = [(pos1 + feature.location.start,
                               pos2 + feature.location.start - 1) for pos1,pos2 in feature_te_relloc]
     else:
@@ -253,7 +253,7 @@ def update_transl_except(feature, ref_feature, alignment):
             ):
                 new_numbers = feature_te_absloc[i]
                 #Compliant with NCBI Genome Annotation Guidelines: Selenocysteine-containing coding regions
-                if feature.strand == 1:
+                if feature.location.strand == 1:
                     new_string = f"(pos:{new_numbers[0]}..{new_numbers[1]},aa:{aa_names[i]})"
                 else:
                     new_string = f"(pos:{new_numbers[1]}..{new_numbers[0]},aa:{aa_names[i]})"
@@ -459,18 +459,18 @@ def coord_check(
             right_pad = len(alignment[0]) - int(query[-1][1])
             right_pad = right_pad + 2*interval
 
-        if (fix_start and feature.strand == 1) or (fix_stop and feature.strand == -1):
-            if (fix_stop and feature.strand == -1):
+        if (fix_start and feature.location.strand == 1) or (fix_stop and feature.location.strand == -1):
+            if (fix_stop and feature.location.strand == -1):
                 left_pad = right_pad
             padded_feature_start = max(0, (feature_start - left_pad))
-            if (not found_low and feature.strand == 1) or (not found_high and feature.strand == -1):
+            if (not found_low and feature.location.strand == 1) or (not found_high and feature.location.strand == -1):
                 feature_start = padded_feature_start
 
-        if (fix_stop and feature.strand == 1) or (fix_start and feature.strand == -1):
-            if (fix_start and feature.strand == -1):
+        if (fix_stop and feature.location.strand == 1) or (fix_start and feature.location.strand == -1):
+            if (fix_start and feature.location.strand == -1):
                 right_pad = left_pad
             padded_feature_end = min(len(record_sequence), feature_end + right_pad)
-            if (not found_low and feature.strand == -1) or (not found_high and feature.strand == 1):
+            if (not found_low and feature.location.strand == -1) or (not found_high and feature.location.strand == 1):
                 feature_end = padded_feature_end
 
         update_termini(pad_feature.location, feature_start, feature_end)
@@ -536,7 +536,7 @@ def coord_check(
         pad_found_low = False
 
     for i in range(2):
-        if feature.strand == 1:
+        if feature.location.strand == 1:
             good_stop = found_high
             if pad_found_high and fix_stop:
                 corrected_feature_end = (pad_feature.location.start + pad_query[-1][1])
@@ -559,7 +559,7 @@ def coord_check(
                 if fix_start:
                     feature_start = corrected_feature_start
 
-        elif feature.strand == -1:
+        elif feature.location.strand == -1:
             good_stop = found_high
             if pad_found_high and fix_stop:
                 corrected_feature_start = (pad_feature.location.end - pad_query[-1][1])
@@ -643,12 +643,12 @@ def coord_check(
     #Now that corrections have been made, we are requiring that good_start/stop should only be True if positionally identical
     #to the start/stop in the reference sequence.
     if good_start:
-        if ((feature.strand == 1 and feature.location.start != corrected_feature_start) or
-            (feature.strand == -1 and feature.location.end != corrected_feature_end)):
+        if ((feature.location.strand == 1 and feature.location.start != corrected_feature_start) or
+            (feature.location.strand == -1 and feature.location.end != corrected_feature_end)):
             good_start = False
     if good_stop:
-        if ((feature.strand == 1 and feature.location.end != corrected_feature_end) or
-            (feature.strand == -1 and feature.location.start != corrected_feature_start)):
+        if ((feature.location.strand == 1 and feature.location.end != corrected_feature_end) or
+            (feature.location.strand == -1 and feature.location.start != corrected_feature_start)):
             good_stop = False
 
     if og_feature.location != feature.location:
