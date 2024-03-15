@@ -1,6 +1,7 @@
 from collections import defaultdict
 import os
 
+from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
 from Bio.SeqRecord import SeqRecord
 import pytest
@@ -84,7 +85,7 @@ def test_reference_match(feature):
     }
 
     (result, low_covg, hits) = BLAST.reference_match(
-        query=SeqRecord(inputs[feature]),
+        query=SeqRecord(Seq(inputs[feature].qualifiers['translation'][0])),
         subject="data/H37Rv.faa",
         seq_ident=95,
         seq_covg=95,
