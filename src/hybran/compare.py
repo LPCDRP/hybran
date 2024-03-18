@@ -1,4 +1,3 @@
-from collections import defaultdict
 import itertools
 import logging
 import os
@@ -156,9 +155,7 @@ def generate_record(gbk):
     Creates a list of of lists of features for each contig represented in a .gbk annotation file.
     :param gbk: String of a path to a .gbk annotation file.
     :return anno_list: List of lists of features from the input.gbk file ordered by position.
-    :return pseudo_list: List of gene names with a 'pseudo' qualifier from the input.gbk file ordered by position.
     """
-    pseudo_dict = defaultdict(list)
     all_records = SeqIO.parse(gbk, "genbank")
     anno_list = []
     int_tree = IntervalTree()
