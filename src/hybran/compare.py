@@ -1,4 +1,6 @@
 from collections import defaultdict
+import itertools
+import logging
 import os
 import sys
 
@@ -14,18 +16,22 @@ from . import designator
 
 def main(args):
 
+    logger = logging.getLogger('Compare')
+
     gbk_file1, gbk_file2 = args.annotations
     outdir = args.outdir
 
-    basename1, ext1 = os.path.splitext(os.path.basename(gbk_file1))
-    basename2, ext2 = os.path.splitext(os.path.basename(gbk_file2))
+    # We preserve the original basename here in case in the future we decide to support matching contigs for comparison by their names.
+    # In that case, the file name prefix might be part of the sequence ID that we can use to help with match-making.
+    og_basename1, ext1 = os.path.splitext(os.path.basename(gbk_file1))
+    og_basename2, ext2 = os.path.splitext(os.path.basename(gbk_file2))
 
     if (
             ext1[1:] not in fileManager.exts['genbank'] or
             ext2[1:] not in fileManager.exts['genbank']
     ):
         sys.exit(f"Input file must be in Genbank format")
-    if basename1 == basename2:
+    if og_basename1 == og_basename2:
         prefix1 = os.path.splitext(gbk_file1)[0]
         prefix2 = os.path.splitext(gbk_file2)[0]
         # same file (or only differing in extension. like x.gbk vs x.gb)
@@ -37,14 +43,47 @@ def main(args):
         else:
             basename1 = prefix1.replace(os.sep, '_')
             basename2 = prefix2.replace(os.sep, '_')
+    else:
+        basename1 = og_basename1
+        basename2 = og_basename2
 
-    feature_list = generate_record(gbk_file1)
-    alt_feature_list = generate_record(gbk_file2)
+    record_list = generate_record(gbk_file1)
+    alt_record_list = generate_record(gbk_file2)
 
-    matching, conflicts, uniques, alt_uniques, ovl_graph = compare(
-        feature_list,
-        alt_feature_list,
-    )
+    n_records = len(record_list)
+    n_alt_records = len(alt_record_list)
+    if n_records != n_alt_records:
+        min_n = min([n_records, n_alt_records])
+        logger.warning((
+            f"{basename1} has {n_records} sequences and {basename2} has {n_alt_records}. "
+            f"Only comparing the first {min_n} to each other..."
+        ))
+        n_records = min_n
+
+    matching = []
+    conflicts = []
+    uniques = []
+    alt_uniques = []
+    ovl_graph = nx.Graph()
+    for chrom in range(n_records):
+        (
+            chrom_matching,
+            chrom_conflicts,
+            chrom_uniques,
+            chrom_alt_uniques,
+            chrom_ovl_graph,
+        ) = compare(
+            record_list[chrom],
+            alt_record_list[chrom],
+        )
+        matching.extend(chrom_matching)
+        conflicts.extend(chrom_conflicts)
+        uniques.extend(chrom_uniques)
+        alt_uniques.extend(chrom_alt_uniques)
+        ovl_graph = nx.compose(ovl_graph, chrom_ovl_graph)
+
+    feature_list = list(itertools.chain.from_iterable(record_list))
+    alt_feature_list = list(itertools.chain.from_iterable(alt_record_list))
 
     write_reports(
         matching,
@@ -114,26 +153,27 @@ def which_np(gbk_record):
 
 def generate_record(gbk):
     """
-    Creates a defaultdictionary with all of the features from a .gbk annotation file.
+    Creates a list of of lists of features for each contig represented in a .gbk annotation file.
     :param gbk: String of a path to a .gbk annotation file.
-    :return anno_list: List of features from the input.gbk file ordered by position.
+    :return anno_list: List of lists of features from the input.gbk file ordered by position.
     :return pseudo_list: List of gene names with a 'pseudo' qualifier from the input.gbk file ordered by position.
     """
-    anno_dict = defaultdict(list)
     pseudo_dict = defaultdict(list)
-    anno_list = []
     all_records = SeqIO.parse(gbk, "genbank")
+    anno_list = []
     int_tree = IntervalTree()
 
     for anno_record in all_records:
         np = which_np(anno_record)
+        feature_list = []
         for f in anno_record.features:
             f_interval = get_feature_interval(f)
             if f.type == 'CDS' and f_interval not in int_tree:
                 if designator.is_pseudo(f.qualifiers):
                     f.evidence = np(f)
-                anno_list.append(f)
+                feature_list.append(f)
                 int_tree.add(f_interval)
+        anno_list.append(feature_list)
     return anno_list
 
 def get_pseudo_type(feature):
