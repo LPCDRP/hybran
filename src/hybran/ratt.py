@@ -3,7 +3,7 @@ import os
 import logging
 
 import Bio
-from Bio.Seq import Seq, translate
+from Bio.Seq import Seq
 from Bio.SeqFeature import SimpleLocation
 from Bio.SeqRecord import SeqRecord
 # standard multiprocessing can't pickle lambda
@@ -18,7 +18,12 @@ from .annomerge import fusionfisher
 from .annomerge import get_and_remove_ref_tracer
 from .annomerge import get_ordered_features
 from .annomerge import key_ref_gene
-from .bio import AutarkicSeqFeature, SeqIO, FeatureProperties
+from .bio import (
+    AutarkicSeqFeature,
+    FeatureProperties,
+    SeqIO,
+    translate,
+)
 from .config import cnf
 from .demarcate import coord_check, has_broken_stop
 from .lumberjack import log_feature_fates

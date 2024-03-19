@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from Bio.Seq import Seq, translate
+from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from . import (

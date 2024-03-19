@@ -19,7 +19,6 @@ from copy import deepcopy
 import multiprocess as multiprocessing
 import Bio
 from Bio.Seq import Seq
-from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature
 
@@ -31,6 +30,7 @@ from . import extractor
 from . import pseudoscan
 from . import __version__
 from .bio import SeqIO
+from .bio import translate
 from .bio import FeatureProperties
 from .compare import (
     have_same_stop,

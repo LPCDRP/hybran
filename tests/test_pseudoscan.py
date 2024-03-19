@@ -6,7 +6,10 @@ from hybran import (
     demarcate,
     pseudoscan,
 )
-from hybran.bio import SeqIO
+from hybran.bio import (
+    SeqIO,
+    translate,
+)
 from hybran.config import cnf
 
 from .data_features import *
@@ -84,11 +87,10 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         part.ref = record_sequence.id
     test_features[feature_type].references = {record_sequence.id: record_sequence.seq}
     cnf.genetic_code = 11
-    test_features[feature_type].qualifiers['translation'] = [ str( test_features[feature_type].translate(
-        record_sequence.seq,
+    test_features[feature_type].qualifiers['translation'] = [ str(translate(
+        test_features[feature_type].extract(),
         table=cnf.genetic_code,
         to_stop=True,
-        cds=False,
     ))]
 
     annomerge.corrected_orf_report = []

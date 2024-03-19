@@ -6,11 +6,14 @@ from urllib.error import HTTPError
 
 from Bio import Entrez
 from Bio.Seq import Seq
-from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 
 from . import designator
-from .bio import SeqIO
+from .bio import (
+    SeqIO,
+    translate,
+)
+
 
 def get_ltag(feature):
     return feature.qualifiers['locus_tag'][0]

@@ -13,7 +13,10 @@ from hybran import (
     pseudoscan,
     designator,
 )
-from hybran.bio import SeqIO
+from hybran.bio import (
+    SeqIO,
+    translate,
+)
 from hybran.util import keydefaultdict
 
 from .data_features import *
@@ -120,11 +123,10 @@ def test_update_transl_except(case, tmp_path):
 
 
     for f in [feature, expected]:
-        f.qualifiers['translation'] = [ str(f.translate(
-            record_sequence.seq,
+        f.qualifiers['translation'] = [ str(translate(
+            f.extract(record_sequence.seq),
             table=config.cnf.genetic_code,
             to_stop=True,
-            cds=False,
         )) ]
 
     pseudoscan.pseudoscan(expected, ref_feature, 95, 95)

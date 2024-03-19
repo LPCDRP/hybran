@@ -1,7 +1,10 @@
 from copy import copy, deepcopy
+import functools
 
 from Bio import GenBank
 from Bio import SeqIO
+from Bio.Data.CodonTable import TranslationError
+from Bio.Seq import translate as super_translate
 from Bio.SeqIO import InsdcIO
 from Bio.SeqFeature import SeqFeature, SimpleLocation, CompoundLocation
 from Bio.SeqFeature import LocationParserError
@@ -185,6 +188,41 @@ class AutarkicSeqFeature(SeqFeature):
 {self.location}
 {self.qualifiers}
 """
+
+def translate(
+        sequence,
+        table='Standard',
+        stop_symbol='*',
+        to_stop=False,
+        cds=True,
+        gap=None,
+):
+    """
+    Override the default behavior of Bio.Seq.translate (imported here as super_translate) to prioritize using cds=True unless we can't (due to internal stops and the exception that Biopython throws as a result).
+    Ideally, and as a future TODO, we'd like to combine the functionality of `to_stop` and `cds` so that we can have handling of alternative start codons regardless of internal stops.
+
+    All parameters and returns are the same as Bio.Seq.translate.
+    The difference is that cds defaults to True and does not conflict with to_stop.
+    """
+
+    st = functools.partial(
+        super_translate,
+        sequence,
+        table=table,
+        stop_symbol=stop_symbol,
+        gap=gap,
+    )
+
+    if cds:
+        try:
+            tr = st(cds=True)
+        except TranslationError:
+            # TODO: temporarily reset the location of the sequence to exclude everything past the first stop, then call st(cds=True) again.
+            tr = st(to_stop=to_stop)
+    else:
+        tr = st(cds=cds, to_stop=to_stop)
+
+    return tr
 
 # keep track of the original Location.fromstring function before we mask it
 super_fromstring = GenBank.Location.fromstring

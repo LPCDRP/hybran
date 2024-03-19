@@ -5,7 +5,6 @@ from math import log, ceil
 
 from Bio import Align
 from Bio.Data import CodonTable, IUPACData
-from Bio.Seq import translate
 from Bio.SeqFeature import (
     FeatureLocation,
     ExactPosition,
@@ -19,6 +18,7 @@ from . import (
     designator,
     extractor,
 )
+from .bio import translate
 from .compare import overlap_inframe
 from .config import cnf
 
@@ -45,7 +45,12 @@ def has_broken_stop(feature):
     note = ''
     feature_seq = feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
                                   references=feature.references)
-    translation = str(feature_seq.translate(to_stop=False, table=cnf.genetic_code))
+    translation = str(translate(
+        feature_seq,
+        to_stop=False,
+        cds=False,
+        table=cnf.genetic_code,
+    ))
 
     #Check if feature has valid transl_except qualifier and check if its in frame.
     #Features with a valid transl_except qualifier have a recoded stop codon that
@@ -133,7 +138,11 @@ def stopseeker(feature, circularize=False):
             extended_feature.location = extended_feature.location + circularize
         else:
             extended_feature.location = circularize + extended_feature.location
-    extended_seq = extended_feature.extract().translate(to_stop=True, table=cnf.genetic_code)
+    extended_seq = translate(
+        extended_feature.extract(),
+        to_stop=True,
+        table=cnf.genetic_code,
+    )
     #Translation extends up to, but not including the stop codon, so we need to add 3 to the end
     extended_seq_len = len(extended_seq)*3 + 3
     original_seq_len = len(feature.extract())
