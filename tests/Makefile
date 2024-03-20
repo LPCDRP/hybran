@@ -6,7 +6,8 @@ OUTDIR ?= $(shell date +%m_%d)
 HYBRANFLAGS ?=
 
 ifeq ($(SUBMIT), 1)
-QSUB ?= qsub -N crazy_ivan -cwd -pe smp $(NPROC) -S /bin/bash -b yes -shell no -V -j yes -sync yes -o $(@D)/run.log
+#QSUB ?= qsub -N crazy_ivan -cwd -pe smp $(NPROC) -S /bin/bash -b yes -shell no -V -j yes -sync yes -o $(@D)/run.log
+QSUB ?= sbatch -J crazy_ivan -c $(NPROC) --wait -o $(@D)/run.log
 else
 log = 2>&1 | tee -a $(@D)/run.log
 endif
