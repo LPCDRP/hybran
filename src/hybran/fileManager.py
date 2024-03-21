@@ -11,7 +11,7 @@ from .bio import SeqIO
 
 exts = dict(
     fasta=['fna', 'fasta', 'fa'],
-    genbank=['gbk','gbf','gb'],
+    genbank=['gbk','gbf','gb', 'gbff'],
 )
 
 def file_list(glist, file_type="fasta"):
