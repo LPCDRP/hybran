@@ -290,11 +290,16 @@ def compare(feature_list, alt_feature_list):
                 key=lambda f: f.location.start
             )
 
-        colo = [alt_f for alt_f in alt_overlappers if (overlap_inframe(feature.location, alt_f.location) and
-                                                feature.location == alt_f.location)]
-        conf = [alt_f for alt_f in alt_overlappers if (overlap_inframe(feature.location, alt_f.location) and
-                                               feature.location != alt_f.location)]
-        non_conf = [alt_f for alt_f in alt_overlappers if not overlap_inframe(feature.location, alt_f.location)]
+        colo = []
+        conf = []
+        non_conf = []
+        for alt_f in alt_overlappers:
+            if feature.location == alt_f.location:
+                colo.append(alt_f)
+            elif overlap_inframe(feature.location, alt_f.location):
+                conf.append(alt_f)
+            else:
+                non_conf.append(alt_f)
 
         # 'co_located' : exact match
         if any(colo):
