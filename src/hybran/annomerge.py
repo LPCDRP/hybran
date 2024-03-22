@@ -1197,19 +1197,19 @@ def run(
         annomerge_records[i].annotations['molecule_type'] = 'DNA'
 
         ratt_contig_features = ratt_features[contig]
-        prokka_contig_features = abinit_features[contig]
+        abinit_contig_features = abinit_features[contig]
 
         if len(ratt_contig_features) == 0:
             logger.info(f"{seqname}: Using ab initio annotations only since RATT did not annotate any")
-            annomerge_records[i].features = prokka_contig_features
-        elif len(prokka_contig_features) == 0:
+            annomerge_records[i].features = abinit_contig_features
+        elif len(abinit_contig_features) == 0:
             logger.info(f"{seqname}: Using RATT annotations only since ab initio methods did not annotate any")
             annomerge_records[i].features = ratt_contig_features
         else:
             annomerge_contig_features = []
 
             ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
-            abinit_features_postprocessed = generate_feature_dictionary(prokka_contig_features)
+            abinit_features_postprocessed = generate_feature_dictionary(abinit_contig_features)
 
             # Check for in-frame conflicts/duplicates
             logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
