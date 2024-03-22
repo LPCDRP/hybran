@@ -283,23 +283,24 @@ def compare(feature_list, alt_feature_list):
                 annotation=feature,
                 bipartite=0,
             )
-        overlaps = alt_interval_tree.overlap(get_feature_interval(feature))
-        if overlaps:
-            overlaps = [_[2] for _ in list(overlaps)]
-            overlaps = sorted(overlaps, key=lambda _: _.location.start)
+        alt_overlapping_intervals = alt_interval_tree.overlap(get_feature_interval(feature))
+        if alt_overlapping_intervals:
+            alt_overlappers = sorted(
+                [alt_feature for alt_start, alt_end, alt_feature in alt_overlapping_intervals],
+                key=lambda f: f.location.start
+            )
 
-        colo = [_ for _ in overlaps if (overlap_inframe(feature.location, _.location) and
-                                               feature.location == _.location)]
-        conf = [_ for _ in overlaps if (overlap_inframe(feature.location, _.location) and
-                                               feature.location != _.location)]
-        non_conf = [_ for _ in overlaps if not overlap_inframe(feature.location, _.location)]
+        colo = [alt_f for alt_f in alt_overlappers if (overlap_inframe(feature.location, alt_f.location) and
+                                                feature.location == alt_f.location)]
+        conf = [alt_f for alt_f in alt_overlappers if (overlap_inframe(feature.location, alt_f.location) and
+                                               feature.location != alt_f.location)]
+        non_conf = [alt_f for alt_f in alt_overlappers if not overlap_inframe(feature.location, alt_f.location)]
 
         # 'co_located' : exact match
         if any(colo):
             # we don't care about further overlaps with these pairs, as they're fully accounted for.
-            G_conflict.remove_nodes_from([_.label for _ in colo] + [feature.label])
+            G_conflict.remove_nodes_from([alt_f.label for alt_f in colo] + [feature.label])
             # the only time len(colo)>1 is if there are redundant annotation entries.
-            _ = colo[0]
             co_located.append( (feature, colo[0]) )
             continue
 
@@ -315,7 +316,7 @@ def compare(feature_list, alt_feature_list):
         # 'non-conflicting' : no overlaps at all or overlaps out of frame
         if any(non_conf):
             G_all_partial_overlaps.add_edges_from(
-                [(feature.label, _.label) for _ in non_conf],
+                [(feature.label, alt_f.label) for alt_f in non_conf],
                 inframe=False,
             )
 
