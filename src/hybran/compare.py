@@ -296,7 +296,12 @@ def compare(feature_list, alt_feature_list):
         for alt_f in alt_overlappers:
             if feature.location == alt_f.location:
                 colo.append(alt_f)
-            elif overlap_inframe(feature.location, alt_f.location):
+            # we can currently only identify conflicts for CDSs
+            elif (
+                    feature.type == 'CDS'
+                    and feature.type == alt_f.type
+                    and overlap_inframe(feature.location, alt_f.location)
+            ):
                 conf.append(alt_f)
             else:
                 non_conf.append(alt_f)
