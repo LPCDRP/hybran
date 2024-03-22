@@ -238,9 +238,12 @@ def compare(feature_list, alt_feature_list):
 
     :param feature_list: List of features from the input.gbk file ordered by position.
     :param alt_feature_list: List of features from the alternative input.gbk file ordered by position.
-    :return matching: List of lists containing information for exactly matching annotations.
-    :return conflicts: List of lists containing information for conflicting annotations.
-    :return unique_features: List of lists containing information for unique features from the first annotation file.
+    :returns:
+      - co_located: List of 2-tuples of SeqFeatures that have exactly matching positions.
+      - conflicting: List of 2-tuples of SeqFeaturs that conflict (for CDSs, meaning they overlap in-frame).
+      - unique: List of SeqFeatures that are unique to the first annotation file.
+      - alt_unique: List of SeqFeatures that are unique to the second annotation file.
+      - G_all_partial_overlaps: networkx unidirected bipartite graph representing all non-identical overlap relationships.
     """
 
     # Use a bipartite graph to relate conflicts
