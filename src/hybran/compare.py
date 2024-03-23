@@ -67,6 +67,8 @@ def main(args):
         (
             chrom_matching,
             chrom_conflicts,
+            chrom_nonconfl,
+            chrom_alt_nonconfl,
             chrom_uniques,
             chrom_alt_uniques,
             chrom_ovl_graph,
@@ -76,8 +78,8 @@ def main(args):
         )
         matching.extend(chrom_matching)
         conflicts.extend(chrom_conflicts)
-        uniques.extend(chrom_uniques)
-        alt_uniques.extend(chrom_alt_uniques)
+        uniques += chrom_nonconfl + chrom_uniques
+        alt_uniques += chrom_alt_nonconfl + chrom_alt_uniques
         ovl_graph = nx.compose(ovl_graph, chrom_ovl_graph)
 
     feature_list = list(itertools.chain.from_iterable(record_list))
@@ -240,9 +242,12 @@ def compare(feature_list, alt_feature_list):
     :param alt_feature_list: List of features from the alternative input.gbk file ordered by position.
     :returns:
       - co_located: List of 2-tuples of SeqFeatures that have exactly matching positions.
-      - conflicting: List of 2-tuples of SeqFeaturs that conflict (for CDSs, meaning they overlap in-frame).
-      - unique: List of SeqFeatures that are unique to the first annotation file.
-      - alt_unique: List of SeqFeatures that are unique to the second annotation file.
+      - conflicting: List of 2-tuples of SeqFeatures that conflict (for CDSs, meaning they overlap in-frame).
+      - nonconfl_overlap: List of SeqFeatures from the first annotation that are putatively non-conflicting with the second
+          (for CDSs, meaning they overlap out-of-frame with at least one other feature)
+      - alt_nonconfl_overlap: List of SeqFeatures from the second annotation that are putatively non-conflicting with the first
+      - unique: List of SeqFeatures that are unique to the first annotation file, not overlapping anything in the second.
+      - alt_unique: List of SeqFeatures that are unique to the second annotation file, not overlapping anything in the first.
       - G_all_partial_overlaps: networkx unidirected bipartite graph representing all non-identical overlap relationships.
     """
 
@@ -272,6 +277,8 @@ def compare(feature_list, alt_feature_list):
 
     co_located = []
     conflicting = []
+    nonconfl_overlap = []
+    alt_nonconfl_overlap = []
     unique = []
     alt_unique = []
 
@@ -338,17 +345,33 @@ def compare(feature_list, alt_feature_list):
         # "connected components" with only one node represent unique features.
         if len(comp) == 1:
             annotation = G_conflict.nodes[comp[0]]['annotation']
-            if G_conflict.nodes[comp[0]]['bipartite'] == 0:
-                unique.append(annotation)
+            # If it's also zero-degree in the nonconfl overlap graph, it's truly unique: not overlapping anything
+            if G_all_partial_overlaps.degree[comp[0]] == 0:
+                if G_conflict.nodes[comp[0]]['bipartite'] == 0:
+                    unique.append(annotation)
+                else:
+                    alt_unique.append(annotation)
+            # putatively nonconflicting, but overlapping something
             else:
-                alt_unique.append(annotation)
+                if G_conflict.nodes[comp[0]]['bipartite'] == 0:
+                    nonconfl_overlap.append(annotation)
+                else:
+                    alt_nonconfl_overlap.append(annotation)
         else:
             conflicting += [
                 (G_conflict.nodes[x]['annotation'], G_conflict.nodes[y]['annotation'])
                 for x,y in G_conflict.edges(comp)
             ]
 
-    return co_located, conflicting, unique, alt_unique, G_all_partial_overlaps
+    return (
+        co_located,
+        conflicting,
+        nonconfl_overlap,
+        alt_nonconfl_overlap,
+        unique,
+        alt_unique,
+        G_all_partial_overlaps,
+    )
 
 #
 # Helper functions for write_reports()

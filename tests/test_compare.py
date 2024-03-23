@@ -200,12 +200,16 @@ def test_compare(case):
             ],
             # conflicting
             [],
+            # nonconfl in 1
+            [],
+            # nonconfl in 2
+            [
+                inputs[case][1][1],
+            ],
             # unique in 1
             [],
             # unique in 2
-            [
-                inputs[case][1][1],
-            ]
+            [],
         ),
     }
 
@@ -215,6 +219,7 @@ def test_compare(case):
         expected[case][0] = [(y, x) for x,y in expected[case][0]]
         expected[case][1] = [(y, x) for x,y in expected[case][1]]
         expected[case][2], expected[case][3] = expected[case][3], expected[case][2]
+        expected[case][4], expected[case][5] = expected[case][5], expected[case][4]
         expected[case] = tuple(expected[case])
 
-    assert compare.compare(f1_list, f2_list)[0:4] == expected[case]
+    assert compare.compare(f1_list, f2_list)[0:6] == expected[case]
