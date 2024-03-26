@@ -16,7 +16,10 @@ from .bio import (
 
 
 def get_ltag(feature):
-    return feature.qualifiers['locus_tag'][0]
+    if 'locus_tag' in feature.qualifiers:
+        return feature.qualifiers['locus_tag'][0]
+    else:
+        return '.'
 
 def get_gene(feature, tryhard=True):
     if 'gene' in feature.qualifiers:
