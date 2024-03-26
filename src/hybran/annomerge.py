@@ -1073,11 +1073,7 @@ def run(
             for feature_position in abinit_conflicts.keys():
                 abinit_feature = abinit_contig_features_dict[feature_position]
                 # Conflict Resolution
-                # TODO: We're using set() here because the ratt_conflict_locs sometimes appear multiple times.
-                #       This causes check_inclusion_criteria to run multiple times on the same pair, which
-                #       in the case of gene fusions, causes cascading of the fusion names.
-                #       (i.e.,  rattA, abinitB => rattA::abinitB => rattA::abinitB::abinitB => ...)
-                for ratt_conflict_loc in set(abinit_conflicts[feature_position]):
+                for ratt_conflict_loc in abinit_conflicts[feature_position]:
                     # if the RATT annotation got rejected at some point, its remaining conflicts are moot
                     if ratt_conflict_loc not in ratt_contig_features_dict.keys():
                         include_abinit = True
