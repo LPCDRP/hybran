@@ -1020,7 +1020,7 @@ def run(
             annomerge_contig_features = []
 
             ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
-            abinit_features_postprocessed = generate_feature_dictionary(abinit_contig_features)
+            abinit_contig_features_dict = generate_feature_dictionary(abinit_contig_features)
 
             (
                 colocated,
@@ -1051,7 +1051,7 @@ def run(
                     })
                 else:
                     # We could call check_inclusion_criteria here immediately, but let's not change too much at once
-                    abinit_conflicts[loc_index(abinit_feature)].append(ratt_feature)
+                    abinit_conflicts[loc_index(abinit_feature)].append(loc_index(ratt_feature))
             prokka_rejects += abinit_duplicates
             logger.info(f"{seqname}: {len(abinit_duplicates)} ab initio features identical to RATT's")
 
@@ -1059,18 +1059,18 @@ def run(
             # Overlapping, non-colocated annotations
             #
             for ratt_feature, abinit_feature in inframe_conflicts:
-                abinit_conflicts[loc_index(abinit_feature)].append(ratt_feature)
+                abinit_conflicts[loc_index(abinit_feature)].append(loc_index(ratt_feature))
             for abinit_feature in potential_unique_abinit:
                 for _, ratt_feature_label in overlap_G.edges(abinit_feature.label):
                     ratt_feature = overlap_G.nodes[ratt_feature_label]['annotation']
-                    abinit_conflicts[loc_index(abinit_feature)].append(ratt_feature)
+                    abinit_conflicts[loc_index(abinit_feature)].append(loc_index(ratt_feature))
 
             logger.info(f"{seqname}: {len(inframe_conflicts)} ab initio ORFs conflicting in-frame with RATT's")
             logger.info(f"{seqname}: {len(abinit_conflicts)} ab initio features in total overlap RATT features. Resolving...")
 
 
             for feature_position in abinit_conflicts.keys():
-                abinit_feature = unique_abinit_features[feature_position]
+                abinit_feature = abinit_contig_features_dict[feature_position]
                 # Conflict Resolution
                 # TODO: We're using set() here because the ratt_conflict_locs sometimes appear multiple times.
                 #       This causes check_inclusion_criteria to run multiple times on the same pair, which
