@@ -1030,7 +1030,7 @@ def run(
                 unique_ratt_features,
                 unique_abinit_features,
                 overlap_G,
-            ) = compare(ratt_contig_features, abinit_contig_features)
+            ) = compare(ratt_contig_features, abinit_contig_features, eliminate_colocated=False)
 
             # Incorporate unique annotations categorically.
             annomerge_contig_features += unique_abinit_features

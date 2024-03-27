@@ -234,12 +234,14 @@ def get_feature_interval(feature):
     """
     return Interval(int(feature.location.start), int(feature.location.end))
 
-def compare(feature_list, alt_feature_list):
+def compare(feature_list, alt_feature_list, eliminate_colocated=True):
     """
     Organize each feature into various categories based on overlaps between the annotation files.
 
     :param feature_list: List of features from the input.gbk file ordered by position.
     :param alt_feature_list: List of features from the alternative input.gbk file ordered by position.
+    :param eliminate_colocated: bool whether to explore further conflicts with colocated genes.
+      If True, you will consider colocated features as accounted for and instead see what would have been the additional conflicting features as unique or nonconflicting overlapping.
     :returns:
       - co_located: List of 2-tuples of SeqFeatures that have exactly matching positions.
       - conflicting: List of 2-tuples of SeqFeatures that conflict (for CDSs, meaning they overlap in-frame).
@@ -315,11 +317,12 @@ def compare(feature_list, alt_feature_list):
 
         # 'co_located' : exact match
         if any(colo):
-            # we don't care about further overlaps with these pairs, as they're fully accounted for.
-            G_conflict.remove_nodes_from([alt_f.label for alt_f in colo] + [feature.label])
             # the only time len(colo)>1 is if there are redundant annotation entries.
             co_located.append( (feature, colo[0]) )
-            continue
+            if eliminate_colocated:
+                # we don't care about further overlaps with these pairs, as they're fully accounted for.
+                G_conflict.remove_nodes_from([alt_f.label for alt_f in colo] + [feature.label])
+                continue
 
         # 'conflicting' : overlaps in frame
         if any(conf):
