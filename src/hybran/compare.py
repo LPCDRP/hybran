@@ -328,12 +328,12 @@ def compare(feature_list, alt_feature_list, eliminate_colocated=True):
             G_all_partial_overlaps.add_edge(feature.label, alt_feature.label, inframe=False)
 
         # 'co_located' : exact match
-        if colo:
-            # the only time len(colo)>1 is if there are redundant annotation entries.
-            co_located.append( (feature, colo[0]) )
+        # looping, but the only time len(colo)>1 is if there are redundant annotation entries.
+        for alt_feature in colo:
+            co_located.append( (feature, alt_feature) )
             if eliminate_colocated:
                 # we don't care about further overlaps with these pairs, as they're fully accounted for.
-                G_conflict.remove_nodes_from([alt_f.label for alt_f in colo] + [feature.label])
+                G_conflict.remove_nodes_from([alt_feature.label, feature.label])
 
     #
     # See what's left now that the dust has settled
