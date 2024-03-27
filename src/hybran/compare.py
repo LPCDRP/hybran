@@ -315,30 +315,25 @@ def compare(feature_list, alt_feature_list, eliminate_colocated=True):
             else:
                 non_conf.append(alt_f)
 
+        # 'conflicting' : overlaps in frame
+        for alt_feature in conf:
+            for G in [G_conflict, G_all_partial_overlaps]:
+                # alt_feature could have been dropped from the graph in a previous match.
+                # if so, don't add it back into the graph.
+                if alt_feature.label in G.nodes:
+                    G.add_edge(feature.label, alt_feature.label, inframe=True)
+
+        # 'non-conflicting' : overlaps out of frame
+        for alt_feature in non_conf:
+            G_all_partial_overlaps.add_edge(feature.label, alt_feature.label, inframe=False)
+
         # 'co_located' : exact match
-        if any(colo):
+        if colo:
             # the only time len(colo)>1 is if there are redundant annotation entries.
             co_located.append( (feature, colo[0]) )
             if eliminate_colocated:
                 # we don't care about further overlaps with these pairs, as they're fully accounted for.
                 G_conflict.remove_nodes_from([alt_f.label for alt_f in colo] + [feature.label])
-                continue
-
-        # 'conflicting' : overlaps in frame
-        if any(conf):
-            for alt_feature in conf:
-                for G in [G_conflict, G_all_partial_overlaps]:
-                    # alt_feature could have been dropped from the graph in a previous match.
-                    # if so, don't add it back into the graph.
-                    if alt_feature.label in G.nodes:
-                        G.add_edge(feature.label, alt_feature.label, inframe=True)
-
-        # 'non-conflicting' : no overlaps at all or overlaps out of frame
-        if any(non_conf):
-            G_all_partial_overlaps.add_edges_from(
-                [(feature.label, alt_f.label) for alt_f in non_conf],
-                inframe=False,
-            )
 
     #
     # See what's left now that the dust has settled
