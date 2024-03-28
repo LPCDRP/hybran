@@ -1049,6 +1049,7 @@ def run(
                         'superior': ratt_feature,
                         'evid': 'identical',
                     })
+                    overlap_G.remove_node(abinit_feature.label)
                 else:
                     # We could call check_inclusion_criteria here immediately, but let's not change too much at once
                     abinit_conflicts[loc_index(abinit_feature)].append(loc_index(ratt_feature))
@@ -1062,6 +1063,14 @@ def run(
                 abinit_feature for (ratt_feature, abinit_feature) in inframe_conflicts
             ]
             for abinit_feature in abinit_overlapping:
+                # Skip feature if it was previously rejected during check of co-located features.
+                #     Setting compare()'s eliminate_colocated=True would avoid this,
+                #     but it would also exclude those colocated RATT features from being considered
+                #     as conflicting with anything else.
+                #     For identifying fusions, this isn't desirable.
+                if abinit_feature.label not in overlap_G.nodes:
+                    continue
+
                 for _, ratt_feature_label in overlap_G.edges(abinit_feature.label):
                     ratt_feature = overlap_G.nodes[ratt_feature_label]['annotation']
                     abinit_conflicts[loc_index(abinit_feature)].append(loc_index(ratt_feature))
