@@ -1056,11 +1056,12 @@ def run(
             logger.info(f"{seqname}: {len(abinit_duplicates)} ab initio features identical to RATT's")
 
             #
-            # Overlapping, non-colocated annotations
+            # Overlapping, non-colocated annotations (both inframe and out-of-frame)
             #
-            for ratt_feature, abinit_feature in inframe_conflicts:
-                abinit_conflicts[loc_index(abinit_feature)].append(loc_index(ratt_feature))
-            for abinit_feature in potential_unique_abinit:
+            abinit_overlapping = potential_unique_abinit + [
+                abinit_feature for (ratt_feature, abinit_feature) in inframe_conflicts
+            ]
+            for abinit_feature in abinit_overlapping:
                 for _, ratt_feature_label in overlap_G.edges(abinit_feature.label):
                     ratt_feature = overlap_G.nodes[ratt_feature_label]['annotation']
                     abinit_conflicts[loc_index(abinit_feature)].append(loc_index(ratt_feature))
