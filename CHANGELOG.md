@@ -29,6 +29,7 @@ These were previously only found in the pseudoscan report files.
 * Restored compatibility with biopython >=1.82 and applied more preventitive maintenance in response to deprecation warnings.
 * Translations, in particular for RATT-transferred annotations, fixed to account for alternative methionine start codons.
 * Recognize .gbff as a genbank format file extension.
+* Write out all Prokka postprocessed contigs' annotations instead of just the last one.
 
 ## [Version 1.7.1](https://gitlab.com/LPCDRP/hybran/-/tags/1.7.1)
 

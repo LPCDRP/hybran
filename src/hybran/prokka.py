@@ -78,7 +78,7 @@ def postprocess(
         prokka_features[contigs[i]] = record.features
         invalid_features += invalid_contig_features
     SeqIO.write(
-        record,
+        prokka_records,
         os.path.join(
             postprocess_outdir,
             os.path.basename(input_prokka_genbank)
