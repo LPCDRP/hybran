@@ -24,6 +24,7 @@ These were previously only found in the pseudoscan report files.
 * fusionfisher:
   - Identify another signature of hybrid fusion genes (previously identified as misannotations)
   - Update FeatureProperties for fusion genes based on their components. Fusions no longer categorically pseudo.
+  - Eliminated more false positive fusion calls by accounting for another misannotation signature.
 * Coordinate corrections no longer collapse compound locations ("joins") into single intervals (#70).
 * Include handling of `transl_except` qualifiers for amino acids introduced through translational recoding.
 * Restored compatibility with biopython >=1.82 and applied more preventitive maintenance in response to deprecation warnings.

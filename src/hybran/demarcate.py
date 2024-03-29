@@ -485,12 +485,12 @@ def coord_check(
         update_termini(pad_feature.location, feature_start, feature_end)
         return pad_feature
 
-    def has_delayed_end(feature_seq, query, found_high, relaxed_found_high, rce):
+    def has_delayed_end(feature, query, found_high, relaxed_found_high, rce):
         """
         An AutarkicSeqFeature object with a "delayed end" is determined by coord_check after an alignment
         has been generated. The "delayed end" criteria is used to identify non-stop mutations and
         potential gene fusion events.
-        :param feature_seq: String of feature sequence
+        :param feature: An AutarkicSeqFeature object
         :param query: A numpy.ndarray of aligned positions with respect to the feature sequence
         :param found_high: Boolean - feature contains a reference corresponding stop
         :param relaxed_found_high: Boolean - feature contains a reference corresponding stop (ignoring mismatches)
@@ -498,6 +498,7 @@ def coord_check(
         :return delayed_end: Boolean  - whether the feature has a delayed end / non-stop mutation.
         """
 
+        feature_seq = feature.extract()
         delayed_end = (
             not rce
             and (
@@ -513,6 +514,11 @@ def coord_check(
                 # or (final_target[-1][1] - final_target[-1][0]) < final_interval
                 )
             )
+        #Delayed ends can't also have internal stops.
+        if delayed_end:
+            broken_stop, stop_note = has_broken_stop(feature)
+            if broken_stop:
+                delayed_end = False
         return delayed_end
 
     #First alignment
@@ -680,8 +686,8 @@ def coord_check(
         feature.corr_possible = False
 
     if feature.og.de is None:
-        feature.og.de = has_delayed_end(og_feature.extract(), query, found_high, relaxed_found_high, good_stop)
+        feature.og.de = has_delayed_end(og_feature, query, found_high, relaxed_found_high, good_stop)
     if feature.corr_possible:
-        feature.corr.de = has_delayed_end(final_feature_seq, final_query, final_found_high, final_relaxed_found_high, good_stop)
+        feature.corr.de = has_delayed_end(feature, final_query, final_found_high, final_relaxed_found_high, good_stop)
 
     return good_start, good_stop
