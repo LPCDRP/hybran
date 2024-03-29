@@ -33,6 +33,7 @@ from .bio import SeqIO
 from .bio import translate
 from .bio import FeatureProperties
 from .compare import (
+    compare,
     have_same_stop,
     overlap_inframe,
 )
@@ -99,6 +100,16 @@ def key_ref_gene(ref_id, gene_name):
     the reference sequence that each member lifted over from is not necessarily the same.
     """
     return '@@@'.join([ref_id, gene_name])
+
+def loc_index(feature):
+    """
+    Produce the index tuple we use to track feature conflicts.
+    """
+    return (
+        int(feature.location.start),
+        int(feature.location.end),
+        int(feature.location.strand),
+    )
 
 def get_ordered_features(feature_list):
     """
@@ -674,206 +685,6 @@ def liftover_annotation(feature, ref_feature, inference):
         ref_feature_qualifiers_copy,
     )
 
-
-
-def find_inframe_overlaps(ratt_features, abinit_features_dictionary):
-    """
-    Identify the relevant ab initio features.
-    Mark for removal those identically annotated by RATT and mark for conflict resolution those with different coordinates, but overlapping in frame.
-    :param ratt_features: List of features from RATT (list of SeqFeature objects)
-    :param abinit_features_dictionary: sorted dictionary of ab initio features ordered by the genomic position (i.e.,
-    feature location where key is a tuple (feature_start, feature_end, feature strand) and value is the corresponding
-    SeqFeature object)
-    :returns:
-        - abinit_features_not_in_ratt (:py:class:`dict`) -
-            sorted dictionary of ab initio features that are not annotated by RATT ordered by the genomic position
-            i.e. feature location where key is a tuple (feature_start, feature_end, feature strand) and value is the
-             corresponding SeqFeature object
-        - ratt_overlapping_genes (:py:class:`dict`) -
-            dictionary with ab initio feature location triples as keys and a list of RATT feature location triples
-            as values. Conflicts here are annotations that overlap in-frame.
-        - abinit_rejects (:py:class:`list`) -
-            list of tuples of the form (abinit_feature, remark) where abinit_feature is a SeqFeature of a rejected
-            ab initio annotation and remark is the rationale as a string.
-    """
-
-    abinit_features_not_in_ratt = abinit_features_dictionary.copy()
-    ratt_overlapping_genes = collections.defaultdict(list)
-    abinit_rejects = []
-    for abinit_feature_position in abinit_features_dictionary.keys():
-        abinit_feature = abinit_features_dictionary[abinit_feature_position]
-        (abinit_start, abinit_end, abinit_strand) = abinit_feature_position
-        abinit_duplicate_removed = False
-        for ratt_feature in ratt_features:
-            if ratt_feature.type != 'CDS':
-                continue
-            ratt_start = int(ratt_feature.location.start)
-            ratt_end = int(ratt_feature.location.end)
-            ratt_strand = ratt_feature.location.strand
-            if ratt_start > abinit_end and ratt_end > abinit_end:
-                break
-            elif (overlap_inframe(ratt_feature.location, abinit_feature.location)):
-                if (len(ratt_feature.location) == len(abinit_feature.location)
-                    and extractor.get_gene(ratt_feature) == extractor.get_gene(abinit_feature)):
-                    abinit_rejects.append({
-                        'feature': abinit_features_not_in_ratt.pop((abinit_start, abinit_end, abinit_strand), None),
-                        'superior': ratt_feature,
-                        'evid': 'identical',
-                    })
-                    abinit_duplicate_removed = True
-                else:
-                    ratt_overlapping_genes[abinit_feature_position].append((ratt_start, ratt_end, ratt_strand))
-        if abinit_duplicate_removed:
-            ratt_overlapping_genes.pop(abinit_feature_position, None)
-    return abinit_features_not_in_ratt, ratt_overlapping_genes, abinit_rejects
-
-
-def get_interregions(feature_list, intergene_length=1):
-    """
-    # Copyright(C) 2009 Iddo Friedberg & Ian MC Fleming
-    # Released under Biopython license. http://www.biopython.org/DIST/LICENSE
-    # Do not remove this comment
-    # This function was modified by Deepika Gunasekaran
-
-    This function gets the genomic locations that do not have an coding-sequence (intergenic regions)
-    :param feature_list: list of SeqFeatures
-    :param intergene_length: minimum length of integernic region (Default: 1)
-    :return:
-    list of intergenic positions where each element in the list is a tuple (start, end, strand),
-    dictionary of genes preceding the intergenic regions where the key is a tuple (start of intergenic region, strand)
-        and value is the SeqFeature preceding the intergenic region,
-    dictionary of genes succeeding the intergenic regions where the key is a tuple (end of intergenic region, strand) and
-        value is the SeqFeature succeeding the intergenic region
-    """
-
-    cds_list_plus = []
-    cds_list_minus = []
-    intergenic_positions = []
-    pre_intergene = {}
-    post_intergene = {}
-    # Loop over the genome file, get the CDS features on each of the strands
-    for feature in feature_list:
-        if feature.type != 'CDS':
-            continue
-        mystart = feature.location.start
-        myend = feature.location.end
-        if feature.location.strand == -1:
-            cds_list_minus.append((mystart, myend, -1))
-            pre_intergene[(myend, -1)] = feature
-            post_intergene[(mystart, -1)] = feature
-        elif feature.location.strand == 1:
-            cds_list_plus.append((mystart, myend, 1))
-            pre_intergene[(myend, 1)] = feature
-            post_intergene[(mystart, 1)] = feature
-        else:
-            sys.stderr.write("No strand indicated %d-%d. Assuming +\n" % (mystart, myend))
-            cds_list_plus.append((mystart, myend, 1))
-            pre_intergene[(myend, 1)] = feature
-            post_intergene[(mystart, 1)] = feature
-    cds_list_plus = sorted(cds_list_plus)
-    cds_list_minus = sorted(cds_list_minus)
-    for i, pospair in enumerate(cds_list_plus[1:]):
-        # Compare current start position to previous end position
-        last_end = cds_list_plus[i][1]
-        this_start = pospair[0]
-        strand = pospair[2]
-        if this_start - last_end >= intergene_length:
-            strand_string = "+"
-            intergenic_positions.append((last_end + 1, this_start, strand_string))
-    for i, pospair in enumerate(cds_list_minus[1:]):
-        last_end = cds_list_minus[i][1]
-        this_start = pospair[0]
-        strand = pospair[2]
-        if this_start - last_end >= intergene_length:
-            strand_string = "-"
-            intergenic_positions.append((last_end + 1, this_start, strand_string))
-    return intergenic_positions, pre_intergene, post_intergene
-
-
-def populate_gaps(
-        abinit_features,
-        intergenic_positions,
-        ratt_pre_intergene,
-        ratt_post_intergene,
-):
-    """
-    :param abinit_features: dict as from generate_feature_dictionary of ab initio features to try to incorporate
-    :param intergenic_positions: (sorted) output of get_interregions
-    """
-
-    logger = logging.getLogger('PopulateGaps')
-    logger.debug('Merging RATT and ab initio annotations')
-    abinit_features = deepcopy(abinit_features)
-    abinit_keepers = []
-    abinit_conflicts = collections.defaultdict(list)
-    prev_unannotated_region_end = {'+':1, '-':1}
-    for j in intergenic_positions:
-        # Variable definitions
-        (ratt_unannotated_region_start, ratt_unannotated_region_end, ratt_strand) = j
-        next_abinit_features = deepcopy(abinit_features)
-        for feature_position in abinit_features.keys():
-            prokka_feature = abinit_features[feature_position]
-            (prokka_feature_start, prokka_feature_end, prokka_strand) = feature_position
-            ratt_unannotated_region_range = range(ratt_unannotated_region_start,
-                                                  ratt_unannotated_region_end + 1)
-            if((prokka_strand == -1 and ratt_strand == '-')
-               or (prokka_strand == 1 and ratt_strand == '+')):
-                # If Prokka feature is location before the end of the previous intergenic region, pop the key from the
-                # dictionary and continue loop
-                if((prokka_feature_start < prev_unannotated_region_end[ratt_strand]
-                    and prokka_feature_end <= prev_unannotated_region_end[ratt_strand])
-                   or prokka_feature.type == 'source' # The source feature is accounted for by RATT
-                ):
-                    next_abinit_features.pop(feature_position, None)
-                    continue
-                # Else if the prokka feature location is after the end of the intergenic region, break out of
-                # the inner loop
-                elif(prokka_feature_start > ratt_unannotated_region_end
-                     and prokka_feature_end > ratt_unannotated_region_end):
-                    break
-                # If the ab initio feature is contained in the unannotated range
-                elif(prokka_feature_start in ratt_unannotated_region_range
-                     and prokka_feature_end in ratt_unannotated_region_range):
-                    abinit_keepers.append(prokka_feature)
-                # If the Prokka feature overlaps with two RATT features
-                elif(prokka_feature_start < ratt_unannotated_region_start
-                     and prokka_feature_end > ratt_unannotated_region_end):
-                    ratt_overlapping_feature_1 = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
-                                                                     prokka_strand)]
-                    ratt_overlapping_feature_2 = ratt_post_intergene[(ratt_unannotated_region_end,
-                                                                      prokka_strand)]
-                    ratt_overlapping_feature_1_loc = (int(ratt_overlapping_feature_1.location.start),
-                                                      int(ratt_overlapping_feature_1.location.end),
-                                                      int(ratt_overlapping_feature_1.location.strand))
-                    ratt_overlapping_feature_2_loc = (int(ratt_overlapping_feature_2.location.start),
-                                                      int(ratt_overlapping_feature_2.location.end),
-                                                      int(ratt_overlapping_feature_2.location.strand))
-                    abinit_conflicts[feature_position] += [ratt_overlapping_feature_1_loc, ratt_overlapping_feature_2_loc]
-                # If the Prokka feature overlaps with one RATT feature
-                else:
-                    does_not_overlap = False
-                    # the abinit feature might overlap a ratt feature without crossing into the unannotated region.
-                    # such cases are more likely to be conflicts, so we should identify them and get them resolved.
-                    if (prokka_feature_start < ratt_unannotated_region_start) and \
-                            (prokka_feature_end < ratt_unannotated_region_end):
-                        ratt_overlapping_feature = ratt_pre_intergene[(ratt_unannotated_region_start - 1,
-                                                                       prokka_strand)]
-                    elif (prokka_feature_start in ratt_unannotated_region_range) and \
-                            prokka_feature_end > ratt_unannotated_region_end:
-                        ratt_overlapping_feature = ratt_post_intergene[(ratt_unannotated_region_end,
-                                                                        prokka_strand)]
-                    else:
-                        does_not_overlap = True
-                    if not does_not_overlap:
-                        ratt_overlapping_feature_loc = (int(ratt_overlapping_feature.location.start),
-                                                        int(ratt_overlapping_feature.location.end),
-                                                        int(ratt_overlapping_feature.location.strand))
-                        abinit_conflicts[feature_position].append(ratt_overlapping_feature_loc)
-        prev_unannotated_region_end[ratt_strand] = ratt_unannotated_region_end
-        abinit_features = next_abinit_features
-
-    return abinit_keepers, abinit_conflicts
-
 def thunderdome(abinit_annotation, ratt_annotation):
     """
     Two genes enter... one gene leaves.
@@ -1197,62 +1008,81 @@ def run(
         annomerge_records[i].annotations['molecule_type'] = 'DNA'
 
         ratt_contig_features = ratt_features[contig]
-        prokka_contig_features = abinit_features[contig]
+        abinit_contig_features = abinit_features[contig]
 
         if len(ratt_contig_features) == 0:
             logger.info(f"{seqname}: Using ab initio annotations only since RATT did not annotate any")
-            annomerge_records[i].features = prokka_contig_features
-        elif len(prokka_contig_features) == 0:
+            annomerge_records[i].features = abinit_contig_features
+        elif len(abinit_contig_features) == 0:
             logger.info(f"{seqname}: Using RATT annotations only since ab initio methods did not annotate any")
             annomerge_records[i].features = ratt_contig_features
         else:
             annomerge_contig_features = []
 
             ratt_contig_features_dict = generate_feature_dictionary(ratt_contig_features)
-            abinit_features_postprocessed = generate_feature_dictionary(prokka_contig_features)
+            abinit_contig_features_dict = generate_feature_dictionary(abinit_contig_features)
 
-            # Check for in-frame conflicts/duplicates
-            logger.info(f"{seqname}: Checking for in-frame overlaps between RATT and ab initio gene annotations")
-            unique_abinit_features, inframe_conflicts, abinit_duplicates = find_inframe_overlaps(
-                ratt_contig_features,
-                abinit_features_postprocessed,
-            )
-            prokka_rejects += abinit_duplicates
-            logger.debug(f"{seqname}: {len(abinit_duplicates)} ab initio ORFs identical to RATT's")
-            logger.debug(f"{seqname}: {len(inframe_conflicts)} ab initio ORFs conflicting in-frame with RATT's")
-            logger.debug(f'{seqname}: {len(unique_abinit_features)} total ab initio ORFs remain in consideration')
+            (
+                colocated,
+                inframe_conflicts,
+                potential_unique_ratt,
+                potential_unique_abinit,
+                unique_ratt_features,
+                unique_abinit_features,
+                overlap_G,
+            ) = compare(ratt_contig_features, abinit_contig_features, eliminate_colocated=False)
 
+            # Incorporate unique annotations categorically.
+            annomerge_contig_features += unique_abinit_features
+            logger.info(f"{seqname}: {len(unique_abinit_features)} ab initio features fall squarely into RATT's unannotated regions.")
 
-            intergenic_positions, ratt_pre_intergene, ratt_post_intergene = get_interregions(
-                ratt_contig_features,
-                intergene_length=1,
-            )
-            sorted_intergenic_positions = sorted(intergenic_positions)
-            add_features_from_prokka, overlap_conflicts = populate_gaps(
-                abinit_features=unique_abinit_features,
-                intergenic_positions=sorted_intergenic_positions,
-                ratt_pre_intergene=ratt_pre_intergene,
-                ratt_post_intergene=ratt_post_intergene,
-            )
-            annomerge_contig_features += add_features_from_prokka
-            logger.debug(f"{seqname}: {len(add_features_from_prokka)} ab initio ORFs fall squarely into RATT's CDS-free regions.")
-
-            # merge the two dicts of lists. hat tip to https://stackoverflow.com/a/5946322
             abinit_conflicts = collections.defaultdict(list)
-            for abinit_conflict_group in (inframe_conflicts, overlap_conflicts):
-                for key, value in abinit_conflict_group.items():
-                    abinit_conflicts[key] += value
 
-            logger.debug(f"{seqname}: {len(abinit_conflicts.keys())} ab initio CDSs in total overlap RATT CDSs. Resolving...")
+            #
+            # Redundant annotations
+            #
+            abinit_duplicates = []
+            for ratt_feature, abinit_feature in colocated:
+                if extractor.get_gene(ratt_feature) == extractor.get_gene(abinit_feature):
+                    abinit_duplicates.append({
+                        'feature': abinit_feature,
+                        'superior': ratt_feature,
+                        'evid': 'identical',
+                    })
+                    overlap_G.remove_node(abinit_feature.label)
+                else:
+                    # We could call check_inclusion_criteria here immediately, but let's not change too much at once
+                    abinit_conflicts[loc_index(abinit_feature)].append(loc_index(ratt_feature))
+            prokka_rejects += abinit_duplicates
+            logger.info(f"{seqname}: {len(abinit_duplicates)} ab initio features identical to RATT's")
+
+            #
+            # Overlapping, non-colocated annotations (both inframe and out-of-frame)
+            #
+            abinit_overlapping = potential_unique_abinit + [
+                abinit_feature for (ratt_feature, abinit_feature) in inframe_conflicts
+            ]
+            for abinit_feature in abinit_overlapping:
+                # Skip feature if it was previously rejected during check of co-located features.
+                #     Setting compare()'s eliminate_colocated=True would avoid this,
+                #     but it would also exclude those colocated RATT features from being considered
+                #     as conflicting with anything else.
+                #     For identifying fusions, this isn't desirable.
+                if abinit_feature.label not in overlap_G.nodes:
+                    continue
+
+                for _, ratt_feature_label in overlap_G.edges(abinit_feature.label):
+                    ratt_feature = overlap_G.nodes[ratt_feature_label]['annotation']
+                    abinit_conflicts[loc_index(abinit_feature)].append(loc_index(ratt_feature))
+
+            logger.info(f"{seqname}: {len(inframe_conflicts)} ab initio ORFs conflicting in-frame with RATT's")
+            logger.info(f"{seqname}: {len(abinit_conflicts)} ab initio features in total overlap RATT features. Resolving...")
+
 
             for feature_position in abinit_conflicts.keys():
-                abinit_feature = unique_abinit_features[feature_position]
+                abinit_feature = abinit_contig_features_dict[feature_position]
                 # Conflict Resolution
-                # TODO: We're using set() here because the ratt_conflict_locs sometimes appear multiple times.
-                #       This causes check_inclusion_criteria to run multiple times on the same pair, which
-                #       in the case of gene fusions, causes cascading of the fusion names.
-                #       (i.e.,  rattA, abinitB => rattA::abinitB => rattA::abinitB::abinitB => ...)
-                for ratt_conflict_loc in set(abinit_conflicts[feature_position]):
+                for ratt_conflict_loc in abinit_conflicts[feature_position]:
                     # if the RATT annotation got rejected at some point, its remaining conflicts are moot
                     if ratt_conflict_loc not in ratt_contig_features_dict.keys():
                         include_abinit = True

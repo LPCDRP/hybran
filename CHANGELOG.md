@@ -7,6 +7,10 @@
 ### Enhancements
 * New subcommand:
   - `hybran compare`: compare two annotations of the same genome
+* Rewritten comparison engine based on intervaltrees.
+  This fixes some edge cases, such as pairs of in-frame overlapping genes with
+  an unrelated gene between them, as well as unannotated regions at contig edges.
+  The code is modular, available to run in the above-mentioned new command, and used in annomerge.
 * Enhancements to `hybran standardize`:
   - New option `-r`/`--ref-names-only`.
   - Simplified usage: If passing in a hybran output directory, no other arguments will be necessary.
@@ -14,6 +18,7 @@
 These were previously only found in the pseudoscan report files.
 
 ### Bugs fixed
+* Annomerge no longer produces redundant CDS entries (#69)
 * Synonymous SNPs in start codons do not automatically invalidate reference-correspondence.
 * pseudoscan: Fixed typo potentially affecting calls where the reference is pseudo (#68).
 * fusionfisher:

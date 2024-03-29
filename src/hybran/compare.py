@@ -67,6 +67,8 @@ def main(args):
         (
             chrom_matching,
             chrom_conflicts,
+            chrom_nonconfl,
+            chrom_alt_nonconfl,
             chrom_uniques,
             chrom_alt_uniques,
             chrom_ovl_graph,
@@ -76,8 +78,8 @@ def main(args):
         )
         matching.extend(chrom_matching)
         conflicts.extend(chrom_conflicts)
-        uniques.extend(chrom_uniques)
-        alt_uniques.extend(chrom_alt_uniques)
+        uniques += chrom_nonconfl + chrom_uniques
+        alt_uniques += chrom_alt_nonconfl + chrom_alt_uniques
         ovl_graph = nx.compose(ovl_graph, chrom_ovl_graph)
 
     feature_list = list(itertools.chain.from_iterable(record_list))
@@ -232,15 +234,23 @@ def get_feature_interval(feature):
     """
     return Interval(int(feature.location.start), int(feature.location.end))
 
-def compare(feature_list, alt_feature_list):
+def compare(feature_list, alt_feature_list, eliminate_colocated=True):
     """
     Organize each feature into various categories based on overlaps between the annotation files.
 
     :param feature_list: List of features from the input.gbk file ordered by position.
     :param alt_feature_list: List of features from the alternative input.gbk file ordered by position.
-    :return matching: List of lists containing information for exactly matching annotations.
-    :return conflicts: List of lists containing information for conflicting annotations.
-    :return unique_features: List of lists containing information for unique features from the first annotation file.
+    :param eliminate_colocated: bool whether to explore further conflicts with colocated genes.
+      If True, you will consider colocated features as accounted for and instead see what would have been the additional conflicting features as unique or nonconflicting overlapping.
+    :returns:
+      - co_located: List of 2-tuples of SeqFeatures that have exactly matching positions.
+      - conflicting: List of 2-tuples of SeqFeatures that conflict (for CDSs, meaning they overlap in-frame).
+      - nonconfl_overlap: List of SeqFeatures from the first annotation that are putatively non-conflicting with the second
+          (for CDSs, meaning they overlap out-of-frame with at least one other feature)
+      - alt_nonconfl_overlap: List of SeqFeatures from the second annotation that are putatively non-conflicting with the first
+      - unique: List of SeqFeatures that are unique to the first annotation file, not overlapping anything in the second.
+      - alt_unique: List of SeqFeatures that are unique to the second annotation file, not overlapping anything in the first.
+      - G_all: networkx unidirected bipartite graph representing all overlap relationships (excluding identical overlaps if eliminate_colocated).
     """
 
     # Use a bipartite graph to relate conflicts
@@ -262,59 +272,71 @@ def compare(feature_list, alt_feature_list):
         )
         alt_interval_tree.addi(int(alt_feature.location.start), int(alt_feature.location.end), alt_feature)
 
-    # A second bipartite graph to track all overlaps (except exact matches)
+    # A second bipartite graph to track all overlaps (except exact matches, unless not eliminate_colocated)
     # we don't want edge direction here because we want to easily identify edges originating from
     # features from either genome.
-    G_all_partial_overlaps = G_conflict.copy().to_undirected()
+    G_all = G_conflict.copy().to_undirected()
 
     co_located = []
     conflicting = []
+    nonconfl_overlap = []
+    alt_nonconfl_overlap = []
     unique = []
     alt_unique = []
 
     for i, feature in enumerate(feature_list):
         feature.label = f"X{i}"
-        for G in [G_conflict, G_all_partial_overlaps]:
+        for G in [G_conflict, G_all]:
             G.add_node(
                 feature.label,
                 annotation=feature,
                 bipartite=0,
             )
-        overlaps = alt_interval_tree.overlap(get_feature_interval(feature))
-        if overlaps:
-            overlaps = [_[2] for _ in list(overlaps)]
-            overlaps = sorted(overlaps, key=lambda _: _.location.start)
+        alt_overlapping_intervals = alt_interval_tree.overlap(get_feature_interval(feature))
+        if alt_overlapping_intervals:
+            alt_overlappers = sorted(
+                [alt_feature for alt_start, alt_end, alt_feature in alt_overlapping_intervals],
+                key=lambda f: f.location.start
+            )
 
-        colo = [_ for _ in overlaps if (overlap_inframe(feature.location, _.location) and
-                                               feature.location == _.location)]
-        conf = [_ for _ in overlaps if (overlap_inframe(feature.location, _.location) and
-                                               feature.location != _.location)]
-        non_conf = [_ for _ in overlaps if not overlap_inframe(feature.location, _.location)]
-
-        # 'co_located' : exact match
-        if any(colo):
-            # we don't care about further overlaps with these pairs, as they're fully accounted for.
-            G_conflict.remove_nodes_from([_.label for _ in colo] + [feature.label])
-            # the only time len(colo)>1 is if there are redundant annotation entries.
-            _ = colo[0]
-            co_located.append( (feature, colo[0]) )
-            continue
+        colo = []
+        conf = []
+        non_conf = []
+        for alt_f in alt_overlappers:
+            if feature.location == alt_f.location:
+                colo.append(alt_f)
+            # we can currently only identify conflicts for CDSs
+            elif (
+                    feature.type == 'CDS'
+                    and feature.type == alt_f.type
+                    and overlap_inframe(feature.location, alt_f.location)
+            ):
+                conf.append(alt_f)
+            else:
+                non_conf.append(alt_f)
 
         # 'conflicting' : overlaps in frame
-        if any(conf):
-            for alt_feature in conf:
-                for G in [G_conflict, G_all_partial_overlaps]:
-                    # alt_feature could have been dropped from the graph in a previous match.
-                    # if so, don't add it back into the graph.
-                    if alt_feature.label in G.nodes:
-                        G.add_edge(feature.label, alt_feature.label, inframe=True)
+        for alt_feature in conf:
+            for G in [G_conflict, G_all]:
+                # alt_feature could have been dropped from the graph in a previous match.
+                # if so, don't add it back into the graph.
+                if alt_feature.label in G.nodes:
+                    G.add_edge(feature.label, alt_feature.label, inframe=True, colo=False)
 
-        # 'non-conflicting' : no overlaps at all or overlaps out of frame
-        if any(non_conf):
-            G_all_partial_overlaps.add_edges_from(
-                [(feature.label, _.label) for _ in non_conf],
-                inframe=False,
-            )
+        # 'non-conflicting' : overlaps out of frame
+        for alt_feature in non_conf:
+            G_all.add_edge(feature.label, alt_feature.label, inframe=False, colo=False)
+
+        # 'co_located' : exact match
+        # looping, but the only time len(colo)>1 is if there are redundant annotation entries.
+        for alt_feature in colo:
+            co_located.append( (feature, alt_feature) )
+            if eliminate_colocated:
+                # we don't care about further overlaps with these pairs, as they're fully accounted for.
+                G_conflict.remove_nodes_from([alt_feature.label, feature.label])
+            else:
+                for G in [G_conflict, G_all]:
+                    G.add_edge(feature.label, alt_feature.label, inframe=True, colo=True)
 
     #
     # See what's left now that the dust has settled
@@ -324,17 +346,33 @@ def compare(feature_list, alt_feature_list):
         # "connected components" with only one node represent unique features.
         if len(comp) == 1:
             annotation = G_conflict.nodes[comp[0]]['annotation']
-            if G_conflict.nodes[comp[0]]['bipartite'] == 0:
-                unique.append(annotation)
+            # If it's also zero-degree in the nonconfl overlap graph, it's truly unique: not overlapping anything
+            if G_all.degree[comp[0]] == 0:
+                if G_conflict.nodes[comp[0]]['bipartite'] == 0:
+                    unique.append(annotation)
+                else:
+                    alt_unique.append(annotation)
+            # putatively nonconflicting, but overlapping something
             else:
-                alt_unique.append(annotation)
+                if G_conflict.nodes[comp[0]]['bipartite'] == 0:
+                    nonconfl_overlap.append(annotation)
+                else:
+                    alt_nonconfl_overlap.append(annotation)
         else:
             conflicting += [
                 (G_conflict.nodes[x]['annotation'], G_conflict.nodes[y]['annotation'])
-                for x,y in G_conflict.edges(comp)
+                for x,y in G_conflict.edges(comp) if not G_conflict[x][y]['colo']
             ]
 
-    return co_located, conflicting, unique, alt_unique, G_all_partial_overlaps
+    return (
+        co_located,
+        conflicting,
+        nonconfl_overlap,
+        alt_nonconfl_overlap,
+        unique,
+        alt_unique,
+        G_all,
+    )
 
 #
 # Helper functions for write_reports()

@@ -140,6 +140,7 @@ def test_pgap_np(case):
 
 @pytest.mark.parametrize('case', [
     'colo_conflict_fusion',
+    'colo_conflict_fusion_no_eliminate_colocated',
     'colo_conflict_fusion_swapped',
 ])
 def test_compare(case):
@@ -183,38 +184,57 @@ def test_compare(case):
     swapped = False
     if case.endswith('_swapped'):
         swapped = True
-        case = case.replace('_swapped','')
+        base_case = case.replace('_swapped','')
+    else:
+        base_case = case
+
+    if 'no_eliminate_colocated' in case:
+        ec = False
+        base_case = base_case.replace('_no_eliminate_colocated','')
+    else:
+        ec = True
 
     if not swapped:
-        f1_list, f2_list = inputs[case]
+        f1_list, f2_list = inputs[base_case]
     else:
-        f2_list, f1_list = inputs[case]
+        f2_list, f1_list = inputs[base_case]
 
     expected = {
         'colo_conflict_fusion': (
             # colocated
             [
-                ( inputs[case][0][0], inputs[case][1][0] ),
-                ( inputs[case][0][1], inputs[case][1][2] ),
-                ( inputs[case][0][2], inputs[case][1][3] ),
+                ( inputs[base_case][0][0], inputs[base_case][1][0] ),
+                ( inputs[base_case][0][1], inputs[base_case][1][2] ),
+                ( inputs[base_case][0][2], inputs[base_case][1][3] ),
             ],
             # conflicting
             [],
+            # nonconfl in 1
+            [],
+            # nonconfl in 2
+            [
+                inputs[base_case][1][1],
+            ],
             # unique in 1
             [],
             # unique in 2
-            [
-                inputs[case][1][1],
-            ]
+            [],
         ),
     }
 
     # comparison results should be identical regardless of which is called genome 1
     if swapped:
-        expected[case] = list(expected[case])
+        expected[case] = list(expected[base_case])
         expected[case][0] = [(y, x) for x,y in expected[case][0]]
         expected[case][1] = [(y, x) for x,y in expected[case][1]]
         expected[case][2], expected[case][3] = expected[case][3], expected[case][2]
+        expected[case][4], expected[case][5] = expected[case][5], expected[case][4]
         expected[case] = tuple(expected[case])
 
-    assert compare.compare(f1_list, f2_list)[0:4] == expected[case]
+    if case == 'colo_conflict_fusion_no_eliminate_colocated':
+        expected[case] = list(expected[base_case])
+        expected[case][1] = [(inputs[base_case][0][1], inputs[base_case][1][1])]
+        expected[case][3] = []
+        expected[case] = tuple(expected[case])
+
+    assert compare.compare(f1_list, f2_list, ec)[0:6] == expected[case]
