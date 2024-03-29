@@ -31,6 +31,7 @@ def reset_pseudo(feature):
         keeper_notes = [_ for _ in feature.qualifiers['note'] if not _.startswith('Hybran/Pseudoscan')]
         feature.qualifiers['note'] = keeper_notes
 
+    feature.ps_evid = []
     feature.qualifiers.pop('pseudo', None)
     feature.qualifiers.pop('pseudogene', None)
     return feature
@@ -296,7 +297,7 @@ def call(
         ])
         #This is the code for a normal non-pseudo gene, with no interesting characteristics.
         #These codes will not be added to the feature notes.
-        if note_codes == 'D31;VS1;VE1;RCS1;RCE1;BOK1':
+        if note_codes == f'D31;VS1;VE1;RCS1;RCE1;BOK{"1" if have_blast_info else "."}':
             note_codes = None
 
         is_pseudo = True
