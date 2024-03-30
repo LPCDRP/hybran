@@ -1,6 +1,6 @@
 # Release Notes
 
-## Development
+## [Version 1.8](https://gitlab.com/LPCDRP/hybran/-/tags/1.8)
 
 * hybran now depends on `networkx` and `intervaltree`
 
