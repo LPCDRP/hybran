@@ -83,11 +83,13 @@ def postprocess(
                 enforce_thresholds=enforce_thresholds,
             )
             ratt_features[contig] = ratt_contig_record.features
+            out_gbk = os.path.join(postprocess_outdir, os.path.basename(gbk))
             SeqIO.write(
                 ratt_contig_record,
-                os.path.join(postprocess_outdir, os.path.basename(gbk)),
+                out_gbk,
                 "genbank",
             )
+            converter.convert_gbk_to_gff(out_gbk)
             invalid_features += invalid_contig_features
 
     except OSError:

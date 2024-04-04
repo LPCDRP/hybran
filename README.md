@@ -43,6 +43,7 @@ outdir/
 │   │   └── ...
 |   ├── ratt-postprocessed/
 │   │   ├── <i>sample1</i>.*.final.gbk
+│   │   ├── <i>sample1</i>.*.final.gff
 │   │   ├── coord_corrections.tsv
 │   │   ├── invalid_features.tsv
 │   │   └── pseudoscan_report.tsv
@@ -50,6 +51,7 @@ outdir/
 │   │   └── ...
 |   ├── prokka-postprocessed/
 │   │   ├── <i>sample1</i>.gbk
+│   │   ├── <i>sample1</i>.gff
 │   │   ├── coord_corrections.tsv
 │   │   ├── invalid_features.tsv
 │   │   └── pseudoscan_report.tsv
@@ -60,8 +62,10 @@ outdir/
 │   ├── unifications.tsv
 |   ├── unique_ref_cdss.faa
 │   ├── <i>reference1</i>.gbk
+│   ├── <i>reference1</i>.gff
 │   ├── ...
-│   └── <i>referenceN</i>.gbk
+│   ├── <i>referenceN</i>.gbk
+│   └── <i>referenceN</i>.gff
 ├── clustering/
 │   ├── multigene_clusters.txt
 │   ├── novelty_report.tsv

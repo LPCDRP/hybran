@@ -7,6 +7,7 @@ import sys
 from . import config, fileManager
 from . import CDHIT, designator, extractor, parseClustering
 from .bio import SeqIO
+from .converter import convert_gbk_to_gff
 
 
 def main(args):
@@ -159,6 +160,7 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
             revised_records.append(record)
         ann_sources[ref] = os.path.abspath(os.path.join(outdir,ref + '.gbk'))
         SeqIO.write(revised_records, ann_sources[ref], format='genbank')
+        convert_gbk_to_gff(ann_sources[ref])
 
 
     proteome_filename = os.path.join(outdir, "unique_ref_cdss.faa")

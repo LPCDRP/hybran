@@ -6,6 +6,7 @@ import warnings
 from . import designator
 from . import fileManager
 from .bio import SeqIO
+from .converter import convert_gbk_to_gff
 
 
 def main(args):
@@ -59,6 +60,7 @@ def main(args):
                 standardize(feature, generics, ref_only)
         with open(outfile, 'w') as outfile_handle:
             SeqIO.write(records, outfile_handle, 'genbank')
+        convert_gbk_to_gff(outfile)
 
 
 def standardize(feature, generics, ref_only):

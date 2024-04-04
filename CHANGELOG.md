@@ -1,5 +1,10 @@
 # Release Notes
 
+## Development
+
+### Enhancements
+* Produce gff files in addition to gbk for onegene, standardize, and postprocessing
+
 ## [Version 1.8](https://gitlab.com/LPCDRP/hybran/-/tags/1.8)
 
 * hybran now depends on `networkx` and `intervaltree`

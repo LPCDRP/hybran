@@ -16,6 +16,7 @@ from .annomerge import fissionfuser
 from .annomerge import key_ref_gene
 from .annomerge import liftover_annotation
 from .bio import AutarkicSeqFeature, SeqIO
+from .converter import convert_gbk_to_gff
 from .demarcate import coord_check
 from .lumberjack import log_feature_fates
 from .lumberjack import log_coord_corrections
@@ -77,14 +78,16 @@ def postprocess(
         )
         prokka_features[contigs[i]] = record.features
         invalid_features += invalid_contig_features
+    out_gbk = os.path.join(
+        postprocess_outdir,
+        os.path.basename(input_prokka_genbank)
+    )
     SeqIO.write(
         prokka_records,
-        os.path.join(
-            postprocess_outdir,
-            os.path.basename(input_prokka_genbank)
-        ),
+        out_gbk,
         "genbank",
     )
+    convert_gbk_to_gff(out_gbk)
 
     with open(invalid_features_logfile, 'w') as rejects_log:
         log_feature_fates(invalid_features, rejects_log)
