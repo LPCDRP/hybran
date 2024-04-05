@@ -105,12 +105,11 @@ def has_broken_stop(feature):
 
     num_stop = [i for i,e in enumerate(translation) if e == "*"]
     num_internal_stop = [i for i,e in enumerate(translation) if e == "*" and i != (len(translation)-1)]
-    if len(num_internal_stop) >= 1 or translation[-1] != "*":
+    if len(num_stop) == 0:
+        note = f"No stop codons detected in the translated sequence"
+    elif len(num_internal_stop) >= 1:
         internal_stop = True
-        if len(num_stop) == 0:
-            note = f"No stop codons detected in the translated sequence"
-        else:
-            note = f"Internal stop detected at codon(s) {' '.join([str(i) for i in num_internal_stop])}"
+        note = f"Internal stop detected at codon(s) {' '.join([str(i) for i in num_internal_stop])}"
     return internal_stop, note
 
 def stopseeker(feature, circularize=False):
