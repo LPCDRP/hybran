@@ -32,7 +32,7 @@ def test_update_transl_except(case, tmp_path):
     config.hybran_tmp_dir = tmp_path
 
     if case == 'selenocysteine':
-        ref_genome = 'PAO1_107'
+        ref_genome = 'PAO1_107_refseq_2019'
         source_genome = 'PAK'
         record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
         feature = deepcopy(features[source_genome]['fdnG']['ratt'])
@@ -41,10 +41,10 @@ def test_update_transl_except(case, tmp_path):
         ref_feature = deepcopy(ref_features[ref_genome][f"{feature.source}@@@{feature.qualifiers['gene'][0]}"])
         expected = deepcopy(feature)
 
-        expected.qualifiers['transl_except'] = ['(pos:5520855..5520853,aa:Sec)']
+        expected.qualifiers['transl_except'] = ['(pos:5520856..5520854,aa:Sec)']
 
     elif case == 'no_stop_in_ref':
-        ref_genome = 'PAO1_107'
+        ref_genome = 'PAO1_107_refseq_2019'
         source_genome = 'PAK'
         record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
         feature = deepcopy(features[source_genome]['fdnG']['ratt'])
@@ -66,14 +66,14 @@ def test_update_transl_except(case, tmp_path):
         expected.qualifiers.pop('transl_except')
 
     elif case == 'no_stop_in_feature':
-        ref_genome = 'PAO1_107'
+        ref_genome = 'PAO1_107_refseq_2019'
         source_genome = 'PAK'
         record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
 
         #Modify the selenocysteine codon in the feature
         mutant_seq = list(record_sequence)
 
-        #mutant_seq[5520853:5520856] corresponds to '(pos:5520855..5520853,aa:Sec)'
+        #mutant_seq[5520853:5520856] corresponds to '(pos:5520856..5520854,aa:Sec)'
         #which becomes 'TCA' reverse complemented to 'TGA'
         mutant_seq[5520855] = 'T' #becomes 'AGA'
         mutant_seq = Seq(''.join(mutant_seq))
@@ -86,7 +86,7 @@ def test_update_transl_except(case, tmp_path):
         expected.qualifiers.pop('transl_except')
 
     elif case == 'multi_transl_except':
-        ref_genome = 'PAO1_107'
+        ref_genome = 'PAO1_107_refseq_2019'
         source_genome = 'PAK'
         record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
 
@@ -117,8 +117,8 @@ def test_update_transl_except(case, tmp_path):
 
         expected = deepcopy(feature)
         expected.qualifiers['transl_except'] = [
-            '(pos:5520855..5520853,aa:Sec)',
-            '(pos:5520861..5520859,aa:Pyl)'
+            '(pos:5520856..5520854,aa:Sec)',
+            '(pos:5520862..5520860,aa:Pyl)'
         ]
 
 

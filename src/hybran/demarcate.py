@@ -62,7 +62,7 @@ def has_broken_stop(feature):
         loc_list, aa_names = parse_transl_except(temp_feature)
         if loc_list and aa_names:
             for i in range(len(loc_list)):
-                temp_feature.location = FeatureLocation(loc_list[i][0], loc_list[i][1]+1, strand=feature.location.strand)
+                temp_feature.location = FeatureLocation(loc_list[i][0]-1, loc_list[i][1], strand=feature.location.strand)
 
                 if overlap_inframe(feature.location, temp_feature.location):
                     temp_feature_seq = temp_feature.extract(parent_sequence=feature.references[feature.location.parts[0].ref],
@@ -262,9 +262,9 @@ def update_transl_except(feature, ref_feature, alignment):
                 new_numbers = feature_te_absloc[i]
                 #Compliant with NCBI Genome Annotation Guidelines: Selenocysteine-containing coding regions
                 if feature.location.strand == 1:
-                    new_string = f"(pos:{new_numbers[0]}..{new_numbers[1]},aa:{aa_names[i]})"
+                    new_string = f"(pos:{new_numbers[0]+1}..{new_numbers[1]+1},aa:{aa_names[i]})"
                 else:
-                    new_string = f"(pos:{new_numbers[1]}..{new_numbers[0]},aa:{aa_names[i]})"
+                    new_string = f"(pos:{new_numbers[1]+1}..{new_numbers[0]+1},aa:{aa_names[i]})"
                 feature.transl_except.append(new_string)
         except:
             continue

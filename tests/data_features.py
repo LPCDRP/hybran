@@ -15,7 +15,7 @@ ref_features = {}
 for ref in [
         'H37Rv',
         'nissle-hybrid',
-        'PAO1_107',
+        'PAO1_107_refseq_2019',
 ]:
     ref_file = os.path.join(pathlib.Path(__file__).parent.resolve(), 'data', f'{ref}.gbk')
     ref_features[ref] = {}
@@ -630,7 +630,7 @@ for sample in features:
     elif sample in [
             'PAK',
     ]:
-        source = 'PAO1_107.AE004091'
+        source = 'PAO1_107_refseq_2019.NC_002516'
     else:
         source = 'nissle-hybrid.CP007799'
     for gene in features[sample]:
