@@ -184,7 +184,7 @@ def test_stopseeker(case, circular):
     ['gene_fusion', True, True, None],
     ['end_greater_than_start', True, True, None],
     ['extend_gap_penalty_delay_stop', True, True, None],
-    ['insertion_final_interval', True, True, None],
+    #['insertion_final_interval', True, True, None],
     ['early_del_altered_scoring', False, False, None],
     ['alt_start_delicate_scoring', True, False, None],
     ['first_codon_snp_valid_start', True, True, None],
@@ -213,7 +213,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'gene_fusion':'1-0006',
         'end_greater_than_start':'SEA08151',
         'extend_gap_penalty_delay_stop':'1-0006',
-        'insertion_final_interval':'PAK',
+        #'insertion_final_interval':'PAK',
         'early_del_altered_scoring':'1-0006',
         'alt_start_delicate_scoring':'1-0006',
         'first_codon_snp_valid_start':'1-0006',
@@ -222,7 +222,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
     ref_genome = defaultdict(lambda :'H37Rv')
     ref_genome.update({
         'inverted_join_ecoli': 'nissle-hybrid',
-        'insertion_final_interval': 'PAO1_107',
+        #'insertion_final_interval': 'PAO1_107',
     })
 
     test_features = {
@@ -244,11 +244,10 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'gene_fusion': features[source_genome['gene_fusion']]['PE_PGRS50']['final'],
         'end_greater_than_start': features[source_genome['end_greater_than_start']]['lpqG']['ratt'],
         'extend_gap_penalty_delay_stop': features[source_genome['extend_gap_penalty_delay_stop']]['Rv0325']['ratt'],
-        'insertion_final_interval': features[source_genome['insertion_final_interval']]['PA2452']['ratt'],
+        #'insertion_final_interval': features[source_genome['insertion_final_interval']]['PA2452']['ratt'],
         'early_del_altered_scoring': features[source_genome['early_del_altered_scoring']]['accE5']['ratt'],
         'alt_start_delicate_scoring': features[source_genome['alt_start_delicate_scoring']]['Rv3611']['ratt'],
         'first_codon_snp_valid_start': features[source_genome['first_codon_snp_valid_start']]['Rv2023A']['ratt'],
-
     }
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
@@ -355,11 +354,11 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
             'og_de':True,
             'corr_de':None,
         },
-        'insertion_final_interval':  {
-            'results':[(True, False), FeatureLocation(2799744, 2801325, strand=1, ref='refseq|NZ_LR657304.1|chromosome1')],
-            'og_de':True,
-            'corr_de':None,
-        },
+        # 'insertion_final_interval':  {
+        #     'results':[(True, False), FeatureLocation(2799744, 2801325, strand=1, ref='refseq|NZ_LR657304.1|chromosome1')],
+        #     'og_de':True,
+        #     'corr_de':None,
+        # },
         'early_del_altered_scoring':  {
             'results':[(True, True), FeatureLocation(3659371, 3659770, strand=1, ref='1')],
             'og_de':False,

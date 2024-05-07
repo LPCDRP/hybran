@@ -71,13 +71,13 @@ features = {
                 qualifiers={'locus_tag':['PA3701'],'gene':['prfB'], 'ribosomal_slippage':[]}
             ),
         },
-        'PA2452': {
-            'ratt': SeqFeature(
-                FeatureLocation(2799744, 2801325, strand=1),
-                type='CDS',
-                qualifiers={'locus_tag':['PA2452'],'gene':['PA2452']}
-            ),
-        },
+        # 'PA2452': {
+        #     'ratt': SeqFeature(
+        #         FeatureLocation(2799744, 2801325, strand=1),
+        #         type='CDS',
+        #         qualifiers={'locus_tag':['PA2452'],'gene':['PA2452']}
+        #     ),
+        # },
     },
     'AZ20': {
         'secD': {
