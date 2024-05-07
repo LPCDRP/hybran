@@ -213,7 +213,8 @@ def call(
     valid_start = feature.vs = has_valid_start(feature)
     feature.ve = not broken_stop
     blast_ok = feature.bok
-
+    feature.alts = (not feature.rcs and feature.vs)
+    feature.alte = (not feature.rce and feature.ve)
     have_blast_info = (
         blast_ok is not None
         and blast_seq_ident is not None
@@ -223,26 +224,77 @@ def call(
     # Notes that are only interesting if we end up tagging the gene a certain way.
     new_note = []
 
-    if ref_was_pseudo:
-        coord_note = (
-            f"Locus {'has' if all(coords_ok) else 'does not have'} reference-corresponding "
-            f"{'start' if not coords_ok[0] else ''}"
-            f"{' and ' if not any(coords_ok) else ''}"
-            f"{'end' if not coords_ok[1] else ''}"
-            f"{'start and end' if all(coords_ok) else ''}"
+    coord_note = (
+        f"Locus {'has' if all(coords_ok) else 'does not have'} reference-corresponding "
+        f"{'start' if not coords_ok[0] else ''}"
+        f"{' and ' if not any(coords_ok) else ''}"
+        f"{'end' if not coords_ok[1] else ''}"
+        f"{'start and end' if all(coords_ok) else ''}"
+    )
+    feat_div_note = (
+        f"Locus has {'valid' if d3 else 'invalid'} reading frame"
+        f"{'' if feature.d3 else '-- not divisible by three'}"
+    )
+    ref_div_note = (
+        f"Reference gene has {'valid' if ref_d3 else 'invalid'} reading frame"
+        f"{'' if ref_d3 else '-- not divisible by three'}"
+    )
+    broke_note = (
+        f"{'No internal stop codons and ends with a valid stop codon' if not broken_stop else stop_note}"
+    )
+    alt_start_note = ''
+    if feature.alts:
+        alt_start_note = (
+            "Locus has a valid alternative start site"
         )
-        feat_div_note = (
-            f"Locus has {'valid' if d3 else 'invalid'} reading frame"
-            f"{'' if feature.d3 else '-- not divisible by three'}"
+    alt_stop_note = ''
+    if feature.alte:
+        alt_stop_note = (
+            "Locus has a valid alternative stop codon"
         )
-        ref_div_note = (
-            f"Reference gene has {'valid' if ref_d3 else 'invalid'} reading frame"
-            f"{'' if ref_d3 else '-- not divisible by three'}"
+    delayed_stop_note = ''
+    if feature.de:
+        delayed_stop_note = (
+            "Locus has a delayed stop codon"
         )
-        broke_note = f"{'No internal stop codons and ends with a valid stop codon' if not broken_stop else stop_note}"
-        if feature.de:
-            new_note.append("Locus has a delayed stop codon")
+    blast_note = ''
+    if have_blast_info:
+        blast_note = (
+            f"{'Strong' if blast_ok else 'Poor'} blastp match at "
+            f"{blast_seq_ident}% identity and {blast_seq_covg}% coverage thresholds"
+        )
+    #Can only comment on differences in gene length if all(coords_ok).
+    seq_len_diff_note = ''
+    if all(coords_ok) and ref_len is not None:
+        seq_len_diff = abs(ref_len - len(feature))
+        if seq_len_diff > 0:
+            seq_len_diff_note = (
+                f"Locus is {seq_len_diff} base pair(s) {'longer' if len(feature) > ref_len else 'shorter'} than the reference"
+            )
 
+    #Note codes are categorized by a '0' or '1' and correspond to 'False' and 'True' respectively
+    #D3 = Divisible by three [0/1]
+    #VS = Valid start [0/1]
+    #VE = Valid end [0/1]
+    #RCS = Reference corresponding start [0/1]
+    #RCE = Reference corresponding end [0/1]
+    #BOK = Blast OK [0/1]
+    # represent boolean values as ints but account for N/A (None)
+    nacast = lambda _: int(_) if _ is not None else "."
+    note_codes = ';'.join([
+        f"D3{nacast(feature.d3)}",
+        f"VS{nacast(feature.vs)}",
+        f"VE{nacast(feature.ve)}",
+        f"RCS{nacast(feature.rcs)}",
+        f"RCE{nacast(feature.rce)}",
+        f"BOK{nacast(feature.bok)}",
+    ])
+    #This is the code for a normal non-pseudo gene, with no interesting characteristics.
+    #These codes will not be added to the feature notes.
+    if note_codes == f'D31;VS1;VE1;RCS1;RCE1;BOK{"1" if have_blast_info else "."}':
+        note_codes = None
+
+    if ref_was_pseudo:
         if (not all(coords_ok)) and (d3 and not ref_d3) and not broken_stop:
             feature.qualifiers.pop('pseudo', None)
             feature.qualifiers.pop('pseudogene', None)
@@ -253,56 +305,7 @@ def call(
         feature.ps_evid.append("ref_pseudo")
         new_note.append(f"Reference gene is pseudo")
         new_note.extend([ref_div_note, feat_div_note, coord_note, broke_note])
-        new_note = ' | '.join(new_note)
-        designator.append_qualifier(feature.qualifiers, 'note', f'Hybran/Pseudoscan: {new_note}')
     else:
-        feature.alts = (not feature.rcs and feature.vs)
-        feature.alte = (not feature.rce and feature.ve)
-
-        # Summarize coord_check status
-        coord_note = (
-            f"Locus {'has' if all(coords_ok) else 'does not have'} reference-corresponding "
-            f"{'start' if not coords_ok[0] else ''}"
-            f"{' and ' if not any(coords_ok) else ''}"
-            f"{'end' if not coords_ok[1] else ''}"
-            f"{'start and end' if all(coords_ok) else ''}"
-        )
-        div_note = (
-            f"Locus has {'valid' if d3 else 'invalid'} reading frame"
-            f"{'' if d3 else '-- not divisible by three'}"
-        )
-        if have_blast_info:
-            blast_note = (
-                f"{'Strong' if blast_ok else 'Poor'} blastp match at "
-                f"{blast_seq_ident}% identity and {blast_seq_covg}% coverage thresholds"
-            )
-        else:
-            blast_note = ''
-        start_note = f"Locus has {'valid' if valid_start else 'invalid'} start codon"
-        broke_note = f"{'No internal stop codons and ends with a valid stop codon' if not broken_stop else stop_note}"
-
-        #Note codes are categorized by a '0' or '1' and correspond to 'False' and 'True' respectively
-        #D3 = Divisible by three [0/1]
-        #VS = Valid start [0/1]
-        #VE = Valid end [0/1]
-        #RCS = Reference corresponding start [0/1]
-        #RCE = Reference corresponding end [0/1]
-        #BOK = Blast OK [0/1]
-        # represent boolean values as ints but account for N/A (None)
-        nacast = lambda _: int(_) if _ is not None else "."
-        note_codes = ';'.join([
-            f"D3{nacast(feature.d3)}",
-            f"VS{nacast(feature.vs)}",
-            f"VE{nacast(feature.ve)}",
-            f"RCS{nacast(feature.rcs)}",
-            f"RCE{nacast(feature.rce)}",
-            f"BOK{nacast(feature.bok)}",
-        ])
-        #This is the code for a normal non-pseudo gene, with no interesting characteristics.
-        #These codes will not be added to the feature notes.
-        if note_codes == f'D31;VS1;VE1;RCS1;RCE1;BOK{"1" if have_blast_info else "."}':
-            note_codes = None
-
         is_pseudo = True
         if d3 and not broken_stop:
             if all(coords_ok):
@@ -315,38 +318,20 @@ def call(
         if not is_pseudo:
             #Uninteresting cases that do not warrant a 'pseudo note'. Everything is good.
             if all(coords_ok) and blast_ok:
-                return is_pseudo
+                pass
 
             #Either all(coords_ok) or blast_ok will be True, but not both.
             else:
                 #Primary reason for non-pseudo is strong blastp. Interesting because all(coord_ok) == False.
                 if blast_ok:
                     new_note.extend([blast_note, coord_note])
-                    new_note.extend([broke_note, div_note])
-
-                    if feature.alts:
-                        new_note.append("Locus has a valid alternative start site")
-                        feature.ps_evid.append("alt_start")
-
-                    if feature.alte:
-                        new_note.append("Locus has a valid alternative stop codon")
-                        feature.ps_evid.append("alt_end")
-
-                    if feature.de:
-                        new_note.append("Locus has a delayed stop codon")
+                    new_note.extend([broke_note, feat_div_note])
 
                 #Primary reason for non-pseudo is all(coords_ok). Interesting because blast_ok == False.
                 elif blast_ok is not None:
                     new_note.extend([coord_note, blast_note])
-                    new_note.extend([broke_note, div_note])
+                    new_note.extend([broke_note, feat_div_note])
                     feature.ps_evid.append('noisy_seq')
-
-                    #Can only comment on differences in gene length if all(coords_ok).
-                    if ref_len is not None:
-                        if ref_len > len(feature):
-                            new_note.append(f"Locus is {ref_len - len(feature)} base pair(s) shorter than the reference")
-                        elif ref_len < len(feature):
-                            new_note.append(f"Locus is {len(feature) - ref_len} base pair(s) longer than the reference")
 
         #is_pseudo == True
         #Either not d3 or has broken_stop OR Both all(coords_ok) and blast_ok == False
@@ -356,55 +341,52 @@ def call(
             #Primary reason for pseudo is both all(coords_ok) and blast_ok == False.
             if d3 and not broken_stop:
                 new_note.extend([coord_note, blast_note])
-                new_note.extend([broke_note, div_note])
+                new_note.extend([broke_note, feat_div_note])
                 feature.ps_evid.append('no_rcc')
             #Primary reason for pseudo is broken stop or invalid reading frame.
             else:
+                new_note.extend([broke_note, feat_div_note])
+                new_note.extend([coord_note, blast_note])
                 if not d3:
                     feature.ps_evid.append('not_div_by_3')
                 if broken_stop:
                     feature.ps_evid.append('internal_stop')
 
-                new_note.extend([broke_note, div_note])
-                new_note.extend([coord_note, blast_note])
+    #These notes have no influence on whether or not a feature is considered 'pseudo'.
+    #Add these if they are relevant/warranted.
+    if alt_start_note:
+        new_note.append(alt_start_note)
+        feature.ps_evid.append("alt_start")
 
-            if not all(coords_ok):
-                if feature.alts:
-                    new_note.append("Locus has a valid alternative start site")
+    if alt_stop_note:
+        new_note.append(alt_stop_note)
+        feature.ps_evid.append("alt_end")
 
-                if feature.alte:
-                    new_note.append("Locus has a valid alternative stop codon")
+    if seq_len_diff_note:
+        new_note.append(seq_len_diff_note)
 
-                if feature.de:
-                    new_note.append("Locus has a delayed stop codon")
-            else:
-                #Can only comment on differences in gene length is all(coords_ok).
-                if ref_len is not None:
-                    if ref_len > len(feature):
-                        new_note.append(f"Locus is {ref_len - len(feature)} base pair(s) shorter than the reference")
-                    elif ref_len < len(feature):
-                        new_note.append(f"Locus is {len(feature) - ref_len} base pair(s) longer than the reference")
+    if delayed_stop_note:
+        new_note.append(delayed_stop_note)
 
-        if new_note:
-            new_note = ' | '.join(filter(None, new_note))
-            designator.append_qualifier(
-                feature.qualifiers,
-                'note',
-                f'Hybran/Pseudoscan:description:{new_note}',
-            )
+    if new_note:
+        new_note = ' | '.join(filter(None, new_note))
+        designator.append_qualifier(
+            feature.qualifiers,
+            'note',
+            f'Hybran/Pseudoscan:description:{new_note}',
+        )
 
-        if feature.ps_evid:
-            designator.append_qualifier(
-                feature.qualifiers,
-                'note',
-                f'Hybran/Pseudoscan:evidence:{";".join(feature.ps_evid)}',
-            )
+    if feature.ps_evid:
+        designator.append_qualifier(
+            feature.qualifiers,
+            'note',
+            f'Hybran/Pseudoscan:evidence:{";".join(feature.ps_evid)}',
+        )
 
-        if note_codes:
-            designator.append_qualifier(
-                feature.qualifiers,
-                'note',
-                f'Hybran/Pseudoscan:barcode:{note_codes}',
-            )
-
+    if note_codes:
+        designator.append_qualifier(
+            feature.qualifiers,
+            'note',
+            f'Hybran/Pseudoscan:barcode:{note_codes}',
+        )
     return is_pseudo
