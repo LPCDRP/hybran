@@ -15,9 +15,9 @@ for record in SeqIO.parse(infile,"genbank"):
                       or 'pseudogene' in f.qualifiers.keys()))
             inference = ""
             if 'inference' in f.qualifiers.keys():
-                if any(['Prodigal' in inf for inf in f.qualifiers['inference']]):
+                if any(['Prodigal' in inf.replace(" ","") for inf in f.qualifiers['inference']]):
                     inference = "Prokka"
-                elif any(['RATT' in inf for inf in f.qualifiers['inference']]):
+                elif any(['RATT' in inf.replace(" ","") for inf in f.qualifiers['inference']]):
                     inference = "RATT"
             if 'gene' in f.qualifiers:
                 gene = f.qualifiers['gene'][0]
