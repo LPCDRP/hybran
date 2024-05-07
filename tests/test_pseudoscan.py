@@ -33,10 +33,15 @@ from .data_features import *
     ['start_correction_induces_delayed_stop2', 95, 95, True],
     ['reject_coord_correction', 95, 95, True],
     ['compound_location', 95, 95, True],
+    ['first_codon_snp_corrected', 95, 95, True],
+    ['first_codon_snp_corrected2', 95, 95, True],
 ])
 def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
-    ref_genome['compound_location'] = 'PAO1_107'
+    ref_genome['compound_location'] = 'PAO1_107_refseq_2019'
+    ref_genome['first_codon_snp_corrected'] = 'PAO1_107_refseq_2019'
+    ref_genome['first_codon_snp_corrected2'] = 'PAO1_107_refseq_2019'
+
     source_genome = {
         'small_badstop_fix_pseudo':'1-0006',
         'small_badstart_fix_nopseudo':'1-0006',
@@ -55,6 +60,8 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'start_correction_induces_delayed_stop2': '1-0006',
         'reject_coord_correction': '1-0006',
         'compound_location': 'PAK',
+        'first_codon_snp_corrected': 'PAK',
+        'first_codon_snp_corrected2': 'PAK',
     }
 
     test_features = {
@@ -75,6 +82,8 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'start_correction_induces_delayed_stop2': features[source_genome['start_correction_induces_delayed_stop2']]['Rv2561']['ratt_raw'],
         'reject_coord_correction': features[source_genome['reject_coord_correction']]['pks6']['abinit'],
         'compound_location': features[source_genome['compound_location']]['PA3701']['ratt'],
+        'first_codon_snp_corrected': features[source_genome['first_codon_snp_corrected']]['cupB3']['ratt'],
+        'first_codon_snp_corrected2': features[source_genome['first_codon_snp_corrected2']]['PA0671']['ratt'],
     }
 
     feature = test_features[feature_type]
@@ -116,6 +125,8 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
             FeatureLocation(1355921, 1355992, strand=1, ref='refseq|NZ_LR657304.1|chromosome1') \
             + FeatureLocation(1355993, 1357017, strand=1, ref='refseq|NZ_LR657304.1|chromosome1'),
         ],
+        'first_codon_snp_corrected': [True, FeatureLocation(932923, 935737, strand=1, ref='refseq|NZ_LR657304.1|chromosome1')],
+        'first_codon_snp_corrected2': [True, FeatureLocation(4891259, 4892045, strand=1, ref='refseq|NZ_LR657304.1|chromosome1')],
     }
     results = pseudoscan.pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue)
     assert [results, feature.location] == expected[feature_type]

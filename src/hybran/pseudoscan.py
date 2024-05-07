@@ -144,8 +144,11 @@ def pseudoscan(
                         fix_stop = False
             else:
                 feature.corr.bok = bool(blast_ok)
-                lost_match = (feature.og.bok and not feature.corr.bok)
-                # Revert coordinate correction if the blastp hit is lost.
+                lost_match = (
+                    (feature.og.bok and not feature.corr.bok) or
+                    (has_valid_start(og_feature) and not has_valid_start(feature) and has_valid_start(ref_feature))
+                )
+                # Revert coordinate correction if the blastp hit is lost OR the feature does not have a valid start codon
                 # (usually due to the reference-corresponding start being affected by an early frameshift)
                 if lost_match:
                     feature.corr_accepted = False
