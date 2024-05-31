@@ -5,6 +5,9 @@
 ### Enhancements
 * Produce gff files in addition to gbk for onegene, standardize, and postprocessing
 
+### Bugs fixed
+* The criteria for accepting coordinate corrections now also requires valid start codons.
+* Fixed off by 1 error when reporting the location of translational exceptions (selenocysteine proteins).
 ## [Version 1.8](https://gitlab.com/LPCDRP/hybran/-/tags/1.8)
 
 * hybran now depends on `networkx` and `intervaltree`
