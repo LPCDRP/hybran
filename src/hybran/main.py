@@ -382,20 +382,44 @@ def main(args, prokka_args):
     if args.database_dir:
         verifyInstallations.verify_installations(args.database_dir)
 
+    # Convert all input paths to full path if not given as full path
+    args.genomes = fileManager.file_list(args.genomes, file_type="fasta")
+    args.references = fileManager.file_list(args.references, file_type="genbank")
+    args.output = os.path.abspath(args.output)
+
+    if not os.path.isdir(args.output):
+        try:
+            os.mkdir(args.output)
+        except:
+            sys.exit(f"Could not create directory {args.output}")
+
     # Setting up logging
     start_time = time.time()
     if not args.quiet:
         if args.verbose:
-            logging.basicConfig(level=logging.DEBUG,
-                                format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
-                                datefmt='%H:%M:%S %m-%d')
+            config.cnf.verbosity = 2
+            loglevel = logging.DEBUG
         else:
-            logging.basicConfig(level=logging.INFO,
-                                format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
-                                datefmt='%H:%M:%S %m-%d')
-    logger = logging.getLogger('Hybran')
-    cwd = os.getcwd() + '/'
+            config.cnf.verbosity = 1
+            loglevel = logging.INFO
+    else:
+        config.cnf.verbosity = 0
+        loglevel = logging.WARNING
+    logfile = os.path.join(args.output, "hybran.log")
+    logging.basicConfig(
+        level=logging.DEBUG,
+        handlers=[
+            logging.FileHandler(logfile),
+            logging.StreamHandler(),
+        ],
+        format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
+        datefmt='%H:%M:%S %m-%d',
+    )
+    rootlogger = logging.getLogger()
+    [filehandler, streamhandler] = rootlogger.handlers
+    streamhandler.setLevel(loglevel)
 
+    logger = logging.getLogger('Hybran')
 
     if not args.organism:
         organism = "Genus species"
@@ -414,17 +438,7 @@ This option is scheduled for removal, so please update your invocation for the f
 """
         )
 
-    # Convert all input paths to full path if not given as full path
-    args.genomes = fileManager.file_list(args.genomes, file_type="fasta")
-    args.references = fileManager.file_list(args.references, file_type="genbank")
-    args.output = os.path.abspath(args.output)
-
     # Moving into the desired annotation directory
-    if not os.path.isdir(args.output):
-        try:
-            os.mkdir(args.output)
-        except:
-            sys.exit("Could not create directory " + args.output)
     os.chdir(args.output)
 
     # Setting up references for RATT, as well as versions in GFF format used later
@@ -565,8 +579,6 @@ This option is scheduled for removal, so please update your invocation for the f
 
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)
     logger.info('Time elapsed: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes\n')
-    print('Thank you for using Hybran. We hope to see you again!')
-
 
 if __name__ == '__main__':
     cmds()

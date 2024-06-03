@@ -27,10 +27,12 @@ Except to see the help menu, you must do `hybran annotate --help`.
 ## Output
 
 Final annotations are created in Genbank and GFF formats in the output directory.
-The output directory also contains intermediate files and informative logs:
+The output directory also contains intermediate files and informative logs and reports:
 
 <pre><code>
 outdir/
+├── hybran.log
+│
 ├── <i>sample1</i>/
 │   ├── annomerge/
 │   │   ├── <i>sample1</i>.gbk
@@ -81,6 +83,10 @@ outdir/
 </code></pre>
 
 #### Logs and Reports
+
+##### `hybran.log`
+The verbose run log from the pipeline.
+This will be equivalent to what you would see on the console if you ran with `--verbose`.
 
 ##### `unified-refs/unifications.tsv`
 

@@ -124,9 +124,9 @@ def run(nproc, fasta, seq_ident,seq_covg, out):
     cdhit_ps = run_cdhit(nproc, fasta, out, seq_ident, seq_covg)
     try:
         cdhit_ps.check_returncode()
+        logger.debug('\n' + cdhit_ps.stdout)
     except subprocess.CalledProcessError:
-        logger.error('CDHIT failed.')
-        print(cdhit_ps.stdout, file=sys.stderr)
+        logger.critical(f'CD-HIT failed.\n{cdhit_ps.stdout}')
         exit(1)
     OGdict, description_dict = create_allseq_dict(fasta)
     logger.info('Parsing CDHIT output (' + out + '.clstr)')

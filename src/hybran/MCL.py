@@ -71,16 +71,18 @@ def run_mcl(in_blast, cdhit_clusters, out_name, gene_names):
     mcx_ps = execute_mcxdeblast(blast=in_blast)
     try:
          mcx_ps.check_returncode()
+         logger.debug('\n' + mcx_ps.stdout)
     except subprocess.CalledProcessError:
+        logger.error('\n' + mcx_ps.stdout)
         logger.error('mcxdeblast failed.')
-        print(mcx_ps.stdout, file=sys.stderr)
     time.sleep(5)
     mcl_ps = execute_mcl()
     try:
         mcl_ps.check_returncode()
+        logger.debug('mcl failed')
     except subprocess.CalledProcessError:
+        logger.error('\n' + mcl_ps.stdout)
         logger.error('mcl failed')
-        print(mcl_ps.stdout, file=sys.stderr)
     time.sleep(5)
     logger.info('Re-inflating CDHIT clusters in MCL clusters')
     output = inflate_mcl_clusters(mcl_output=hybran_tmp_dir + '/mcl',

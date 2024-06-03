@@ -61,12 +61,17 @@ def ratt_prokka(ref_dir, organism, strain, fasta, ref_cds, gcode, ratt_ttype, pr
                f"{org_flags} {prokka_extra_args}",
                ]
         try:
-            subprocess.run(
+            proc = subprocess.run(
                 cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 check=True,
+                text=True,
             )
+            logger.debug('\n'+proc.stdout)
         except subprocess.CalledProcessError:
-            logger.error("Could not annotate " + isolate + ".")
+            logger.error('\n'+proc.stdout)
+            logger.critical(f"Could not annotate {isolate}.")
             exit(1)
         os.chdir(c)
 
@@ -150,5 +155,11 @@ def eggnog_mapper(script_dir, nproc, emapper_loc, ref_tax_ids, ref_gene_dict, te
            temp_dir,
            ','.join(ref_tax_ids),
            ]
-    subprocess.call(cmd)
+    proc = subprocess.call(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    logger.debug('\n'+proc.stdout)
     addEggnogAnnotation.update_gbks(ref_tax_ids, ref_gene_dict)
