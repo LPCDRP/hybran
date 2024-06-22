@@ -42,6 +42,7 @@ def run_cdhit(nproc, input, output, seq_ident, seq_covg):
            '-aL',str(seq_covg * 0.01),
            '-aS',str(seq_covg * 0.01),
            '-T', str(nproc),
+           '-M', '0', # don't limit memory usage
            '-g', '1',
            '-s', '1',
            '-d', '256']
