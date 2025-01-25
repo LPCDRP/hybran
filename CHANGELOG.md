@@ -8,8 +8,8 @@
 
 ### Bugs fixed
 * Fixed verbose and quiet run modes.
-* The criteria for accepting coordinate corrections now also requires valid start codons.
-* Fixed off by 1 error when reporting the location of translational exceptions (selenocysteine proteins).
+* The criteria for accepting coordinate corrections now also requires valid start codons. (#71)
+* Fixed off by 1 error when reporting the location of translational exceptions (selenocysteine proteins). (#72)
 * Lifted memory restrictions on cd-hit (#74)
 
 ## [Version 1.8](https://gitlab.com/LPCDRP/hybran/-/tags/1.8)
