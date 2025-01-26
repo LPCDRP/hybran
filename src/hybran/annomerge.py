@@ -404,7 +404,7 @@ def fusion_upgrade(base, upstream, downstream, update_location=False):
     base.qualifiers['gene'][0] = gene
     base.source = source
     if product:
-        base.qualifiers['product'][0] = product
+        base.qualifiers['product'] = [product]
 
     if update_location:
         if base.location.strand == 1:
