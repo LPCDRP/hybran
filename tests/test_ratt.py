@@ -2,7 +2,13 @@ from collections import defaultdict
 from copy import deepcopy
 import os
 
-from Bio.SeqFeature import SeqFeature, SimpleLocation, FeatureLocation, ExactPosition, CompoundLocation
+from Bio.SeqFeature import (
+    SeqFeature,
+    SimpleLocation,
+    FeatureLocation,
+    ExactPosition,
+    CompoundLocation,
+)
 import pytest
 
 from hybran import ratt

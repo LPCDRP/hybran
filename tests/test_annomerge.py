@@ -1,15 +1,22 @@
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 from copy import deepcopy
 import os
 
-from Bio.SeqFeature import SeqFeature, SimpleLocation, FeatureLocation, ExactPosition, CompoundLocation
-
+from Bio.SeqFeature import (
+    SeqFeature,
+    SimpleLocation,
+    FeatureLocation,
+    ExactPosition,
+    CompoundLocation,
+)
 import pytest
 
-from hybran import annomerge
-from hybran import config
-from hybran import demarcate
-from hybran import pseudoscan
+from hybran import (
+    annomerge,
+    config,
+    demarcate,
+    pseudoscan,
+)
 from hybran.bio import (
     SeqIO,
     translate,

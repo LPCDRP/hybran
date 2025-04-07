@@ -9,18 +9,24 @@ from Bio.SeqRecord import SeqRecord
 # standard multiprocessing can't pickle lambda
 import multiprocess as multiprocessing
 
-from . import BLAST
-from . import config
-from . import designator
-from .annomerge import fissionfuser
-from .annomerge import key_ref_gene
-from .annomerge import liftover_annotation
+from . import (
+    BLAST,
+    config,
+    designator,
+)
+from .annomerge import (
+    fissionfuser,
+    key_ref_gene,
+    liftover_annotation,
+)
 from .bio import AutarkicSeqFeature, SeqIO
 from .converter import convert_gbk_to_gff
 from .demarcate import coord_check
-from .lumberjack import log_feature_fates
-from .lumberjack import log_coord_corrections
-from .lumberjack import log_pseudos
+from .lumberjack import (
+    log_feature_fates,
+    log_coord_corrections,
+    log_pseudos,
+)
 from .pseudoscan import pseudoscan
 from .util import mpbreakpoint
 

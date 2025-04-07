@@ -3,9 +3,11 @@ import os
 import shutil
 import logging
 
-from . import converter
-from . import config
-from . import designator
+from . import (
+    config,
+    converter,
+    designator,
+)
 from .bio import SeqIO
 
 

@@ -22,16 +22,20 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature
 
-from . import BLAST
-from . import converter
-from . import config
-from . import designator
-from . import extractor
-from . import pseudoscan
-from . import __version__
-from .bio import SeqIO
-from .bio import translate
-from .bio import FeatureProperties
+from . import (
+    __version__,
+    BLAST,
+    config,
+    converter,
+    designator,
+    extractor,
+    pseudoscan,
+)
+from .bio import (
+    SeqIO,
+    translate,
+    FeatureProperties,
+)
 from .compare import (
     compare,
     have_same_stop,
@@ -42,9 +46,11 @@ from .demarcate import (
     has_broken_stop,
     update_termini,
 )
-from .lumberjack import log_feature_fates
-from .lumberjack import log_coord_corrections
-from .lumberjack import log_pseudos
+from .lumberjack import (
+    log_feature_fates,
+    log_coord_corrections,
+    log_pseudos,
+)
 from .util import keydefaultdict, mpbreakpoint
 
 def get_and_remove_ref_tracer(feature):

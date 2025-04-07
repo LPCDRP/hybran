@@ -6,10 +6,12 @@ import sys
 from intervaltree import Interval, IntervalTree
 import networkx as nx
 
+from . import (
+    designator,
+    extractor,
+    fileManager,
+)
 from .bio import SeqIO
-from . import extractor
-from . import fileManager
-from . import designator
 
 
 def main(args):

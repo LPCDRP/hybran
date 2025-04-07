@@ -1,13 +1,19 @@
 from copy import copy, deepcopy
 import functools
 
-from Bio import GenBank
-from Bio import SeqIO
+from Bio import (
+    GenBank,
+    SeqIO,
+)
 from Bio.Data.CodonTable import TranslationError
 from Bio.Seq import translate as super_translate
 from Bio.SeqIO import InsdcIO
-from Bio.SeqFeature import SeqFeature, SimpleLocation, CompoundLocation
-from Bio.SeqFeature import LocationParserError
+from Bio.SeqFeature import (
+    SeqFeature,
+    SimpleLocation,
+    CompoundLocation,
+    LocationParserError,
+)
 
 
 loc_props = [

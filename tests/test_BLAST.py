@@ -2,7 +2,11 @@ from collections import defaultdict
 import os
 
 from Bio.Seq import Seq
-from Bio.SeqFeature import SeqFeature, FeatureLocation, ExactPosition
+from Bio.SeqFeature import (
+    SeqFeature,
+    FeatureLocation,
+    ExactPosition,
+)
 from Bio.SeqRecord import SeqRecord
 import pytest
 

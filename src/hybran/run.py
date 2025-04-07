@@ -3,8 +3,16 @@ import logging
 import re
 import subprocess
 
-from . import extractor, BLAST, CDHIT, MCL, addEggnogAnnotation, parseClustering
-from . import config
+from . import (
+    addEggnogAnnotation,
+    BLAST,
+    CDHIT,
+    config,
+    extractor,
+    MCL,
+    parseClustering,
+)
+
 
 def ratt_prokka(ref_dir, organism, strain, fasta, ref_cds, gcode, ratt_ttype, prokka_extra_args, script_dir, cpus, qcov):
     """

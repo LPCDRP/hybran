@@ -8,20 +8,21 @@ import atexit
 import shutil
 import warnings
 
-from . import \
-    verifyInstallations, \
-    fileManager, \
-    extractor, \
-    onegene, \
-    run, \
-    annomerge, \
-    converter, \
-    config, \
-    designator, \
-    standardize, \
-    compare, \
-    __version__
-
+from . import (
+    verifyInstallations,
+    fileManager,
+    extractor,
+    onegene,
+    run,
+    annomerge,
+    converter,
+    config,
+    designator,
+    standardize,
+    compare,
+    defuse,
+    __version__,
+)
 from .argparse import DefaultSubcommandArgumentParser
 
 

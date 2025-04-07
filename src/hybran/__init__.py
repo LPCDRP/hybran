@@ -1,6 +1,3 @@
-from . import BLAST
-from . import CDHIT
-from . import MCL
-from . import addEggnogAnnotation
+from importlib import metadata
 
 __version__ = "1.8"

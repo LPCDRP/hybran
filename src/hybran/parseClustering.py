@@ -1,4 +1,3 @@
-
 import os
 import re
 import tempfile
@@ -9,11 +8,13 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from collections import OrderedDict
 
-from . import BLAST
-from . import CDHIT
-from . import config
-from . import designator
-from . import extractor
+from . import (
+    BLAST,
+    CDHIT,
+    config,
+    designator,
+    extractor,
+)
 from .bio import SeqIO
 
 

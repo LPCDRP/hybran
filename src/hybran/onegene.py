@@ -4,8 +4,14 @@ import os
 import shutil
 import sys
 
-from . import config, fileManager
-from . import CDHIT, designator, extractor, parseClustering
+from . import (
+    config,
+    CDHIT,
+    designator,
+    extractor,
+    fileManager,
+    parseClustering,
+)
 from .bio import SeqIO
 from .converter import convert_gbk_to_gff
 

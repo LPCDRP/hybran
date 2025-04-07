@@ -3,8 +3,10 @@ import re
 import sys
 import warnings
 
-from . import designator
-from . import fileManager
+from . import (
+    designator,
+    fileManager,
+)
 from .bio import SeqIO
 from .converter import convert_gbk_to_gff
 
