@@ -15,13 +15,13 @@ from . import (
     designator,
 )
 from .annomerge import (
-    fissionfuser,
     key_ref_gene,
     liftover_annotation,
 )
 from .bio import AutarkicSeqFeature, SeqIO
 from .converter import convert_gbk_to_gff
 from .demarcate import coord_check
+from .fissionfuser import fissionfuser
 from .lumberjack import (
     log_feature_fates,
     log_coord_corrections,
@@ -156,6 +156,7 @@ def postprocess_contig(
     logger.info(f"{seqname}: Checking for fragmented ab initio annotations")
     abinit_features_postprocessed_list, dropped_abinit_fragments = fissionfuser(
         contig_features,
+        ref_annotation,
         seq_ident=seq_ident,
         seq_covg=seq_covg,
     )

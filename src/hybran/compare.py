@@ -100,6 +100,27 @@ def main(args):
         outdir,
     )
 
+def complementary(f1, f2, f1_status=None, f2_status=None):
+    """
+    Given two (Autarkic)SeqFeatures, check whether their reference-correspondence is complementary.
+    That is, one has a good start and bad stop while the other has a bad start and good stop.
+    :param f1: SeqFeature
+    :param f2: SeqFeature
+    :param f1_status: bool 2-tuple (goodstart, goodstop) for f1
+    :param f2_status: bool 2-tuple (goodstart, goodstop) for f2
+        If None, attempt to use (f1(2).rcs, f1(2).rce). The argument allows flexibility for
+        providing coord_check results for f1 or f2 with respect to alternative reference genes.
+    :return: bool whether the two features are complementary
+    """
+    if f1_status is None:
+        f1_status = (f1.rcs, f1.rce)
+    if f2_status is None:
+        f2_status = (f2.rcs, f2.rce)
+    return (
+        (any(f1_status) and any(f2_status))
+        and (int(f1_status[0])+int(f2_status[0]), int(f1_status[1])+int(f2_status[1]))==(1,1)
+    )
+
 def overlap_inframe(loc1, loc2):
     """
     Say whether two FeatureLocations are overlapping and share the same reading frame.
