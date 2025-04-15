@@ -99,8 +99,8 @@ def fusionfisher(feature_list, adjudicate=True):
     outlist = []
     last_feature_by_strand = {}
     remarkable = {
-        'hybrid': [],
-        'conjoined': [],
+        'partial': [],
+        'whole': [],
     }
     rejects = []
 
@@ -139,7 +139,7 @@ def fusionfisher(feature_list, adjudicate=True):
                     'remark':"Same locus as rival (fusion) gene and name already included as fusion element there.",
                 })
             #
-            # Artifact due to a gene fusion hybrid
+            # Artifact due to a partial gene fusion
             #
             else:
                 if (pf_goodstart and not cf_goodstart) or (not pf_goodstop and cf_goodstop):
@@ -163,13 +163,13 @@ def fusionfisher(feature_list, adjudicate=True):
                     'feature':outlist.pop(),
                     'superior':prev_feature,
                     'evid':'combined_annotation',
-                    'remark':"Apparent hybrid fusion gene. Name incorporated into rival feature's and redundant locus removed.",
+                    'remark':"Apparent partial fusion gene. Name incorporated into rival feature's and redundant locus removed.",
                 })
-                remarkable['hybrid'].append(prev_feature)
+                remarkable['partial'].append(prev_feature)
 
         elif have_same_stop(prev_feature.location, feature.location):
             #
-            # Conjoined genes
+            # whole gene fusions
             #
             if (((len(prev_feature.location) > len(feature.location)) and prev_feature.de)
                 or ((len(feature.location) > len(prev_feature.location)) and feature.de)):
@@ -192,9 +192,9 @@ def fusionfisher(feature_list, adjudicate=True):
                     downstream=downstream,
                 )
 
-                remarkable['conjoined'].append(upstream)
+                remarkable['whole'].append(upstream)
             #
-            # Another signature of a gene fusion hybrid
+            # Another signature of a partial gene fusion
             #
             elif complementary(prev_feature, feature):
                 if feature.rcs:
@@ -208,12 +208,12 @@ def fusionfisher(feature_list, adjudicate=True):
                     update_location=True,
                 )
 
-                remarkable['hybrid'].append(upstream)
+                remarkable['partial'].append(upstream)
                 rejects.append({
                     'feature':downstream,
                     'superior':upstream,
                     'evid':'combined_annotation',
-                    'remark':"Apparent hybrid fusion gene.",
+                    'remark':"Apparent partial gene fusion.",
                 })
                 outlist.remove(downstream)
             #
@@ -298,4 +298,4 @@ def fusionfisher(feature_list, adjudicate=True):
             last_feature_by_strand[feature.location.strand] = prev_feature
 
 
-    return outlist, remarkable['hybrid'] + remarkable['conjoined'], rejects
+    return outlist, remarkable['partial'] + remarkable['whole'], rejects

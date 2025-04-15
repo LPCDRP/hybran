@@ -16,8 +16,8 @@ from .data_features import *
 
 @pytest.mark.parametrize('gene_list', [
     'misannotation_false_delayed_stop',
-    'hybrid_fusion_diff_start',
-    'redundant_double_hybrid_fusion',
+    'partial_fusion_diff_start',
+    'redundant_double_partial_fusion',
     'misannotation_both_nonpseudo',
     'misannotation_one_pseudo',
     'idempotence',
@@ -25,8 +25,8 @@ from .data_features import *
 def test_fusionfisher(gene_list):
     source_genomes = {
         'misannotation_false_delayed_stop':'SEA17020030',
-        'hybrid_fusion_diff_start':'1-0006',
-        'redundant_double_hybrid_fusion':'AZ20',
+        'partial_fusion_diff_start':'1-0006',
+        'redundant_double_partial_fusion':'AZ20',
         'misannotation_both_nonpseudo': 'AZ20',
         'misannotation_one_pseudo': 'AZ20',
         'idempotence': 'AZ20',
@@ -39,11 +39,11 @@ def test_fusionfisher(gene_list):
             source_features['Rv3382c']['ratt'],
             source_features['Rv3383c']['ratt'],
         ],
-        'hybrid_fusion_diff_start': [
+        'partial_fusion_diff_start': [
             source_features['Rv0074']['ratt'],
             source_features['Rv0071']['ratt'],
         ],
-        'redundant_double_hybrid_fusion': [
+        'redundant_double_partial_fusion': [
             source_features['AZ20_03933']['ratt'],
             source_features['AZ20_03933']['prokka'],
         ],
@@ -62,7 +62,7 @@ def test_fusionfisher(gene_list):
     }
     ref_genome = defaultdict(lambda :'H37Rv')
     ref_genome.update({
-        'redundant_double_hybrid_fusion': 'nissle-hybrid',
+        'redundant_double_partial_fusion': 'nissle-hybrid',
         'misannotation_both_nonpseudo': 'nissle-hybrid',
         'misannotation_one_pseudo': 'nissle-hybrid',
         'idempotence': 'nissle-hybrid',
@@ -91,16 +91,16 @@ def test_fusionfisher(gene_list):
                 'remark':'Has no reference-corresponding stop, while rival feature does, and both share the same stop position.',
             }],
         ),
-        'hybrid_fusion_diff_start': (
+        'partial_fusion_diff_start': (
             [ ],
             [ ],
             [{
                 'feature':source_features['Rv0074']['ratt'],
                 'evid':'combined_annotation',
-                'remark':"Apparent hybrid fusion gene.",
+                'remark':"Apparent partial gene fusion.",
             }],
         ),
-        'redundant_double_hybrid_fusion': (
+        'redundant_double_partial_fusion': (
             [ source_features['AZ20_03933']['ratt'] ],
             [ ],
             [{
@@ -137,14 +137,14 @@ def test_fusionfisher(gene_list):
         expected['idempotence'][0][1].qualifiers['note'] = [
             "Upstream gene ECOLIN_24700|ECOLIN_24700::ECOLIN_12095 conjoins with this one."
         ]
-    elif gene_list == 'hybrid_fusion_diff_start':
+    elif gene_list == 'partial_fusion_diff_start':
         fusion_result = fusionfisher.fusion_upgrade(
             base=deepcopy(source_features['Rv0071']['ratt']),
             upstream=source_features['Rv0071']['ratt'],
             downstream=source_features['Rv0074']['ratt'],
             update_location=True
         )
-        for outlist in expected['hybrid_fusion_diff_start'][0:2]:
+        for outlist in expected['partial_fusion_diff_start'][0:2]:
             outlist.append(fusion_result)
 
     # set the rival feature as the passing one. for these test cases, we're always looking at pairs
