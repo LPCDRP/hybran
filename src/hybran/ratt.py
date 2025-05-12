@@ -191,7 +191,10 @@ def postprocess_contig(
     ratt_contig_features = get_ordered_features(valid_features)
 
     logger.info(f"{seqname}: Checking for gene fusion signatures in RATT annotations...")
-    ratt_contig_features, merged_features, inconsistent_ratt_features = fusionfisher(ratt_contig_features)
+    ratt_contig_features, merged_features, inconsistent_ratt_features = fusionfisher(
+        ratt_contig_features,
+        ref_annotation,
+    )
     logger.info(f"{seqname}: {len(merged_features)} RATT fusion genes detected.")
     logger.info(f"{seqname}: {len(inconsistent_ratt_features)} RATT annotations found to be inconsistent.")
 

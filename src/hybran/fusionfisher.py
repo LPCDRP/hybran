@@ -83,11 +83,12 @@ def fusion_upgrade(base, upstream, downstream, update_location=False):
 
     return base
 
-def fusionfisher(feature_list, adjudicate=True):
+def fusionfisher(feature_list, ref_annotation, adjudicate=True):
     """
     This function parses through a list of CDSs and returns a unique list of CDSs, cleaning up annotation artifacts due to gene fusion events, as well as renaming such genes and those that have conjoined with their neighbor.
 
     :param feature_list: list of sorted SeqFeature objects.
+    :param ref_annotation: dict mapping the reference IDs and gene names (keys according to annomerge.key_ref_gene) to (Autarkic)SeqFeatures
     :param adjudicate: bool whether to attempt resolution of detected conflicts.
        This is useful to have as True during RATT postprocessing, but to set False and leave for the thunderdome otherwise.
     :return:

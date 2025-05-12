@@ -378,7 +378,11 @@ def check_inclusion_criteria(
             include_abinit, include_ratt, evid, remark = thunderdome(abinit_annotation, ratt_annotation)
 
         elif not same_gene_name and overlap_inframe(abinit_annotation.location, ratt_annotation.location):
-            keepers, fusions, rejects = fusionfisher([ratt_annotation, abinit_annotation], adjudicate=False)
+            keepers, fusions, rejects = fusionfisher(
+                [ratt_annotation, abinit_annotation],
+                ref_annotation,
+                adjudicate=False,
+            )
             for trial in rejects:
                 reject = trial['feature']
                 if reject == ratt_annotation:

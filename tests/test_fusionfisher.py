@@ -153,4 +153,5 @@ def test_fusionfisher(gene_list):
 
     assert fusionfisher.fusionfisher(
         deepcopy(inputs[gene_list]),
+        annomerge.ref_annotation,
     ) == expected[gene_list]
