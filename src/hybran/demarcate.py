@@ -557,7 +557,7 @@ def coord_check(
                 if (second_score > first_score):
                     feature_end = corrected_feature_end
                     good_stop = True
-            elif found_high:
+            elif found_high or (seek_stop == False and relaxed_found_high):
                 corrected_feature_end = feature_start + query[-1][1]
                 if fix_stop:
                     feature_end = corrected_feature_end
@@ -580,7 +580,7 @@ def coord_check(
                 if (second_score > first_score):
                     feature_start = corrected_feature_start
                     good_stop = True
-            elif found_high:
+            elif found_high or (seek_stop == False and relaxed_found_high):
                 corrected_feature_start = feature_end - query[-1][1]
                 if fix_stop:
                     feature_start = corrected_feature_start

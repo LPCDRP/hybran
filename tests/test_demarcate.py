@@ -188,6 +188,7 @@ def test_stopseeker(case, circular):
     ['early_del_altered_scoring', False, False, None],
     ['alt_start_delicate_scoring', True, False, None],
     ['first_codon_snp_valid_start', True, True, None],
+    ['fusion_component_no_stopseeker', False, True, False],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 @pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
@@ -217,7 +218,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'early_del_altered_scoring':'1-0006',
         'alt_start_delicate_scoring':'1-0006',
         'first_codon_snp_valid_start':'1-0006',
-
+        'fusion_component_no_stopseeker': '1-0006', # correcting to a 'bad' ref-corr. stop
     }
     ref_genome = defaultdict(lambda :'H37Rv')
     ref_genome.update({
@@ -248,6 +249,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'early_del_altered_scoring': features[source_genome['early_del_altered_scoring']]['accE5']['ratt'],
         'alt_start_delicate_scoring': features[source_genome['alt_start_delicate_scoring']]['Rv3611']['ratt'],
         'first_codon_snp_valid_start': features[source_genome['first_codon_snp_valid_start']]['Rv2023A']['ratt'],
+        'fusion_component_no_stopseeker': features[source_genome['fusion_component_no_stopseeker']]['Rv0325']['ratt'],
     }
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
@@ -373,6 +375,11 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
             'results':[(True, True), FeatureLocation(2264663, 2265122, strand=-1, ref='1')],
             'og_de':False,
             'corr_de':None,
+        },
+        'fusion_component_no_stopseeker': {
+            'results': [(True, False), FeatureLocation(392626, 392851, strand=1, ref='1')],
+            'og_de': True,
+            'corr_de': False,
         },
     }
     results = demarcate.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop, seek_stop=seek_stop)
