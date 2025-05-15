@@ -6,10 +6,7 @@ from . import (
     extractor,
     pseudoscan,
 )
-from .annomerge import (
-    key_ref_gene,
-    merge_qualifiers,
-)
+from .annomerge import merge_qualifiers
 from .bio import FeatureProperties
 from .compare import (
     complementary,
@@ -19,6 +16,7 @@ from .demarcate import (
     coord_check,
     update_termini,
 )
+from .designator import key_ref_gene
 
 
 def fissionfuser(flist, ref_annotation, seq_ident, seq_covg):

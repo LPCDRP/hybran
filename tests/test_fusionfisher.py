@@ -9,6 +9,7 @@ from hybran import (
     demarcate,
     fusionfisher,
 )
+from hybran.designator import key_ref_gene
 from hybran.util import keydefaultdict
 
 from .data_features import *
@@ -78,7 +79,7 @@ def test_fusionfisher(gene_list):
         for part in f.location.parts:
             part.ref = record_sequence.id
         (f.rcs, f.rce) = demarcate.coord_check(
-            f, annomerge.ref_annotation[annomerge.key_ref_gene(f.source, f.qualifiers['gene'][0])]
+            f, annomerge.ref_annotation[key_ref_gene(f.source, f.qualifiers['gene'][0])]
         )
 
     expected = {

@@ -42,6 +42,7 @@ from .demarcate import (
     coord_check,
     has_broken_stop,
 )
+from .designator import key_ref_gene
 from .fusionfisher import fusionfisher
 from .lumberjack import (
     log_feature_fates,
@@ -94,15 +95,6 @@ def ref_fuse(fusion_gene_name):
 
     ref_fusion.references = location_sequences
     return ref_fusion
-
-def key_ref_gene(ref_id, gene_name):
-    """
-    Generate a key for ref_annotation dictionary
-
-    We do this rather than use a nested dictionary because, for gene fusions,
-    the reference sequence that each member lifted over from is not necessarily the same.
-    """
-    return '@@@'.join([ref_id, gene_name])
 
 def loc_index(feature):
     """

@@ -262,7 +262,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
 
     feature = test_features[feature_type]
     ref_feature = annomerge.ref_annotation[
-        annomerge.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
+        designator.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
     ]
 
     expected = {

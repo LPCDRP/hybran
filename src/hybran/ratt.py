@@ -20,7 +20,6 @@ from .annomerge import (
     fusionfisher,
     get_and_remove_ref_tracer,
     get_ordered_features,
-    key_ref_gene,
 )
 from .bio import (
     AutarkicSeqFeature,
@@ -30,6 +29,7 @@ from .bio import (
 )
 from .config import cnf
 from .demarcate import coord_check, has_broken_stop
+from .designator import key_ref_gene
 from .lumberjack import (
     log_feature_fates,
     log_coord_corrections,

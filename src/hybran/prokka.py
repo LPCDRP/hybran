@@ -14,13 +14,11 @@ from . import (
     config,
     designator,
 )
-from .annomerge import (
-    key_ref_gene,
-    liftover_annotation,
-)
+from .annomerge import liftover_annotation
 from .bio import AutarkicSeqFeature, SeqIO
 from .converter import convert_gbk_to_gff
 from .demarcate import coord_check
+from .designator import key_ref_gene
 from .fissionfuser import fissionfuser
 from .lumberjack import (
     log_feature_fates,

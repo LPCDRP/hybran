@@ -166,6 +166,15 @@ def is_pseudo(qualifiers):
     """
     return 'pseudo' in qualifiers.keys() or 'pseudogene' in qualifiers.keys()
 
+def key_ref_gene(ref_id, gene_name):
+    """
+    Generate a key for ref_annotation dictionary
+
+    We do this rather than use a nested dictionary because, for gene fusions,
+    the reference sequence that each member lifted over from is not necessarily the same.
+    """
+    return '@@@'.join([ref_id, gene_name])
+
 #
 # These can be applied to sequence record IDs to match the designated property
 #
