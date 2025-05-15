@@ -1,3 +1,4 @@
+from copy import deepcopy
 import logging
 
 from . import (
@@ -9,7 +10,11 @@ from .compare import (
     complementary,
     have_same_stop,
 )
-from .demarcate import update_termini
+from .demarcate import (
+    coord_check,
+    update_termini,
+)
+from .designator import key_ref_gene
 
 
 def fusion_name(feature1, feature2):
@@ -187,6 +192,13 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                     f"Upstream gene {'|'.join([extractor.get_ltag(upstream),extractor.get_gene(upstream)])} conjoins with this one."
                 )
 
+                component1 = deepcopy(upstream)
+                coord_check(
+                    component1,
+                    ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
+                    fix_stop=True,
+                    seek_stop=False,
+                )
                 fusion_upgrade(
                     base=upstream,
                     upstream=upstream,
@@ -194,6 +206,8 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                 )
 
                 remarkable['whole'].append(upstream)
+                upstream.fusion_type = 'whole'
+                upstream.fusion_components = [component1, downstream]
             #
             # Another signature of a partial gene fusion
             #

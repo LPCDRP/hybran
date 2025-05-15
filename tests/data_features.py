@@ -272,6 +272,20 @@ features = {
                 qualifiers={'locus_tag':['Rv0305c'],'gene':['PPE6']}
             ),
         },
+        'Rv0325': {
+            'ratt': SeqFeature(
+                FeatureLocation(392626, 393316, strand=1),
+		type='CDS',
+		qualifiers={'locus_tag':['Rv0325'],'gene':['Rv0325']}
+	    ),
+        },
+        'Rv0326': {
+            'ratt': SeqFeature(
+                FeatureLocation(392860, 393316, strand=1),
+                type='CDS',
+                qualifiers={'locus_tag':['Rv0326'],'gene':['Rv0326']}
+            ),
+        },
         'pip': {
             'ratt': SeqFeature(
                 FeatureLocation(936376, 937360, strand=-1),
@@ -290,13 +304,6 @@ features = {
                 type='CDS',
                 qualifiers={'locus_tag':['L_00431'],'gene':['pks6']}
             ),
-        },
-        'Rv0325': {
-            'ratt': SeqFeature(
-                FeatureLocation(392626, 393316, strand=1),
-		type='CDS',
-		qualifiers={'locus_tag':['Rv0325'],'gene':['Rv0325']}
-	    ),
         },
         'Rv0907': {
             'ratt': SeqFeature(

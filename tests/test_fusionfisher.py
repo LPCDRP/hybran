@@ -1,6 +1,7 @@
 from collections import defaultdict
 from copy import deepcopy
 
+from Bio.SeqFeature import FeatureLocation
 import pytest
 
 from hybran import (
@@ -16,6 +17,7 @@ from .data_features import *
 
 
 @pytest.mark.parametrize('gene_list', [
+    'whole_gene_fusion',
     'misannotation_false_delayed_stop',
     'partial_fusion_diff_start',
     'redundant_double_partial_fusion',
@@ -25,6 +27,7 @@ from .data_features import *
 ])
 def test_fusionfisher(gene_list):
     source_genomes = {
+        'whole_gene_fusion':'1-0006',
         'misannotation_false_delayed_stop':'SEA17020030',
         'partial_fusion_diff_start':'1-0006',
         'redundant_double_partial_fusion':'AZ20',
@@ -36,6 +39,10 @@ def test_fusionfisher(gene_list):
     source_features = defaultdict(lambda :defaultdict(dict))
     source_features.update(features[source_genomes[gene_list]])
     inputs = {
+        'whole_gene_fusion': [
+            source_features['Rv0325']['ratt'],
+            source_features['Rv0326']['ratt'],
+        ],
         'misannotation_false_delayed_stop': [
             source_features['Rv3382c']['ratt'],
             source_features['Rv3383c']['ratt'],
@@ -83,6 +90,11 @@ def test_fusionfisher(gene_list):
         )
 
     expected = {
+        'whole_gene_fusion': (
+            deepcopy(inputs['whole_gene_fusion']),
+            [ ], # populated below
+            [ ],
+        ),
         'misannotation_false_delayed_stop': (
             [ source_features['Rv3383c']['ratt'] ],
             [ ],
@@ -147,6 +159,19 @@ def test_fusionfisher(gene_list):
         )
         for outlist in expected['partial_fusion_diff_start'][0:2]:
             outlist.append(fusion_result)
+    elif gene_list == 'whole_gene_fusion':
+        expected['whole_gene_fusion'][0][1].qualifiers['note'] = [
+            "Upstream gene Rv0325|Rv0325 conjoins with this one."
+        ]
+        component1 = deepcopy(expected['whole_gene_fusion'][0][0])
+        expected['whole_gene_fusion'][0][0].qualifiers['gene'] = ['Rv0325::Rv0326']
+        expected['whole_gene_fusion'][0][0].fusion_type = "whole"
+        expected['whole_gene_fusion'][0][0].fusion_components = [
+            component1,
+            expected['whole_gene_fusion'][0][1],
+        ]
+        component1.location = FeatureLocation(392626, 392851, strand=1, ref='1')
+        expected['whole_gene_fusion'][1].append(expected['whole_gene_fusion'][0][0])
 
     # set the rival feature as the passing one. for these test cases, we're always looking at pairs
     if expected[gene_list][2]:

@@ -195,10 +195,26 @@ class AutarkicSeqFeature(SeqFeature):
             object.__setattr__(self, name, val)
 
     def __eq__(self, other):
+        if (
+                self.fusion_components and other.fusion_components
+                and len(self.fusion_components) == len(other.fusion_components)
+        ):
+            for i in range(len(self.fusion_components)):
+                a = self.fusion_components[i]
+                b = other.fusion_components[i]
+
+                a_interesting_qualifiers = {k:v for k, v in a.qualifiers.items() if k in ['locus_tag', 'gene']}
+                b_interesting_qualifiers = {k:v for k, v in b.qualifiers.items() if k in ['locus_tag', 'gene']}
+                if (
+                        a_interesting_qualifiers != b_interesting_qualifiers
+                        or a.location != b.location
+                ):
+                    return False
+        elif self.fusion_components != other.fusion_components:
+            return False
         return (
-            super().__eq__(other)
+            super(AutarkicSeqFeature, self).__eq__(other)
             and self.fusion_type == other.fusion_type
-            and self.fusion_components == other.fusion_components
         )
 
     def __repr__(self):
