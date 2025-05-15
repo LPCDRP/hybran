@@ -38,6 +38,7 @@ outdir/
 │   │   ├── <i>sample1</i>.gbk
 │   │   ├── <i>sample1</i>.gff
 │   │   ├── coord_corrections.tsv
+│   │   ├── fusion_report.tsv
 │   │   ├── prokka_unused.tsv
 │   │   ├── pseudoscan_report.tsv
 │   │   └── ratt_unused.tsv
@@ -123,6 +124,27 @@ Its values for all three metrics are shown in the next columns.
 : Percent subject (reference) alignment coverage
 * pct_qry_covg
 : Percent query alignment coverage
+
+##### `*/annomerge/fusion_report.tsv`
+
+* fusion_type:
+Either `whole`, `partial`, or `..` (in the case of component descriptions).
+Whole-gene fusions have all gene components mostly intact, with the fusion due usually to a non-stop mutation or a small frameshift.
+Partial-gene fusions are chimeric genes in which the gene components are missing substantial amount of sequences.
+* locus_tag
+* gene_name
+* strand
+* start
+* end
+
+Example:
+
+```
+fusion_type     locus_tag       gene_name       strand  start   end
+partial         L00004          geneA::geneB    1       10000   10600
+..              L00004          geneA           1       10000   10300
+..              .               geneB           1       10356   10500
+```
 
 ##### `*/annomerge/{ratt,prokka}_unused.tsv` `*/{ratt,prokka}-postprocessed/invalid_features.tsv`
 

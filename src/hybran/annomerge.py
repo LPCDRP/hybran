@@ -48,6 +48,7 @@ from .lumberjack import (
     log_feature_fates,
     log_coord_corrections,
     log_pseudos,
+    log_fusions,
 )
 from .util import keydefaultdict, mpbreakpoint
 
@@ -707,5 +708,13 @@ def run(
     )
     with open(pseudoscan_logfile, 'w') as p_log:
         log_pseudos(annomerge_records_dict, p_log)
+
+    fusionfisher_logfile = os.path.join(
+        isolate_id,
+        'annomerge',
+        'fusion_report.tsv'
+    )
+    with open(fusionfisher_logfile, 'w') as f_log:
+        log_fusions(annomerge_records_dict, f_log)
 
     logger.debug('postprocessing and annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')

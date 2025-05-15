@@ -181,3 +181,30 @@ def log_pseudos(features_by_contig_dict, logfile):
                     nacast(feature.bok),
                 ]
                 print('\t'.join(str(v) for v in line), file=logfile)
+
+def log_fusions(features_by_contig_dict, logfile):
+    header = [
+        'fusion_type',
+        'locus_tag',
+        'gene_name',
+        'strand',
+        'start',
+        'end',
+    ]
+    print('\t'.join(header), file=logfile)
+    for contig in features_by_contig_dict:
+        for feature in features_by_contig_dict[contig]:
+            if feature.fusion_type:
+                gene_info = []
+                for f in [feature] + feature.fusion_components:
+                    gene_info.append([
+                        '..',
+                        get_ltag(f),
+                        get_gene(f),
+                        str(f.location.strand),
+                        str(f.location.start + 1),
+                        str(f.location.end),
+                    ])
+                gene_info[0][0] = feature.fusion_type
+                for line in gene_info:
+                    print('\t'.join(line), file=logfile)
