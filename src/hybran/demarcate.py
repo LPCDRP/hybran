@@ -299,6 +299,8 @@ def coord_check(
         fix_start=False,
         fix_stop=False,
         seek_stop=None,
+        best_effort=False,
+        check_context=True,
         ref_gene_name=None,
 ):
     """
@@ -309,6 +311,9 @@ def coord_check(
     :param fix_start: Boolean
     :param fix_stop: Boolean
     :param seek_stop: Boolean whether to look for a valid stop codon if post-correction.
+    :param best_effort: Boolean whether, when making corrections, to correct coordinates to nearest position to the refereference-corresponding (RC) start/stop (depending on fix_start/stop setting) if the actual RC start or stop couldn't be found.
+    :param check_context: Boolean whether to extend reference sequence search space for coordinate corrections.
+          Disable if worried about false positive matches.
     :param ref_gene_name: str reference gene to check against.
         Must be a key existing in the `ref_annotation` dictionary.
         If not defined, the reference gene matching `feature`'s gene qualifier is used instead.
@@ -533,7 +538,7 @@ def coord_check(
     corrected_feature_start = corrected_feature.location.start
     corrected_feature_end = corrected_feature.location.end
 
-    if padding:
+    if check_context and padding:
         #Align again after adding padding to the feature sequence if warranted
         pad_feature = add_padding(feature, target, query, interval)
         pad_feature_seq = pad_feature.extract()
@@ -550,19 +555,24 @@ def coord_check(
         pad_found_low = False
 
     for i in range(2):
+        # Start codon is the low position and stop is the high position regardless of strand
+        # since the sequences are also positively oriented for pairwise alignment.
+        # But strand considerations return for setting feature_start/end.
+        good_start = found_low
+        good_stop  = found_high
+
         if feature.location.strand == 1:
-            good_stop = found_high
             if pad_found_high and fix_stop:
                 corrected_feature_end = (pad_feature.location.start + pad_query[-1][1])
                 if (second_score > first_score):
                     feature_end = corrected_feature_end
                     good_stop = True
-            elif found_high or (seek_stop == False and relaxed_found_high):
+            elif found_high or (relaxed_found_high and (seek_stop == False or best_effort)):
                 corrected_feature_end = feature_start + query[-1][1]
                 if fix_stop:
                     feature_end = corrected_feature_end
 
-            good_start = found_low
+
             if pad_found_low and fix_start:
                 corrected_feature_start = (pad_feature.location.start + (pad_query[0][0]))
                 if (second_score > first_score):
@@ -573,19 +583,32 @@ def coord_check(
                 if fix_start:
                     feature_start = corrected_feature_start
 
+            if best_effort:
+                if fix_stop and good_start and not good_stop: #good_enough_start and not good_enough_stop:
+                    if found_low:
+                        corrected_feature_end = feature_start + query[0][1]
+                    elif pad_found_low:
+                        corrected_feature_end = pad_feature.location.start + pad_query[0][1]
+                    feature_end = corrected_feature_end
+
+                if fix_start and good_stop and not good_start: # good_enough_stop and not good_enough_start:
+                    if found_high:
+                        corrected_feature_start = feature_start + query[-1][0]
+                    elif pad_found_high:
+                        corrected_feature_start = pad_feature.location.start + pad_query[-1][0]
+                    feature_start = corrected_feature_start
+
         elif feature.location.strand == -1:
-            good_stop = found_high
             if pad_found_high and fix_stop:
                 corrected_feature_start = (pad_feature.location.end - pad_query[-1][1])
                 if (second_score > first_score):
                     feature_start = corrected_feature_start
                     good_stop = True
-            elif found_high or (seek_stop == False and relaxed_found_high):
+            elif found_high or (relaxed_found_high and (seek_stop == False or best_effort)):
                 corrected_feature_start = feature_end - query[-1][1]
                 if fix_stop:
                     feature_start = corrected_feature_start
 
-            good_start = found_low
             if pad_found_low and fix_start:
                 corrected_feature_end = (pad_feature.location.end - pad_query[0][0])
                 if (second_score > first_score):
@@ -594,6 +617,21 @@ def coord_check(
             elif found_low:
                 corrected_feature_end = feature_end - query[0][0]
                 if fix_start:
+                    feature_end = corrected_feature_end
+
+            if best_effort:
+                if fix_stop and good_start and not good_stop: #good_enough_start and not good_enough_stop:
+                    if found_low:
+                        corrected_feature_start = feature_end - query[0][1]
+                    elif pad_found_low:
+                        corrected_feature_start = pad_feature.location.end - pad_query[0][1]
+                    feature_start = corrected_feature_start
+
+                if fix_start and good_stop and not good_start: # good_enough_stop and not good_enough_start:
+                    if found_high:
+                        corrected_feature_end = feature_end - query[-1][0]
+                    elif pad_found_high:
+                        corrected_feature_end = pad_feature.location.end - pad_query[-1][0]
                     feature_end = corrected_feature_end
 
         #Catch corner cases where we try to correct a reference corresponding start PAST the end of the feature.
