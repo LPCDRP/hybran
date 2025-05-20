@@ -159,6 +159,25 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                     upstream = prev_feature
                     downstream = feature
 
+                component1 = deepcopy(upstream)
+                component2 = deepcopy(downstream)
+                coord_check(
+                    component1,
+                    ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
+                    fix_stop=True,
+                    seek_stop=False,
+                    check_context=False,
+                    best_effort=True,
+                )
+                coord_check(
+                    component2,
+                    ref_annotation[key_ref_gene(component2.source, extractor.get_gene(component2))],
+                    fix_start=True,
+                    seek_stop=False,
+                    check_context=False,
+                    best_effort=True,
+                )
+
                 fusion_upgrade(
                     base=prev_feature,
                     upstream=upstream,
@@ -172,6 +191,8 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                     'remark':"Apparent partial fusion gene. Name incorporated into rival feature's and redundant locus removed.",
                 })
                 remarkable['partial'].append(prev_feature)
+                prev_feature.fusion_type = 'partial'
+                prev_feature.fusion_components = [component1, component2]
 
         elif have_same_stop(prev_feature.location, feature.location):
             #
@@ -216,6 +237,25 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                     upstream, downstream = feature, prev_feature
                 else:
                     upstream, downstream = prev_feature, feature
+
+                component1 = deepcopy(upstream)
+                component2 = deepcopy(downstream)
+                coord_check(
+                    component1,
+                    ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
+                    fix_stop=True,
+                    seek_stop=False,
+                    check_context=False,
+                    best_effort=True,
+                )
+                coord_check(
+                    component2,
+                    ref_annotation[key_ref_gene(component2.source, extractor.get_gene(component2))],
+                    fix_start=True,
+                    seek_stop=False,
+                    check_context=False,
+                    best_effort=True,
+                )
                 fusion_upgrade(
                     base=upstream,
                     upstream=upstream,
@@ -224,6 +264,8 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                 )
 
                 remarkable['partial'].append(upstream)
+                upstream.fusion_type = 'partial'
+                upstream.fusion_components = [component1, component2]
                 rejects.append({
                     'feature':downstream,
                     'superior':upstream,

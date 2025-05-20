@@ -157,6 +157,15 @@ def test_fusionfisher(gene_list):
             downstream=source_features['Rv0074']['ratt'],
             update_location=True
         )
+        component1 = deepcopy(source_features['Rv0071']['ratt'])
+        component1.location = FeatureLocation(81235, 81254, strand=1, ref='1')
+        component2 = deepcopy(source_features['Rv0074']['ratt'])
+        component2.location = FeatureLocation(81327, 82276, strand=1, ref='1')
+        fusion_result.fusion_type = 'partial'
+        fusion_result.fusion_components = [
+            component1,
+            component2,
+        ]
         for outlist in expected['partial_fusion_diff_start'][0:2]:
             outlist.append(fusion_result)
     elif gene_list == 'whole_gene_fusion':
