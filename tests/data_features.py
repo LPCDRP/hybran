@@ -93,13 +93,20 @@ features = {
                 type='CDS',
                 qualifiers={
                     'locus_tag':['ECOLIN_24700'],'gene':['ECOLIN_24700::ECOLIN_12095'],
-                    'pseudo': [''],
                     'note': [
                         'Hybran/Pseudoscan:description:Locus does not have reference-corresponding start | No internal stop codons and ends with a valid stop codon | Locus has valid reading frame | Locus has a valid alternative start site',
                         'Hybran/Pseudoscan:evidence:no_rcc',
                         'Hybran/Pseudoscan:barcode:D31;VS1;VE1;RCS0;RCE1;BOK.',
                     ],
+                    'pseudo': [''],
                 },
+                fusion_type='partial',
+                fusion_components=[
+                    # TODO: haven't check the end coordinate of this first component
+                    # since it wasn't important to any existing test case
+                    SeqFeature(FeatureLocation(1763636, 1763777, strand=1), qualifiers={'locus_tag':['ECOLIN_24700'],'gene':['ECOLIN_24700']}),
+                    SeqFeature(FeatureLocation(1763777, 1765214, strand=1), qualifiers={'locus_tag':['ECOLIN_12095'],'gene':['ECOLIN_12095']}),
+                ],
                 og=FeatureProperties(
                     de=True,
                     rcs=False,

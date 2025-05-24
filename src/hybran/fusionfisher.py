@@ -88,6 +88,35 @@ def fusion_upgrade(base, upstream, downstream, update_location=False):
 
     return base
 
+def add_components(orig_components, new_components):
+    """
+    Add fusion components non-redundantly
+    :param orig_component: list of SeqFeatures in the existing component list
+    :param new_components: list of SeqFeatures to add
+    :return: list of SeqFeatures representing all components non-redudantly
+    """
+
+    if not orig_components:
+        final_components = new_components
+    else:
+        orig_component_gene_names = [extractor.get_gene(f) for f in orig_components]
+        new_component_gene_names  = [extractor.get_gene(f) for f in new_components]
+
+        final_components = orig_components.copy()
+        for i in range(len(new_component_gene_names)):
+            if (
+                    # Do not add components if they represent the same gene as an existing component
+                    #   (we're not handling the case of multiple copies of a gene getting fused together with something else...
+                    new_component_gene_names[i] in orig_component_gene_names
+                    # And don't list a fusion gene itself as a fusion component
+                    or new_components[i].fusion_type
+            ):
+                continue
+            final_components.append(new_components[i])
+        final_components = sorted(final_components, key=lambda f: (f.location.start, f.location.end))
+
+    return final_components
+
 def fusionfisher(feature_list, ref_annotation, adjudicate=True):
     """
     This function parses through a list of CDSs and returns a unique list of CDSs, cleaning up annotation artifacts due to gene fusion events, as well as renaming such genes and those that have conjoined with their neighbor.
@@ -191,8 +220,12 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                     'remark':"Apparent partial fusion gene. Name incorporated into rival feature's and redundant locus removed.",
                 })
                 remarkable['partial'].append(prev_feature)
-                prev_feature.fusion_type = 'partial'
-                prev_feature.fusion_components = [component1, component2]
+                if not prev_feature.fusion_type:
+                    prev_feature.fusion_type = 'partial'
+                prev_feature.fusion_components = add_components(
+                    prev_feature.fusion_components,
+                    [component1, component2],
+                )
 
         elif have_same_stop(prev_feature.location, feature.location):
             #
@@ -227,8 +260,14 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                 )
 
                 remarkable['whole'].append(upstream)
-                upstream.fusion_type = 'whole'
-                upstream.fusion_components = [component1, downstream]
+                # A redundant partial gene fusion would look like a whole gene fusion
+                # see 'idempotence' test case.
+                if not upstream.fusion_type:
+                    upstream.fusion_type = 'whole'
+                upstream.fusion_components = add_components(
+                    upstream.fusion_components,
+                    [component1, downstream],
+                )
             #
             # Another signature of a partial gene fusion
             #
@@ -264,8 +303,12 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                 )
 
                 remarkable['partial'].append(upstream)
-                upstream.fusion_type = 'partial'
-                upstream.fusion_components = [component1, component2]
+                if not upstream.fusion_type:
+                    upstream.fusion_type = 'partial'
+                upstream.fusion_components = add_components(
+                    upstream.fusion_components,
+                    [component1, component2],
+                )
                 rejects.append({
                     'feature':downstream,
                     'superior':upstream,
