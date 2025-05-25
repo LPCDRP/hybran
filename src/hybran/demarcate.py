@@ -173,7 +173,7 @@ def stopseeker(feature, circularize=False):
 def update_termini(base_location, start, end):
     """
     Update a feature location object with a new start and end position,
-    while preserving compound location components if the exist.
+    while preserving compound location components if they exist.
     :param base_location: FeatureLocation or CompoundLocation object
     :param start: int or ExactPosition or the like new start position
     :param end: int or ExactPosition or the like new end position
@@ -186,6 +186,8 @@ def update_termini(base_location, start, end):
     # (either SimpleLocation or CompoundLocation) and replicate everything
     # but the parts[0] start and parts[-1] end.
     #
+    if start >= end:
+        raise ValueError(f"Start position not less than end position: ({start}, {end})")
     base_location.parts[0]._start = ExactPosition(start)
     base_location.parts[-1]._end = ExactPosition(end)
     return base_location
