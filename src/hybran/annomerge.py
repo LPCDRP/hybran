@@ -690,8 +690,6 @@ def run(
     with open(prokka_rejects_logfile, 'w') as prokka_rejects_log:
         log_feature_fates(prokka_rejects, logfile=prokka_rejects_log)
 
-    SeqIO.write(annomerge_records, output_genbank, 'genbank')
-
     annomerge_records_dict = {i: annomerge_records[i].features for i in range(len(annomerge_records))}
     corrected_orf_logfile = os.path.join(
         isolate_id,
@@ -700,6 +698,14 @@ def run(
     )
     with open(corrected_orf_logfile, 'w') as corr_log:
         log_coord_corrections(annomerge_records_dict, corr_log)
+
+
+    designator.assign_locus_tags(
+        annomerge_records_dict,
+        prefix=isolate_id,
+        save_old_ltag=True,
+    )
+    SeqIO.write(annomerge_records, output_genbank, "genbank")
 
     pseudoscan_logfile = os.path.join(
         isolate_id,

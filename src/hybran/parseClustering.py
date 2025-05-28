@@ -58,7 +58,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                             if len(column) >= 8:
                                 info = column[8].split(';')
                                 gene_id = ''.join([i.split('=')[1] for i in info if i.startswith('ID=')])
-                                locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('locus_tag=')])
+                                locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('old_locus_tag=')])
                                 if not gene_id or not locus_tag:
                                     continue
                                 gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
@@ -397,7 +397,7 @@ def unique_seqs(annotations):
                     for i in line.split(';'):
                         if i.startswith('gene='):
                             gene = [i.split('=')[1].rstrip('\n')][0]
-                        if i.startswith('locus_tag='):
+                        if i.startswith('old_locus_tag='):
                             locus_tag = [i.split('=')[1].rstrip('\n')][0]
                     if not gene:
                         gene = locus_tag
@@ -691,7 +691,7 @@ def add_gene_names_to_gbk(generics, gbk_dir):
                 for feature in rec.features:
                     if feature.type != 'CDS':
                         continue
-                    locus_tag = feature.qualifiers['locus_tag'][0]
+                    locus_tag = feature.qualifiers['old_locus_tag'][0]
                     gene_name = feature.qualifiers['gene'][0]
                     try:
                         gene_synonym = feature.qualifiers['gene_synonym']

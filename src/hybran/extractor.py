@@ -60,7 +60,7 @@ def get_genetic_code(genbank):
 
     return gcode
 
-def gene_dict(genbank, cds_only=True):
+def gene_dict(features_by_contig, cds_only=True):
     """
     Create a dictionary mapping locus tags to gene names
 
@@ -71,13 +71,13 @@ def gene_dict(genbank, cds_only=True):
 
     genes = dict()
 
-    for record in SeqIO.parse(genbank, 'genbank'):
-        if record.features:
-            for feature in record.features:
-                if((not cds_only and 'locus_tag' in feature.qualifiers.keys())
-                   or (cds_only and feature.type == 'CDS')
-                ):
-                    genes[get_ltag(feature)] = get_gene(feature)
+    for record in features_by_contig:
+        for feature in features_by_contig[record]:
+            if (
+                    (not cds_only and 'locus_tag' in feature.qualifiers)
+                    or (cds_only and feature.type == 'CDS')
+            ):
+                genes[get_ltag(feature)] = get_gene(feature)
     return genes
 
 def get_taxonomy_id(genbank):
@@ -224,12 +224,13 @@ def grep_seqs(gff):
     return gff_lines
 
 
-def fastaFromGffList(gffs, out_cds):
+def fastaFromGffList(gffs, out_cds, use_old_locus_tags=False):
     """
     Extracts amino acid CDS sequences from GFF annotation files
 
     :param gffs: list of GFF annotation file names
     :param out_cds: file name or handle in which to write CDS sequences
+    :param use_old_locus_tags: Boolean whether to use old_locus_tag in place of locus_tag
     :return gff_gene_dict: dictionary of CDS sequences by sample-recordID
     """
     logger = logging.getLogger('FastaFromGff')
@@ -245,7 +246,10 @@ def fastaFromGffList(gffs, out_cds):
             for i in line.split(';'):
                 if i.startswith('gene='):
                     gene = [i.split('=')[1].rstrip('\n')][0]
-                if i.startswith('locus_tag='):
+                if (
+                        (use_old_locus_tags and i.startswith('old_locus_tag='))
+                        or (not use_old_locus_tags and i.startswith('locus_tag='))
+                ):
                     locus_tag = [i.split('=')[1].rstrip('\n')][0]
             if not gene:
                 gene = locus_tag
