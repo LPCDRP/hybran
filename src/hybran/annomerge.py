@@ -709,7 +709,6 @@ def run(
 
     pseudoscan_logfile = os.path.join(
         isolate_id,
-        'annomerge',
         'pseudoscan_report.tsv'
     )
     with open(pseudoscan_logfile, 'w') as p_log:
@@ -717,7 +716,6 @@ def run(
 
     fusionfisher_logfile = os.path.join(
         isolate_id,
-        'annomerge',
         'fusion_report.tsv'
     )
     with open(fusionfisher_logfile, 'w') as f_log:
