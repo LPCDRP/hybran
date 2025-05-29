@@ -199,7 +199,7 @@ def log_fusions(features_by_contig_dict, logfile):
                 for f in [feature] + feature.fusion_components:
                     gene_info.append([
                         '..',
-                        get_ltag(f),
+                        f.qualifiers['locus_tag'][0] if 'locus_tag' in f.qualifiers else '.',
                         get_gene(f),
                         str(f.location.strand),
                         str(f.location.start + 1),
@@ -208,3 +208,50 @@ def log_fusions(features_by_contig_dict, logfile):
                 gene_info[0][0] = feature.fusion_type
                 for line in gene_info:
                     print('\t'.join(line), file=logfile)
+
+
+def load_fusions(fusion_report_file):
+    fusions_by_ltag = {}
+    with open(fusion_report_file, 'r') as fusion_report:
+        next(fusion_report)
+        for line in fusion_report:
+            line = line.strip()
+            if not line.startswith('..'):
+                [
+                    fusion_type,
+                    ltag,
+                    gene,
+                    strand,
+                    start,
+                    end,
+                ] = line.split('\t')
+                fusions_by_ltag[ltag] = {
+                    'type': fusion_type,
+                    'gene': gene,
+                    'strand': strand,
+                    'start': start,
+                    'end': end,
+                    'components': []
+                }
+            else:
+                [
+                    _,
+                    comp_ltag,
+                    comp_gene,
+                    comp_strand,
+                    comp_start,
+                    comp_end,
+                ] = line.split('\t')
+                comp = Bio.SeqFeature.SeqFeature(
+                    SimpleLocation(int(comp_start) - 1, int(comp_end), int(comp_strand)),
+                    type='CDS',
+                    qualifiers={'gene':[comp_gene]},
+                )
+                # missing ltag means it was not originally annotatable as a standalone gene,
+                # so mark it pseudo
+                if comp_ltag == '.':
+                    comp.qualifiers['pseudo'] = ['']
+                else:
+                    comp.qualifiers['locus_tag'] = [comp_ltag]
+                fusions_by_ltag[ltag]['components'].append(comp)
+    return fusions_by_ltag

@@ -89,6 +89,12 @@ def cmds():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     comparecmd.set_defaults(func=compare.main)
+    defusecmd = subparsers.add_parser(
+        'defuse',
+        help='Separate gene fusion annotations into single gene annotations.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    defusecmd.set_defaults(func=defuse.main)
 
 
     #
@@ -181,6 +187,21 @@ def cmds():
     comparecmd.add_argument(
         '-o', '--outdir',
         help='Directory to output the results of the comparison.',
+        default='.',
+    )
+
+    #
+    # hybran defuse
+    #
+    defusecmd.add_argument(
+        'annotations_dir',
+        help=(
+            "Results directory from the Hybran run whose gene fusions you wish to defuse."
+        ),
+    )
+    defusecmd.add_argument(
+        '-o', '--output',
+        help='Directory to output all new annotation files.',
         default='.',
     )
 

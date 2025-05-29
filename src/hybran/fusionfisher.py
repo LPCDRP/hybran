@@ -188,8 +188,13 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                     upstream = prev_feature
                     downstream = feature
 
+                # Remove locus tags for these deepcopied features.
+                # This is how we can tell that they are not represented in the original annotation
+                # for the defuse process.
                 component1 = deepcopy(upstream)
+                component1.qualifiers.pop('locus_tag', None)
                 component2 = deepcopy(downstream)
+                component2.qualifiers.pop('locus_tag', None)
                 coord_check(
                     component1,
                     ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
@@ -247,6 +252,7 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                 )
 
                 component1 = deepcopy(upstream)
+                component1.qualifiers.pop('locus_tag', None)
                 coord_check(
                     component1,
                     ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
@@ -278,7 +284,9 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                     upstream, downstream = prev_feature, feature
 
                 component1 = deepcopy(upstream)
+                component1.qualifiers.pop('locus_tag', None)
                 component2 = deepcopy(downstream)
+                component2.qualifiers.pop('locus_tag', None)
                 coord_check(
                     component1,
                     ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
