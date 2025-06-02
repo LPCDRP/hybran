@@ -703,7 +703,6 @@ def run(
     designator.assign_locus_tags(
         annomerge_records_dict,
         prefix=isolate_id,
-        save_old_ltag=True,
     )
     SeqIO.write(annomerge_records, output_genbank, "genbank")
 

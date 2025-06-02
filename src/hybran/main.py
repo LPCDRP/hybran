@@ -599,7 +599,7 @@ This option is scheduled for removal, so please update your invocation for the f
 
         logger.info('Finalizing annotations...')
         for gbk in glob.glob(os.path.join(args.output,'*.gbk')):
-            designator.create_gene_entries(gbk, rm_old_locus_tags=True)
+            designator.create_gene_entries(gbk)
             converter.convert_gbk_to_gff(gbk)
 
     logger.info('Finished. Annotated ' + str(genome_count) + ' genomes. Genbank and GFF are located in ' + args.output)

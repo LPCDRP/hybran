@@ -67,10 +67,6 @@ def prepare_references(references):
         for record in SeqIO.parse(i, "genbank"):
             ref_contig_id = '.'.join([ref_id, record.id])
             for f in record.features:
-                if 'locus_tag' in f.qualifiers:
-                    # Overwrite old_locus_tag with locus_tag since we use the former for identifying
-                    # genes in parseClustering.
-                    f.qualifiers['old_locus_tag'] = f.qualifiers['locus_tag']
                 if ( 'locus_tag' in f.qualifiers.keys()
                      and 'gene' not in f.qualifiers.keys()
                 ):

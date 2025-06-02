@@ -33,7 +33,7 @@ def append_qualifier(qualifiers, qual_name, qual_value):
     else:
         qualifiers[qual_name] = [qual_value]
 
-def assign_locus_tags(features_by_contig, prefix, save_old_ltag=False):
+def assign_locus_tags(features_by_contig, prefix):
 
     # Check for existing instances of this locus tag prefix
     # TODO - refactoring opportunity with find_next_increment()
@@ -62,8 +62,6 @@ def assign_locus_tags(features_by_contig, prefix, save_old_ltag=False):
                 continue
             else:
                 orig_locus_tag = feature.qualifiers['locus_tag'][0]
-                if save_old_ltag:
-                    feature.qualifiers['old_locus_tag'] = [orig_locus_tag]
                 # For the case of multiple features that must have the
                 # same locus tag (like gene + mRNA + CDS + 5'UTR + ...)
                 # We want to use the same new locus tag for all of these.
@@ -95,7 +93,7 @@ def assign_orf_id(increment, reference=False):
     increment += 1
     return orf_id, increment
 
-def create_gene_entries(gbk, rm_old_locus_tags=False):
+def create_gene_entries(gbk):
 
     output_records = []
     gene_positions = defaultdict(list)
@@ -103,8 +101,6 @@ def create_gene_entries(gbk, rm_old_locus_tags=False):
     for record in SeqIO.parse(gbk, "genbank"):
         updated_record_features = []
         for f in record.features:
-            if rm_old_locus_tags:
-                f.qualifiers.pop('old_locus_tag', None)
             if f.type == 'gene':
                 genes[f.qualifiers['locus_tag'][0]] = f
             elif 'locus_tag' in f.qualifiers.keys():
@@ -190,7 +186,7 @@ def has_unannotated_component(name):
     return bool(re.search(r'(::|^)' + generic_orf_prefix[0] + r'\d+(::|$)', name))
 
 def is_reference(name):
-    return not name.startswith((generic_orf_prefix[0],'L_','L2_'))
+    return name and not name.startswith((generic_orf_prefix[0],'L_','L2_'))
 
 def is_raw_ltag(name):
     return name.startswith(('L_','L2_'))

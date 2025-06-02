@@ -58,7 +58,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                             if len(column) >= 8:
                                 info = column[8].split(';')
                                 gene_id = ''.join([i.split('=')[1] for i in info if i.startswith('ID=')])
-                                locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('old_locus_tag=')])
+                                locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('locus_tag=')])
                                 if not gene_id or not locus_tag:
                                     continue
                                 gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
@@ -115,29 +115,29 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                 cluster_list.append(gffs[isolate][gene_id])
                 cluster_list_w_isolate.append([isolate] + list(gffs[isolate][gene_id]))
                 gene_cluster[representative].append(','.join([isolate, ','.join(gffs[isolate][gene_id])]))
-            number_genes, number_locus_tags = different_genes(cluster_list)
+            number_genes = list(set(sorted([gene for locus_tag, gene in cluster_list])))
             unique_genes = []
-            unique_locus = []
             for data in number_genes:
                 if not designator.is_raw_ltag(data):
                     unique_genes.append(data)
-            for data in number_locus_tags:
-                if not designator.is_raw_ltag(data):
-                    unique_locus.append(data)
             # Getting clusters with only 1 gene that is an L tag or an underscore
-            if (len(unique_genes) == 1 or len(unique_locus) == 1) and \
-                    any([designator.is_raw_ltag(gene[1]) for gene in cluster_list]):
+            if (
+                    len(unique_genes) == 1
+                    and any([designator.is_raw_ltag(gene) for locus_tag, gene in cluster_list])
+            ):
                 same_genes_cluster_w_ltags[representative] = cluster_list_w_isolate
             elif (len(cluster_members) == 1 and
                     (designator.is_raw_ltag(representative_ltag_gene_tup[1]))):
                 unique_genes_list.append([rep_isolate] + list(representative_ltag_gene_tup))
             # All different with L tags
-            elif (len(unique_genes) > 1 or len(unique_locus) > 1) and \
-                    any([designator.is_raw_ltag(gene[1]) for gene in cluster_list]):
+            elif (
+                    len(unique_genes) > 1
+                    and any([designator.is_raw_ltag(gene) for locus_tag, gene in cluster_list])
+            ):
                 different_genes_cluster_w_ltags[representative] = cluster_list_w_isolate
             #
             # L tag only clusters
-            elif all(designator.is_raw_ltag(locus[1]) for locus in cluster_list):
+            elif all(designator.is_raw_ltag(gene) for locus_tag, gene in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
     return [different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, l_tag_only_clusters,
             unique_genes_list]
@@ -317,10 +317,8 @@ def get_cluster_fasta(rep, cluster_list):
         rep_list = [rep_isolate_id, rep_locus, rep_gene_name]
         unannotated_genes_list.append(rep_list)
     for gene in cluster_list:
-        gene_isolate_id = gene[0]
-        gene_locus = gene[1]
-        gene_name = gene[2]
-        if designator.is_raw_ltag(gene_locus) and designator.is_raw_ltag(gene_name):
+        gene_isolate_id, gene_locus, gene_name = gene
+        if designator.is_raw_ltag(gene_name):
             unannotated_genes_list.append(gene)
         else:
             gene_id = '|'.join([gene_isolate_id, gene_locus, gene_name])
@@ -397,7 +395,7 @@ def unique_seqs(annotations):
                     for i in line.split(';'):
                         if i.startswith('gene='):
                             gene = [i.split('=')[1].rstrip('\n')][0]
-                        if i.startswith('old_locus_tag='):
+                        if i.startswith('locus_tag='):
                             locus_tag = [i.split('=')[1].rstrip('\n')][0]
                     if not gene:
                         gene = locus_tag
@@ -468,7 +466,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
         locus_tag = single_gene[1]
         gene_name = single_gene[2]
         out_list.append(str(single_gene))
-        if designator.is_raw_ltag(gene_name) and designator.is_raw_ltag(locus_tag):
+        if designator.is_raw_ltag(gene_name):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
             name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
                 query_seq = SeqRecord(gene_sequence),
@@ -559,45 +557,30 @@ def single_gene_clusters(single_gene_dict):
 
     for key_sgc in single_gene_dict:
         rep_ltag = False
-        key_elements_sgc = key_sgc.split(',')
-        if designator.is_reference(key_elements_sgc[1]):
-            if key_elements_sgc[2]:
-                gene_to_add = key_elements_sgc[2]
-            else:
-                gene_to_add = key_elements_sgc[1]
-        elif designator.is_raw_ltag(key_elements_sgc[1]) and designator.is_raw_ltag(key_elements_sgc[2]):
+        (rep_sample, rep_locus_tag, rep_gene_name) = key_sgc.split(',')
+        if designator.is_raw_ltag(rep_gene_name):
             rep_ltag = True
             rep_ltag_keys.append(key_sgc)
         else:
-            gene_to_add = key_elements_sgc[2]
+            gene_to_add = rep_gene_name
         # If representative sequence is a reference gene and not an L-tag
         if not rep_ltag:
             genes_in_cluster = single_gene_dict[key_sgc]
-            for gene in genes_in_cluster:
-                if designator.is_raw_ltag(gene[1]) and designator.is_raw_ltag(gene[2]):
-                    update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
-                else:
-                    continue
+            for sample, locus_tag, gene_name in genes_in_cluster:
+                if gene_name and designator.is_raw_ltag(gene_name):
+                    update_dictionary_ltag_assignments(sample, locus_tag, gene_to_add)
         # If representative sequence is a L-tag
         else:
             genes_in_cluster = single_gene_dict[key_sgc]
             gene_to_add = ''
-            for gene in genes_in_cluster:
-                if designator.is_raw_ltag(gene[1]) and designator.is_raw_ltag(gene[2]):
-                    continue
-                else:
-                    if not designator.is_raw_ltag(gene[1]):
-                        if gene[2]:
-                            gene_to_add = gene[2]
-                        else:
-                            gene_to_add = gene[1]
+            for sample, locus_tag, gene_name in genes_in_cluster:
+                if gene_name and not designator.is_raw_ltag(gene_name):
+                    gene_to_add = gene_name
                     break
-            if len(gene_to_add) != 0:
-                for gene in genes_in_cluster:
-                    if designator.is_raw_ltag(gene[1]) and designator.is_raw_ltag(gene[2]):
-                        update_dictionary_ltag_assignments(gene[0], gene[1], gene_to_add)
-                    else:
-                        continue
+            if gene_to_add:
+                for sample, locus_tag, gene_name in genes_in_cluster:
+                    if designator.is_raw_ltag(gene_name):
+                        update_dictionary_ltag_assignments(sample, locus_tag, gene_to_add)
 
 
 def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta, orf_increment, seq_ident, seq_covg):
@@ -626,9 +609,10 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
         gene_elements = gene.split(',')
         out_list.append(gene + ': ' + str(in_dict[gene]))
         for gene_in_cluster in in_dict[gene]:
-            if gene_in_cluster[1] in gene_elements or gene_in_cluster[2] in gene_elements:
+            (sample, locus_tag, gene_name) = gene_in_cluster
+            if gene_name in gene_elements:
                 continue
-            elif designator.is_raw_ltag(gene_in_cluster[1]) and designator.is_raw_ltag(gene_in_cluster[2]):
+            elif designator.is_raw_ltag(gene_name):
                 unassigned_l_tags.append(gene_in_cluster)
             else:
                 true_multi_cluster = True
@@ -691,7 +675,7 @@ def add_gene_names_to_gbk(generics, gbk_dir):
                 for feature in rec.features:
                     if feature.type != 'CDS':
                         continue
-                    locus_tag = feature.qualifiers['old_locus_tag'][0]
+                    locus_tag = feature.qualifiers['locus_tag'][0]
                     gene_name = feature.qualifiers['gene'][0]
                     try:
                         gene_synonym = feature.qualifiers['gene_synonym']

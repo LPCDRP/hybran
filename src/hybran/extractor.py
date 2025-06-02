@@ -224,13 +224,12 @@ def grep_seqs(gff):
     return gff_lines
 
 
-def fastaFromGffList(gffs, out_cds, use_old_locus_tags=False):
+def fastaFromGffList(gffs, out_cds):
     """
     Extracts amino acid CDS sequences from GFF annotation files
 
     :param gffs: list of GFF annotation file names
     :param out_cds: file name or handle in which to write CDS sequences
-    :param use_old_locus_tags: Boolean whether to use old_locus_tag in place of locus_tag
     :return gff_gene_dict: dictionary of CDS sequences by sample-recordID
     """
     logger = logging.getLogger('FastaFromGff')
@@ -246,10 +245,7 @@ def fastaFromGffList(gffs, out_cds, use_old_locus_tags=False):
             for i in line.split(';'):
                 if i.startswith('gene='):
                     gene = [i.split('=')[1].rstrip('\n')][0]
-                if (
-                        (use_old_locus_tags and i.startswith('old_locus_tag='))
-                        or (not use_old_locus_tags and i.startswith('locus_tag='))
-                ):
+                if i.startswith('locus_tag='):
                     locus_tag = [i.split('=')[1].rstrip('\n')][0]
             if not gene:
                 gene = locus_tag
