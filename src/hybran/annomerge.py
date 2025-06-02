@@ -678,7 +678,7 @@ def run(
                 elif designator.is_pseudo(feature.qualifiers):
                     feature.qualifiers.pop('translation', None)
                 if 'gene' not in feature.qualifiers.keys():
-                    feature.qualifiers['gene'] = feature.qualifiers['locus_tag']
+                    feature.qualifiers['gene'] = [ feature.qualifiers['locus_tag'][0] ]
 
         sorted_final = get_ordered_features(annomerge_records[i].features)
         annomerge_records[i].features = sorted_final
