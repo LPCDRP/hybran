@@ -60,6 +60,12 @@ def defuse(feature_list, fusions_by_ltag):
         else:
             out_features.append(feature)
 
-    # TODO - this sort puts the "source" special feature second instead of first
-    out_features = sorted(out_features, key=lambda f: (f.location.start, f.location.end))
+    out_features = sorted(
+        out_features,
+        key=lambda f: (
+            0 if f.type == 'source' else 1,
+            f.location.start,
+            f.location.end,
+        )
+    )
     return out_features
