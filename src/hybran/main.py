@@ -219,9 +219,7 @@ def cmds():
                           nargs='+')
     required.add_argument('-r', '--references', help='Directory, a space-separated list of GBKs, or a FOFN '
                                                      'containing Genbank files of reference '
-                                                     'annotations to transfer. Only the first annotation will '
-                                                     'be used as the reference database in the Prokka reference '
-                                                     'step.',
+                                                     'annotations to transfer.',
                           required=True,
                           nargs='+')
     # This flag is set to match the way pgap takes it.
