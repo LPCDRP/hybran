@@ -5,6 +5,9 @@
 ### Enhancements
 * Produce gff files in addition to gbk for onegene, standardize, and postprocessing
 * Write a log file to the output folder (#73)
+* Produce fusion report files, with estimated coordinates of fusion components.
+* New subcommand:
+  - `hybran defuse`: Rewrite the annotation files without gene fusions, annotating fusion components separately instead.
 
 ### Bugs fixed
 * Fixed verbose and quiet run modes.
