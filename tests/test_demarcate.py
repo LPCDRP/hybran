@@ -188,6 +188,9 @@ def test_stopseeker(case, circular):
     ['early_del_altered_scoring', False, False, None],
     ['alt_start_delicate_scoring', True, False, None],
     ['first_codon_snp_valid_start', True, True, None],
+    ['fusion_component_no_stopseeker', False, True, False],
+    ['best_effort_fix_start', True, False, False],
+    ['best_effort_inverted_fix_start', True, False, False],
 ])
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
 @pytest.mark.skipif(not os.path.isfile("data/nissle-hybrid.gbk"), reason="test reference annotation not available")
@@ -217,7 +220,9 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'early_del_altered_scoring':'1-0006',
         'alt_start_delicate_scoring':'1-0006',
         'first_codon_snp_valid_start':'1-0006',
-
+        'fusion_component_no_stopseeker': '1-0006', # correcting to a 'bad' ref-corr. stop
+        'best_effort_fix_start': '1-0006',
+        'best_effort_inverted_fix_start': '1-0006',
     }
     ref_genome = defaultdict(lambda :'H37Rv')
     ref_genome.update({
@@ -248,6 +253,9 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
         'early_del_altered_scoring': features[source_genome['early_del_altered_scoring']]['accE5']['ratt'],
         'alt_start_delicate_scoring': features[source_genome['alt_start_delicate_scoring']]['Rv3611']['ratt'],
         'first_codon_snp_valid_start': features[source_genome['first_codon_snp_valid_start']]['Rv2023A']['ratt'],
+        'fusion_component_no_stopseeker': features[source_genome['fusion_component_no_stopseeker']]['Rv0325']['ratt'],
+        'best_effort_fix_start': features[source_genome['best_effort_fix_start']]['Rv0074']['ratt'],
+        'best_effort_inverted_fix_start': features[source_genome['best_effort_inverted_fix_start']]['Rv2879c']['ratt'],
     }
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
@@ -260,7 +268,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
 
     feature = test_features[feature_type]
     ref_feature = annomerge.ref_annotation[
-        annomerge.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
+        designator.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
     ]
 
     expected = {
@@ -374,8 +382,40 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
             'og_de':False,
             'corr_de':None,
         },
+        'fusion_component_no_stopseeker': {
+            'results': [(True, False), FeatureLocation(392626, 392851, strand=1, ref='1')],
+            'og_de': True,
+            'corr_de': False,
+        },
+        'best_effort_fix_start': {
+            'results': [(False, True), FeatureLocation(81327, 82276, strand=1, ref='1')],
+            'og_de': False,
+            'corr_de': False,
+        },
+        'best_effort_inverted_fix_start': {
+            'results': [(False, True), FeatureLocation(3182302, 3182870, strand=-1, ref='1')],
+            'og_de': False,
+            'corr_de': False,
+        },
     }
-    results = demarcate.coord_check(feature, ref_feature, fix_start=fix_start, fix_stop=fix_stop, seek_stop=seek_stop)
+
+    if 'best_effort' in feature_type:
+        best_effort = True
+        check_context = False
+    else:
+        best_effort = False
+        check_context = True
+
+    results = demarcate.coord_check(
+        feature,
+        ref_feature,
+        fix_start=fix_start,
+        fix_stop=fix_stop,
+        seek_stop=seek_stop,
+        best_effort=best_effort,
+        check_context=check_context,
+    )
+
     assert [
         [results, feature.location],
         feature.og.de, feature.corr.de

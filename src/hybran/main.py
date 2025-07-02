@@ -89,6 +89,12 @@ def cmds():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     comparecmd.set_defaults(func=compare.main)
+    defusecmd = subparsers.add_parser(
+        'defuse',
+        help='Separate gene fusion annotations into single gene annotations.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    defusecmd.set_defaults(func=defuse.main)
 
 
     #
@@ -181,6 +187,21 @@ def cmds():
     comparecmd.add_argument(
         '-o', '--outdir',
         help='Directory to output the results of the comparison.',
+        default='.',
+    )
+
+    #
+    # hybran defuse
+    #
+    defusecmd.add_argument(
+        'annotations_dir',
+        help=(
+            "Results directory from the Hybran run whose gene fusions you wish to defuse."
+        ),
+    )
+    defusecmd.add_argument(
+        '-o', '--output',
+        help='Directory to output all new annotation files.',
         default='.',
     )
 
@@ -555,8 +576,13 @@ This option is scheduled for removal, so please update your invocation for the f
         if args.database_dir and 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
             ref_tax_ids = [extractor.get_taxonomy_id(_) for _ in ref_gbks]
             if any(ref_tax_ids):
+                ref_features_by_record = {}
+                for ref_gbk_file in ref_gbks:
+                    refname = os.path.splitext(os.path.basename(ref_gbk_file))[0]
+                    for record in SeqIO.parse(ref_gbk_file, "genbank"):
+                        ref_features_by_record[f"{refname}.{record.id}"] = record.features
                 # TODO: extractor.gene_dict should have another level by refname
-                ref_gene_dict = {}
+                ref_gene_dict = extractor.gene_dict(ref_features_by_record)
                 [ref_gene_dict.update(extractor.gene_dict(_)) for _ in ref_gbks]
                 run.eggnog_mapper(
                     script_dir=script_dir,
@@ -571,10 +597,8 @@ This option is scheduled for removal, so please update your invocation for the f
         else:
             logger.info('No genes to be annotated with eggnog, continuing')
 
-        logger.info('Assigning locus tags')
+        logger.info('Finalizing annotations...')
         for gbk in glob.glob(os.path.join(args.output,'*.gbk')):
-            isolate_id = os.path.basename(os.path.splitext(gbk)[0])
-            designator.assign_locus_tags(gbk, prefix=isolate_id)
             designator.create_gene_entries(gbk)
             converter.convert_gbk_to_gff(gbk)
 

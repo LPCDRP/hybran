@@ -1,6 +1,7 @@
 from collections import defaultdict
 from copy import deepcopy
 
+from Bio.SeqFeature import FeatureLocation
 import pytest
 
 from hybran import (
@@ -9,24 +10,27 @@ from hybran import (
     demarcate,
     fusionfisher,
 )
+from hybran.designator import key_ref_gene
 from hybran.util import keydefaultdict
 
 from .data_features import *
 
 
 @pytest.mark.parametrize('gene_list', [
+    'whole_gene_fusion',
     'misannotation_false_delayed_stop',
-    'hybrid_fusion_diff_start',
-    'redundant_double_hybrid_fusion',
+    'partial_fusion_diff_start',
+    'redundant_double_partial_fusion',
     'misannotation_both_nonpseudo',
     'misannotation_one_pseudo',
     'idempotence',
 ])
 def test_fusionfisher(gene_list):
     source_genomes = {
+        'whole_gene_fusion':'1-0006',
         'misannotation_false_delayed_stop':'SEA17020030',
-        'hybrid_fusion_diff_start':'1-0006',
-        'redundant_double_hybrid_fusion':'AZ20',
+        'partial_fusion_diff_start':'1-0006',
+        'redundant_double_partial_fusion':'AZ20',
         'misannotation_both_nonpseudo': 'AZ20',
         'misannotation_one_pseudo': 'AZ20',
         'idempotence': 'AZ20',
@@ -35,15 +39,19 @@ def test_fusionfisher(gene_list):
     source_features = defaultdict(lambda :defaultdict(dict))
     source_features.update(features[source_genomes[gene_list]])
     inputs = {
+        'whole_gene_fusion': [
+            source_features['Rv0325']['ratt'],
+            source_features['Rv0326']['ratt'],
+        ],
         'misannotation_false_delayed_stop': [
             source_features['Rv3382c']['ratt'],
             source_features['Rv3383c']['ratt'],
         ],
-        'hybrid_fusion_diff_start': [
+        'partial_fusion_diff_start': [
             source_features['Rv0074']['ratt'],
             source_features['Rv0071']['ratt'],
         ],
-        'redundant_double_hybrid_fusion': [
+        'redundant_double_partial_fusion': [
             source_features['AZ20_03933']['ratt'],
             source_features['AZ20_03933']['prokka'],
         ],
@@ -62,7 +70,7 @@ def test_fusionfisher(gene_list):
     }
     ref_genome = defaultdict(lambda :'H37Rv')
     ref_genome.update({
-        'redundant_double_hybrid_fusion': 'nissle-hybrid',
+        'redundant_double_partial_fusion': 'nissle-hybrid',
         'misannotation_both_nonpseudo': 'nissle-hybrid',
         'misannotation_one_pseudo': 'nissle-hybrid',
         'idempotence': 'nissle-hybrid',
@@ -78,10 +86,15 @@ def test_fusionfisher(gene_list):
         for part in f.location.parts:
             part.ref = record_sequence.id
         (f.rcs, f.rce) = demarcate.coord_check(
-            f, annomerge.ref_annotation[annomerge.key_ref_gene(f.source, f.qualifiers['gene'][0])]
+            f, annomerge.ref_annotation[key_ref_gene(f.source, f.qualifiers['gene'][0])]
         )
 
     expected = {
+        'whole_gene_fusion': (
+            deepcopy(inputs['whole_gene_fusion']),
+            [ ], # populated below
+            [ ],
+        ),
         'misannotation_false_delayed_stop': (
             [ source_features['Rv3383c']['ratt'] ],
             [ ],
@@ -91,16 +104,16 @@ def test_fusionfisher(gene_list):
                 'remark':'Has no reference-corresponding stop, while rival feature does, and both share the same stop position.',
             }],
         ),
-        'hybrid_fusion_diff_start': (
+        'partial_fusion_diff_start': (
             [ ],
             [ ],
             [{
                 'feature':source_features['Rv0074']['ratt'],
                 'evid':'combined_annotation',
-                'remark':"Apparent hybrid fusion gene.",
+                'remark':"Apparent partial gene fusion.",
             }],
         ),
-        'redundant_double_hybrid_fusion': (
+        'redundant_double_partial_fusion': (
             [ source_features['AZ20_03933']['ratt'] ],
             [ ],
             [{
@@ -137,15 +150,37 @@ def test_fusionfisher(gene_list):
         expected['idempotence'][0][1].qualifiers['note'] = [
             "Upstream gene ECOLIN_24700|ECOLIN_24700::ECOLIN_12095 conjoins with this one."
         ]
-    elif gene_list == 'hybrid_fusion_diff_start':
+    elif gene_list == 'partial_fusion_diff_start':
         fusion_result = fusionfisher.fusion_upgrade(
             base=deepcopy(source_features['Rv0071']['ratt']),
             upstream=source_features['Rv0071']['ratt'],
             downstream=source_features['Rv0074']['ratt'],
             update_location=True
         )
-        for outlist in expected['hybrid_fusion_diff_start'][0:2]:
+        component1 = deepcopy(source_features['Rv0071']['ratt'])
+        component1.location = FeatureLocation(81235, 81254, strand=1, ref='1')
+        component2 = deepcopy(source_features['Rv0074']['ratt'])
+        component2.location = FeatureLocation(81327, 82276, strand=1, ref='1')
+        fusion_result.fusion_type = 'partial'
+        fusion_result.fusion_components = [
+            component1,
+            component2,
+        ]
+        for outlist in expected['partial_fusion_diff_start'][0:2]:
             outlist.append(fusion_result)
+    elif gene_list == 'whole_gene_fusion':
+        expected['whole_gene_fusion'][0][1].qualifiers['note'] = [
+            "Upstream gene Rv0325|Rv0325 conjoins with this one."
+        ]
+        component1 = deepcopy(expected['whole_gene_fusion'][0][0])
+        expected['whole_gene_fusion'][0][0].qualifiers['gene'] = ['Rv0325::Rv0326']
+        expected['whole_gene_fusion'][0][0].fusion_type = "whole"
+        expected['whole_gene_fusion'][0][0].fusion_components = [
+            component1,
+            expected['whole_gene_fusion'][0][1],
+        ]
+        component1.location = FeatureLocation(392626, 392851, strand=1, ref='1')
+        expected['whole_gene_fusion'][1].append(expected['whole_gene_fusion'][0][0])
 
     # set the rival feature as the passing one. for these test cases, we're always looking at pairs
     if expected[gene_list][2]:
@@ -153,4 +188,5 @@ def test_fusionfisher(gene_list):
 
     assert fusionfisher.fusionfisher(
         deepcopy(inputs[gene_list]),
+        annomerge.ref_annotation,
     ) == expected[gene_list]

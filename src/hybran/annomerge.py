@@ -42,11 +42,13 @@ from .demarcate import (
     coord_check,
     has_broken_stop,
 )
+from .designator import key_ref_gene
 from .fusionfisher import fusionfisher
 from .lumberjack import (
     log_feature_fates,
     log_coord_corrections,
     log_pseudos,
+    log_fusions,
 )
 from .util import keydefaultdict, mpbreakpoint
 
@@ -94,15 +96,6 @@ def ref_fuse(fusion_gene_name):
 
     ref_fusion.references = location_sequences
     return ref_fusion
-
-def key_ref_gene(ref_id, gene_name):
-    """
-    Generate a key for ref_annotation dictionary
-
-    We do this rather than use a nested dictionary because, for gene fusions,
-    the reference sequence that each member lifted over from is not necessarily the same.
-    """
-    return '@@@'.join([ref_id, gene_name])
 
 def loc_index(feature):
     """
@@ -378,7 +371,11 @@ def check_inclusion_criteria(
             include_abinit, include_ratt, evid, remark = thunderdome(abinit_annotation, ratt_annotation)
 
         elif not same_gene_name and overlap_inframe(abinit_annotation.location, ratt_annotation.location):
-            keepers, fusions, rejects = fusionfisher([ratt_annotation, abinit_annotation], adjudicate=False)
+            keepers, fusions, rejects = fusionfisher(
+                [ratt_annotation, abinit_annotation],
+                ref_annotation,
+                adjudicate=False,
+            )
             for trial in rejects:
                 reject = trial['feature']
                 if reject == ratt_annotation:
@@ -681,7 +678,7 @@ def run(
                 elif designator.is_pseudo(feature.qualifiers):
                     feature.qualifiers.pop('translation', None)
                 if 'gene' not in feature.qualifiers.keys():
-                    feature.qualifiers['gene'] = feature.qualifiers['locus_tag']
+                    feature.qualifiers['gene'] = [ feature.qualifiers['locus_tag'][0] ]
 
         sorted_final = get_ordered_features(annomerge_records[i].features)
         annomerge_records[i].features = sorted_final
@@ -693,8 +690,6 @@ def run(
     with open(prokka_rejects_logfile, 'w') as prokka_rejects_log:
         log_feature_fates(prokka_rejects, logfile=prokka_rejects_log)
 
-    SeqIO.write(annomerge_records, output_genbank, 'genbank')
-
     annomerge_records_dict = {i: annomerge_records[i].features for i in range(len(annomerge_records))}
     corrected_orf_logfile = os.path.join(
         isolate_id,
@@ -704,12 +699,25 @@ def run(
     with open(corrected_orf_logfile, 'w') as corr_log:
         log_coord_corrections(annomerge_records_dict, corr_log)
 
+
+    designator.assign_locus_tags(
+        annomerge_records_dict,
+        prefix=isolate_id,
+    )
+    SeqIO.write(annomerge_records, output_genbank, "genbank")
+
     pseudoscan_logfile = os.path.join(
         isolate_id,
-        'annomerge',
         'pseudoscan_report.tsv'
     )
     with open(pseudoscan_logfile, 'w') as p_log:
         log_pseudos(annomerge_records_dict, p_log)
+
+    fusionfisher_logfile = os.path.join(
+        isolate_id,
+        'fusion_report.tsv'
+    )
+    with open(fusionfisher_logfile, 'w') as f_log:
+        log_fusions(annomerge_records_dict, f_log)
 
     logger.debug('postprocessing and annomerge run time: ' + str(int((time.time() - start_time) / 60.0)) + ' minutes')

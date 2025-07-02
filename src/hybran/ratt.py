@@ -20,7 +20,6 @@ from .annomerge import (
     fusionfisher,
     get_and_remove_ref_tracer,
     get_ordered_features,
-    key_ref_gene,
 )
 from .bio import (
     AutarkicSeqFeature,
@@ -30,6 +29,7 @@ from .bio import (
 )
 from .config import cnf
 from .demarcate import coord_check, has_broken_stop
+from .designator import key_ref_gene
 from .lumberjack import (
     log_feature_fates,
     log_coord_corrections,
@@ -191,7 +191,10 @@ def postprocess_contig(
     ratt_contig_features = get_ordered_features(valid_features)
 
     logger.info(f"{seqname}: Checking for gene fusion signatures in RATT annotations...")
-    ratt_contig_features, merged_features, inconsistent_ratt_features = fusionfisher(ratt_contig_features)
+    ratt_contig_features, merged_features, inconsistent_ratt_features = fusionfisher(
+        ratt_contig_features,
+        ref_annotation,
+    )
     logger.info(f"{seqname}: {len(merged_features)} RATT fusion genes detected.")
     logger.info(f"{seqname}: {len(inconsistent_ratt_features)} RATT annotations found to be inconsistent.")
 

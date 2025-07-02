@@ -124,7 +124,8 @@ class AutarkicSeqFeature(SeqFeature):
             corr_possible=None, # whether a coordinate correction was found
             corr_accepted=None, # whether a correction was found not rejected
             ###
-            is_fusion=None, # is a fusion of two or more genes
+            fusion_type=None, # "whole", "partial", or None (if not a fusion at all)
+            fusion_components=None, # list of SeqFeatures if fusion_type not None
     ):
         super().__init__(
             location=location,
@@ -153,7 +154,11 @@ class AutarkicSeqFeature(SeqFeature):
         self.corr_possible = corr_possible
         self.corr_accepted = corr_accepted
 
-        self.is_fusion = is_fusion
+        self.fusion_type = fusion_type
+        if fusion_components and self.fusion_type is not None:
+            self.fusion_components = fusion_components
+        else:
+            self.fusion_components = []
 
 
     # https://stackoverflow.com/a/141777
@@ -189,9 +194,47 @@ class AutarkicSeqFeature(SeqFeature):
         else:
             object.__setattr__(self, name, val)
 
+    def __eq__(self, other):
+        if (
+                self.fusion_components and other.fusion_components
+                and len(self.fusion_components) == len(other.fusion_components)
+        ):
+            for i in range(len(self.fusion_components)):
+                a = self.fusion_components[i]
+                b = other.fusion_components[i]
+
+                a_interesting_qualifiers = {k:v for k, v in a.qualifiers.items() if k in ['locus_tag', 'gene']}
+                b_interesting_qualifiers = {k:v for k, v in b.qualifiers.items() if k in ['locus_tag', 'gene']}
+                if (
+                        a_interesting_qualifiers != b_interesting_qualifiers
+                        or a.location != b.location
+                ):
+                    return False
+        elif self.fusion_components != other.fusion_components:
+            return False
+        return (
+            super(AutarkicSeqFeature, self).__eq__(other)
+            and self.fusion_type == other.fusion_type
+        )
+
     def __repr__(self):
+        fusion_info = ''
+        if self.fusion_type:
+            fusion_info = [
+                f"\nFusion type: {self.fusion_type}",
+                "Components:"
+            ]
+            for c in self.fusion_components:
+                component_info = []
+                if 'locus_tag' in c.qualifiers:
+                    component_info.append(c.qualifiers['locus_tag'][0])
+                if 'gene' in c.qualifiers:
+                    component_info.append(c.qualifiers['gene'][0])
+                component_info.append(str(c.location))
+                fusion_info.append(f"{'|'.join(component_info)}")
         return f"""
-{self.location}
+{self.location}{'\n'.join(fusion_info)}
+Qualifiers:
 {self.qualifiers}
 """
 

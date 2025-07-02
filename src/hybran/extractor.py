@@ -60,7 +60,7 @@ def get_genetic_code(genbank):
 
     return gcode
 
-def gene_dict(genbank, cds_only=True):
+def gene_dict(features_by_contig, cds_only=True):
     """
     Create a dictionary mapping locus tags to gene names
 
@@ -71,13 +71,13 @@ def gene_dict(genbank, cds_only=True):
 
     genes = dict()
 
-    for record in SeqIO.parse(genbank, 'genbank'):
-        if record.features:
-            for feature in record.features:
-                if((not cds_only and 'locus_tag' in feature.qualifiers.keys())
-                   or (cds_only and feature.type == 'CDS')
-                ):
-                    genes[get_ltag(feature)] = get_gene(feature)
+    for record in features_by_contig:
+        for feature in features_by_contig[record]:
+            if (
+                    (not cds_only and 'locus_tag' in feature.qualifiers)
+                    or (cds_only and feature.type == 'CDS')
+            ):
+                genes[get_ltag(feature)] = get_gene(feature)
     return genes
 
 def get_taxonomy_id(genbank):

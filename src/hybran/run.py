@@ -109,7 +109,10 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
     gbk_filenames = [re.sub(r"\.gff$", ".gbk", _) for _ in all_genomes]
     if 'clustered_proteins' not in os.listdir(os.getcwd()):
         gff_gene_dict = {}
-        gff_gene_dict.update(extractor.fastaFromGffList(gffs=all_genomes, out_cds=fasta))
+        gff_gene_dict.update(extractor.fastaFromGffList(
+            gffs=all_genomes,
+            out_cds=fasta,
+        ))
         # Run CD-HIT on cds_seqs.fasta
         clusters = CDHIT.run(nproc=nproc,
                              fasta=fasta,

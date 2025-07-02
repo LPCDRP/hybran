@@ -1,3 +1,4 @@
+from copy import deepcopy
 import logging
 
 from . import (
@@ -9,7 +10,11 @@ from .compare import (
     complementary,
     have_same_stop,
 )
-from .demarcate import update_termini
+from .demarcate import (
+    coord_check,
+    update_termini,
+)
+from .designator import key_ref_gene
 
 
 def fusion_name(feature1, feature2):
@@ -83,11 +88,41 @@ def fusion_upgrade(base, upstream, downstream, update_location=False):
 
     return base
 
-def fusionfisher(feature_list, adjudicate=True):
+def add_components(orig_components, new_components):
+    """
+    Add fusion components non-redundantly
+    :param orig_component: list of SeqFeatures in the existing component list
+    :param new_components: list of SeqFeatures to add
+    :return: list of SeqFeatures representing all components non-redudantly
+    """
+
+    if not orig_components:
+        final_components = new_components
+    else:
+        orig_component_gene_names = [extractor.get_gene(f) for f in orig_components]
+        new_component_gene_names  = [extractor.get_gene(f) for f in new_components]
+
+        final_components = orig_components.copy()
+        for i in range(len(new_component_gene_names)):
+            if (
+                    # Do not add components if they represent the same gene as an existing component
+                    #   (we're not handling the case of multiple copies of a gene getting fused together with something else...
+                    new_component_gene_names[i] in orig_component_gene_names
+                    # And don't list a fusion gene itself as a fusion component
+                    or new_components[i].fusion_type
+            ):
+                continue
+            final_components.append(new_components[i])
+        final_components = sorted(final_components, key=lambda f: (f.location.start, f.location.end))
+
+    return final_components
+
+def fusionfisher(feature_list, ref_annotation, adjudicate=True):
     """
     This function parses through a list of CDSs and returns a unique list of CDSs, cleaning up annotation artifacts due to gene fusion events, as well as renaming such genes and those that have conjoined with their neighbor.
 
     :param feature_list: list of sorted SeqFeature objects.
+    :param ref_annotation: dict mapping the reference IDs and gene names (keys according to annomerge.key_ref_gene) to (Autarkic)SeqFeatures
     :param adjudicate: bool whether to attempt resolution of detected conflicts.
        This is useful to have as True during RATT postprocessing, but to set False and leave for the thunderdome otherwise.
     :return:
@@ -99,8 +134,8 @@ def fusionfisher(feature_list, adjudicate=True):
     outlist = []
     last_feature_by_strand = {}
     remarkable = {
-        'hybrid': [],
-        'conjoined': [],
+        'partial': [],
+        'whole': [],
     }
     rejects = []
 
@@ -139,7 +174,7 @@ def fusionfisher(feature_list, adjudicate=True):
                     'remark':"Same locus as rival (fusion) gene and name already included as fusion element there.",
                 })
             #
-            # Artifact due to a gene fusion hybrid
+            # Artifact due to a partial gene fusion
             #
             else:
                 if (pf_goodstart and not cf_goodstart) or (not pf_goodstop and cf_goodstop):
@@ -153,6 +188,30 @@ def fusionfisher(feature_list, adjudicate=True):
                     upstream = prev_feature
                     downstream = feature
 
+                # Remove locus tags for these deepcopied features.
+                # This is how we can tell that they are not represented in the original annotation
+                # for the defuse process.
+                component1 = deepcopy(upstream)
+                component1.qualifiers.pop('locus_tag', None)
+                component2 = deepcopy(downstream)
+                component2.qualifiers.pop('locus_tag', None)
+                coord_check(
+                    component1,
+                    ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
+                    fix_stop=True,
+                    seek_stop=False,
+                    check_context=False,
+                    best_effort=True,
+                )
+                coord_check(
+                    component2,
+                    ref_annotation[key_ref_gene(component2.source, extractor.get_gene(component2))],
+                    fix_start=True,
+                    seek_stop=False,
+                    check_context=False,
+                    best_effort=True,
+                )
+
                 fusion_upgrade(
                     base=prev_feature,
                     upstream=upstream,
@@ -163,13 +222,19 @@ def fusionfisher(feature_list, adjudicate=True):
                     'feature':outlist.pop(),
                     'superior':prev_feature,
                     'evid':'combined_annotation',
-                    'remark':"Apparent hybrid fusion gene. Name incorporated into rival feature's and redundant locus removed.",
+                    'remark':"Apparent partial fusion gene. Name incorporated into rival feature's and redundant locus removed.",
                 })
-                remarkable['hybrid'].append(prev_feature)
+                remarkable['partial'].append(prev_feature)
+                if not prev_feature.fusion_type:
+                    prev_feature.fusion_type = 'partial'
+                prev_feature.fusion_components = add_components(
+                    prev_feature.fusion_components,
+                    [component1, component2],
+                )
 
         elif have_same_stop(prev_feature.location, feature.location):
             #
-            # Conjoined genes
+            # whole gene fusions
             #
             if (((len(prev_feature.location) > len(feature.location)) and prev_feature.de)
                 or ((len(feature.location) > len(prev_feature.location)) and feature.de)):
@@ -186,21 +251,58 @@ def fusionfisher(feature_list, adjudicate=True):
                     f"Upstream gene {'|'.join([extractor.get_ltag(upstream),extractor.get_gene(upstream)])} conjoins with this one."
                 )
 
+                component1 = deepcopy(upstream)
+                component1.qualifiers.pop('locus_tag', None)
+                coord_check(
+                    component1,
+                    ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
+                    fix_stop=True,
+                    seek_stop=False,
+                )
                 fusion_upgrade(
                     base=upstream,
                     upstream=upstream,
                     downstream=downstream,
                 )
 
-                remarkable['conjoined'].append(upstream)
+                remarkable['whole'].append(upstream)
+                # A redundant partial gene fusion would look like a whole gene fusion
+                # see 'idempotence' test case.
+                if not upstream.fusion_type:
+                    upstream.fusion_type = 'whole'
+                upstream.fusion_components = add_components(
+                    upstream.fusion_components,
+                    [component1, downstream],
+                )
             #
-            # Another signature of a gene fusion hybrid
+            # Another signature of a partial gene fusion
             #
             elif complementary(prev_feature, feature):
                 if feature.rcs:
                     upstream, downstream = feature, prev_feature
                 else:
                     upstream, downstream = prev_feature, feature
+
+                component1 = deepcopy(upstream)
+                component1.qualifiers.pop('locus_tag', None)
+                component2 = deepcopy(downstream)
+                component2.qualifiers.pop('locus_tag', None)
+                coord_check(
+                    component1,
+                    ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
+                    fix_stop=True,
+                    seek_stop=False,
+                    check_context=False,
+                    best_effort=True,
+                )
+                coord_check(
+                    component2,
+                    ref_annotation[key_ref_gene(component2.source, extractor.get_gene(component2))],
+                    fix_start=True,
+                    seek_stop=False,
+                    check_context=False,
+                    best_effort=True,
+                )
                 fusion_upgrade(
                     base=upstream,
                     upstream=upstream,
@@ -208,12 +310,18 @@ def fusionfisher(feature_list, adjudicate=True):
                     update_location=True,
                 )
 
-                remarkable['hybrid'].append(upstream)
+                remarkable['partial'].append(upstream)
+                if not upstream.fusion_type:
+                    upstream.fusion_type = 'partial'
+                upstream.fusion_components = add_components(
+                    upstream.fusion_components,
+                    [component1, component2],
+                )
                 rejects.append({
                     'feature':downstream,
                     'superior':upstream,
                     'evid':'combined_annotation',
-                    'remark':"Apparent hybrid fusion gene.",
+                    'remark':"Apparent partial gene fusion.",
                 })
                 outlist.remove(downstream)
             #
@@ -298,4 +406,4 @@ def fusionfisher(feature_list, adjudicate=True):
             last_feature_by_strand[feature.location.strand] = prev_feature
 
 
-    return outlist, remarkable['hybrid'] + remarkable['conjoined'], rejects
+    return outlist, remarkable['partial'] + remarkable['whole'], rejects

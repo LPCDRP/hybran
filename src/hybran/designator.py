@@ -33,16 +33,14 @@ def append_qualifier(qualifiers, qual_name, qual_value):
     else:
         qualifiers[qual_name] = [qual_value]
 
-def assign_locus_tags(gbk, prefix):
-
-    output_records = []
+def assign_locus_tags(features_by_contig, prefix):
 
     # Check for existing instances of this locus tag prefix
     # TODO - refactoring opportunity with find_next_increment()
     ltags = []
     n_digits = 5
     delim = '_'
-    for ltag in extractor.gene_dict(gbk, cds_only=False).keys():
+    for ltag in extractor.gene_dict(features_by_contig, cds_only=False):
         if ltag.startswith(prefix):
             ltags.append(ltag)
     if ltags:
@@ -56,9 +54,8 @@ def assign_locus_tags(gbk, prefix):
         increment = 1
 
     old_to_new = dict()
-    for record in SeqIO.parse(gbk, "genbank"):
-        output_records.append(record)
-        for feature in record.features:
+    for record in features_by_contig:
+        for feature in features_by_contig[record]:
             if 'locus_tag' not in feature.qualifiers.keys():
                 continue
             elif feature.qualifiers['locus_tag'][0].startswith(prefix+delim):
@@ -76,8 +73,6 @@ def assign_locus_tags(gbk, prefix):
                     increment += 1
                     old_to_new[orig_locus_tag] = new_locus_tag
                     feature.qualifiers['locus_tag'][0] = new_locus_tag
-
-    SeqIO.write(output_records, gbk, "genbank")
 
 def assign_orf_id(increment, reference=False):
     """
@@ -166,6 +161,15 @@ def is_pseudo(qualifiers):
     """
     return 'pseudo' in qualifiers.keys() or 'pseudogene' in qualifiers.keys()
 
+def key_ref_gene(ref_id, gene_name):
+    """
+    Generate a key for ref_annotation dictionary
+
+    We do this rather than use a nested dictionary because, for gene fusions,
+    the reference sequence that each member lifted over from is not necessarily the same.
+    """
+    return '@@@'.join([ref_id, gene_name])
+
 #
 # These can be applied to sequence record IDs to match the designated property
 #
@@ -182,7 +186,7 @@ def has_unannotated_component(name):
     return bool(re.search(r'(::|^)' + generic_orf_prefix[0] + r'\d+(::|$)', name))
 
 def is_reference(name):
-    return not name.startswith((generic_orf_prefix[0],'L_','L2_'))
+    return name and not name.startswith((generic_orf_prefix[0],'L_','L2_'))
 
 def is_raw_ltag(name):
     return name.startswith(('L_','L2_'))

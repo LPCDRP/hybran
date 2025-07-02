@@ -4,6 +4,7 @@ from hybran import (
     annomerge,
     config,
     demarcate,
+    designator,
     pseudoscan,
 )
 from hybran.bio import (
@@ -89,7 +90,7 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
     feature = test_features[feature_type]
     config.hybran_tmp_dir = tmp_path
     ref_feature = ref_features[ref_genome[feature_type]][
-        annomerge.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
+        designator.key_ref_gene(test_features[feature_type].source, test_features[feature_type].qualifiers['gene'][0])
     ]
     record_sequence = list(SeqIO.parse(f'data/{source_genome[feature_type]}.fasta', 'fasta'))[0]
     for part in test_features[feature_type].location.parts:

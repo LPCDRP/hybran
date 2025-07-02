@@ -34,12 +34,13 @@ outdir/
 ├── hybran.log
 │
 ├── <i>sample1</i>/
+│   ├── fusion_report.tsv
+│   ├── pseudoscan_report.tsv
 │   ├── annomerge/
 │   │   ├── <i>sample1</i>.gbk
 │   │   ├── <i>sample1</i>.gff
 │   │   ├── coord_corrections.tsv
 │   │   ├── prokka_unused.tsv
-│   │   ├── pseudoscan_report.tsv
 │   │   └── ratt_unused.tsv
 |   ├── ratt/
 │   │   └── ...
@@ -123,6 +124,27 @@ Its values for all three metrics are shown in the next columns.
 : Percent subject (reference) alignment coverage
 * pct_qry_covg
 : Percent query alignment coverage
+
+##### `*/fusion_report.tsv`
+
+* fusion_type:
+Either `whole`, `partial`, or `..` (in the case of component descriptions).
+Whole-gene fusions have all gene components mostly intact, with the fusion due usually to a non-stop mutation or a small frameshift.
+Partial-gene fusions are chimeric genes in which the gene components are missing substantial amount of sequences.
+* locus_tag
+* gene_name
+* strand
+* start
+* end
+
+Example:
+
+```
+fusion_type     locus_tag       gene_name       strand  start   end
+partial         L00004          geneA::geneB    1       10000   10600
+..              L00004          geneA           1       10000   10300
+..              .               geneB           1       10356   10500
+```
 
 ##### `*/annomerge/{ratt,prokka}_unused.tsv` `*/{ratt,prokka}-postprocessed/invalid_features.tsv`
 
@@ -214,7 +236,7 @@ For `og_start`, `og_end`, `new_start`, and `new_end`, "start" always corresponds
 `fixed_start_codon` and `fixed_stop_codon` indicate whether they have changed, but these correspond to the strand-adjusted start and stop positions, hence the reference to codons.
 
 
-##### `*/*/pseudoscan_report.tsv`
+##### `*/pseudoscan_report.tsv`
 
 A summary of the characteristics of "interesting" features found by [pseudoscan](pseudoscan.md).
 Such features include all genes to which the `pseudo` tag was applied, but also includes non-pseudo genes if they had signatures consistent with a `pseudo` but had a redeeming attribute.
