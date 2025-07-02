@@ -13,9 +13,9 @@ def test_single_gene_clusters():
             ['H37Rv', 'Rv3763', 'LpqH'],
             ['1-0006', 'Rv3763', 'LpqH']
         ],
-        'H37Rv,Rv2109c,': [
-            ['H37Rv', 'Rv2109c', ''],
-            ['1-0006', 'L_02258', 'L_02258']
+        'H37Rv,Rv2109c,Rv2109c': [
+            ['H37Rv', 'Rv2109c', 'Rv2109c'],
+            ['1-0006', '1-0006_02258', 'L_02258']
         ]
     }
     # initialize parseClustering's global variable
@@ -25,7 +25,7 @@ def test_single_gene_clusters():
 
     print(parseClustering.isolate_update_dictionary)
     assert parseClustering.isolate_update_dictionary == \
-        {'1-0006':{'L_02258':'Rv2109c'}}
+        {'1-0006':{'1-0006_02258': {'name':'Rv2109c', 'pseudo':False}}}
 
 
 def test_prepare_for_eggnog():
