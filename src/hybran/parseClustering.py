@@ -62,8 +62,6 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                                 if not gene_id or not locus_tag:
                                     continue
                                 gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
-                                if not designator.is_reference(locus_tag) and not designator.is_raw_ltag(locus_tag):
-                                    gene = locus_tag
                                 isolate_id_ltag[gene_id] = (locus_tag, gene)
                         if not isolate_id in gff_dictionary.keys():
                             gff_dictionary[isolate_id] = isolate_id_ltag
@@ -306,7 +304,7 @@ def get_cluster_fasta(rep, cluster_list):
     added_seq = []
     unannotated_genes_list = []
     fasta_tmp = open(cluster_temp_fasta, 'w')
-    if not (designator.is_raw_ltag(rep_locus) and designator.is_raw_ltag(rep_gene_name)):
+    if not designator.is_raw_ltag(rep_gene_name):
         rep_sequence = isolate_sequences[rep_isolate_id][rep_locus]
         rep_sequence_object = rep_sequence
         seq_id = '|'.join([rep_isolate_id, rep_locus, rep_gene_name])
@@ -346,12 +344,9 @@ def cluster_annotation_presence(cluster_list):
     for gene in cluster_list:
         gene_locus = gene[1]
         gene_name = gene[2]
-        if not(designator.is_raw_ltag(gene_locus) and designator.is_raw_ltag(gene_name)):
+        if not designator.is_raw_ltag(gene_name):
             annotated += 1
-    if annotated == len(cluster_list):
-        return True
-    else:
-        return False
+    return (annotated == len(cluster_list))
 
 
 def unique_seqs(annotations):
