@@ -106,6 +106,10 @@ def create_gene_entries(gbk):
             elif 'locus_tag' in f.qualifiers.keys():
                 ltag = f.qualifiers['locus_tag'][0]
                 if ltag not in genes.keys():
+                    gene_name = extractor.get_gene(f, tryhard=False)
+                    g_quals = { 'locus_tag': [ltag] }
+                    if gene_name != '.':
+                        g_quals['gene'] = [gene_name]
                     genes[ltag] = SeqFeature(
                         FeatureLocation(
                             f.location.start,
@@ -113,10 +117,7 @@ def create_gene_entries(gbk):
                             f.location.strand,
                         ),
                         type = 'gene',
-                        qualifiers = dict(
-                            locus_tag=ltag,
-                            gene=extractor.get_gene(f)
-                        )
+                        qualifiers = g_quals
                     )
                     updated_record_features.append(genes[ltag])
                 else:

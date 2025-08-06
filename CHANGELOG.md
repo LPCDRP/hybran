@@ -16,6 +16,7 @@
 * Lifted memory restrictions on cd-hit (#74)
 * Fixed crash that occurs when only one gene component of a fusion doesn't have a product field. (#75)
 * Sort features by end position when start positions are identical.
+* Removed locus tags from /gene qualifiers of gene features (#78)
 
 ## [Version 1.8](https://gitlab.com/LPCDRP/hybran/-/tags/1.8)
 
