@@ -302,14 +302,12 @@ def cmds():
                              default='XX..XX',
                              help='splice donor and acceptor sequences. example: GT..AG')
     ratt_params.add_argument('--ratt-correct-splice',
-                             action = 'store_true',
-# TODO: need python 3.9 for this
-#                             action = argparse.BooleanOptionalAction,
+                             action=argparse.BooleanOptionalAction,
+                             default=False,
                              help='whether RATT should attempt splice site corrections')
     ratt_params.add_argument('--ratt-correct-pseudogenes',
-                             action = 'store_true',
-# TODO: need python 3.9 for this
-#                             action = argparse.BooleanOptionalAction,
+                             action=argparse.BooleanOptionalAction,
+                             default=False,
                              help='whether RATT should attempt correction of reference pseudogenes in your samples')
 
 
