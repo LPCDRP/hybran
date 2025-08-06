@@ -32,6 +32,7 @@ from . import (
 )
 from .bio import (
     SeqIO,
+    sort_features,
     translate,
 )
 from .compare import (
@@ -106,29 +107,6 @@ def loc_index(feature):
         int(feature.location.end),
         int(feature.location.strand),
     )
-
-def get_ordered_features(feature_list):
-    """
-    This function takes list of features and returns the list sorted by genomic location
-    :param feature_list: list of type SeqFeature (Biopython feature) formats
-    :return: sorted list of type SeqFeature (Biopython feature) formats, sorted by genomic location
-    """
-
-    features_dict = {}
-    ordered_features = []
-    for feature in feature_list:
-        feature_start = int(feature.location.start)
-        if feature_start not in features_dict.keys():
-            features_dict[feature_start] = [feature]
-        else:
-            features_dict[feature_start].append(feature)
-    ordered_features_dict = collections.OrderedDict(sorted(features_dict.items()))
-    for position in ordered_features_dict.keys():
-        features_in_position = ordered_features_dict[position]
-        for feature in features_in_position:
-            ordered_features.append(feature)
-    return ordered_features
-
 
 def generate_feature_dictionary(feature_list):
     """
@@ -680,7 +658,7 @@ def run(
                 if 'gene' not in feature.qualifiers.keys():
                     feature.qualifiers['gene'] = [ feature.qualifiers['locus_tag'][0] ]
 
-        sorted_final = get_ordered_features(annomerge_records[i].features)
+        sorted_final = sort_features(annomerge_records[i].features)
         annomerge_records[i].features = sorted_final
 
         logger.info(f'{seqname}: {n_final_cdss} CDSs annomerge')

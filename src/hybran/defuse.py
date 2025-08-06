@@ -1,7 +1,10 @@
 from copy import deepcopy
 import os
 
-from .bio import SeqIO
+from .bio import (
+    sort_features,
+    SeqIO,
+)
 from .lumberjack import load_fusions
 from . import (
     converter,
@@ -60,12 +63,6 @@ def defuse(feature_list, fusions_by_ltag):
         else:
             out_features.append(feature)
 
-    out_features = sorted(
-        out_features,
-        key=lambda f: (
-            0 if f.type == 'source' else 1,
-            f.location.start,
-            f.location.end,
-        )
-    )
+    out_features = sort_features(out_features)
+
     return out_features

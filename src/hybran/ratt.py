@@ -19,12 +19,12 @@ from . import (
 from .annomerge import (
     fusionfisher,
     get_and_remove_ref_tracer,
-    get_ordered_features,
 )
 from .bio import (
     AutarkicSeqFeature,
     FeatureProperties,
     SeqIO,
+    sort_features,
     translate,
 )
 from .config import cnf
@@ -188,7 +188,7 @@ def postprocess_contig(
         })
 
     logger.info(f"{seqname}: {len(invalid_ratt_features)} RATT features failed validation.")
-    ratt_contig_features = get_ordered_features(valid_features)
+    ratt_contig_features = sort_features(valid_features)
 
     logger.info(f"{seqname}: Checking for gene fusion signatures in RATT annotations...")
     ratt_contig_features, merged_features, inconsistent_ratt_features = fusionfisher(

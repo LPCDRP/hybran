@@ -16,6 +16,16 @@ from Bio.SeqFeature import (
 )
 
 
+def sort_features(features):
+    return sorted(
+        features,
+        key=lambda f: (
+            0 if f.type == 'source' else 1,
+            f.location.start,
+            f.location.end,
+        )
+    )
+
 loc_props = [
     'alignment',
     'd3',

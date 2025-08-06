@@ -16,6 +16,7 @@ for ref in [
         'H37Rv',
         'nissle-hybrid',
         'PAO1_107_refseq_2019',
+        'ECOLIN',
 ]:
     ref_file = os.path.join(pathlib.Path(__file__).parent.resolve(), 'data', f'{ref}.gbk')
     ref_features[ref] = {}
@@ -171,6 +172,68 @@ features = {
                         "D31 VS1 VE1 RCS0 RCE1 BOK0",
                     ],
                     'pseudo': [],
+                },
+            ),
+        },
+    },
+    'AZ20_reannotatedref': {
+        'ECOLIN_26713': {
+            'ratt': SeqFeature(
+                FeatureLocation(2651439, 2659977, strand=-1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['ECOLIN_26713'], 'gene':['NISSLEORF0188'],
+                },
+            ),
+            'prokka': SeqFeature(
+                FeatureLocation(2651439, 2659977, strand=-1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['L_02563'],
+                },
+            ),
+            'prokka_postprocessed': SeqFeature(
+                FeatureLocation(2651439, 2658051, strand=-1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['L_02563'], 'gene':['NISSLEORF0154'],
+                    'pseudo':[''],
+                },
+            ),
+        },
+        'ECOLIN_26714': {
+            'ratt': SeqFeature(
+                FeatureLocation(2658246, 2659134, strand=-1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['ECOLIN_26714'], 'gene':['NISSLEORF0154'],
+                    'pseudo':[''],
+                },
+            ),
+            'ratt_corrected': SeqFeature(
+                FeatureLocation(2651439, 2659227, strand=-1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['ECOLIN_26714'], 'gene':['NISSLEORF0154'],
+                    'pseudo':[''],
+                },
+            ),
+        },
+        'ECOLIN_26715': {
+            'ratt': SeqFeature(
+                FeatureLocation(2651439, 2658051, strand=-1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['ECOLIN_26714'], 'gene':['NISSLEORF0154'],
+                },
+            ),
+        },
+        'ECOLIN_26716': {
+            'ratt': SeqFeature(
+                FeatureLocation(2651439, 2656341, strand=-1),
+                type='CDS',
+                qualifiers={
+                    'locus_tag':['ECOLIN_26716'], 'gene':['NISSLEORF0143'],
                 },
             ),
         },
@@ -659,6 +722,8 @@ for sample in features:
             'PAK',
     ]:
         source = 'PAO1_107_refseq_2019.NC_002516'
+    elif sample == 'AZ20_reannotatedref':
+        source = 'ECOLIN.ECOLIN.CP007799.1'
     else:
         source = 'nissle-hybrid.CP007799'
     for gene in features[sample]:
