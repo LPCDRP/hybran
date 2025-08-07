@@ -3,6 +3,7 @@ import functools
 import logging
 import os
 import re
+import tempfile
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -134,14 +135,29 @@ def postprocess_contig(
     abinit_blast_results_complete = {}
     # only contains results for the accepted reference gene hit
     abinit_blast_results = {}
+    prokka_contig_cdss = [f for f in contig_features if f.type == 'CDS']
+    with tempfile.NamedTemporaryFile(
+            suffix='.fasta',
+            dir=config.hybran_tmp_dir,
+            delete=False,
+            mode='w',
+    ) as fa_handle:
+        cds_records = [
+            SeqRecord(Seq(f.qualifiers['translation'][0]), id=f.qualifiers['locus_tag'][0])
+            for f in prokka_contig_cdss
+        ]
+        cds_fasta = fa_handle.name
+        SeqIO.write(cds_records, cds_fasta, "fasta")
+    rbh_results, all_qry2ref_blast_hits = BLAST.reciprocal_best_hit(cds_fasta, ref_proteome, nproc=nproc)
     mp_postprocess_feature = functools.partial(
         postprocess_feature,
         ref_annotation=ref_annotation,
         ref_proteome=ref_proteome,
         seq_ident=seq_ident,
         seq_covg=seq_covg,
+        rbh_results=rbh_results,
+        all_blast_hits=all_qry2ref_blast_hits,
     )
-    prokka_contig_cdss = [f for f in contig_features if f.type == 'CDS']
     with multiprocessing.Pool(processes=nproc) as pool:
         contig_features, ref_matched, coords_corrected = zip(*pool.map(
             mp_postprocess_feature,
@@ -171,6 +187,8 @@ def postprocess_feature(
         ref_proteome,
         seq_ident,
         seq_covg,
+        rbh_results,
+        all_blast_hits,
 ):
     """
     general postprocessing of individual ab initio features.
@@ -193,12 +211,8 @@ def postprocess_feature(
     if feature.type != 'CDS':
         return feature, ref_matched, coords_corrected
 
-    top_hit, low_covg, blast_hits = BLAST.reference_match(
-        SeqRecord(Seq(feature.qualifiers['translation'][0])),
-        subject=ref_proteome,
-        seq_ident=seq_ident,
-        seq_covg=seq_covg,
-    )
+    top_hit = rbh_results[feature.qualifiers['locus_tag'][0]]
+    blast_hits = all_blast_hits[feature.qualifiers['locus_tag'][0]]
 
     if top_hit:
         ref_matched = True
