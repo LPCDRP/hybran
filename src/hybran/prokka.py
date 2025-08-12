@@ -148,14 +148,18 @@ def postprocess_contig(
         ]
         cds_fasta = fa_handle.name
         SeqIO.write(cds_records, cds_fasta, "fasta")
-    rbh_results, all_qry2ref_blast_hits = BLAST.reciprocal_best_hit(cds_fasta, ref_proteome, nproc=nproc)
+    bbh_results, all_qry2ref_blast_hits = BLAST.bidirectional_best_hit(
+        cds_fasta,
+        ref_proteome,
+        nproc=nproc,
+    )
     mp_postprocess_feature = functools.partial(
         postprocess_feature,
         ref_annotation=ref_annotation,
         ref_proteome=ref_proteome,
         seq_ident=seq_ident,
         seq_covg=seq_covg,
-        rbh_results=rbh_results,
+        bbh_results=bbh_results,
         all_blast_hits=all_qry2ref_blast_hits,
     )
     with multiprocessing.Pool(processes=nproc) as pool:
@@ -187,7 +191,7 @@ def postprocess_feature(
         ref_proteome,
         seq_ident,
         seq_covg,
-        rbh_results,
+        bbh_results,
         all_blast_hits,
 ):
     """
@@ -211,7 +215,7 @@ def postprocess_feature(
     if feature.type != 'CDS':
         return feature, ref_matched, coords_corrected
 
-    top_hit = rbh_results[feature.qualifiers['locus_tag'][0]]
+    top_hit = bbh_results[feature.qualifiers['locus_tag'][0]]
     blast_hits = all_blast_hits[feature.qualifiers['locus_tag'][0]]
 
     if top_hit:

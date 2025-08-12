@@ -284,8 +284,15 @@ def run_blast(fastafile, nproc, seq_ident, seq_covg):
     write(all_results_list)
 
 
-def reciprocal_best_hit(query, subject, blast_type="p", nproc=1):
-    rbh_results = defaultdict(lambda :None)
+def bidirectional_best_hit(
+        query,
+        subject,
+        seq_ident,
+        seq_covg,
+        nproc=1,
+        blast_type="p",
+):
+    bbh_results = defaultdict(lambda :None)
 
     qry2ref_hits, _, _ = blast(
         query,
@@ -311,7 +318,7 @@ def reciprocal_best_hit(query, subject, blast_type="p", nproc=1):
     }
 
     for query_gene in qry2ref_hit_dict:
-        rbh_match = None
+        bbh_match = None
         score_to_beat = 0.
         qry_top_hits = top_hits(qry2ref_hit_dict[query_gene])
         for ref_gene in qry_top_hits:
@@ -319,8 +326,8 @@ def reciprocal_best_hit(query, subject, blast_type="p", nproc=1):
                     query_gene in ref2qry_top_hits[ref_gene]
                     and qry2ref_hit_dict[query_gene][ref_gene]['bitscore'] > score_to_beat
             ):
-                rbh_match = ref_gene
+                bbh_match = ref_gene
                 score_to_beat = qry2ref_hit_dict[query_gene][ref_gene]['bitscore']
-        rbh_results[query_gene] = rbh_match
+        bbh_results[query_gene] = bbh_match
 
-    return rbh_results, qry2ref_hit_dict
+    return bbh_results, qry2ref_hit_dict
