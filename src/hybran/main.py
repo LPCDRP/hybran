@@ -31,6 +31,12 @@ warnings.filterwarnings(
     message=r"Partial codon",
 )
 
+def percentage(string):
+    num = float(string)
+    if not (num <= 100 and num >= 0):
+        raise argparse.ArgumentTypeError("Not a percentage.")
+    return num
+
 def cmds():
     """
     argparse parse input provided by the user and call appropriate command
@@ -210,6 +216,13 @@ def cmds():
     #
     required = parser.add_argument_group('Required')
     optional = parser.add_argument_group('Optional')
+    bbh_parser = parser.add_argument_group(
+        'Bidirectional BLAST Hit (BBH) Settings',
+        description=(
+            'BBHs are used in matching ab initio predicted genes to reference genes,'
+            ' as well as to resolve members of MCL clusters containing multiple different reference genes.'
+        ),
+    )
     ratt_params = parser.add_argument_group('RATT Options.\n(See http://ratt.sourceforge.net/documentation.html and\n https://github.com/ThomasDOtto/ratt for more details)')
     prokka_params = parser.add_argument_group('Prokka Options.\n(See https://github.com/tseemann/prokka for more details)')
     required.add_argument('-g', '--genomes', help='Directory, a space-separated list of FASTAs, or a FOFN '
@@ -263,6 +276,19 @@ def cmds():
                               'This option is deprecated and has no effect.'
                               'If name unification is not desired, consider running `hybran standardize` afterwards.'
                           ))
+
+    bbh_parser.add_argument(
+        '--bbh-min-coverage',
+        help="Minimum percent query and subject alignment coverage for candidate BBHs.",
+        default=config.cnf.bbh.min_coverage,
+        type=percentage,
+    )
+    bbh_parser.add_argument(
+        '--bbh-min-bitscore',
+        help="Minimum BLAST bitscore for candidate BBHs.",
+        default=config.cnf.bbh.min_bitscore,
+        type=float,
+    )
 
     logging_level = optional.add_mutually_exclusive_group()
     logging_level.add_argument('--verbose', action='store_true', help='Verbose output')
@@ -377,6 +403,8 @@ def main(args, prokka_args):
     # Setting up the Hybran temporary directory
     config.init()
     hybran_tmp_dir = config.hybran_tmp_dir
+    config.cnf.bbh.min_coverage = args.bbh_min_coverage
+    config.cnf.bbh.min_bitscore = args.bbh_min_bitscore
 
     designator.generic_orf_prefix[0]=args.orf_prefix
     designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"

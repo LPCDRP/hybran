@@ -23,7 +23,16 @@ blast_prog = {
 }
 
 
-def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, metric='bitscore', blast_type = "p", strict=False):
+def reference_match(
+        query,
+        subject,
+        min_bitscore,
+        seq_covg,
+        identify=lambda _:_,
+        metric='bitscore',
+        blast_type="p",
+        strict=False,
+):
     """
     Wrapper to blast(), summarize(), and top_hit() that tells you the bottom line.
     See those functions for descriptions of the main input parameters.
@@ -43,9 +52,17 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
     hits, misses, truncation_signatures = blast(
         query,
         subject,
-        seq_ident,
+        min_bitscore,
         seq_covg,
         blast_type,
+        blast_extra_args=[
+            # comp_based_stats described in:
+            # Yu & Altschul, 2005 doi:10.1093/bioinformatics/bti070
+            # Reason for this setting:
+            # https://github.com/ncbi/blast_plus_docs/issues/23
+            '-comp_based_stats', '0',
+            '-seg', 'no',
+        ],
     )
     result = None
     low_covg = False
@@ -70,8 +87,8 @@ def reference_match(query, subject, seq_ident, seq_covg, identify=lambda _:_, me
         stats = hit_dict[result]
         scov_pass = stats['scov'] >= seq_covg
         qcov_pass = stats['qcov'] >= seq_covg
-        ident_pass = stats['iden'] >= seq_ident
-        if ident_pass and any([scov_pass, qcov_pass]) and not all([scov_pass, qcov_pass]):
+        bitscore_pass = stats['bitscore'] >= min_bitscore
+        if bitscore_pass and any([scov_pass, qcov_pass]) and not all([scov_pass, qcov_pass]):
             low_covg = True
         # if we found a proper hit, don't look for anything else
         break
@@ -117,7 +134,7 @@ def summarize(blast_results, identify = lambda _:_):
     """
     summary = defaultdict(lambda: defaultdict(lambda : {
         'iden':0.,
-        'evalue': 1e10,
+        #'evalue': 1e10,
         'bitscore':0.,
         'qcov':0.,
         'scov':0.,
@@ -126,7 +143,7 @@ def summarize(blast_results, identify = lambda _:_):
         fields = line.split('\t')
         summary[identify(fields[0])][identify(fields[1])] = {
             'iden':float(fields[2]),
-            'evalue': float(fields[10]),
+            #'evalue': float(fields[10]),
             'bitscore': float(fields[11]),
             'qcov':float(fields[14]),
             'scov':float(fields[15]),
@@ -138,19 +155,27 @@ def summarize(blast_results, identify = lambda _:_):
 
     return summary
 
-def blastn(query, subject, seq_ident, seq_covg, nproc=1):
-        return blast(query, subject, seq_ident, seq_covg, blast_type = "n", nproc=nproc)
+def blastn(query, subject, min_bitscore, seq_covg, nproc=1):
+        return blast(query, subject, min_bitscore, seq_covg, blast_type = "n", nproc=nproc)
         
-def blastp(query, subject, seq_ident, seq_covg, nproc=1):
-        return blast(query, subject, seq_ident, seq_covg, blast_type = "p", nproc=nproc)
+def blastp(query, subject, min_bitscore, seq_covg, nproc=1):
+        return blast(query, subject, min_bitscore, seq_covg, blast_type = "p", nproc=nproc)
 
-def blast(query, subject, seq_ident, seq_covg, blast_type = "p", nproc=1):
+def blast(
+        query,
+        subject,
+        min_bitscore,
+        seq_covg,
+        blast_type="p",
+        nproc=1,
+        blast_extra_args=[],
+):
     """
     Runs BLAST
 
     :param query: str query fasta file name or SeqRecord object containing the query sequence/id/description
     :param subject: str subject fasta file name or SeqRecord
-    :param seq_ident: sequence identity threshold
+    :param min_bitscore: bitscore threshold
     :param seq_covg: alignment coverage threshold
     :param blast_type: nucleotide or protein blast
     :returns:
@@ -201,11 +226,7 @@ def blast(query, subject, seq_ident, seq_covg, blast_type = "p", nproc=1):
         '-subject', fa,
         '-outfmt', blast_outfmt,
         '-num_threads', str(nproc),
-        # Moreno-Hagelsieb & Latimer, 2008 doi:10.1093/bioinformatics/btm585
-        '-use_sw_tback',
-        '-seg', 'yes',
-        '-soft_masking', 'true',
-    ]
+    ] + blast_extra_args
     if not isinstance(query, SeqRecord):
         blast_cmd += ['-query', query]
         blast_stdin = None
@@ -227,6 +248,7 @@ def blast(query, subject, seq_ident, seq_covg, blast_type = "p", nproc=1):
             column = line.split('\t')
             identity = float(column[2])
             length = float(column[3])
+            bitscore = float(column[11])
             qlen = float(column[12])
             slen = float(column[13])
             qseq, sseq = column[14:16]
@@ -235,11 +257,11 @@ def blast(query, subject, seq_ident, seq_covg, blast_type = "p", nproc=1):
             column[14:16] = str(qcov), str(scov)
             if blast_stdin is not None:
                 column[0] = query.id
-            if (identity >= seq_ident) and (qcov >= seq_covg) and (scov >= seq_covg):
+            if (bitscore >= min_bitscore) and (qcov >= seq_covg) and (scov >= seq_covg):
                 blast_filtered.append('\t'.join(column))
-            elif (identity >= seq_ident) and (qcov >= seq_covg) and (scov <= seq_covg):
+            elif (bitscore >= min_bitscore) and (qcov >= seq_covg) and (scov <= seq_covg):
                 blast_truncation.append('\t'.join(column))
-            elif (identity >= seq_ident) and (qcov <= seq_covg) and (scov >= seq_covg):
+            elif (bitscore >= min_bitscore) and (qcov <= seq_covg) and (scov >= seq_covg):
                 blast_truncation.append('\t'.join(column))
             else:
                 # Capture the rejected hits
@@ -287,29 +309,38 @@ def run_blast(fastafile, nproc, seq_ident, seq_covg):
 def bidirectional_best_hit(
         query,
         subject,
-        seq_ident,
-        seq_covg,
+        min_bitscore,
+        min_seq_covg,
         nproc=1,
         blast_type="p",
 ):
     bbh_results = defaultdict(lambda :None)
+    blast_extra_args = [
+        '-comp_based_stats', '2',
+        # Moreno-Hagelsieb & Latimer, 2008 doi:10.1093/bioinformatics/btm585
+        #'-use_sw_tback', # authors said this doesn't add much improvement but slows things down signicantly
+        '-seg', 'yes',
+        '-soft_masking', 'true',
+    ]
 
     qry2ref_hits, _, _ = blast(
         query,
         subject,
-        seq_ident=50, # permissive cutoffs
-        seq_covg=50,  # let the top hits speak for themselves
+        min_bitscore=min_bitscore,
+        seq_covg=min_seq_covg,
         blast_type=blast_type,
-        nproc=nproc
+        nproc=nproc,
+        blast_extra_args=blast_extra_args,
     )
     qry2ref_hit_dict = summarize(qry2ref_hits)
     ref2qry_hits, _, _ = blast(
         subject,
         query,
-        seq_ident=50,
-        seq_covg=50,
+        min_bitscore=min_bitscore,
+        seq_covg=min_seq_covg,
         blast_type=blast_type,
-        nproc=nproc
+        nproc=nproc,
+        blast_extra_args=blast_extra_args,
     )
     ref2qry_hit_dict = summarize(ref2qry_hits)
     ref2qry_top_hits = {

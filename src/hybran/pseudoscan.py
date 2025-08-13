@@ -120,7 +120,7 @@ def pseudoscan(
             top_hit, low_covg, blast_stats = BLAST.reference_match(
                 query=SeqRecord(Seq(feature_seq)),
                 subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
-                seq_ident=seq_ident,
+                min_bitscore=cnf.bbh.min_bitscore,
                 seq_covg=seq_covg,
             )
             blast_ok = top_hit and not low_covg
@@ -177,14 +177,14 @@ def pseudoscan(
             'transl_except',
             feature.transl_except,
         )
-    return call(feature, ref_was_pseudo, ref_d3, ref_len, seq_ident, seq_covg)
+    return call(feature, ref_was_pseudo, ref_d3, ref_len, cnf.bbh_min_bitscore, seq_covg)
 
 def call(
         feature,
         ref_was_pseudo,
         ref_d3=None,
         ref_len=None,
-        blast_seq_ident=None,
+        blast_min_bitscore=None,
         blast_seq_covg=None,
 ):
     """
@@ -198,7 +198,7 @@ def call(
         Whether the reference feature is divisible by 3.
         Only applicable if ref_was_pseudo == True.
     :param ref_len: int length of reference feature (for noting length differences)
-    :param blast_seq_ident: float alignment sequence identity threshold used
+    :param blast_min_bitscore: float alignment bitscore threshold used
     :param blast_seq_covg: float alignment coverage threshold used
     :returns: True if pseudo / False otherwise.
     """
@@ -217,7 +217,7 @@ def call(
     feature.alte = (not feature.rce and feature.ve)
     have_blast_info = (
         blast_ok is not None
-        and blast_seq_ident is not None
+        and blast_min_bitscore is not None
         and blast_seq_covg is not None
     )
 
@@ -261,7 +261,7 @@ def call(
     if have_blast_info:
         blast_note = (
             f"{'Strong' if blast_ok else 'Poor'} blastp match at "
-            f"{blast_seq_ident}% identity and {blast_seq_covg}% coverage thresholds"
+            f"{blast_min_bitscore}% bitscore and {blast_seq_covg}% coverage thresholds"
         )
     #Can only comment on differences in gene length if all(coords_ok).
     seq_len_diff_note = ''
