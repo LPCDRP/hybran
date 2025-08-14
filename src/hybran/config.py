@@ -10,9 +10,9 @@ from Bio.Data import CodonTable
 cnf = SimpleNamespace(
     tmpdir=None,
     genetic_code=None,
-    bbh=SimpleNamespace(
+    blast=SimpleNamespace(
         min_coverage=50,
-        min_bitscore=40,
+        min_bitscore=50,
     ),
 )
 

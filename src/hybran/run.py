@@ -120,10 +120,12 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
                              seq_covg=seq_covg,
                              out='cdhit_clusters.fasta')
         if 'blast_results' not in os.listdir(hybran_tmp_dir):
-            BLAST.run_blast(fastafile='cdhit_clusters.fasta',
-                            nproc=nproc,
-                            seq_ident=seq_ident,
-                            seq_covg=seq_covg)
+            BLAST.all_vs_all(
+                fastafile='cdhit_clusters.fasta',
+                nproc=nproc,
+                min_bitscore=config.cnf.blast.min_bitscore,
+                seq_covg=config.cnf.blast.min_coverage,
+            )
         if 'clustered_proteins' not in os.listdir(os.getcwd()):
             MCL.run_mcl(in_blast=hybran_tmp_dir + '/blast_results',
                         cdhit_clusters=clusters,

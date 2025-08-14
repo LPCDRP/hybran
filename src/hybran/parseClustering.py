@@ -170,7 +170,7 @@ def check_matches_to_known_genes(
     :param query_seq: SeqRecord query gene AA sequence
     :param reference_seqs: str fasta file name of reference genes to map against
     :param generic_seqs: str fasta file name of hitherto assigned generic genes (ORF####)
-    :param cluster_type: str category of CD-HIT clusters that the query_seq came from
+    :param cluster_type: str category of MCL clusters that the query_seq came from
     :param orf_increment: int increment to start new ORFs
     :returns:
         - name_to_assign (:py:class:`str`)
@@ -191,19 +191,24 @@ def check_matches_to_known_genes(
         refs = [reference_seqs]
 
     for ref in refs:
-        top_hit, low_covg, blast_stats = BLAST.reference_match(
-            query = query_seq,
-            subject = ref,
-            seq_ident = seq_ident,
-            seq_covg = seq_covg,
-            identify=get_gene_name,
-            strict=True,
-        )
-        if top_hit:
-            name_to_assign = top_hit
-            assign_new_generic = False
+        if cluster_type == 'multiref':
+            top_hit, blast_stats = BLAST.bidirectional_best_hit(
+                query=query_seq,
+                subject=ref,
+                min_bitscore=config.cnf.blast.min_bitscore,
+                min_seq_covg=config.cnf.blast.min_coverage,
+                identify=get_gene_name,
+                #strict=True,
+            )
+            if top_hit:
+                name_to_assign = top_hit[query_seq.id]
+                assign_new_generic = False
         else:
-            best_subcriticals += check_subcriticals(blast_stats)
+            top_hit = None
+
+        #if not top_hit:
+        #    best_subcriticals += check_subcriticals(blast_stats)
+        best_subcriticals = []
 
     if assign_new_generic:
         (orf_id, orf_increment) = designator.assign_orf_id(orf_increment)
@@ -464,7 +469,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
         if designator.is_raw_ltag(gene_name):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
             name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
-                query_seq = SeqRecord(gene_sequence),
+                query_seq = SeqRecord(gene_sequence, id=gene_name),
                 reference_seqs = reference_fasta,
                 generic_seqs = unannotated_fasta,
                 cluster_type = 'singleton',
@@ -620,7 +625,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                 for unannotated_gene in genes_to_annotate:
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
-                    unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus])
+                    unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus], id=unannotated_gene_locus)
                     name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
                         query_seq = unannotated_gene_seq,
                         reference_seqs = fasta_fp_to_blast,

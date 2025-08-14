@@ -19,7 +19,7 @@ from .demarcate import (
 from .designator import key_ref_gene
 
 
-def fissionfuser(flist, ref_annotation, seq_ident, seq_covg):
+def fissionfuser(flist, ref_annotation, seq_ident=0, seq_covg=0):
     """
     Given a list of features ordered by genomic position, identify adjacent gene fragments and combine them into a single feature.
     :param flist: list of SeqFeature objects
@@ -171,8 +171,6 @@ def fissionfuser(flist, ref_annotation, seq_ident, seq_covg):
                 pseudoscan.pseudoscan(
                     new_feature,
                     ref_annotation[key_ref_gene(new_feature.source, new_feature.qualifiers['gene'][0])],
-                    seq_ident=seq_ident,
-                    seq_covg=seq_covg,
                     attempt_rescue=True,
                 )
                 last_gene_by_strand[feature.location.strand] = new_feature

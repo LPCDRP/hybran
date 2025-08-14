@@ -22,6 +22,24 @@ blast_prog = {
     'p': 'blastp',
 }
 
+presets = {
+    'thorough': [
+        # comp_based_stats described in:
+        # Yu & Altschul, 2005 doi:10.1093/bioinformatics/bti070
+        # Reason for this setting:
+        # https://github.com/ncbi/blast_plus_docs/issues/23
+        '-comp_based_stats', '0',
+        '-seg', 'no',
+    ],
+    'careful': [
+        '-comp_based_stats', '2',
+        # Moreno-Hagelsieb & Latimer, 2008 doi:10.1093/bioinformatics/btm585
+        #'-use_sw_tback', # authors said this doesn't add much improvement but slows things down signicantly
+        '-seg', 'yes',
+        '-soft_masking', 'true',
+    ],
+}
+
 
 def reference_match(
         query,
@@ -32,11 +50,13 @@ def reference_match(
         metric='bitscore',
         blast_type="p",
         strict=False,
+        preset='thorough',
 ):
     """
     Wrapper to blast(), summarize(), and top_hit() that tells you the bottom line.
     See those functions for descriptions of the main input parameters.
     This function checks for complete hits and, failing that, partial hits.
+    :param query: SeqRecord a single gene to search
     :param strict: Boolean whether to strictly enforce all thresholds or allow for low-coverage alignments.
     :returns:
         - result (:py:class:`str`)  -
@@ -48,21 +68,14 @@ def reference_match(
         - stats (:py:class:`dict`)  -
              summary dict of blast results from either hits, truncation_signatures, or misses
     """
-    
+
     hits, misses, truncation_signatures = blast(
         query,
         subject,
         min_bitscore,
         seq_covg,
         blast_type,
-        blast_extra_args=[
-            # comp_based_stats described in:
-            # Yu & Altschul, 2005 doi:10.1093/bioinformatics/bti070
-            # Reason for this setting:
-            # https://github.com/ncbi/blast_plus_docs/issues/23
-            '-comp_based_stats', '0',
-            '-seg', 'no',
-        ],
+        blast_extra_args=presets[preset],
     )
     result = None
     low_covg = False
@@ -74,12 +87,12 @@ def reference_match(
         principal_lists = [hits, truncation_signatures]
         scraps = misses
     # this will be replaced by actual hits later if there are any
-    hit_dict = summarize(scraps, identify=identify)
+    hit_dict = summarize(scraps, identify=identify)[query.id]
 
     for hit_list in principal_lists:
         if not hit_list:
             continue
-        hit_dict = summarize(hit_list, identify=identify)
+        hit_dict = summarize(hit_list, identify=identify)[query.id]
         result = top_hit(
             hit_dict,
             metric=metric,
@@ -149,17 +162,13 @@ def summarize(blast_results, identify = lambda _:_):
             'scov':float(fields[15]),
         }
 
-    # if there's only one query, no need for the nested dictionary
-    if len(summary) == 1:
-        summary = next(iter(summary.values()))
-
     return summary
 
-def blastn(query, subject, min_bitscore, seq_covg, nproc=1):
-        return blast(query, subject, min_bitscore, seq_covg, blast_type = "n", nproc=nproc)
+def blastn(query, subject, min_bitscore, seq_covg, nproc=1, blast_extra_args=None, screen=True):
+        return blast(query, subject, min_bitscore, seq_covg, blast_type="n", nproc=nproc, blast_extra_args=blast_extra_args, screen=screen)
         
-def blastp(query, subject, min_bitscore, seq_covg, nproc=1):
-        return blast(query, subject, min_bitscore, seq_covg, blast_type = "p", nproc=nproc)
+def blastp(query, subject, min_bitscore, seq_covg, nproc=1, blast_extra_args=None, screen=True):
+        return blast(query, subject, min_bitscore, seq_covg, blast_type="p", nproc=nproc, blast_extra_args=blast_extra_args, screen=screen)
 
 def blast(
         query,
@@ -168,7 +177,8 @@ def blast(
         seq_covg,
         blast_type="p",
         nproc=1,
-        blast_extra_args=[],
+        blast_extra_args=None,
+        screen=True,
 ):
     """
     Runs BLAST
@@ -188,6 +198,13 @@ def blast(
 					      meet the threshold, while the remaining coverage factor fails.
 
     """
+    # prevent a mutable variable (list) being defined in the function header
+    if blast_extra_args is None:
+        blast_extra_args = []
+    # prevent changes to the argument (which is usually the preset list) from persisting
+    else:
+        blast_extra_args = blast_extra_args.copy()
+
     if isinstance(subject, SeqRecord):
         subject_id = subject.id
         with tempfile.NamedTemporaryFile(
@@ -210,6 +227,20 @@ def blast(
             subject_id = rec.id
             count += 1
 
+    if not isinstance(query, SeqRecord):
+        blast_extra_args += ['-query', query]
+        blast_stdin = None
+        count = 1
+        for rec in SeqIO.parse(query,'fasta'):
+            if count > 1:
+                query_id = ''
+                break
+            query_id = rec.id
+            count += 1
+    else:
+        query_id = query.id
+        blast_stdin = str(query.seq)
+
     # column orders up until bitscore are as expected for mcxdeblast --m9
     # <https://github.com/JohannesBuchner/mcl/blob/5208b974324621f510abb6a29e046a38f6d85f10/src/alien/oxygen/src/mcxdeblast#L259>
     blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen " \
@@ -217,7 +248,7 @@ def blast(
     # for a single alignment, add a dummy hit with 0% identity so that 0-thresholds are valid
     # when there are no hits at all.
     if subject_id:
-        dummy_hit = '\t'.join([query.id, subject_id,'0','0','0','0',
+        dummy_hit = '\t'.join([query_id, subject_id,'0','0','0','0',
                                '','','','','1','0','1','1','',''])+'\n'
     else:
         dummy_hit = ''
@@ -227,11 +258,6 @@ def blast(
         '-outfmt', blast_outfmt,
         '-num_threads', str(nproc),
     ] + blast_extra_args
-    if not isinstance(query, SeqRecord):
-        blast_cmd += ['-query', query]
-        blast_stdin = None
-    else:
-        blast_stdin = str(query.seq)
     blast_ps = subprocess.run(
         blast_cmd,
         input=blast_stdin,
@@ -239,6 +265,10 @@ def blast(
         check=True,
         capture_output=True,
     )
+
+    if not screen:
+        return blast_ps.stdout
+
     stdout = blast_ps.stdout + dummy_hit
     blast_filtered = []
     blast_rejects = []
@@ -270,58 +300,37 @@ def blast(
     return blast_filtered, blast_rejects, blast_truncation
 
 
-def iterate(fa, seq_list, nproc, seq_ident, seq_covg):
-    """
-    Runs BLAST function for each query.
-    Returns list of all results.
-    """
-    partial_blast = partial(blastp, subject=fa, seq_ident=seq_ident, seq_covg=seq_covg)
-    pool = multiprocessing.Pool(int(nproc))
-    hits, misses, truncation_signatures = zip(*pool.map(partial_blast,seq_list))
-    pool.close()
-    pool.join()
-    all_results_list = list(map('\n'.join, list(hits)))
-    return all_results_list
-
-
-def write(all_results_list):
-    """
-    Joins list of all results into a continuous
-    string and writes this string to a new file
-    """
-    hybran_tmp_dir = config.hybran_tmp_dir
-    joined_string = '\n'.join(all_results_list)
-    with open(hybran_tmp_dir + '/blast_results', 'w') as all_v_all:
-        all_v_all.write(joined_string)
-    return all_v_all
-
-
-def run_blast(fastafile, nproc, seq_ident, seq_covg):
+def all_vs_all(fastafile, nproc, min_bitscore, seq_covg):
     logger = logging.getLogger('BLAST')
     logger.info('Running pairwise all-against-all BLAST on ' + fastafile + ' using ' + str(nproc) + ' CPUs')
-    seq_string_list = SeqIO.parse(fastafile, 'fasta')
-    all_results_list = iterate(fastafile, seq_string_list, nproc, seq_ident=seq_ident, seq_covg=seq_covg)
+
+    all_results = blastp(
+        query=fastafile,
+        subject=fastafile,
+        min_bitscore=min_bitscore,
+        seq_covg=seq_covg,
+        nproc=nproc,
+        blast_extra_args=presets['thorough'],
+        screen=False,
+    )
+
     logger.info('Writing BLAST results to blast_results in Hybran temporary '
                 'directory.')
-    write(all_results_list)
-
+    hybran_tmp_dir = config.hybran_tmp_dir
+    with open(hybran_tmp_dir + '/blast_results', 'w') as all_v_all:
+        all_v_all.write(all_results)
 
 def bidirectional_best_hit(
         query,
         subject,
         min_bitscore,
         min_seq_covg,
+        identify=lambda _:_,
         nproc=1,
         blast_type="p",
 ):
     bbh_results = defaultdict(lambda :None)
-    blast_extra_args = [
-        '-comp_based_stats', '2',
-        # Moreno-Hagelsieb & Latimer, 2008 doi:10.1093/bioinformatics/btm585
-        #'-use_sw_tback', # authors said this doesn't add much improvement but slows things down signicantly
-        '-seg', 'yes',
-        '-soft_masking', 'true',
-    ]
+    blast_extra_args = presets['careful']
 
     qry2ref_hits, _, _ = blast(
         query,
@@ -332,7 +341,7 @@ def bidirectional_best_hit(
         nproc=nproc,
         blast_extra_args=blast_extra_args,
     )
-    qry2ref_hit_dict = summarize(qry2ref_hits)
+    qry2ref_hit_dict = summarize(qry2ref_hits, identify=identify)
     ref2qry_hits, _, _ = blast(
         subject,
         query,
@@ -342,11 +351,12 @@ def bidirectional_best_hit(
         nproc=nproc,
         blast_extra_args=blast_extra_args,
     )
-    ref2qry_hit_dict = summarize(ref2qry_hits)
-    ref2qry_top_hits = {
+    ref2qry_hit_dict = summarize(ref2qry_hits, identify=identify)
+    ref2qry_top_hits = defaultdict(lambda : [])
+    ref2qry_top_hits.update({
         ref_gene:top_hits(ref_hit_summary)
         for ref_gene, ref_hit_summary in ref2qry_hit_dict.items()
-    }
+    })
 
     for query_gene in qry2ref_hit_dict:
         bbh_match = None

@@ -39,8 +39,8 @@ def reset_pseudo(feature):
 def pseudoscan(
         feature,
         ref_feature,
-        seq_ident,
-        seq_covg,
+        seq_ident=0,
+        seq_covg=0,
         attempt_rescue=False,
         blast_hit_dict=None,
 ):
@@ -49,8 +49,6 @@ def pseudoscan(
 
     :param feature: SeqFeature object of the one to test for pseudo
     :param ref_feature: SeqFeature object of the reference feature to compare to
-    :param seq_ident:
-    :param seq_covg:
     :param attempt_rescue: Boolean whether to attempt coordinate correction (feature may still be pseudo after correction)
     :param blast_hit_dict:
         dictionary of blast scores for the reference comparison.
@@ -118,10 +116,10 @@ def pseudoscan(
 
             #ref_match with 'thresholds enforced'
             top_hit, low_covg, blast_stats = BLAST.reference_match(
-                query=SeqRecord(Seq(feature_seq)),
+                query=SeqRecord(Seq(feature_seq), id=''),
                 subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
-                min_bitscore=cnf.bbh.min_bitscore,
-                seq_covg=seq_covg,
+                min_bitscore=cnf.blast.min_bitscore,
+                seq_covg=cnf.blast.min_coverage,
             )
             blast_ok = top_hit and not low_covg
 
@@ -177,7 +175,7 @@ def pseudoscan(
             'transl_except',
             feature.transl_except,
         )
-    return call(feature, ref_was_pseudo, ref_d3, ref_len, cnf.bbh_min_bitscore, seq_covg)
+    return call(feature, ref_was_pseudo, ref_d3, ref_len, cnf.blast.min_bitscore, seq_covg)
 
 def call(
         feature,

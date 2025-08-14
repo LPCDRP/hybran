@@ -249,10 +249,10 @@ def cmds():
                           " Default is the annotation with the most named CDSs. If you specify a file here that is not in your input list, it will be added.")
     optional.add_argument('-i', '--identity-threshold', required=False, type=int,
                           help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP',
-                          default=95)
+                          default=99)
     optional.add_argument('-c', '--coverage-threshold', required=False, type=int,
                           help='Percent sequence coverage threshold to use during CD-HIT clustering and BLASTP',
-                          default=95)
+                          default=99)
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files.',
                           default='.')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use',
@@ -280,13 +280,13 @@ def cmds():
     bbh_parser.add_argument(
         '--bbh-min-coverage',
         help="Minimum percent query and subject alignment coverage for candidate BBHs.",
-        default=config.cnf.bbh.min_coverage,
+        default=config.cnf.blast.min_coverage,
         type=percentage,
     )
     bbh_parser.add_argument(
         '--bbh-min-bitscore',
         help="Minimum BLAST bitscore for candidate BBHs.",
-        default=config.cnf.bbh.min_bitscore,
+        default=config.cnf.blast.min_bitscore,
         type=float,
     )
 
@@ -403,8 +403,8 @@ def main(args, prokka_args):
     # Setting up the Hybran temporary directory
     config.init()
     hybran_tmp_dir = config.hybran_tmp_dir
-    config.cnf.bbh.min_coverage = args.bbh_min_coverage
-    config.cnf.bbh.min_bitscore = args.bbh_min_bitscore
+    config.cnf.blast.min_coverage = args.bbh_min_coverage
+    config.cnf.blast.min_bitscore = args.bbh_min_bitscore
 
     designator.generic_orf_prefix[0]=args.orf_prefix
     designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"
