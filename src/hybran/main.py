@@ -247,6 +247,16 @@ def cmds():
     optional.add_argument('-t', '--first-reference', required=False, dest='first_gbk',
                           help="Reference name or file name whose locus tags should be used as unified names for conserved copies in the others."
                           " Default is the annotation with the most named CDSs. If you specify a file here that is not in your input list, it will be added.")
+    optional.add_argument(
+        '-I', '--mcl-inflation',
+        help=(
+            "MCL inflation value. "
+            "Higher value results in more fine-grained clusters (fewer genes in common). "
+            "See <https://micans.org/mcl/man/mcl.html#opt-I> for details."
+        ),
+        type=float,
+        default=config.cnf.mcl_inflation,
+    )
     optional.add_argument('-i', '--identity-threshold', required=False, type=int,
                           help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP',
                           default=99)
@@ -403,6 +413,7 @@ def main(args, prokka_args):
     # Setting up the Hybran temporary directory
     config.init()
     hybran_tmp_dir = config.hybran_tmp_dir
+    config.cnf.mcl_inflation = args.mcl_inflation
     config.cnf.blast.min_coverage = args.bbh_min_coverage
     config.cnf.blast.min_bitscore = args.bbh_min_bitscore
 

@@ -14,6 +14,7 @@ cnf = SimpleNamespace(
         min_coverage=50,
         min_bitscore=50,
     ),
+    mcl_inflation=1.5,
 )
 
 def init():

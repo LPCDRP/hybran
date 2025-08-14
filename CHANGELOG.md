@@ -3,6 +3,7 @@
 ## Development
 
 ### Enhancements
+* New option `--mcl-inflation`/`-I` to allow user to change the desired clustering granularity.
 * Produce gff files in addition to gbk for onegene, standardize, and postprocessing
 * Write a log file to the output folder (#73)
 * Produce fusion report files, with estimated coordinates of fusion components.
