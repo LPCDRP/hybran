@@ -188,6 +188,9 @@ def blast(
     :param min_bitscore: bitscore threshold
     :param seq_covg: alignment coverage threshold
     :param blast_type: nucleotide or protein blast
+    :param nproc: int number of threads to use for blast
+    :param blast_extra_args: list of str tokens to pass to blast executable
+    :param screen: bool whether to apply thresholds/filtering to results
     :returns:
         - blast_filtered (:py:class:`list`) - list of tab-delimited strings corresponding
                                               to BLAST hits meeting the thresholds
@@ -267,7 +270,7 @@ def blast(
     )
 
     if not screen:
-        return blast_ps.stdout
+        return blast_ps.stdout.split('\n'), [], []
 
     stdout = blast_ps.stdout + dummy_hit
     blast_filtered = []
@@ -300,17 +303,17 @@ def blast(
     return blast_filtered, blast_rejects, blast_truncation
 
 
-def all_vs_all(fastafile, nproc, min_bitscore, seq_covg):
+def all_vs_all(fastafile, nproc, min_bitscore, seq_covg, blast_preset='careful'):
     logger = logging.getLogger('BLAST')
     logger.info('Running pairwise all-against-all BLAST on ' + fastafile + ' using ' + str(nproc) + ' CPUs')
 
-    all_results = blastp(
+    all_results, _, _ = blastp(
         query=fastafile,
         subject=fastafile,
         min_bitscore=min_bitscore,
         seq_covg=seq_covg,
         nproc=nproc,
-        blast_extra_args=presets['thorough'],
+        blast_extra_args=presets[blast_preset],
         screen=False,
     )
 
@@ -318,7 +321,7 @@ def all_vs_all(fastafile, nproc, min_bitscore, seq_covg):
                 'directory.')
     hybran_tmp_dir = config.hybran_tmp_dir
     with open(hybran_tmp_dir + '/blast_results', 'w') as all_v_all:
-        all_v_all.write(all_results)
+        all_v_all.write('\n'.join(all_results))
 
 def bidirectional_best_hit(
         query,

@@ -162,16 +162,16 @@ def cmds():
     onegenecmd.add_argument(
         '-i', '--identity-threshold',
         required=False,
-        type=int,
-        help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP to call duplications',
-        default=99,
+        type=percentage,
+        help='Percent sequence identity threshold to use for considering sequences as identical.',
+        default=config.cnf.onegene.min_identity,
     )
     onegenecmd.add_argument(
         '-c', '--coverage-threshold',
         required=False,
-        type=int,
-        help='Percent alignment coverage threshold to use during CD-HIT clustering and BLASTP to call duplications',
-        default=99,
+        type=percentage,
+        help='Percent alignment coverage threshold to use for considering sequences as identical.',
+        default=config.cnf.onegene.min_coverage,
     )
     onegenecmd.add_argument(
         '-t', '--first-reference',
@@ -257,12 +257,20 @@ def cmds():
         type=float,
         default=config.cnf.mcl_inflation,
     )
-    optional.add_argument('-i', '--identity-threshold', required=False, type=int,
-                          help='Percent sequence identity threshold to use during CD-HIT clustering and BLASTP',
-                          default=99)
-    optional.add_argument('-c', '--coverage-threshold', required=False, type=int,
-                          help='Percent sequence coverage threshold to use during CD-HIT clustering and BLASTP',
-                          default=99)
+    optional.add_argument(
+        '-i', '--identity-threshold',
+        help='Percent sequence identity threshold to use for considering sequences as identical.',
+        required=False,
+        type=percentage,
+        default=config.cnf.onegene.min_identity,
+    )
+    optional.add_argument(
+        '-c', '--coverage-threshold',
+        help='Percent sequence coverage threshold to use for considering sequences as identical.',
+        required=False,
+        type=percentage,
+        default=config.cnf.onegene.min_coverage,
+    )
     optional.add_argument('-o', '--output', help='Directory to output all new annotation files.',
                           default='.')
     optional.add_argument('-n', '--nproc', help='Number of processors/CPUs to use',
@@ -425,16 +433,6 @@ def main(args, prokka_args):
     if not args.debug:
         atexit.register(shutil.rmtree, path=hybran_tmp_dir)
 
-    # Check that the identity threshold is valid
-    if not (args.identity_threshold <= 100 and args.identity_threshold >= 0):
-        print("error: invalid value for --identity-threshold. Must be between 0 and 100.")
-        exit(10)
-
-    # Check that the coverage threshold is valid
-    if not (args.coverage_threshold <= 100 and args.coverage_threshold >= 0):
-        print("error: invalid value for --coverage-threshold. Must be between 0 and 100.")
-        exit(10)
-
     # Confirming all installations are valid
     if args.database_dir:
         verifyInstallations.verify_installations(args.database_dir)
@@ -589,8 +587,6 @@ This option is scheduled for removal, so please update your invocation for the f
                                   ref_proteins_fasta=ref_cds,
                                   ref_gbk_list=ref_gbks,
                                   script_directory=script_dir,
-                                  seq_ident=args.identity_threshold,
-                                  seq_covg=args.coverage_threshold,
                                   ratt_enforce_thresholds=args.filter_ratt,
                                   nproc=args.nproc,
                     )
@@ -603,11 +599,11 @@ This option is scheduled for removal, so please update your invocation for the f
                 shutil.copy(annomerge_gff, args.output)
     if all([os.path.isfile(os.path.join(args.output, os.path.basename(g) + '.gff')) for g in genomes]):
         all_genomes += [refdir + i for i in os.listdir(refdir) if i.endswith('.gff')] + genomes_annotate
-        run.clustering(all_genomes=list(set(sorted(all_genomes))),
-                       target_genomes=genomes_annotate,
-                       nproc=args.nproc,
-                       seq_ident=args.identity_threshold,
-                       seq_covg=args.coverage_threshold)
+        run.clustering(
+            all_genomes=list(set(sorted(all_genomes))),
+            target_genomes=genomes_annotate,
+            nproc=args.nproc,
+        )
         if args.database_dir and 'eggnog_seqs.fasta' in os.listdir(hybran_tmp_dir):
             ref_tax_ids = [extractor.get_taxonomy_id(_) for _ in ref_gbks]
             if any(ref_tax_ids):

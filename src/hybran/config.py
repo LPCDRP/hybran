@@ -10,6 +10,10 @@ from Bio.Data import CodonTable
 cnf = SimpleNamespace(
     tmpdir=None,
     genetic_code=None,
+    onegene=SimpleNamespace(
+        min_identity=99,
+        min_coverage=99,
+    ),
     blast=SimpleNamespace(
         min_coverage=50,
         min_bitscore=50,
