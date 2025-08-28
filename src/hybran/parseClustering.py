@@ -676,50 +676,45 @@ def add_gene_names_to_gbk(generics, gbk_dir):
     for isolate in generics.keys():
         if isolate not in isolates:
             logger.error('Isolate ' + isolate + ' absent in ' + gbk_dir)
-        else:
-            genbank_file = gbk_dir + '/' + isolate + '.gbk'
-            isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
-            update_orf_dict = generics[isolate]
-            locus_to_update = list(update_orf_dict.keys())
-            modified_locus = []
-            for rec in isolate_records:
-                for feature in rec.features:
-                    if feature.type != 'CDS':
-                        continue
-                    locus_tag = feature.qualifiers['locus_tag'][0]
-                    gene_name = feature.qualifiers['gene'][0]
-                    try:
-                        gene_synonym = feature.qualifiers['gene_synonym']
-                    except KeyError:
-                        gene_synonym = []
-                    if locus_tag in locus_to_update and \
-                            locus_tag not in modified_locus:
-                        if designator.is_raw_ltag(gene_name):
-                            feature.qualifiers['gene'][0] = update_orf_dict[locus_tag]['name']
-                            if update_orf_dict[locus_tag]['pseudo']:
-                                feature.qualifiers['pseudo'] = ['']
-                                feature.qualifiers.pop('translation', None)
-                        elif gene_name == update_orf_dict[locus_tag]['name']:
-                            modified_locus.append(locus_tag)
-                            continue
-                        else:
-                            logger.debug('Discordant assignment of gene name')
-                            logger.debug('Original gene name: ' + gene_name)
-                            logger.debug('New gene name: ' + update_orf_dict[locus_tag]['name'])
-                            designator.append_qualifier(
-                                feature.qualifiers,
-                                'gene_synonym',
-                                update_orf_dict[locus_tag]['name']
-                            )
-                        modified_locus.append(locus_tag)
-                    elif locus_tag in locus_to_update and locus_tag in modified_locus:
-                        logger.debug('Updated locus tag previously')
-                    else:
-                        continue
-            if len(set(locus_to_update).intersection(set(modified_locus))) < len(locus_to_update):
-                logger.warning('The following locus_tags are missing in the genbank file')
-                logger.warning(set(locus_to_update).difference(set(modified_locus)))
-            SeqIO.write(isolate_records, genbank_file, 'genbank')
+            continue
+        genbank_file = gbk_dir + '/' + isolate + '.gbk'
+        isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
+        update_orf_dict = generics[isolate]
+        locus_to_update = list(update_orf_dict.keys())
+        modified_locus = []
+        for rec in isolate_records:
+            for feature in rec.features:
+                if feature.type != 'CDS':
+                    continue
+                locus_tag = feature.qualifiers['locus_tag'][0]
+                gene_name = feature.qualifiers['gene'][0]
+                if locus_tag not in locus_to_update:
+                    continue
+                if gene_name == update_orf_dict[locus_tag]['name']:
+                    modified_locus.append(locus_tag)
+                if locus_tag in modified_locus:
+                    logger.debug(f'[{isolate}] - {locus_tag}|{gene_name} updated previously')
+                    continue
+
+                if designator.is_raw_ltag(gene_name):
+                    feature.qualifiers['gene'][0] = update_orf_dict[locus_tag]['name']
+                    if update_orf_dict[locus_tag]['pseudo']:
+                        feature.qualifiers['pseudo'] = ['']
+                        feature.qualifiers.pop('translation', None)
+                else:
+                    logger.debug('Discordant assignment of gene name')
+                    logger.debug('Original gene name: ' + gene_name)
+                    logger.debug('New gene name: ' + update_orf_dict[locus_tag]['name'])
+                    designator.append_qualifier(
+                        feature.qualifiers,
+                        'gene_synonym',
+                        update_orf_dict[locus_tag]['name']
+                    )
+                modified_locus.append(locus_tag)
+        if len(set(locus_to_update).intersection(set(modified_locus))) < len(locus_to_update):
+            logger.warning('The following locus_tags are missing in the genbank file')
+            logger.warning(set(locus_to_update).difference(set(modified_locus)))
+        SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 
 def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_ident, seq_covg):
