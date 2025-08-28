@@ -365,27 +365,11 @@ def unique_seqs(annotations):
     """
     hybran_tmp_dir = config.hybran_tmp_dir
 
-    def grep_seqs(gff):
-        """
-        Finds all translations in a given GFF
-
-        :param gff: str GFF file anme
-        :return: list of GFF lines
-        """
-        gff_lines = []
-        cmd = ['grep', 'translation=', gff]
-        translations = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
-        for line in translations.stdout:
-            try:
-                gff_lines.append(line)
-            except TypeError:
-                continue
-        return gff_lines
     protein_cds = []
     isolate_seqs = {}
     for gff in annotations:
         if gff.endswith('.gff'):
-            raw_out = grep_seqs(gff)
+            raw_out = extractor.grep_seqs(gff)
             gff_name = os.path.splitext(os.path.basename(gff))[0]
             if not gff_name in isolate_seqs.keys():
                 isolate_seqs[gff_name] = {}
