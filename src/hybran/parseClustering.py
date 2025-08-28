@@ -1,3 +1,4 @@
+from copy import deepcopy
 import os
 import re
 import tempfile
@@ -53,16 +54,27 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                         for line in gff_file:
                             if line.startswith('#'):
                                 continue
-                            gene = ''
                             column = line.rstrip('\n').split('\t')
-                            if len(column) >= 8:
-                                info = column[8].split(';')
-                                gene_id = ''.join([i.split('=')[1] for i in info if i.startswith('ID=')])
-                                locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('locus_tag=')])
-                                if not gene_id or not locus_tag:
-                                    continue
-                                gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
-                                isolate_id_ltag[gene_id] = (locus_tag, gene)
+                            if len(column) < 9:
+                                continue
+                            gene_id = ''
+                            locus_tag = ''
+                            gene = ''
+                            translation = ''
+
+                            info = column[8].split(';')
+                            for i in info:
+                                if i.startswith('ID='):
+                                    gene_id = i.split('=')[1]
+                                elif i.startswith('locus_tag='):
+                                    locus_tag = i.split('=')[1]
+                                elif i.startswith('gene='):
+                                    gene = i.split('=')[1]
+                                elif i.startswith('translation='):
+                                    translation = i.split('=')[1]
+                            if not gene_id or not locus_tag or not translation:
+                                continue
+                            isolate_id_ltag[gene_id] = (locus_tag, gene)
                         if not isolate_id in gff_dictionary.keys():
                             gff_dictionary[isolate_id] = isolate_id_ltag
                         # this is the case if the reference genome itself is being processed as a sample,
@@ -95,11 +107,15 @@ def parse_clustered_proteins(clustered_proteins, annotations):
     underscores = {}
     l_tag_only_clusters = {}
     unique_genes_list = []
+    # Genes that MCL didn't even operate on because they had no BLAST hits to anything.
+    # start it out as a copy of all the genes and eliminate what we see in the clustering results
+    unclustered_genes = deepcopy(gffs)
     with open(clustered_proteins, 'r') as clustered_proteins_file:
         for line in clustered_proteins_file:
             cluster_members = [_.groups() for _ in re.finditer(r'(?P<sample_id>\S+)@@@(?P<seq_id>\S+)', line)]
             (rep_isolate, rep_seq_id) = cluster_members[0]
             representative_ltag_gene_tup = gffs[rep_isolate][rep_seq_id]
+            unclustered_genes[rep_isolate].pop(rep_seq_id, None)
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
 
             representative_fasta_list.append([rep_isolate] + list(representative_ltag_gene_tup))
@@ -111,6 +127,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             cluster_list_w_isolate.append([rep_isolate] + list(representative_ltag_gene_tup))
             for isolate, gene_id in cluster_members[1:]:
                 cluster_list.append(gffs[isolate][gene_id])
+                unclustered_genes[isolate].pop(gene_id, None)
                 cluster_list_w_isolate.append([isolate] + list(gffs[isolate][gene_id]))
                 gene_cluster[representative].append(','.join([isolate, ','.join(gffs[isolate][gene_id])]))
             number_genes = list(set(sorted([gene for locus_tag, gene in cluster_list])))
@@ -137,8 +154,18 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             # L tag only clusters
             elif all(designator.is_raw_ltag(gene) for locus_tag, gene in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
-    return [different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, l_tag_only_clusters,
-            unique_genes_list]
+
+    for isolate in unclustered_genes:
+        for locus_tag, gene in unclustered_genes[isolate].values():
+            if designator.is_raw_ltag(gene):
+                unique_genes_list.append([isolate, locus_tag, gene])
+
+    return [
+        different_genes_cluster_w_ltags,
+        same_genes_cluster_w_ltags,
+        l_tag_only_clusters,
+        unique_genes_list,
+    ]
 
 
 def get_gene_name(id_string):
