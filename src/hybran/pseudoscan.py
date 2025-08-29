@@ -39,8 +39,6 @@ def reset_pseudo(feature):
 def pseudoscan(
         feature,
         ref_feature,
-        seq_ident=0,
-        seq_covg=0,
         attempt_rescue=False,
         blast_hit_dict=None,
 ):
@@ -175,7 +173,7 @@ def pseudoscan(
             'transl_except',
             feature.transl_except,
         )
-    return call(feature, ref_was_pseudo, ref_d3, ref_len, cnf.blast.min_bitscore, seq_covg)
+    return call(feature, ref_was_pseudo, ref_d3, ref_len, cnf.blast.min_bitscore, cnf.blast.min_coverage)
 
 def call(
         feature,
@@ -259,7 +257,7 @@ def call(
     if have_blast_info:
         blast_note = (
             f"{'Strong' if blast_ok else 'Poor'} blastp match at "
-            f"{blast_min_bitscore}% bitscore and {blast_seq_covg}% coverage thresholds"
+            f"{blast_min_bitscore} bitscore and {blast_seq_covg}% coverage thresholds"
         )
     #Can only comment on differences in gene length if all(coords_ok).
     seq_len_diff_note = ''

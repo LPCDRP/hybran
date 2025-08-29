@@ -129,8 +129,8 @@ def test_update_transl_except(case, tmp_path):
             to_stop=True,
         )) ]
 
-    pseudoscan.pseudoscan(expected, ref_feature, 95, 95)
-    pseudoscan.pseudoscan(feature, ref_feature, 95, 95)
+    pseudoscan.pseudoscan(expected, ref_feature)
+    pseudoscan.pseudoscan(feature, ref_feature)
     assert feature == expected
 
 @pytest.mark.parametrize('case,circular', [

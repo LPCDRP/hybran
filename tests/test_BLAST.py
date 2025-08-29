@@ -140,7 +140,7 @@ def test_reference_match(feature):
     (result, low_covg, hits) = BLAST.reference_match(
         query=SeqRecord(Seq(inputs[feature].qualifiers['translation'][0])),
         subject="data/H37Rv.faa",
-        seq_ident=95,
+        min_bitscore=50,
         seq_covg=95,
     )
     hits = dict(hits)

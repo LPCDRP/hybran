@@ -37,8 +37,6 @@ def postprocess(
         postprocess_outdir,
         ref_annotation,
         ref_proteome,
-        seq_ident,
-        seq_covg,
         nproc=1,
 ):
 
@@ -77,8 +75,6 @@ def postprocess(
             record=record,
             ref_annotation=ref_annotation,
             ref_proteome=ref_proteome,
-            seq_ident=seq_ident,
-            seq_covg=seq_covg,
             nproc=nproc,
         )
         prokka_features[contigs[i]] = record.features
@@ -110,8 +106,6 @@ def postprocess_contig(
         record,
         ref_annotation,
         ref_proteome,
-        seq_ident,
-        seq_covg,
         nproc=1,
 ):
 
@@ -159,8 +153,6 @@ def postprocess_contig(
         postprocess_feature,
         ref_annotation=ref_annotation,
         ref_proteome=ref_proteome,
-        seq_ident=seq_ident,
-        seq_covg=seq_covg,
         bbh_results=bbh_results,
         all_blast_hits=all_qry2ref_blast_hits,
     )
@@ -177,8 +169,6 @@ def postprocess_contig(
     abinit_features_postprocessed_list, dropped_abinit_fragments = fissionfuser(
         contig_features,
         ref_annotation,
-        seq_ident=seq_ident,
-        seq_covg=seq_covg,
     )
 
     record.features = abinit_features_postprocessed_list
@@ -191,8 +181,6 @@ def postprocess_feature(
         feature,
         ref_annotation,
         ref_proteome,
-        seq_ident,
-        seq_covg,
         bbh_results,
         all_blast_hits,
 ):
@@ -203,8 +191,6 @@ def postprocess_feature(
     :param feature: AutarkicSeqFeature ab initio feature
     :param ref_annotation: dict of curated reference annotations
     :param ref_proteome: str file name of multi fasta reference amino acid sequences
-    :param seq_ident: int sequence identity percentage threshold for BLAST
-    :param seq_covg: int sequence alignment coverage percent threshold for BLAST
     """
     ref_matched = False
     coords_corrected = False
