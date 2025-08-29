@@ -76,11 +76,14 @@ def run_mcl(in_blast, cdhit_clusters, out_name, gene_names, inflation):
         stderr=subprocess.STDOUT,
         text=True,
     )
+    logger.info("Command: " + ' '.join(mcl_cmd))
     try:
         mcl_ps.check_returncode()
+        logger.debug('\n' + mcl_ps.stdout)
     except subprocess.CalledProcessError:
-        logger.error('\n' + mcl_ps.stdout)
-        logger.error('mcl failed')
+        logger.critical('\n' + mcl_ps.stdout)
+        logger.critical('mcl failed')
+        exit(5)
     time.sleep(5)
     output = inflate_mcl_clusters(mcl_output=hybran_tmp_dir + '/mcl',
                                   cdhit_groups=cdhit_clusters,
