@@ -222,8 +222,6 @@ def check_matches_to_known_genes(
             top_hit, blast_stats = BLAST.bidirectional_best_hit(
                 query=query_seq,
                 subject=ref,
-                min_bitscore=config.cnf.blast.min_bitscore,
-                min_seq_covg=config.cnf.blast.min_coverage,
                 identify=get_gene_name,
                 #strict=True,
             )

@@ -31,7 +31,7 @@ presets = {
         '-comp_based_stats', '0',
         '-seg', 'no',
     ],
-    'careful': [
+    'conservative': [
         '-comp_based_stats', '2',
         # Moreno-Hagelsieb & Latimer, 2008 doi:10.1093/bioinformatics/btm585
         #'-use_sw_tback', # authors said this doesn't add much improvement but slows things down signicantly
@@ -44,10 +44,10 @@ presets = {
 def reference_match(
         query,
         subject,
-        min_bitscore,
-        seq_covg,
+        cutoff=config.cnf.blast.min_identity,
+        seq_covg=config.cnf.blast.min_coverage,
         identify=lambda _:_,
-        metric='bitscore',
+        metric='iden',
         blast_type="p",
         strict=False,
         preset='thorough',
@@ -70,11 +70,12 @@ def reference_match(
     """
 
     hits, misses, truncation_signatures = blast(
-        query,
-        subject,
-        min_bitscore,
-        seq_covg,
-        blast_type,
+        query=query,
+        subject=subject,
+        metric=metric,
+        cutoff=cutoff,
+        seq_covg=seq_covg,
+        blast_type=blast_type,
         blast_extra_args=presets[preset],
     )
     result = None
@@ -100,15 +101,17 @@ def reference_match(
         stats = hit_dict[result]
         scov_pass = stats['scov'] >= seq_covg
         qcov_pass = stats['qcov'] >= seq_covg
-        bitscore_pass = stats['bitscore'] >= min_bitscore
-        if bitscore_pass and any([scov_pass, qcov_pass]) and not all([scov_pass, qcov_pass]):
-            low_covg = True
+        low_covg = (
+            stats[metric] >= cutoff
+            and any([scov_pass, qcov_pass])
+            and not all([scov_pass, qcov_pass])
+        )
         # if we found a proper hit, don't look for anything else
         break
 
     return result, low_covg, hit_dict
 
-def top_hit(blast_summary, metric='bitscore'):
+def top_hit(blast_summary, metric='iden'):
     """
     Get the best hit according to the given metric.
 
@@ -118,7 +121,7 @@ def top_hit(blast_summary, metric='bitscore'):
     """
     return max(blast_summary, key=lambda gene: blast_summary[gene][metric])
 
-def top_hits(blast_summary, metric='bitscore'):
+def top_hits(blast_summary, metric='iden'):
     """
     Get the best hits according to the given metric, those with scores
     >= 99% of the highest absolute score.
@@ -164,16 +167,17 @@ def summarize(blast_results, identify = lambda _:_):
 
     return summary
 
-def blastn(query, subject, min_bitscore, seq_covg, nproc=1, blast_extra_args=None, screen=True):
-        return blast(query, subject, min_bitscore, seq_covg, blast_type="n", nproc=nproc, blast_extra_args=blast_extra_args, screen=screen)
+def blastn(query, subject, metric, cutoff, seq_covg, nproc=1, blast_extra_args=None, screen=True):
+        return blast(query, subject, metric, cutoff, seq_covg, blast_type="n", nproc=nproc, blast_extra_args=blast_extra_args, screen=screen)
         
-def blastp(query, subject, min_bitscore, seq_covg, nproc=1, blast_extra_args=None, screen=True):
-        return blast(query, subject, min_bitscore, seq_covg, blast_type="p", nproc=nproc, blast_extra_args=blast_extra_args, screen=screen)
+def blastp(query, subject, metric, cutoff, seq_covg, nproc=1, blast_extra_args=None, screen=True):
+        return blast(query, subject, metric, cutoff, seq_covg, blast_type="p", nproc=nproc, blast_extra_args=blast_extra_args, screen=screen)
 
 def blast(
         query,
         subject,
-        min_bitscore,
+        metric,
+        cutoff,
         seq_covg,
         blast_type="p",
         nproc=1,
@@ -185,7 +189,8 @@ def blast(
 
     :param query: str query fasta file name or SeqRecord object containing the query sequence/id/description
     :param subject: str subject fasta file name or SeqRecord
-    :param min_bitscore: bitscore threshold
+    :param metric: str name of parameter to use as primary threshold (in addition to alignment coverage)
+    :param cutoff: float threshold for selected metric
     :param seq_covg: alignment coverage threshold
     :param blast_type: nucleotide or protein blast
     :param nproc: int number of threads to use for blast
@@ -277,44 +282,55 @@ def blast(
     blast_rejects = []
     blast_truncation = []
     for line in stdout.split('\n'):
-        if line:
-            column = line.split('\t')
-            identity = float(column[2])
-            length = float(column[3])
-            bitscore = float(column[11])
-            qlen = float(column[12])
-            slen = float(column[13])
-            qseq, sseq = column[14:16]
-            qcov = (len(qseq.replace("-","")) / qlen) * 100
-            scov = (len(sseq.replace("-","")) / slen) * 100
-            column[14:16] = str(qcov), str(scov)
-            if blast_stdin is not None:
-                column[0] = query.id
-            if (bitscore >= min_bitscore) and (qcov >= seq_covg) and (scov >= seq_covg):
-                blast_filtered.append('\t'.join(column))
-            elif (bitscore >= min_bitscore) and (qcov >= seq_covg) and (scov <= seq_covg):
-                blast_truncation.append('\t'.join(column))
-            elif (bitscore >= min_bitscore) and (qcov <= seq_covg) and (scov >= seq_covg):
-                blast_truncation.append('\t'.join(column))
-            else:
-                # Capture the rejected hits
-                blast_rejects.append('\t'.join(column))
+        if not line:
+            continue
+        values = {}
+
+        column = line.split('\t')
+        values['iden'] = float(column[2])
+        length = float(column[3])
+        values['bitscore'] = float(column[11])
+        qlen = float(column[12])
+        slen = float(column[13])
+        qseq, sseq = column[14:16]
+        qcov = (len(qseq.replace("-","")) / qlen) * 100
+        scov = (len(sseq.replace("-","")) / slen) * 100
+        column[14:16] = str(qcov), str(scov)
+        if blast_stdin is not None:
+            column[0] = query.id
+        if (values[metric] >= cutoff) and (qcov >= seq_covg) and (scov >= seq_covg):
+            blast_filtered.append('\t'.join(column))
+        elif (values[metric] >= cutoff) and (qcov >= seq_covg) and (scov <= seq_covg):
+            blast_truncation.append('\t'.join(column))
+        elif (values[metric] >= cutoff) and (qcov <= seq_covg) and (scov >= seq_covg):
+            blast_truncation.append('\t'.join(column))
+        else:
+            # Capture the rejected hits
+            blast_rejects.append('\t'.join(column))
 
     return blast_filtered, blast_rejects, blast_truncation
 
 
-def all_vs_all(fastafile, nproc, min_bitscore, seq_covg, blast_preset='careful'):
+def all_vs_all(
+        fastafile,
+        nproc,
+        metric='iden',
+        cutoff=config.cnf.blast.min_identity,
+        seq_covg=config.cnf.blast.min_coverage,
+        blast_preset='thorough',
+):
     logger = logging.getLogger('BLAST')
     logger.info('Running pairwise all-against-all BLAST on ' + fastafile + ' using ' + str(nproc) + ' CPUs')
 
     all_results, _, _ = blastp(
         query=fastafile,
         subject=fastafile,
-        min_bitscore=min_bitscore,
+        metric=metric,
+        cutoff=cutoff,
         seq_covg=seq_covg,
         nproc=nproc,
         blast_extra_args=presets[blast_preset],
-        screen=False,
+        screen=True,
     )
 
     logger.info('Writing BLAST results to blast_results in Hybran temporary '
@@ -326,19 +342,21 @@ def all_vs_all(fastafile, nproc, min_bitscore, seq_covg, blast_preset='careful')
 def bidirectional_best_hit(
         query,
         subject,
-        min_bitscore,
-        min_seq_covg,
+        metric='iden',
+        cutoff=config.cnf.blast.min_identity,
+        min_seq_covg=config.cnf.blast.min_coverage,
         identify=lambda _:_,
         nproc=1,
         blast_type="p",
 ):
     bbh_results = defaultdict(lambda :None)
-    blast_extra_args = presets['careful']
+    blast_extra_args = presets['conservative']
 
     qry2ref_hits, _, _ = blast(
         query,
         subject,
-        min_bitscore=min_bitscore,
+        metric=metric,
+        cutoff=cutoff,
         seq_covg=min_seq_covg,
         blast_type=blast_type,
         nproc=nproc,
@@ -348,7 +366,8 @@ def bidirectional_best_hit(
     ref2qry_hits, _, _ = blast(
         subject,
         query,
-        min_bitscore=min_bitscore,
+        metric=metric,
+        cutoff=cutoff,
         seq_covg=min_seq_covg,
         blast_type=blast_type,
         nproc=nproc,
@@ -368,10 +387,10 @@ def bidirectional_best_hit(
         for ref_gene in qry_top_hits:
             if (
                     query_gene in ref2qry_top_hits[ref_gene]
-                    and qry2ref_hit_dict[query_gene][ref_gene]['bitscore'] > score_to_beat
+                    and qry2ref_hit_dict[query_gene][ref_gene][metric] > score_to_beat
             ):
                 bbh_match = ref_gene
-                score_to_beat = qry2ref_hit_dict[query_gene][ref_gene]['bitscore']
+                score_to_beat = qry2ref_hit_dict[query_gene][ref_gene][metric]
         bbh_results[query_gene] = bbh_match
 
     return bbh_results, qry2ref_hit_dict

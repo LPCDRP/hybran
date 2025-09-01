@@ -337,8 +337,6 @@ def validate(
                 top_hit, low_covg, blast_stats = BLAST.reference_match(
                     query=SeqRecord(Seq(feature_sequence)),
                     subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
-                    min_bitscore=cnf.blast.min_bitscore,
-                    seq_covg=cnf.blast.min_coverage,
                 )
 
                 if top_hit:

@@ -116,7 +116,8 @@ def pseudoscan(
             top_hit, low_covg, blast_stats = BLAST.reference_match(
                 query=SeqRecord(Seq(feature_seq), id=''),
                 subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
-                min_bitscore=cnf.blast.min_bitscore,
+                metric='iden',
+                cutoff=cnf.blast.min_identity,
                 seq_covg=cnf.blast.min_coverage,
             )
             blast_ok = top_hit and not low_covg
@@ -173,14 +174,14 @@ def pseudoscan(
             'transl_except',
             feature.transl_except,
         )
-    return call(feature, ref_was_pseudo, ref_d3, ref_len, cnf.blast.min_bitscore, cnf.blast.min_coverage)
+    return call(feature, ref_was_pseudo, ref_d3, ref_len, cnf.blast.min_identity, cnf.blast.min_coverage)
 
 def call(
         feature,
         ref_was_pseudo,
         ref_d3=None,
         ref_len=None,
-        blast_min_bitscore=None,
+        blast_min_identity=None,
         blast_seq_covg=None,
 ):
     """
@@ -194,7 +195,7 @@ def call(
         Whether the reference feature is divisible by 3.
         Only applicable if ref_was_pseudo == True.
     :param ref_len: int length of reference feature (for noting length differences)
-    :param blast_min_bitscore: float alignment bitscore threshold used
+    :param blast_min_identity: float alignment %-identity threshold used
     :param blast_seq_covg: float alignment coverage threshold used
     :returns: True if pseudo / False otherwise.
     """
@@ -213,7 +214,7 @@ def call(
     feature.alte = (not feature.rce and feature.ve)
     have_blast_info = (
         blast_ok is not None
-        and blast_min_bitscore is not None
+        and blast_min_identity is not None
         and blast_seq_covg is not None
     )
 
@@ -257,7 +258,7 @@ def call(
     if have_blast_info:
         blast_note = (
             f"{'Strong' if blast_ok else 'Poor'} blastp match at "
-            f"{blast_min_bitscore} bitscore and {blast_seq_covg}% coverage thresholds"
+            f"{blast_min_identity}% identity and {blast_seq_covg}% coverage thresholds"
         )
     #Can only comment on differences in gene length if all(coords_ok).
     seq_len_diff_note = ''

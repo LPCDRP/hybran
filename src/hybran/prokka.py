@@ -145,8 +145,6 @@ def postprocess_contig(
     bbh_results, all_qry2ref_blast_hits = BLAST.bidirectional_best_hit(
         cds_fasta,
         ref_proteome,
-        min_bitscore=config.cnf.blast.min_bitscore,
-        min_seq_covg=config.cnf.blast.min_coverage,
         nproc=nproc,
     )
     mp_postprocess_feature = functools.partial(
