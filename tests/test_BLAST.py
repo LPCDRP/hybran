@@ -66,41 +66,49 @@ def test_reference_match(feature):
             None, False,
             {
                 'Rv0205': {
+                    'bitscore': 337.0,
                     'iden': 92.611,
                     'qcov': 96.2085308056872,
                     'scov': 55.04087193460491,
                 },
                 'Rv2018': {
+                    'bitscore': 25.0,
                     'iden': 32.143,
                     'qcov': 26.540284360189574,
                     'scov': 20.502092050209207,
                 },
                 'Rv3736': {
+                    'bitscore': 25.0,
                     'iden': 40.0,
                     'qcov': 14.218009478672986,
                     'scov': 9.91501416430595,
                 },
                 'asnB': {
+                    'bitscore': 23.9,
                     'iden': 22.656,
                     'qcov': 60.66350710900474,
                     'scov': 17.177914110429448,
                 },
                 'betP': {
+                    'bitscore': 27.7,
                     'iden': 28.814,
                     'qcov': 24.644549763033176,
                     'scov': 9.949409780775717,
                 },
                 'bkdC': {
+                    'bitscore': 24.3,
                     'iden': 43.75,
                     'qcov': 15.165876777251185,
                     'scov': 6.106870229007633,
                 },
                 'gnd1': {
+                    'bitscore': 24.3,
                     'iden': 47.619,
                     'qcov': 9.95260663507109,
                     'scov': 4.329896907216495,
                 },
                 'pks3': {
+                    'bitscore': 27.3,
                     'iden': 29.73,
                     'qcov': 34.12322274881517,
                     'scov': 15.163934426229508,
@@ -109,12 +117,13 @@ def test_reference_match(feature):
         ),
         'rplB': (
             'rplB', False,
-            {'rplB': {'iden': 100.0, 'qcov': 100.0, 'scov': 100.0}},
+            {'rplB': {'bitscore': 574.0,'iden': 100.0, 'qcov': 100.0, 'scov': 100.0}},
         ),
         'mamB': (
             'mamB', True,
             {
                 'mamB': {
+                    'bitscore': 1009.,
                     'iden': 99.605,
                     'qcov': 31.506849315068493,
                     'scov': 98.25242718446601,
@@ -136,12 +145,17 @@ def test_reference_match(feature):
             for datum in ['iden', 'qcov', 'scov']:
                 if ex_results[key][datum] not in [0., 100.]:
                     ex_results[key][datum] = pytest.approx(ex_results[key][datum])
+    if feature in ['Rv0205_1', 'no_hit']:
+        preset = 'conservative'
+    else:
+        preset = 'thorough'
 
     (result, low_covg, hits) = BLAST.reference_match(
         query=SeqRecord(Seq(inputs[feature].qualifiers['translation'][0])),
         subject="data/H37Rv.faa",
-        min_bitscore=50,
+        cutoff=95,
         seq_covg=95,
+        preset=preset,
     )
     hits = dict(hits)
     assert (result, low_covg, hits) == expected[feature]
@@ -152,22 +166,24 @@ def test_summarize():
          'Rv0000\tRv0000\t100.000\t481\t0\t0\t1\t481\t1\t481\t0.0\t966\t481\t481\t100.0\t100.0',
          'Rv2434c\tRv2434c\t96.000\t481\t0\t0\t1\t481\t1\t481\t0.0\t966\t481\t481\t100.0\t100.0',
          ]
-    assert BLAST.summarize(blast_results) == \
-        {'Rv2434c': {
+    expected = defaultdict(dict)
+    expected['Rv2434c']['Rv2434c'] = {
+            'bitscore': 966.0,
             'iden': 100.0,
             'scov': 100.0,
             'qcov': 100.0,
-         },
-         'Rv0000': {
+    }
+    expected['Rv0000']['Rv0000'] = {
+             'bitscore': 966.0,
              'iden': 100.0,
              'scov': 100.0,
              'qcov': 100.0,
-         }
-        }
+    }
+    assert BLAST.summarize(blast_results) == expected
 
 def test_blastp():
     record = SeqIO.read("gene-seqs/Rv2434c.fasta", 'fasta')
-    assert BLAST.blastp(record, "gene-seqs/Rv2434c.fasta", 95, 95) == \
+    assert BLAST.blastp(record, "gene-seqs/Rv2434c.fasta", 'iden', 95, 95) == \
         (['Rv2434c\tRv2434c\t100.000\t481\t0\t0\t1\t481\t1\t481\t0.0\t966\t481\t481\t100.0\t100.0'],
          ['Rv2434c\tRv2434c\t0\t0\t0\t0\t\t\t\t\t1\t0\t1\t1\t0.0\t0.0'],
          [])

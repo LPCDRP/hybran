@@ -133,7 +133,7 @@ def test_fissionfuser(gene_list, tmp_path):
                         ('Hybran/Pseudoscan:description:Internal stop detected at '
                          'codon(s) 270 283 353 380 | Locus has invalid reading frame-- not '
                          'divisible by three | Locus has reference-corresponding start and '
-                         'end | Poor blastp match at 50 bitscore and 80% coverage thresholds '
+                         'end | Poor blastp match at 90% identity and 90% coverage thresholds '
                          '| Locus is 1 base pair(s) shorter than the reference'),
                         'Hybran/Pseudoscan:evidence:not_div_by_3;internal_stop',
                         'Hybran/Pseudoscan:barcode:D30;VS1;VE0;RCS1;RCE1;BOK0',
@@ -157,7 +157,7 @@ def test_fissionfuser(gene_list, tmp_path):
                         ('Hybran/Pseudoscan:description:Internal stop detected at '
                          'codon(s) 98 168 199 208 215 223 227 | Locus has invalid reading '
                          'frame-- not divisible by three | Locus has reference-corresponding '
-                         'start and end | Poor blastp match at 50 bitscore and 80% coverage '
+                         'start and end | Poor blastp match at 90% identity and 90% coverage '
                          'thresholds | Locus is 1 base pair(s) shorter than the reference'),
                         'Hybran/Pseudoscan:evidence:not_div_by_3;internal_stop',
                         'Hybran/Pseudoscan:barcode:D30;VS1;VE0;RCS1;RCE1;BOK0',
@@ -180,8 +180,8 @@ def test_fissionfuser(gene_list, tmp_path):
                     'note': [
                         ('Hybran/Pseudoscan:description:Internal stop detected at '
                          'codon(s) 53 | Locus has valid reading frame | Locus does not have '
-                         'reference-corresponding end | Poor blastp match at 50 bitscore '
-                         'and 80% coverage thresholds'),
+                         'reference-corresponding end | Poor blastp match at 90% identity '
+                         'and 90% coverage thresholds'),
                         'Hybran/Pseudoscan:evidence:internal_stop',
                         'Hybran/Pseudoscan:barcode:D31;VS1;VE0;RCS1;RCE0;BOK0',
                     ],
