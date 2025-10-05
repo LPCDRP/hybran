@@ -787,18 +787,21 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
                                        orf_increment=orf_increment,
                                        seq_ident=seq_ident,
                                        seq_covg=seq_covg)
-    with open('clustering/novelty_report.tsv','w') as novelty_report:
-        print('\t'.join(['cluster_type',
-                         'candidate_novel_gene',
-                         'nearest_ref_match',
-                         'metric',
-                         'pct_aa_ident',
-                         'pct_sub_covg',
-                         'pct_qry_covg',
-                         ]),
-              file=novelty_report)
-        for report in novelty_report_singleton + novelty_report_noref + novelty_report_multiref:
-            print(report, file=novelty_report)
+###
+### We no longer collect the data needed to write a novelty report //
+###
+#    with open('clustering/novelty_report.tsv','w') as novelty_report:
+#        print('\t'.join(['cluster_type',
+#                         'candidate_novel_gene',
+#                         'nearest_ref_match',
+#                         'metric',
+#                         'pct_aa_ident',
+#                         'pct_sub_covg',
+#                         'pct_qry_covg',
+#                         ]),
+#              file=novelty_report)
+#        for report in novelty_report_singleton + novelty_report_noref + novelty_report_multiref:
+#            print(report, file=novelty_report)
     logger.info('Updating Genbank files in ' + os.getcwd())
     add_gene_names_to_gbk(generics=isolate_update_dictionary,
                           gbk_dir=os.getcwd())
