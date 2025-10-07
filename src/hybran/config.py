@@ -15,8 +15,8 @@ cnf = SimpleNamespace(
         min_coverage=99,
     ),
     blast=SimpleNamespace(
-        min_identity=90,
-        min_coverage=90,
+        min_identity=95,
+        min_coverage=95,
     ),
     mcl_inflation=1.5,
 )
