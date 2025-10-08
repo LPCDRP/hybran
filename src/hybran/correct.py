@@ -1,0 +1,592 @@
+from collections import defaultdict
+from glob import glob
+import itertools
+from multiprocessing import Pool
+import os
+import subprocess
+import tempfile
+from types import SimpleNamespace
+
+from Bio import SeqIO
+from Bio.SeqFeature import SimpleLocation
+from Bio.SeqRecord import SeqRecord
+import networkx as nx
+
+from .bio import translate
+from .config import cnf
+from .compare import overlap_inframe
+# from .util import mpbreakpoint
+
+
+genes = defaultdict(dict)
+gene_names = defaultdict(dict)
+gene_seqs = defaultdict(dict)
+iso = []
+logs_dir = None
+seq_files = []
+
+sign = lambda x: '+' if x==1 else '-'
+
+
+def main(args):
+    global genes
+    global gene_names
+    global gene_seqs
+    global iso
+    global logs_dir
+    global seq_files
+
+    cnf.genetic_code = args.genetic_code
+    cnf.blast.min_coverage = args.blast_min_coverage
+    cnf.blast.min_identity = args.blast_min_identity
+
+    mcps_fn = f"{args.prefix}mcps.tsv"
+    renames_fn = f"{args.prefix}renames.tsv"
+    additions_raw_fn = f"{args.prefix}additions.prededup.bed"
+    additions_fn = f"{args.prefix}additions.bed"
+    logs_dir = f"{args.prefix}logs"
+
+    ann_files = []
+    for ann_source in args.annotations:
+        if os.path.isdir(ann_source):
+            ann_files += glob(f"{ann_source}/*.gbk")
+        else:
+            ann_files.append(ann_source)
+    seqs = []
+
+    if len(ann_files) == 1 and ann_files[0].endswith(".bed"):
+        coords_file = ann_files[0]
+        sort_proc = subprocess.run([
+            "sort",
+            "-k1,1",
+            "-k2,2n",
+            coords_file,
+        ], capture_output=True, check=True, text=True)
+        last_strain = None
+        for line in sort_proc.stdout.strip().split('\n'):
+            (
+                strain_chrom,
+                start,
+                end,
+                gene,
+                _,
+                strand_sign,
+            ) = line.split('\t')
+            strand = 1 if strand_sign == '+' else -1
+            isolate_id = os.path.splitext(strain_chrom)[0]
+            if isolate_id != last_strain:
+                seq_files.append(f"{args.seq_dir}/{isolate_id}.fasta")
+                seqs.append(SeqIO.read(seq_files[-1], "fasta"))
+            # make a dummy version of a SeqFeature object
+            genes[isolate_id][gene] = SimpleNamespace(
+                location=SimpleNamespace(start=int(start), end=int(end), strand=strand),
+            )
+            gene_seqs[isolate_id][gene] = translate(f.extract(record.seq), table=cnf.genetic_code)
+            # replicate structure as for annotation data. we don't have locus tags, so this is tautological
+            gene_names[isolate_id][gene] = gene
+            last_strain = isolate_id
+    else:
+        for annotation in ann_files:
+            isolate_id = os.path.basename(annotation).split('.')[0]
+            seq_files.append(f"{args.seq_dir}/{isolate_id}.fasta")
+            seqs.append(SeqIO.read(seq_files[-1], "fasta"))
+            i=0
+            for record in SeqIO.parse(annotation, "genbank"):
+                for f in record.features:
+                    if f.type != 'CDS':
+                        continue
+                    ltag = f.qualifiers['locus_tag'][0]
+                    genes[isolate_id][ltag] = f
+                    gene_seqs[isolate_id][ltag] = translate(f.extract(record.seq), table=cnf.genetic_code)
+                    gene_names[isolate_id][ltag] = f.qualifiers['gene'][0] if 'gene' in f.qualifiers else ltag
+
+    iso = list(genes.keys())
+    # Create log directories
+    for sample_name in iso:
+        os.makedirs(os.path.join(logs_dir, sample_name), exist_ok=True)
+
+    os.makedirs(logs_dir, exist_ok=True)
+
+    clusters = nx.Graph()
+    name_mappings = {}
+    additions = []
+
+    rn_fh = open(renames_fn, 'w')
+    # erase mcps file if it exists.
+    # we're going to loop-write in append mode and we don't want to keep accumulating output from previous runs.
+    if os.path.isfile(mcps_fn):
+        open(mcps_fn, 'w').close()
+
+    iso_pairs = list(itertools.combinations(range(len(iso)), r=2))
+
+    with Pool(args.nproc) as p:
+        mcp_results = p.map(mincanpairs, iso_pairs)
+
+    # Create symlinks to existing log files
+    for sample_name in iso:
+        for other_sample in iso:
+            if other_sample <= sample_name:  # Skip self and already handled pairs
+                continue
+            target_file = os.path.join(logs_dir, sample_name, f"{other_sample}.log")
+            symlink_file = os.path.join(logs_dir, other_sample, f"{sample_name}.log")
+            if os.path.exists(target_file) and not os.path.exists(symlink_file):
+                rel_path = os.path.relpath(target_file, os.path.dirname(symlink_file))
+                os.symlink(rel_path, symlink_file)
+
+    for mcps, equivs, adds in mcp_results:
+        with open(mcps_fn, 'a') as mcps_fh:
+            for gene_pair in mcps:
+                iso1, iso2 = mcps[gene_pair].keys()
+                mcp1 = ' '.join(f"{sign(genes[iso1][g].location.strand)}{gene_names[iso1][g]}" for g in mcps[gene_pair][iso1]['segment'])
+                mcp2 = ' '.join(f"{sign(genes[iso2][g].location.strand)}{gene_names[iso2][g]}" for g in mcps[gene_pair][iso2]['segment'])
+                print('\t'.join([
+                    gene_pair[0],
+                    gene_pair[1],
+                    iso1,
+                    mcp1,
+                    iso2,
+                    mcp2,
+                ]), file=mcps_fh)
+
+                additions += adds[gene_pair]
+
+                for ltag1, gene1, ltag2, gene2 in equivs[gene_pair]:
+                    # conflicting gene names: both reference-named but not identically
+                    if not gene1.startswith('HYBRA') and not gene2.startswith('HYBRA'):
+                        print('\t'.join([
+                            'MANUAL',
+                            iso1,
+                            ltag1,
+                            gene1,
+                            iso2,
+                            ltag2,
+                            gene2,
+                        ]), file=rn_fh)
+                    else:
+                        clusters.add_edge(gene1, gene2, iso1=iso1, ltag1=ltag1, iso2=iso2, ltag2=ltag2)
+
+    for cc in nx.connected_components(clusters):
+        authoritative = [n for n in cc if not n.startswith('HYBRA') and '::' not in n]
+        if not authoritative:
+            authoritative = [n for n in cc if not n.startswith('HYBRA')]
+            if not authoritative:
+                authoritative = [sorted(list(cc))[0]]
+        if len(authoritative) > 1:
+            print('\t'.join(['MANUAL'] + list(cc)), file=rn_fh)
+        else:
+            name = authoritative[0]
+            for n in cc:
+                name_mappings[n] = name
+            print('\t'.join([name, '*'] + [n for n in cc if n != name]), file=rn_fh)
+
+    rn_fh.close()
+
+    with open(additions_raw_fn, 'w') as add_fh:
+        for entry in additions:
+            if entry['gene'] in name_mappings:
+                entry['gene'] = name_mappings[entry['gene']]
+            print('\t'.join(entry.values()), file=add_fh)
+
+    deduplicated_additions = deduplicate_additions(additions)
+    with open(additions_fn, 'w') as dedupe_fh:
+        for entry in deduplicated_additions:
+            if entry['gene'] in name_mappings:
+                entry['gene'] = name_mappings[entry['gene']]
+            print('\t'.join(entry.values()), file=dedupe_fh)
+
+def overlap(loc1, loc2):
+    loc1_start, loc1_end = loc1
+    loc2_start, loc2_end = loc2
+    overlap = (min(loc1_end, loc2_end) - max(loc1_start, loc2_start))
+    if overlap > 0:
+        return True
+    else:
+        return False
+
+blast_fields = [
+    'qseqid',
+    'sseqid',
+    'length',
+    'pident',
+    'qcovhsp',
+    'evalue',
+    'bitscore',
+    'qstart',
+    'qend',
+    'sstart',
+    'send',
+    'qlen',
+    'slen',
+    'qseq',
+    'sseq',
+]
+blast_outfmt   = '6 ' + ' '.join(blast_fields)
+
+def summarize(blast_output):
+    results = []
+    blast_output = blast_output.strip()
+    if not blast_output:
+        return results
+    for line in blast_output.strip().split('\n'):
+        data = line.strip().split('\t')
+        line_dict = dict(zip(blast_fields, data))
+        for key in line_dict:
+            if key in [
+                    'qframe',
+                    'sframe',
+                    'qlen',
+                    'slen',
+            ]:
+                line_dict[key] = int(line_dict[key])
+            elif key in [
+                    'pident',
+            ]:
+                line_dict[key] = float(line_dict[key])
+        line_dict['qcov'] = (len(line_dict['qseq'].replace("-","")) / line_dict['qlen']) * 100
+        line_dict['scov'] = (len(line_dict['sseq'].replace("-","")) / line_dict['slen']) * 100
+
+        results.append(line_dict)
+    return results
+
+def blastp(qry_seg_genes, sub_seg_genes, qry_ind, sub_ind):
+    cmd = [
+        'blastp',
+        '-outfmt',
+        blast_outfmt,
+        '-query', qry_seg_genes,
+        '-subject', sub_seg_genes,
+    ]
+    ps = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    results = summarize(ps.stdout)
+    return [
+        r for r in results
+        if (
+                r['pident'] >= cnf.blast.min_identity
+                and (
+                    r['scov'] >= cnf.blast.min_coverage
+                    or r['qcov'] >= cnf.blast.min_coverage
+                )
+        )
+    ]
+
+def tblastn_seg(qry_seg_genes, sub_loc, qry_ind, sub_ind):
+    cmd = [
+        'tblastn',
+        '-db_gencode', str(cnf.genetic_code),
+        '-outfmt',
+        blast_outfmt,
+        '-query', qry_seg_genes,
+        '-subject', seq_files[sub_ind],
+    ]
+    ps = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    results = summarize(ps.stdout)
+    return [
+        r for r in results
+        # see whether the coordinates of the best hit overlaps with subject segment
+        # (we don't just blast against the segment for the case where any of the segment's genes overlap the flanking genes and thus go beyond the segment coordinates)
+        if (
+                overlap(sub_loc, (int(r['sstart']), int(r['send'])))
+                and (
+                    r['pident'] >= cnf.blast.min_identity
+                    and (
+                        r['scov'] >= cnf.blast.min_coverage
+                        or r['qcov'] >= cnf.blast.min_coverage
+                    )
+                )
+        )
+    ]
+
+def write_log_stanza(f, gene_pair, equivalences, seg0_additions, seg1_additions):
+    """Write a stanza to the log file"""
+    print(f"{gene_pair[0]}\t{gene_pair[1]}", file=f)
+    for addn in seg0_additions + seg1_additions:
+        print(f"//\t..\t..\tADD\t{addn['sample']}\t{addn['gene']}\t{addn['start']}\t{addn['end']}\t{addn['strand']}", file=f)
+    for ltag1, gene1, ltag2, gene2 in equivalences:
+        print(f"//\t..\t..\tRENAME\t{ltag1}|{gene1}\t{ltag2}|{gene2}", file=f)
+
+def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, seg0_coords, seg1_coords, sample0_ind, sample1_ind):
+    seg0_genes_unmatched = seg0_genes.copy()
+    seg1_genes_unmatched = seg1_genes.copy()
+
+    if not seg0_genes or not seg1_genes:
+        seg0_qry_stats = []
+        seg1_qry_stats = []
+    else:
+        seg0_qry_stats = blastp(seg0_genes_file, seg1_genes_file, sample0_ind, sample1_ind)
+        seg1_qry_stats = blastp(seg1_genes_file, seg0_genes_file, sample1_ind, sample0_ind)
+
+    equivalences = []
+
+    seg0_matches = {}
+    # check for reciprocal best hits
+    for resultset in seg0_qry_stats:
+        ltag0, gene0, strand_of_0 = resultset['qseqid'].split('|')
+        strand_of_0 = int(strand_of_0)
+        if ltag0 in seg0_matches:
+            continue
+        ltag1, gene1, strand_of_1 = resultset['sseqid'].split('|')
+        strand_of_1 = int(strand_of_1)
+        seg0_matches[ltag0] = {'ltag':ltag1, 'gene':gene1, 'strand':strand_of_1}
+
+    seg1_matches = {}
+    for resultset in seg1_qry_stats:
+        ltag1, gene1, strand_of_1 = resultset['qseqid'].split('|')
+        strand_of_1 = int(strand_of_1)
+        if ltag1 in seg1_matches:
+            continue
+        ltag0, gene0, strand_of_0 = resultset['sseqid'].split('|')
+        strand_of_0 = int(strand_of_0)
+        seg1_matches[ltag1] = {'ltag':ltag0, 'gene':gene0, 'strand':strand_of_0}
+
+        if (
+                ltag0 in seg0_matches
+                and seg0_matches[ltag0]['ltag'] == ltag1
+        ):
+            if gene0 != gene1:
+                equivalences.append([ltag0, gene0, ltag1, gene1])
+            seg0_genes_unmatched.remove(ltag0)
+            seg1_genes_unmatched.remove(ltag1)
+
+    seg1_additions = []
+    if seg0_genes_unmatched:
+        seg0_genes_vs_intergene1 = tblastn_seg(seg0_genes_file, seg1_coords, sample0_ind, sample1_ind)
+        for resultset in seg0_genes_vs_intergene1:
+            ltag0, gene0, strand_of_0 = resultset['qseqid'].split('|')
+            strand_of_0 = int(strand_of_0)
+            if ltag0 in seg0_matches:
+                continue
+            seg0_matches[ltag0] = True
+            start, end = int(resultset['sstart']), int(resultset['send'])
+            # Check the strand of the hit and account for the stop codon position
+            # since the protein sequence query doesn't represent it.
+            # TODO: We should actually make sure this is a stop codon and not a run-on frame.
+            #       will need to use stopseeker() for that.
+            if start < end:
+                sign_flip = 1
+                end += 3
+            else:
+                sign_flip = -1
+                start -= 3
+            strandsign = sign(sign_flip)
+            seg1_additions.append({
+                'sample':None,
+                'start':str(min(start,end) - 1),
+                'end':str(max(start,end)),
+                'gene':gene0,
+                'bedscore':'1',
+                'strand':strandsign
+            })
+            seg0_genes_unmatched.remove(ltag0)
+
+    seg0_additions = []
+    if seg1_genes_unmatched:
+        seg1_genes_vs_intergene0 = tblastn_seg(seg1_genes_file, seg0_coords, sample1_ind, sample0_ind)
+        for resultset in seg1_genes_vs_intergene0:
+            ltag1, gene1, strand_of_1 = resultset['qseqid'].split('|')
+            strand_of_1 = int(strand_of_1)
+            if ltag1 in seg1_matches:
+                continue
+            seg1_matches[ltag1] = True
+            start, end = int(resultset['sstart']), int(resultset['send'])
+            # Check the strand of the hit and account for the stop codon position
+            # since the protein sequence query doesn't represent it.
+            # TODO: We should actually make sure this is a stop codon and not a run-on frame.
+            #       will need to use stopseeker() for that.
+            if start < end:
+                sign_flip = 1
+                end += 3
+            else:
+                sign_flip = -1
+                start -= 3
+            strandsign = sign(sign_flip)
+            seg0_additions.append({
+                'sample':None,
+                'start':str(min(start,end) - 1),
+                'end':str(max(start,end)),
+                'gene':gene1,
+                'bedscore':'1',
+                'strand':strandsign
+            })
+            seg1_genes_unmatched.remove(ltag1)
+
+    return equivalences, seg0_additions, seg1_additions, seg0_genes_unmatched, seg1_genes_unmatched
+
+def get_segment(sample, pair):
+    '''
+    Get all genes occurring between the pair defining the interval.
+    Note - this relies on all pair members being unique in their respective
+           genome, but we have ensured that while creating the full list of pairs
+    '''
+    ltag_list = list(genes[sample].keys())
+    coordA = ltag_list.index(pair[0])
+    coordB = ltag_list.index(pair[1])
+    return ltag_list[coordA:coordB+1]
+
+def deduplicate_additions(additions_list):
+    """Remove duplicate additions, keeping the longest overlapping gene per sample/gene combination"""
+    # Group by sample and gene name
+    grouped = defaultdict(list)
+    for entry in additions_list:
+        key = (entry['sample'], entry['gene'])
+        grouped[key].append(entry)
+
+    deduplicated = []
+    for (sample, gene), entries in grouped.items():
+        # Sort by length (end - start), descending
+        entries.sort(key=lambda x: int(x['end']) - int(x['start']), reverse=True)
+
+        kept = []
+        for entry in entries:
+            entry_coords = SimpleLocation(int(entry['start']), int(entry['end']), int(f"{entry['strand']}1"))
+            # Check if this entry overlaps with any already kept entry
+            if not any(
+                overlap_inframe(
+                    entry_coords,
+                    SimpleLocation(int(kept_entry['start']), int(kept_entry['end']), int(f"{kept_entry['strand']}1")),
+                )
+                for kept_entry in kept
+            ):
+                kept.append(entry)
+
+        deduplicated.extend(kept)
+
+    return deduplicated
+
+def mincanpairs(sample_ind_pair):
+    sample0_ind, sample1_ind = sample_ind_pair
+    sample0, sample1 = iso[sample0_ind], iso[sample1_ind]
+
+    # Determine log file path (always use lexicographically first sample as directory)
+    if sample0 < sample1:
+        log_file = os.path.join(logs_dir, sample0, f"{sample1}.log")
+    else:
+        log_file = os.path.join(logs_dir, sample1, f"{sample0}.log")
+    log_fh = open(log_file, 'w')
+
+
+    can_pairs = []
+    i = 0
+
+    iso0_ltags = list(genes[iso[sample0_ind]].keys())
+    iso0_genes = list(gene_names[iso[sample0_ind]].values())
+    iso1_ltags = list(genes[iso[sample1_ind]].keys())
+    iso1_genes = list(gene_names[iso[sample1_ind]].values())
+
+    # find all candidate pairs
+    for ltag1a in iso0_ltags:
+        gene1 = gene_names[iso[sample0_ind]][ltag1a]
+        # stop when we get 1 gene from the end since there won't be a pair for it
+        # (subtract 2 instead of 1 because of 0-indexing)
+        if i == len(iso0_genes)-2:
+            break
+        # treat any gene with multiple copies as potentially different
+        # because it will be complicated to track down which copy corresponds
+        # to which between the two isolates.
+        if iso0_genes.count(gene1)>1 or \
+           gene1 not in iso1_genes or \
+           iso1_genes.count(gene1)>1:
+            i += 1
+            continue
+        ltag2a_pos = iso1_genes.index(gene1)
+        ltag2a = iso1_ltags[ltag2a_pos]
+        for ltag1b in iso0_ltags[i+2:]:
+            gene2 = gene_names[iso[sample0_ind]][ltag1b]
+            if iso0_genes.count(gene2)>1 or \
+               gene2 not in iso1_genes or \
+               iso1_genes.count(gene2)>1:
+                continue
+            ltag2b_pos = iso1_genes.index(gene2)
+            ltag2b = iso1_ltags[ltag2b_pos]
+            if ltag2a_pos > ltag2b_pos:
+                (ltag2a, ltag2b) = (ltag2b, ltag2a)
+            can_pairs.append([(gene1, gene2), (ltag1a,ltag1b), (ltag2a, ltag2b)])
+            break
+        i += 1
+
+    # prepare final results by checking minimality
+    mcps = {}
+    equivs = {}
+    additions = {}
+    for gene_pair, iso0_pair, iso1_pair in can_pairs:
+        segment1 = get_segment(iso[sample0_ind], iso0_pair)
+        segment1_gene_names = [gene_names[iso[sample0_ind]][g] for g in segment1]
+        segment2 = get_segment(iso[sample1_ind], iso1_pair)
+        segment2_gene_names = [gene_names[iso[sample1_ind]][g] for g in segment2]
+        # There's simply a deletion
+        # TODO -- get rid of this -- could be unannotated in between!
+        #if len(segment1)==2 or len(segment2)==2:
+        #    continue
+        if (
+                (
+                    segment1_gene_names[0] == segment2_gene_names[0]
+                    and segment1_gene_names[-1] == segment2_gene_names[-1]
+                    and segment1_gene_names[0:2] != segment2_gene_names[0:2]
+                    and segment1_gene_names[-2:] != segment2_gene_names[-2:]
+                ) or ( #inverted pair
+                    segment1_gene_names[0] == segment2_gene_names[-1]
+                    and segment1_gene_names[-1] == segment2_gene_names[0]
+                    and segment1_gene_names[0:2] != segment2_gene_names[-2:][::-1]
+                    and segment1_gene_names[-2:] != segment2_gene_names[0:2][::-1]
+                )
+        ):
+            seg1_coords = (
+                genes[iso[sample0_ind]][iso0_pair[0]].location.end,
+                genes[iso[sample0_ind]][iso0_pair[1]].location.start + 1
+            )
+            seg2_coords = (
+                genes[iso[sample1_ind]][iso1_pair[0]].location.end,
+                genes[iso[sample1_ind]][iso1_pair[1]].location.start + 1
+            )
+            with tempfile.NamedTemporaryFile(mode='w', buffering=1) as seg1_geneseqs, tempfile.NamedTemporaryFile(mode='w', buffering=1) as seg2_geneseqs:
+                seg1_gene_records = [
+                    SeqRecord(gene_seqs[iso[sample0_ind]][g],
+                              id=f"{g}|{gene_names[iso[sample0_ind]][g]}|{genes[iso[sample0_ind]][g].location.strand}",
+                              name='', description='',
+                              )
+                    for g in segment1
+                ]
+                SeqIO.write(seg1_gene_records, seg1_geneseqs, "fasta")
+                seg2_gene_records = [
+                    SeqRecord(gene_seqs[iso[sample1_ind]][g],
+                              id=f"{g}|{gene_names[iso[sample1_ind]][g]}|{genes[iso[sample1_ind]][g].location.strand}",
+                              name='', description='',
+                              )
+                    for g in segment2
+                ]
+                SeqIO.write(seg2_gene_records, seg2_geneseqs, "fasta")
+                (
+                    equivalences,
+                    seg1_additions,
+                    seg2_additions,
+                    seg1_unmatched,
+                    seg2_unmatched,
+                ) = compare_segments(
+                    segment1,
+                    segment2,
+                    seg1_geneseqs.name,
+                    seg2_geneseqs.name,
+                    seg1_coords,
+                    seg2_coords,
+                    sample0_ind,
+                    sample1_ind,
+                )
+            for addn in seg1_additions:
+                addn['sample'] = iso[sample0_ind]
+            for addn in seg2_additions:
+                addn['sample'] = iso[sample1_ind]
+            mcps[gene_pair] = {
+                iso[sample0_ind]: {
+                    'segment': segment1
+                },
+                iso[sample1_ind]: {
+                    'segment': segment2
+                }
+            }
+            additions[gene_pair] = seg1_additions + seg2_additions
+            equivs[gene_pair] = equivalences
+
+            write_log_stanza(log_fh, gene_pair, equivalences, seg1_additions, seg2_additions)
+
+    log_fh.close()
+
+    return mcps, equivs, additions

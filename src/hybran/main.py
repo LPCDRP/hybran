@@ -19,6 +19,7 @@ from . import (
     config,
     designator,
     standardize,
+    correct,
     compare,
     defuse,
     __version__,
@@ -95,6 +96,12 @@ def cmds():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     comparecmd.set_defaults(func=compare.main)
+    correctcmd = subparsers.add_parser(
+        'correct',
+        help='Correct annotations using hints from discordant synteny',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    correctcmd.set_defaults(func=correct.main)
     defusecmd = subparsers.add_parser(
         'defuse',
         help='Separate gene fusion annotations into single gene annotations.',
@@ -194,6 +201,55 @@ def cmds():
         '-o', '--outdir',
         help='Directory to output the results of the comparison.',
         default='.',
+    )
+
+    #
+    # hybran correct
+    #
+    correctcmd.add_argument(
+        "annotations",
+        nargs='+',
+        help='blocks_coords BED file, Genbank annotation files, or the directory/directories containing them.',
+    )
+    correctcmd.add_argument(
+        "-s", "--seq-dir",
+        help='Directory containing corresponding genome sequence files in fasta format.',
+        required=True
+    )
+    correctcmd.add_argument(
+        "-p", "--prefix",
+        help="Output filenames' prefix.",
+        default='out.',
+    )
+    correctcmd.add_argument(
+        "-n", "--nproc",
+        help="number of parallel processes to use",
+        type=int,
+        default=1,
+    )
+    correctcmd.add_argument(
+        "-d", "--debug",
+        help="write debug logs",
+        action="store_true",
+        default=False,
+    )
+    correctcmd.add_argument(
+        '-i', '--blast-min-identity',
+        help='Minimum percent sequence identity for matching genes',
+        default=config.cnf.blast.min_identity,
+        type=percentage,
+    )
+    correctcmd.add_argument(
+        '-c', '--blast-min-coverage',
+        help='Minimum percent sequence alignment coverage for matching genes',
+        default=config.cnf.blast.min_coverage,
+        type=percentage,
+    )
+    correctcmd.add_argument(
+        '--genetic-code',
+        help="Genetic code table number (required for BED inputs)",
+        type=int,
+        default=config.cnf.genetic_code,
     )
 
     #

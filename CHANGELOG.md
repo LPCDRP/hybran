@@ -10,7 +10,8 @@
 * Produce gff files in addition to gbk for onegene, standardize, and postprocessing
 * Write a log file to the output folder (#73)
 * Produce fusion report files, with estimated coordinates of fusion components.
-* New subcommand:
+* New experimental subcommands:
+  - `hybran correct`: Identify annotation corrections based on suspicious synteny discordance
   - `hybran defuse`: Rewrite the annotation files without gene fusions, annotating fusion components separately instead.
 
 ### Deprecations
