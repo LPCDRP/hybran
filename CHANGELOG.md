@@ -3,11 +3,18 @@
 ## Development
 
 ### Enhancements
+* Expose sequence identity/coverage parameters for both homology inference and redundancy determination.
+* Use bidirectional best hits for BLAST reference searching.
+* During clustering, use CD-HIT only for avoiding alignment of redundant sequences.
+* New option `--mcl-inflation`/`-I` to allow user to change the desired clustering granularity.
 * Produce gff files in addition to gbk for onegene, standardize, and postprocessing
 * Write a log file to the output folder (#73)
 * Produce fusion report files, with estimated coordinates of fusion components.
 * New subcommand:
   - `hybran defuse`: Rewrite the annotation files without gene fusions, annotating fusion components separately instead.
+
+### Deprecations
+* This version no longer produces the `clustering/novelty_report.tsv` file.
 
 ### Bugs fixed
 * Fixed verbose and quiet run modes.

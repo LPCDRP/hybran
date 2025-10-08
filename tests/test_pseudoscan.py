@@ -16,28 +16,28 @@ from hybran.config import cnf
 from .data_features import *
 
 
-@pytest.mark.parametrize('feature_type, seq_ident, seq_covg, attempt_rescue', [
-    ['small_badstop_fix_pseudo', 95, 95, True],
-    ['small_badstart_fix_nopseudo', 95, 95, True],
-    ['small_badstop_fix_pseudo_frameshift', 95, 95, True],
-    ['frameshift_alt_stop_pseudo', 95, 95, True],
-    ['good_start_stop_frameshift_pseudo', 95, 95, True],
-    ['bad_start_stop_nofix_pseudo', 95, 95, True],
-    ['fix_stop_valid_broken_stop', 95, 95, True],
-    ['sensitive_padding_fix_pseudo', 95, 95, True],
-    ['deletion_in_middle_fix_pseudo', 95, 95, True],
-    ['fix_start_stop_nonpseudo', 95, 95, True],
-    ['good_start_stop_fix_pseudo', 95, 95, True],
-    ['inframe_deletion_in_middle', 95, 95, True],
-    ['good_blast_still_repairable', 95, 95, True],
-    ['start_correction_induces_delayed_stop', 95, 95, True],
-    ['start_correction_induces_delayed_stop2', 95, 95, True],
-    ['reject_coord_correction', 95, 95, True],
-    ['compound_location', 95, 95, True],
-    ['first_codon_snp_corrected', 95, 95, True],
-    ['first_codon_snp_corrected2', 95, 95, True],
+@pytest.mark.parametrize('feature_type, attempt_rescue', [
+    ['small_badstop_fix_pseudo', True],
+    ['small_badstart_fix_nopseudo', True],
+    ['small_badstop_fix_pseudo_frameshift', True],
+    ['frameshift_alt_stop_pseudo', True],
+    ['good_start_stop_frameshift_pseudo', True],
+    ['bad_start_stop_nofix_pseudo', True],
+    ['fix_stop_valid_broken_stop', True],
+    ['sensitive_padding_fix_pseudo', True],
+    ['deletion_in_middle_fix_pseudo', True],
+    ['fix_start_stop_nonpseudo', True],
+    ['good_start_stop_fix_pseudo', True],
+    ['inframe_deletion_in_middle', True],
+    ['good_blast_still_repairable', True],
+    ['start_correction_induces_delayed_stop', True],
+    ['start_correction_induces_delayed_stop2', True],
+    ['reject_coord_correction', True],
+    ['compound_location', True],
+    ['first_codon_snp_corrected', True],
+    ['first_codon_snp_corrected2', True],
 ])
-def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path):
+def test_pseudoscan(feature_type, attempt_rescue, tmp_path):
     ref_genome = defaultdict(lambda :'H37Rv')
     ref_genome['compound_location'] = 'PAO1_107_refseq_2019'
     ref_genome['first_codon_snp_corrected'] = 'PAO1_107_refseq_2019'
@@ -129,6 +129,10 @@ def test_pseudoscan(feature_type, seq_ident, seq_covg, attempt_rescue, tmp_path)
         'first_codon_snp_corrected': [True, FeatureLocation(932923, 935737, strand=1, ref='refseq|NZ_LR657304.1|chromosome1')],
         'first_codon_snp_corrected2': [True, FeatureLocation(4891259, 4892045, strand=1, ref='refseq|NZ_LR657304.1|chromosome1')],
     }
-    results = pseudoscan.pseudoscan(feature, ref_feature, seq_ident, seq_covg, attempt_rescue)
+    results = pseudoscan.pseudoscan(
+        feature=feature,
+        ref_feature=ref_feature,
+        attempt_rescue=attempt_rescue,
+    )
     assert [results, feature.location] == expected[feature_type]
 

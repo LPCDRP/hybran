@@ -39,8 +39,6 @@ def reset_pseudo(feature):
 def pseudoscan(
         feature,
         ref_feature,
-        seq_ident,
-        seq_covg,
         attempt_rescue=False,
         blast_hit_dict=None,
 ):
@@ -49,8 +47,6 @@ def pseudoscan(
 
     :param feature: SeqFeature object of the one to test for pseudo
     :param ref_feature: SeqFeature object of the reference feature to compare to
-    :param seq_ident:
-    :param seq_covg:
     :param attempt_rescue: Boolean whether to attempt coordinate correction (feature may still be pseudo after correction)
     :param blast_hit_dict:
         dictionary of blast scores for the reference comparison.
@@ -118,10 +114,11 @@ def pseudoscan(
 
             #ref_match with 'thresholds enforced'
             top_hit, low_covg, blast_stats = BLAST.reference_match(
-                query=SeqRecord(Seq(feature_seq)),
+                query=SeqRecord(Seq(feature_seq), id=''),
                 subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
-                seq_ident=seq_ident,
-                seq_covg=seq_covg,
+                metric='iden',
+                cutoff=cnf.blast.min_identity,
+                seq_covg=cnf.blast.min_coverage,
             )
             blast_ok = top_hit and not low_covg
 
@@ -177,14 +174,14 @@ def pseudoscan(
             'transl_except',
             feature.transl_except,
         )
-    return call(feature, ref_was_pseudo, ref_d3, ref_len, seq_ident, seq_covg)
+    return call(feature, ref_was_pseudo, ref_d3, ref_len, cnf.blast.min_identity, cnf.blast.min_coverage)
 
 def call(
         feature,
         ref_was_pseudo,
         ref_d3=None,
         ref_len=None,
-        blast_seq_ident=None,
+        blast_min_identity=None,
         blast_seq_covg=None,
 ):
     """
@@ -198,7 +195,7 @@ def call(
         Whether the reference feature is divisible by 3.
         Only applicable if ref_was_pseudo == True.
     :param ref_len: int length of reference feature (for noting length differences)
-    :param blast_seq_ident: float alignment sequence identity threshold used
+    :param blast_min_identity: float alignment %-identity threshold used
     :param blast_seq_covg: float alignment coverage threshold used
     :returns: True if pseudo / False otherwise.
     """
@@ -217,7 +214,7 @@ def call(
     feature.alte = (not feature.rce and feature.ve)
     have_blast_info = (
         blast_ok is not None
-        and blast_seq_ident is not None
+        and blast_min_identity is not None
         and blast_seq_covg is not None
     )
 
@@ -261,7 +258,7 @@ def call(
     if have_blast_info:
         blast_note = (
             f"{'Strong' if blast_ok else 'Poor'} blastp match at "
-            f"{blast_seq_ident}% identity and {blast_seq_covg}% coverage thresholds"
+            f"{blast_min_identity}% identity and {blast_seq_covg}% coverage thresholds"
         )
     #Can only comment on differences in gene length if all(coords_ok).
     seq_len_diff_note = ''

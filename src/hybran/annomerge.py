@@ -403,8 +403,6 @@ def run(
         ref_proteins_fasta,
         ref_gbk_list,
         script_directory,
-        seq_ident,
-        seq_covg,
         ratt_enforce_thresholds,
         nproc=1,
 ):
@@ -485,8 +483,6 @@ def run(
         ratt_outdir=ratt_file_path,
         postprocess_outdir=os.path.join(file_path, 'ratt-postprocessed'),
         ref_annotation=ref_annotation,
-        seq_ident=seq_ident,
-        seq_covg=seq_covg,
         nproc=nproc,
         enforce_thresholds=ratt_enforce_thresholds,
     )
@@ -499,8 +495,6 @@ def run(
         postprocess_outdir=os.path.join(file_path, 'prokka-postprocessed'),
         ref_annotation=ref_annotation,
         ref_proteome=ref_proteins_fasta,
-        seq_ident=seq_ident,
-        seq_covg=seq_covg,
         nproc=nproc,
     )
 

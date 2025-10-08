@@ -1,3 +1,4 @@
+from copy import deepcopy
 import os
 import re
 import tempfile
@@ -53,16 +54,27 @@ def parse_clustered_proteins(clustered_proteins, annotations):
                         for line in gff_file:
                             if line.startswith('#'):
                                 continue
-                            gene = ''
                             column = line.rstrip('\n').split('\t')
-                            if len(column) >= 8:
-                                info = column[8].split(';')
-                                gene_id = ''.join([i.split('=')[1] for i in info if i.startswith('ID=')])
-                                locus_tag = ''.join([i.split('=')[1] for i in info if i.startswith('locus_tag=')])
-                                if not gene_id or not locus_tag:
-                                    continue
-                                gene = ','.join([i.split('=')[1] for i in info if i.startswith('gene=')])
-                                isolate_id_ltag[gene_id] = (locus_tag, gene)
+                            if len(column) < 9:
+                                continue
+                            gene_id = ''
+                            locus_tag = ''
+                            gene = ''
+                            translation = ''
+
+                            info = column[8].split(';')
+                            for i in info:
+                                if i.startswith('ID='):
+                                    gene_id = i.split('=')[1]
+                                elif i.startswith('locus_tag='):
+                                    locus_tag = i.split('=')[1]
+                                elif i.startswith('gene='):
+                                    gene = i.split('=')[1]
+                                elif i.startswith('translation='):
+                                    translation = i.split('=')[1]
+                            if not gene_id or not locus_tag or not translation:
+                                continue
+                            isolate_id_ltag[gene_id] = (locus_tag, gene)
                         if not isolate_id in gff_dictionary.keys():
                             gff_dictionary[isolate_id] = isolate_id_ltag
                         # this is the case if the reference genome itself is being processed as a sample,
@@ -95,11 +107,15 @@ def parse_clustered_proteins(clustered_proteins, annotations):
     underscores = {}
     l_tag_only_clusters = {}
     unique_genes_list = []
+    # Genes that MCL didn't even operate on because they had no BLAST hits to anything.
+    # start it out as a copy of all the genes and eliminate what we see in the clustering results
+    unclustered_genes = deepcopy(gffs)
     with open(clustered_proteins, 'r') as clustered_proteins_file:
         for line in clustered_proteins_file:
             cluster_members = [_.groups() for _ in re.finditer(r'(?P<sample_id>\S+)@@@(?P<seq_id>\S+)', line)]
             (rep_isolate, rep_seq_id) = cluster_members[0]
             representative_ltag_gene_tup = gffs[rep_isolate][rep_seq_id]
+            unclustered_genes[rep_isolate].pop(rep_seq_id, None)
             representative = ','.join([rep_isolate, ','.join(representative_ltag_gene_tup)])
 
             representative_fasta_list.append([rep_isolate] + list(representative_ltag_gene_tup))
@@ -111,6 +127,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             cluster_list_w_isolate.append([rep_isolate] + list(representative_ltag_gene_tup))
             for isolate, gene_id in cluster_members[1:]:
                 cluster_list.append(gffs[isolate][gene_id])
+                unclustered_genes[isolate].pop(gene_id, None)
                 cluster_list_w_isolate.append([isolate] + list(gffs[isolate][gene_id]))
                 gene_cluster[representative].append(','.join([isolate, ','.join(gffs[isolate][gene_id])]))
             number_genes = list(set(sorted([gene for locus_tag, gene in cluster_list])))
@@ -137,8 +154,18 @@ def parse_clustered_proteins(clustered_proteins, annotations):
             # L tag only clusters
             elif all(designator.is_raw_ltag(gene) for locus_tag, gene in cluster_list):
                 l_tag_only_clusters[representative] = cluster_list_w_isolate
-    return [different_genes_cluster_w_ltags, same_genes_cluster_w_ltags, l_tag_only_clusters,
-            unique_genes_list]
+
+    for isolate in unclustered_genes:
+        for locus_tag, gene in unclustered_genes[isolate].values():
+            if designator.is_raw_ltag(gene):
+                unique_genes_list.append([isolate, locus_tag, gene])
+
+    return [
+        different_genes_cluster_w_ltags,
+        same_genes_cluster_w_ltags,
+        l_tag_only_clusters,
+        unique_genes_list,
+    ]
 
 
 def get_gene_name(id_string):
@@ -170,7 +197,7 @@ def check_matches_to_known_genes(
     :param query_seq: SeqRecord query gene AA sequence
     :param reference_seqs: str fasta file name of reference genes to map against
     :param generic_seqs: str fasta file name of hitherto assigned generic genes (ORF####)
-    :param cluster_type: str category of CD-HIT clusters that the query_seq came from
+    :param cluster_type: str category of MCL clusters that the query_seq came from
     :param orf_increment: int increment to start new ORFs
     :returns:
         - name_to_assign (:py:class:`str`)
@@ -191,19 +218,22 @@ def check_matches_to_known_genes(
         refs = [reference_seqs]
 
     for ref in refs:
-        top_hit, low_covg, blast_stats = BLAST.reference_match(
-            query = query_seq,
-            subject = ref,
-            seq_ident = seq_ident,
-            seq_covg = seq_covg,
-            identify=get_gene_name,
-            strict=True,
-        )
-        if top_hit:
-            name_to_assign = top_hit
-            assign_new_generic = False
+        if cluster_type == 'multiref':
+            top_hit, blast_stats = BLAST.bidirectional_best_hit(
+                query=query_seq,
+                subject=ref,
+                identify=get_gene_name,
+                #strict=True,
+            )
+            if top_hit:
+                name_to_assign = top_hit[query_seq.id]
+                assign_new_generic = False
         else:
-            best_subcriticals += check_subcriticals(blast_stats)
+            top_hit = None
+
+        #if not top_hit:
+        #    best_subcriticals += check_subcriticals(blast_stats)
+        best_subcriticals = []
 
     if assign_new_generic:
         (orf_id, orf_increment) = designator.assign_orf_id(orf_increment)
@@ -360,27 +390,11 @@ def unique_seqs(annotations):
     """
     hybran_tmp_dir = config.hybran_tmp_dir
 
-    def grep_seqs(gff):
-        """
-        Finds all translations in a given GFF
-
-        :param gff: str GFF file anme
-        :return: list of GFF lines
-        """
-        gff_lines = []
-        cmd = ['grep', 'translation=', gff]
-        translations = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
-        for line in translations.stdout:
-            try:
-                gff_lines.append(line)
-            except TypeError:
-                continue
-        return gff_lines
     protein_cds = []
     isolate_seqs = {}
     for gff in annotations:
         if gff.endswith('.gff'):
-            raw_out = grep_seqs(gff)
+            raw_out = extractor.grep_seqs(gff)
             gff_name = os.path.splitext(os.path.basename(gff))[0]
             if not gff_name in isolate_seqs.keys():
                 isolate_seqs[gff_name] = {}
@@ -464,7 +478,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
         if designator.is_raw_ltag(gene_name):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
             name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
-                query_seq = SeqRecord(gene_sequence),
+                query_seq = SeqRecord(gene_sequence, id=gene_name),
                 reference_seqs = reference_fasta,
                 generic_seqs = unannotated_fasta,
                 cluster_type = 'singleton',
@@ -620,7 +634,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                 for unannotated_gene in genes_to_annotate:
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
-                    unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus])
+                    unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus], id=unannotated_gene_locus)
                     name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
                         query_seq = unannotated_gene_seq,
                         reference_seqs = fasta_fp_to_blast,
@@ -660,50 +674,45 @@ def add_gene_names_to_gbk(generics, gbk_dir):
     for isolate in generics.keys():
         if isolate not in isolates:
             logger.error('Isolate ' + isolate + ' absent in ' + gbk_dir)
-        else:
-            genbank_file = gbk_dir + '/' + isolate + '.gbk'
-            isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
-            update_orf_dict = generics[isolate]
-            locus_to_update = list(update_orf_dict.keys())
-            modified_locus = []
-            for rec in isolate_records:
-                for feature in rec.features:
-                    if feature.type != 'CDS':
-                        continue
-                    locus_tag = feature.qualifiers['locus_tag'][0]
-                    gene_name = feature.qualifiers['gene'][0]
-                    try:
-                        gene_synonym = feature.qualifiers['gene_synonym']
-                    except KeyError:
-                        gene_synonym = []
-                    if locus_tag in locus_to_update and \
-                            locus_tag not in modified_locus:
-                        if designator.is_raw_ltag(gene_name):
-                            feature.qualifiers['gene'][0] = update_orf_dict[locus_tag]['name']
-                            if update_orf_dict[locus_tag]['pseudo']:
-                                feature.qualifiers['pseudo'] = ['']
-                                feature.qualifiers.pop('translation', None)
-                        elif gene_name == update_orf_dict[locus_tag]['name']:
-                            modified_locus.append(locus_tag)
-                            continue
-                        else:
-                            logger.debug('Discordant assignment of gene name')
-                            logger.debug('Original gene name: ' + gene_name)
-                            logger.debug('New gene name: ' + update_orf_dict[locus_tag]['name'])
-                            designator.append_qualifier(
-                                feature.qualifiers,
-                                'gene_synonym',
-                                update_orf_dict[locus_tag]['name']
-                            )
-                        modified_locus.append(locus_tag)
-                    elif locus_tag in locus_to_update and locus_tag in modified_locus:
-                        logger.debug('Updated locus tag previously')
-                    else:
-                        continue
-            if len(set(locus_to_update).intersection(set(modified_locus))) < len(locus_to_update):
-                logger.warning('The following locus_tags are missing in the genbank file')
-                logger.warning(set(locus_to_update).difference(set(modified_locus)))
-            SeqIO.write(isolate_records, genbank_file, 'genbank')
+            continue
+        genbank_file = gbk_dir + '/' + isolate + '.gbk'
+        isolate_records = list(SeqIO.parse(genbank_file, 'genbank'))
+        update_orf_dict = generics[isolate]
+        locus_to_update = list(update_orf_dict.keys())
+        modified_locus = []
+        for rec in isolate_records:
+            for feature in rec.features:
+                if feature.type != 'CDS':
+                    continue
+                locus_tag = feature.qualifiers['locus_tag'][0]
+                gene_name = feature.qualifiers['gene'][0]
+                if locus_tag not in locus_to_update:
+                    continue
+                if gene_name == update_orf_dict[locus_tag]['name']:
+                    modified_locus.append(locus_tag)
+                if locus_tag in modified_locus:
+                    logger.debug(f'[{isolate}] - {locus_tag}|{gene_name} updated previously')
+                    continue
+
+                if designator.is_raw_ltag(gene_name):
+                    feature.qualifiers['gene'][0] = update_orf_dict[locus_tag]['name']
+                    if update_orf_dict[locus_tag]['pseudo']:
+                        feature.qualifiers['pseudo'] = ['']
+                        feature.qualifiers.pop('translation', None)
+                else:
+                    logger.debug('Discordant assignment of gene name')
+                    logger.debug('Original gene name: ' + gene_name)
+                    logger.debug('New gene name: ' + update_orf_dict[locus_tag]['name'])
+                    designator.append_qualifier(
+                        feature.qualifiers,
+                        'gene_synonym',
+                        update_orf_dict[locus_tag]['name']
+                    )
+                modified_locus.append(locus_tag)
+        if len(set(locus_to_update).intersection(set(modified_locus))) < len(locus_to_update):
+            logger.warning('The following locus_tags are missing in the genbank file')
+            logger.warning(set(locus_to_update).difference(set(modified_locus)))
+        SeqIO.write(isolate_records, genbank_file, 'genbank')
 
 
 def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_ident, seq_covg):
@@ -778,18 +787,21 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
                                        orf_increment=orf_increment,
                                        seq_ident=seq_ident,
                                        seq_covg=seq_covg)
-    with open('clustering/novelty_report.tsv','w') as novelty_report:
-        print('\t'.join(['cluster_type',
-                         'candidate_novel_gene',
-                         'nearest_ref_match',
-                         'metric',
-                         'pct_aa_ident',
-                         'pct_sub_covg',
-                         'pct_qry_covg',
-                         ]),
-              file=novelty_report)
-        for report in novelty_report_singleton + novelty_report_noref + novelty_report_multiref:
-            print(report, file=novelty_report)
+###
+### We no longer collect the data needed to write a novelty report //
+###
+#    with open('clustering/novelty_report.tsv','w') as novelty_report:
+#        print('\t'.join(['cluster_type',
+#                         'candidate_novel_gene',
+#                         'nearest_ref_match',
+#                         'metric',
+#                         'pct_aa_ident',
+#                         'pct_sub_covg',
+#                         'pct_qry_covg',
+#                         ]),
+#              file=novelty_report)
+#        for report in novelty_report_singleton + novelty_report_noref + novelty_report_multiref:
+#            print(report, file=novelty_report)
     logger.info('Updating Genbank files in ' + os.getcwd())
     add_gene_names_to_gbk(generics=isolate_update_dictionary,
                           gbk_dir=os.getcwd())

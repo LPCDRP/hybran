@@ -84,7 +84,7 @@ def ratt_prokka(ref_dir, organism, strain, fasta, ref_cds, gcode, ratt_ttype, pr
         os.chdir(c)
 
 
-def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
+def clustering(all_genomes, target_genomes, nproc):
     """
     Runs the clustering pipeline which uses CDHIT and MCL
     to cluster orthologous genes. File IO is handled by
@@ -114,28 +114,35 @@ def clustering(all_genomes, target_genomes, nproc, seq_ident, seq_covg):
             out_cds=fasta,
         ))
         # Run CD-HIT on cds_seqs.fasta
-        clusters = CDHIT.run(nproc=nproc,
-                             fasta=fasta,
-                             seq_ident=seq_ident,
-                             seq_covg=seq_covg,
-                             out='cdhit_clusters.fasta')
+        clusters = CDHIT.run(
+            nproc=nproc,
+            fasta=fasta,
+            seq_ident=config.cnf.onegene.min_identity,
+            seq_covg=config.cnf.onegene.min_coverage,
+            out='cdhit_clusters.fasta',
+        )
         if 'blast_results' not in os.listdir(hybran_tmp_dir):
-            BLAST.run_blast(fastafile='cdhit_clusters.fasta',
-                            nproc=nproc,
-                            seq_ident=seq_ident,
-                            seq_covg=seq_covg)
+            BLAST.all_vs_all(
+                fastafile='cdhit_clusters.fasta',
+                nproc=nproc,
+                seq_covg=config.cnf.blast.min_coverage,
+            )
         if 'clustered_proteins' not in os.listdir(os.getcwd()):
-            MCL.run_mcl(in_blast=hybran_tmp_dir + '/blast_results',
-                        cdhit_clusters=clusters,
-                        out_name='clustered_proteins',
-                        gene_names=gff_gene_dict)
+            MCL.run_mcl(
+                in_blast=os.path.join(hybran_tmp_dir, 'blast_results'),
+                cdhit_clusters=clusters,
+                out_name='clustered_proteins',
+                gene_names=gff_gene_dict,
+                inflation=config.cnf.mcl_inflation,
+            )
     os.chdir(c)
-    parseClustering.parseClustersUpdateGBKs(target_gffs=all_genomes,
-                                            clusters=hybran_tmp_dir +
-                                            '/clustering/clustered_proteins',
-                                            genomes_to_annotate=target_genomes,
-                                            seq_ident=seq_ident,
-                                            seq_covg=seq_covg)
+    parseClustering.parseClustersUpdateGBKs(
+        target_gffs=all_genomes,
+        clusters=os.path.join(hybran_tmp_dir, 'clustering', 'clustered_proteins'),
+        genomes_to_annotate=target_genomes,
+        seq_ident=config.cnf.onegene.min_identity,
+        seq_covg=config.cnf.onegene.min_coverage,
+    )
 
 
 def eggnog_mapper(script_dir, nproc, emapper_loc, ref_tax_ids, ref_gene_dict, temp_dir):

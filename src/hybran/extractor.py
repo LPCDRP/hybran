@@ -213,6 +213,12 @@ def subset_fasta(inseq, outseq, match, identify = lambda _:_):
     SeqIO.write(seqs, outseq, 'fasta')
 
 def grep_seqs(gff):
+    """
+    Get all GFF annotations that contain a translation
+
+    :param gff: str GFF file name
+    :return: list of str lines from the gff file that contain translations.
+    """
     gff_lines = []
     cmd = ['grep', 'translation=', gff]
     translations = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)

@@ -19,13 +19,11 @@ from .demarcate import (
 from .designator import key_ref_gene
 
 
-def fissionfuser(flist, ref_annotation, seq_ident, seq_covg):
+def fissionfuser(flist, ref_annotation):
     """
     Given a list of features ordered by genomic position, identify adjacent gene fragments and combine them into a single feature.
     :param flist: list of SeqFeature objects
     :param ref_annotation: dict mapping the reference IDs and gene names (keys according to annomerge.key_ref_gene) to (Autarkic)SeqFeatures
-    :param seq_ident: sequence identity threshold for BLAST (for pseudo-calling)
-    :param seq_covg: alignment coverage threshold for BLAST (for pseudo-calling)
     :returns:
         list of SeqFeature objects to keep (some modified from the original)
         list of annotations that have been merged into their neighbor.
@@ -171,8 +169,6 @@ def fissionfuser(flist, ref_annotation, seq_ident, seq_covg):
                 pseudoscan.pseudoscan(
                     new_feature,
                     ref_annotation[key_ref_gene(new_feature.source, new_feature.qualifiers['gene'][0])],
-                    seq_ident=seq_ident,
-                    seq_covg=seq_covg,
                     attempt_rescue=True,
                 )
                 last_gene_by_strand[feature.location.strand] = new_feature

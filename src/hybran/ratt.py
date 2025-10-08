@@ -44,8 +44,8 @@ def postprocess(
         ratt_outdir,
         postprocess_outdir,
         ref_annotation,
-        seq_ident,
-        seq_covg,
+        seq_ident=0,
+        seq_covg=0,
         nproc=1,
         enforce_thresholds=False,
 ):
@@ -83,8 +83,6 @@ def postprocess(
                 seqname=seqname,
                 ratt_gbk=gbk,
                 ref_annotation=ref_annotation,
-                seq_ident=seq_ident,
-                seq_covg=seq_covg,
                 nproc=nproc,
                 enforce_thresholds=enforce_thresholds,
             )
@@ -119,8 +117,8 @@ def postprocess_contig(
         seqname,
         ratt_gbk,
         ref_annotation,
-        seq_ident,
-        seq_covg,
+        seq_ident=0,
+        seq_covg=0,
         nproc=1,
         enforce_thresholds=False,
 ):
@@ -232,12 +230,6 @@ def validate(
     evid = None
     remark = None
 
-    if enforce_thresholds:
-        ratt_seq_ident = seq_ident
-        ratt_seq_covg = seq_covg
-    else:
-        ratt_seq_ident = ratt_seq_covg = 0
-
     if feature.location is None:
         valid = False
         evid = "no_coordinates"
@@ -311,8 +303,6 @@ def validate(
     feature_is_pseudo = pseudoscan(
         feature,
         ref_annotation[key_ref_gene(feature.source, feature.qualifiers['gene'][0])],
-        seq_ident,
-        seq_covg,
         attempt_rescue=True,
     )
 
@@ -347,8 +337,6 @@ def validate(
                 top_hit, low_covg, blast_stats = BLAST.reference_match(
                     query=SeqRecord(Seq(feature_sequence)),
                     subject=SeqRecord(Seq(ref_seq), id=ref_feature.qualifiers['gene'][0]),
-                    seq_ident=seq_ident,
-                    seq_covg=seq_covg,
                 )
 
                 if top_hit:

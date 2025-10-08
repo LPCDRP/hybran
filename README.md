@@ -71,7 +71,6 @@ outdir/
 │   └── <i>referenceN</i>.gff
 ├── clustering/
 │   ├── multigene_clusters.txt
-│   ├── novelty_report.tsv
 │   ├── onlyltag_clusters.txt
 │   └── singleton_clusters.txt
 |
@@ -105,25 +104,6 @@ Columns in this file are
 ##### `unified-refs/unique_ref_cdss.faa`
 
 A multi-fasta file of the representative amino acid sequences for each unique reference CDS.
-
-##### `clustering/novelty_report.tsv`
-
-Depending on the sequence identity and alignment coverage thresholds used, Hybran will name candidate novel genes.
-This novelty report allows you to examine whether these genes are truly unique based on how close they came to meeting the thresholds.
-
-* cluster_type
-* candidate_novel_gene
-* nearest_ref_match
-The top hit among the reference or other candidate novel genes.
-* metric
-The `nearest_ref_match` is the top hit according to the metric specified in this column.
-Its values for all three metrics are shown in the next columns.
-* pct_aa_ident
-: Percent amino acid sequence identity
-* pct_sub_covg
-: Percent subject (reference) alignment coverage
-* pct_qry_covg
-: Percent query alignment coverage
 
 ##### `*/fusion_report.tsv`
 
