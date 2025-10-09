@@ -7,7 +7,8 @@ HYBRANFLAGS ?=
 
 ifeq ($(SUBMIT), 1)
 #QSUB ?= qsub -N crazy_ivan -cwd -pe smp $(NPROC) -S /bin/bash -b yes -shell no -V -j yes -sync yes -o $(@D)/run.log
-QSUB ?= sbatch -J crazy_ivan -c $(NPROC) --wait -o $(@D)/run.log
+SUBMITSHELL = sbatch
+SUBMITSHELLFLAGS = --wait -J crazy_ivan -c $(NPROC) -o /dev/null --wrap
 else
 log = 2>&1 | tee -a $(@D)/run.log
 endif
@@ -31,7 +32,10 @@ $(cases): %: $(OUTDIR)/%/coords.txt
 %/coords.txt: %/final.gbk
 	./gbk2coords $< > $@
 
-
+ifeq ($(SUBMIT), 1)
+%/final.gbk: SHELL=$(SUBMITSHELL)
+%/final.gbk: .SHELLFLAGS=$(SUBMITSHELLFLAGS)
+endif
 $(OUTDIR)/1-0006%: genome=$(RESDIR)/1-0006.fasta
 $(OUTDIR)/1-0006/final.gbk $(OUTDIR)/1-0006-filterratt/final.gbk $(OUTDIR)/SRR23086714_FLYE/final.gbk: ref=$(RESDIR)/H37Rv-3.3.3.gbk
 $(OUTDIR)/1-0006-ncbi/final.gbk: ref=$(RESDIR)/h37rv_ncbi_2023_06_07.gbk
@@ -46,7 +50,7 @@ $(OUTDIR)/AZ20/final.gbk $(OUTDIR)/AZ20-reannotatedref/final.gbk: genome=$(RESDI
 $(OUTDIR)/AZ20/final.gbk: ref=$(RESDIR)/nissle-hybrid.gbk
 $(OUTDIR)/AZ20-reannotatedref/final.gbk: ref=$(RESDIR)/ECOLIN.gbk
 %/final.gbk:
-	mkdir -p $(@D); $(QSUB) \
+	mkdir -p $(@D); \
 	hybran \
 	-g $(genome) \
 	-r $(ref) \
@@ -54,5 +58,5 @@ $(OUTDIR)/AZ20-reannotatedref/final.gbk: ref=$(RESDIR)/ECOLIN.gbk
 	--verbose \
 	$(local_HYBRANFLAGS) $(HYBRANFLAGS) \
 	-o $(@D) \
-	$(log)
+	$(log); \
 	ln -sf $$(basename $(genome) .fasta).gbk $@
