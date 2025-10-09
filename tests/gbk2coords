@@ -10,7 +10,7 @@ infile = sys.argv[1]
 for record in SeqIO.parse(infile,"genbank"):
     sample_contig_id = record.id
     for f in record.features:
-        if f.type == 'CDS':
+        if f.type not in ['source', 'gene']:
             pseudo = str((('pseudo' in f.qualifiers.keys())
                       or 'pseudogene' in f.qualifiers.keys()))
             inference = ""
