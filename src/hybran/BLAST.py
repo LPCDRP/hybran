@@ -351,6 +351,7 @@ def bidirectional_best_hit(
         identify=lambda _:_,
         nproc=1,
         blast_type="p",
+        preset='thorough',
 ):
     """
     Identify bidirectional BLAST best hits between a group of query sequences and a group of reference sequences.
@@ -364,9 +365,10 @@ def bidirectional_best_hit(
     :param identify:
       function to apply to extract the desired sequence names from the blast results.
       passed to summarize()
+    :param preset: str 'conservative' or 'thorough' (BLAST settings defined in this module for whether to use soft-masking)
     """
     bbh_results = defaultdict(lambda :None)
-    blast_extra_args = presets['conservative']
+    blast_extra_args = presets[preset]
 
     qry2ref_hits, _, _ = blast(
         query,
