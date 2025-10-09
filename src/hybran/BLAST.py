@@ -349,6 +349,18 @@ def bidirectional_best_hit(
         nproc=1,
         blast_type="p",
 ):
+    """
+    Identify bidirectional BLAST best hits between a group of query sequences and a group of reference sequences.
+
+    :param query: str fasta file name containing query sequences
+    :param subject: str fasta file name containing reference sequences
+    :param metric: str name of parameter to use as the primary threshold (in addition to alignment coverage)
+    :param cutoff: float threshold for the selected metric
+    :param min_seq_covg: float minimum percent sequence alignment coverage
+    :param identify:
+      function to apply to extract the desired sequence names from the blast results.
+      passed to summarize()
+    """
     bbh_results = defaultdict(lambda :None)
     blast_extra_args = presets['conservative']
 
