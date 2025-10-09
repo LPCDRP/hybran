@@ -3,6 +3,7 @@
 ## Development
 
 ### Enhancements
+* Use bitscore to rank hits, after having used %-identity and alignment coverage for filtering hits.
 * Expose sequence identity/coverage parameters for both homology inference and redundancy determination.
 * Use bidirectional best hits for BLAST reference searching.
 * During clustering, use CD-HIT only for avoiding alignment of redundant sequences.

@@ -48,6 +48,7 @@ def reference_match(
         seq_covg=config.cnf.blast.min_coverage,
         identify=lambda _:_,
         metric='iden',
+        ranking_metric='bitscore',
         blast_type="p",
         strict=False,
         preset='thorough',
@@ -57,6 +58,7 @@ def reference_match(
     See those functions for descriptions of the main input parameters.
     This function checks for complete hits and, failing that, partial hits.
     :param query: SeqRecord a single gene to search
+    :param ranking_metric: str name of metric to use for ranking top hits, not for filtering.
     :param strict: Boolean whether to strictly enforce all thresholds or allow for low-coverage alignments.
     :returns:
         - result (:py:class:`str`)  -
@@ -96,7 +98,7 @@ def reference_match(
         hit_dict = summarize(hit_list, identify=identify)[query.id]
         result = top_hit(
             hit_dict,
-            metric=metric,
+            metric=ranking_metric,
         )
         stats = hit_dict[result]
         scov_pass = stats['scov'] >= seq_covg
@@ -111,7 +113,7 @@ def reference_match(
 
     return result, low_covg, hit_dict
 
-def top_hit(blast_summary, metric='iden'):
+def top_hit(blast_summary, metric='bitscore'):
     """
     Get the best hit according to the given metric.
 
@@ -121,7 +123,7 @@ def top_hit(blast_summary, metric='iden'):
     """
     return max(blast_summary, key=lambda gene: blast_summary[gene][metric])
 
-def top_hits(blast_summary, metric='iden'):
+def top_hits(blast_summary, metric='bitscore'):
     """
     Get the best hits according to the given metric, those with scores
     >= 99% of the highest absolute score.
@@ -345,6 +347,7 @@ def bidirectional_best_hit(
         metric='iden',
         cutoff=config.cnf.blast.min_identity,
         min_seq_covg=config.cnf.blast.min_coverage,
+        ranking_metric='bitscore',
         identify=lambda _:_,
         nproc=1,
         blast_type="p",
@@ -357,6 +360,7 @@ def bidirectional_best_hit(
     :param metric: str name of parameter to use as the primary threshold (in addition to alignment coverage)
     :param cutoff: float threshold for the selected metric
     :param min_seq_covg: float minimum percent sequence alignment coverage
+    :param ranking_metric: str name of metric to use for ranking top hits, not for filtering.
     :param identify:
       function to apply to extract the desired sequence names from the blast results.
       passed to summarize()
@@ -395,14 +399,17 @@ def bidirectional_best_hit(
     for query_gene in qry2ref_hit_dict:
         bbh_match = None
         score_to_beat = 0.
-        qry_top_hits = top_hits(qry2ref_hit_dict[query_gene])
+        qry_top_hits = top_hits(
+            qry2ref_hit_dict[query_gene],
+            metric=ranking_metric,
+        )
         for ref_gene in qry_top_hits:
             if (
                     query_gene in ref2qry_top_hits[ref_gene]
-                    and qry2ref_hit_dict[query_gene][ref_gene][metric] > score_to_beat
+                    and qry2ref_hit_dict[query_gene][ref_gene][ranking_metric] > score_to_beat
             ):
                 bbh_match = ref_gene
-                score_to_beat = qry2ref_hit_dict[query_gene][ref_gene][metric]
+                score_to_beat = qry2ref_hit_dict[query_gene][ref_gene][ranking_metric]
         bbh_results[query_gene] = bbh_match
 
     return bbh_results, qry2ref_hit_dict
