@@ -146,6 +146,10 @@ def postprocess_contig(
         cds_fasta,
         ref_proteome,
         nproc=nproc,
+        # We want to allow hits where only one of the sequences has low alignment coverage
+        # since this can be due to truncation or incorrect ab initio start coordinate prediction.
+        # The latter is fixable, but only if we establish the match first.
+        strict=False,
     )
     mp_postprocess_feature = functools.partial(
         postprocess_feature,
