@@ -351,6 +351,7 @@ def bidirectional_best_hit(
         identify=lambda _:_,
         nproc=1,
         blast_type="p",
+        strict=True,
         preset='thorough',
 ):
     """
@@ -365,12 +366,13 @@ def bidirectional_best_hit(
     :param identify:
       function to apply to extract the desired sequence names from the blast results.
       passed to summarize()
+    :param strict: Boolean whether to enforce sequence alignment coverage threshold for both query and ref or only one of them.
     :param preset: str 'conservative' or 'thorough' (BLAST settings defined in this module for whether to use soft-masking)
     """
     bbh_results = defaultdict(lambda :None)
     blast_extra_args = presets[preset]
 
-    qry2ref_hits, _, _ = blast(
+    qry2ref_hits, _, qry2ref_truncation_signatures = blast(
         query,
         subject,
         metric=metric,
@@ -380,17 +382,20 @@ def bidirectional_best_hit(
         nproc=nproc,
         blast_extra_args=blast_extra_args,
     )
+    ref2qry_hits, _, ref2qry_truncation_signatures = blast(
+        subject,
+        query,
+        metric=metric,
+        cutoff=cutoff,
+        seq_covg=min_seq_covg,
+        blast_type=blast_type,
+        nproc=nproc,
+        blast_extra_args=blast_extra_args,
+    )
+    if not strict:
+        qry2ref_hits += qry2ref_truncation_signatures
+        ref2qry_hits += ref2qry_truncation_signatures
     qry2ref_hit_dict = summarize(qry2ref_hits, identify=identify)
-    ref2qry_hits, _, _ = blast(
-        subject,
-        query,
-        metric=metric,
-        cutoff=cutoff,
-        seq_covg=min_seq_covg,
-        blast_type=blast_type,
-        nproc=nproc,
-        blast_extra_args=blast_extra_args,
-    )
     ref2qry_hit_dict = summarize(ref2qry_hits, identify=identify)
     ref2qry_top_hits = defaultdict(lambda : [])
     ref2qry_top_hits.update({
