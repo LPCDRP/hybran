@@ -218,15 +218,20 @@ def check_matches_to_known_genes(
         refs = [reference_seqs]
 
     for ref in refs:
+        # TODO: change this back to bidirectional_best_hit,
+        #       but after restructuring the code.
+        #       We need to run it where we have access to all the cluster members,
+        #       but still be able to manage the name assignments.
         if cluster_type == 'multiref':
-            top_hit, blast_stats = BLAST.bidirectional_best_hit(
+            top_hit, _, blast_stats = BLAST.reference_match(
                 query=query_seq,
                 subject=ref,
+                # we already filtered blast hits in clustering input
+                cutoff=0,
                 identify=get_gene_name,
-                #strict=True,
             )
             if top_hit:
-                name_to_assign = top_hit[query_seq.id]
+                name_to_assign = top_hit
                 assign_new_generic = False
         else:
             top_hit = None
