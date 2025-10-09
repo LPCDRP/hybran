@@ -245,19 +245,25 @@ def fastaFromGffList(gffs, out_cds):
         raw_out = grep_seqs(gff)
         gff_name = os.path.splitext(os.path.basename(gff))[0]
         for line in raw_out:
+            line = line.rstrip()
             gff_id = gff_name + '@@@' + [j.split('=')[1] for i in line.split('\t')
                                        if i.startswith('ID=') for j in i.split(';')][0]
             gene = None
             for i in line.split(';'):
                 if i.startswith('gene='):
-                    gene = [i.split('=')[1].rstrip('\n')][0]
-                if i.startswith('locus_tag='):
-                    locus_tag = [i.split('=')[1].rstrip('\n')][0]
+                    gene = i.split('=')[1]
+                elif i.startswith('locus_tag='):
+                    locus_tag = i.split('=')[1]
+                elif i.startswith('translation='):
+                    translation = i.split('=')[1]
+            # intermediate locus tags will have been copied
+            # to the gene name field by this point and final
+            # locus tags (not useful for determining the annotation
+            # status) will have already been set.
             if not gene:
-                gene = locus_tag
+                continue
             gff_gene_dict[gff_id] = gene
-            translation = [i.split('=')[1] for i in line.split(';') if i.startswith('translation=')][0]
-            record = SeqRecord(Seq(translation.rstrip('\n')),
+            record = SeqRecord(Seq(translation),
                                id=gff_id,
                                description='')
             seqs.append(record)
