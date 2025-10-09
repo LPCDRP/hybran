@@ -155,6 +155,7 @@ def test_reference_match(feature):
         subject="data/H37Rv.faa",
         cutoff=95,
         seq_covg=95,
+        strict=False,
         preset=preset,
     )
     hits = dict(hits)

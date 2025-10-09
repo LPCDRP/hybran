@@ -119,6 +119,7 @@ def pseudoscan(
                 metric='iden',
                 cutoff=cnf.blast.min_identity,
                 seq_covg=cnf.blast.min_coverage,
+                strict=False,
             )
             blast_ok = top_hit and not low_covg
 

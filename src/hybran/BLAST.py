@@ -50,7 +50,7 @@ def reference_match(
         metric='iden',
         ranking_metric='bitscore',
         blast_type="p",
-        strict=False,
+        strict=True,
         preset='thorough',
 ):
     """
@@ -59,7 +59,7 @@ def reference_match(
     This function checks for complete hits and, failing that, partial hits.
     :param query: SeqRecord a single gene to search
     :param ranking_metric: str name of metric to use for ranking top hits, not for filtering.
-    :param strict: Boolean whether to strictly enforce all thresholds or allow for low-coverage alignments.
+    :param strict: Boolean whether to thresholds or allow for low-coverage alignments for only one of the aligned sequences.
     :returns:
         - result (:py:class:`str`)  -
              name of the top hit (`None` if no suitable match was found)
