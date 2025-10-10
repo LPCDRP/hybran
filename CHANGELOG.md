@@ -1,6 +1,6 @@
 # Release Notes
 
-## Development
+## [Version 1.9](https://gitlab.com/LPCDRP/hybran/-/tags/1.9)
 
 ### Enhancements
 * Use bitscore to rank hits, after having used %-identity and alignment coverage for filtering hits.
