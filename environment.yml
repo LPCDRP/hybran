@@ -19,6 +19,6 @@ dependencies:
   - networkx
   - paml
   - prokka>=1.14.0 # for prokka's --coverage
-  - python>=3
+  - python>=3.12
   - ratt
   - tbl2asn-forever

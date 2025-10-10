@@ -1,5 +1,10 @@
 # Release Notes
 
+## Development
+
+### Bugs fixed
+* Declare minimum python version as 3.12
+
 ## [Version 1.9](https://gitlab.com/LPCDRP/hybran/-/tags/1.9)
 
 ### Enhancements
