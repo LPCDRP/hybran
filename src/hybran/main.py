@@ -209,12 +209,24 @@ def cmds():
     correctcmd.add_argument(
         "annotations",
         nargs='+',
-        help='blocks_coords BED file, Genbank annotation files, or the directory/directories containing them.',
+        help=(
+            "hybran output directory, blocks_coords BED file, Genbank annotation files, or the directory/directories containing them."
+            "If you pass a hybran output directory, you will not need to pass -r/--references, -s/--seq-dir, or --genetic-code."
+            ),
+    )
+    correctcmd.add_argument(
+        '-r', '--references',
+        nargs='*',
+        help=(
+            'Directory, a space-separated list of GBKs, or a FOFN '
+            'containing Genbank files of reference annotations.'
+            'Required if not using hybran output directory.'
+        )
     )
     correctcmd.add_argument(
         "-s", "--seq-dir",
         help='Directory containing corresponding genome sequence files in fasta format.',
-        required=True
+        required=False,
     )
     correctcmd.add_argument(
         "-p", "--prefix",
@@ -244,12 +256,6 @@ def cmds():
         help='Minimum percent sequence alignment coverage for matching genes',
         default=config.cnf.blast.min_coverage,
         type=percentage,
-    )
-    correctcmd.add_argument(
-        '--genetic-code',
-        help="Genetic code table number (required for BED inputs)",
-        type=int,
-        default=config.cnf.genetic_code,
     )
 
     #

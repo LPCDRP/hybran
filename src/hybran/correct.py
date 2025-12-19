@@ -4,6 +4,7 @@ import itertools
 from multiprocessing import Pool
 import os
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
 
@@ -12,6 +13,9 @@ from Bio.SeqFeature import SimpleLocation
 from Bio.SeqRecord import SeqRecord
 import networkx as nx
 
+from . import (
+    extractor,
+)
 from .bio import translate
 from .config import cnf
 from .compare import overlap_inframe
@@ -36,7 +40,6 @@ def main(args):
     global logs_dir
     global seq_files
 
-    cnf.genetic_code = args.genetic_code
     cnf.blast.min_coverage = args.blast_min_coverage
     cnf.blast.min_identity = args.blast_min_identity
 
@@ -45,6 +48,28 @@ def main(args):
     additions_raw_fn = f"{args.prefix}additions.prededup.bed"
     additions_fn = f"{args.prefix}additions.bed"
     logs_dir = f"{args.prefix}logs"
+
+    if (
+            len(args.annotations) == 1
+            and fileManager.is_hybran_output_dir(args.annotatins[0])
+    ):
+        if not args.references:
+            args.references = glob.glob(os.path.join(
+                args.annotations[0],
+                'unified-refs',
+                '*.gbk'
+            ))
+    else:
+        missing_args = []
+        if not args.seq_dir:
+            missing_args.append('-s/--seq-dir')
+        if not args.references:
+            missing_args.append('-r/--references')
+        if missing_args:
+            sys.exit(f"ERROR: missing arguments {', '.join(missing_args)}, which are required when not reading from a hybran output folder")
+
+
+    cnf.genetic_code = extractor.get_genetic_code(args.references[0])
 
     ann_files = []
     for ann_source in args.annotations:
