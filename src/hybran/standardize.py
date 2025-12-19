@@ -21,12 +21,7 @@ def main(args):
     if (
             not args.unifications_file
             and len(args.annotations) == 1
-            and os.path.isdir(args.annotations[0])
-            and os.path.isfile(os.path.join(
-                args.annotations[0],
-                'unified-refs',
-                'unifications.tsv',
-            ))
+            and fileManager.is_hybran_output_dir(args.annotations[0])
     ):
         args.unifications_file = os.path.join(
             args.annotations[0],
