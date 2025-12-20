@@ -1,8 +1,10 @@
+import atexit
 from collections import defaultdict
 from glob import glob
 import itertools
 from multiprocessing import Pool
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,6 +17,7 @@ import networkx as nx
 
 from . import (
     extractor,
+    fileManager,
 )
 from .bio import translate
 from .config import cnf
@@ -27,7 +30,7 @@ gene_names = defaultdict(dict)
 gene_seqs = defaultdict(dict)
 iso = []
 logs_dir = None
-seq_files = []
+seq_files = {}
 
 sign = lambda x: '+' if x==1 else '-'
 
@@ -49,10 +52,20 @@ def main(args):
     additions_fn = f"{args.prefix}additions.bed"
     logs_dir = f"{args.prefix}logs"
 
+    n_inputs = len(args.annotations)
+    input_type = None
+
+    # Check the conditionally required arguments.
     if (
-            len(args.annotations) == 1
+            n_inputs == 1
             and fileManager.is_hybran_output_dir(args.annotatins[0])
     ):
+        input_type = 'hybran_result'
+
+        ann_files = glob.glob(
+            os.path.join(args.annotations[0], '*.gbk')
+        )
+
         if not args.references:
             args.references = glob.glob(os.path.join(
                 args.annotations[0],
@@ -68,19 +81,41 @@ def main(args):
         if missing_args:
             sys.exit(f"ERROR: missing arguments {', '.join(missing_args)}, which are required when not reading from a hybran output folder")
 
+        if n_inputs == 1 and args.annotations[0].endswith('.bed'):
+            input_type = 'bed'
+            coords_file = args.annotations[0]
+        else:
+            ann_files = fileManager.file_list(args.annotations, file_type='genbank')
+
+
+    working_tmpdir = tempfile.mkdtemp()
+    atexit.register(shutil.rmtree, path=working_tmpdir)
+
+    if args.seq_dir:
+        seq_files = {
+            os.path.splitext(os.path.basename(fasta))[0]: fasta
+            for fasta in fileManager.file_list([args.seq_dir], file_type='fasta')
+        }
+    # The only way we should get here is if our input is a Hybran result folder.
+    # We are assured to have the full sequences included in the genbank files.
+    else:
+        seq_dir = os.path.join(working_tmpdir, 'genomes')
+        os.makedirs(seq_dir)
+        for annotation in ann_files:
+            curr_strain = os.path.splitext(os.path.basename(annotation))[0]
+            curr_strain_fasta = os.path.join(seq_dir, f'{curr_strain}.fasta')
+            extractor.fastaFromGbk(
+                annotation,
+                out_cds=os.devnull(),
+                out_genome=curr_strain_fasta,
+            )
+            seq_files[curr_strain] = curr_strain_fasta
+
 
     cnf.genetic_code = extractor.get_genetic_code(args.references[0])
 
-    ann_files = []
-    for ann_source in args.annotations:
-        if os.path.isdir(ann_source):
-            ann_files += glob(f"{ann_source}/*.gbk")
-        else:
-            ann_files.append(ann_source)
-    seqs = []
 
-    if len(ann_files) == 1 and ann_files[0].endswith(".bed"):
-        coords_file = ann_files[0]
+    if input_type == 'bed':
         sort_proc = subprocess.run([
             "sort",
             "-k1,1",
@@ -99,9 +134,6 @@ def main(args):
             ) = line.split('\t')
             strand = 1 if strand_sign == '+' else -1
             isolate_id = os.path.splitext(strain_chrom)[0]
-            if isolate_id != last_strain:
-                seq_files.append(f"{args.seq_dir}/{isolate_id}.fasta")
-                seqs.append(SeqIO.read(seq_files[-1], "fasta"))
             # make a dummy version of a SeqFeature object
             genes[isolate_id][gene] = SimpleNamespace(
                 location=SimpleNamespace(start=int(start), end=int(end), strand=strand),
@@ -112,9 +144,7 @@ def main(args):
             last_strain = isolate_id
     else:
         for annotation in ann_files:
-            isolate_id = os.path.basename(annotation).split('.')[0]
-            seq_files.append(f"{args.seq_dir}/{isolate_id}.fasta")
-            seqs.append(SeqIO.read(seq_files[-1], "fasta"))
+            isolate_id = os.path.splitext(os.path.basename(annotation))[0]
             i=0
             for record in SeqIO.parse(annotation, "genbank"):
                 for f in record.features:
@@ -301,7 +331,7 @@ def tblastn_seg(qry_seg_genes, sub_loc, qry_ind, sub_ind):
         '-outfmt',
         blast_outfmt,
         '-query', qry_seg_genes,
-        '-subject', seq_files[sub_ind],
+        '-subject', seq_files[iso[sub_ind]],
     ]
     ps = subprocess.run(cmd, check=True, capture_output=True, text=True)
     results = summarize(ps.stdout)
