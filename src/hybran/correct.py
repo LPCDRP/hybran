@@ -1,5 +1,6 @@
 import atexit
 from collections import defaultdict
+from copy import deepcopy
 from glob import glob
 import itertools
 from multiprocessing import Pool
@@ -19,9 +20,11 @@ from . import (
     extractor,
     fileManager,
 )
-from .bio import translate
+from .annomerge import check_inclusion_criteria
+from .bio import AutarkicSeqFeature, translate
 from .config import cnf
 from .compare import overlap_inframe
+from .pseudoscan import pseudoscan
 # from .util import mpbreakpoint
 
 
@@ -150,6 +153,7 @@ def main(args):
                 for f in record.features:
                     if f.type != 'CDS':
                         continue
+                    f = AutarkicSeqFeature.fromSeqFeature(f)
                     ltag = f.qualifiers['locus_tag'][0]
                     genes[isolate_id][ltag] = f
                     gene_seqs[isolate_id][ltag] = translate(f.extract(record.seq), table=cnf.genetic_code)
@@ -398,6 +402,34 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
                 and seg0_matches[ltag0]['ltag'] == ltag1
         ):
             if gene0 != gene1:
+                # Check which name is more accurate in each genome.
+                # Update MCPs (very likely for many to drop out due to the renames)
+                iso0_challenger_gene = deepcopy(genes[iso[sample0_ind]][ltag0])
+                iso0_challenger_gene.qualifiers['gene'] = [gene1]
+                pseudoscan(
+                    iso1_challenger_gene
+                    ref_feature,
+                    attempt_rescue=True,
+                    blast_hit_dict=None,
+                )
+                include_challenger0, include_orig0 = check_inclusion_criteria(
+                    genes[iso[sample0_ind]][ltag0],
+                    iso0_challenger_gene,
+                )
+
+                iso1_challenger_gene = deepcopy(genes[iso[sample1_ind]][ltag1])
+                iso1_challenger_gene.qualifiers['gene'] = [gene0]
+                pseudoscan(
+                    iso1_challenger_gene
+                    ref_feature,
+                    attempt_rescue=True,
+                    blast_hit_dict=None,
+                )
+                include_challenger1, include_orig1 = check_inclusion_criteria(
+                    genes[iso[sample1_ind]][ltag1],
+                    iso1_challenger_gene,
+                )
+
                 equivalences.append([ltag0, gene0, ltag1, gene1])
             seg0_genes_unmatched.remove(ltag0)
             seg1_genes_unmatched.remove(ltag1)
