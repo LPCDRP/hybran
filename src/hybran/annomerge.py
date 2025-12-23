@@ -12,7 +12,6 @@ import tempfile
 import pickle
 import logging
 import time
-import re
 from copy import deepcopy
 
 # standard multiprocessing can't pickle lambda
@@ -51,52 +50,7 @@ from .lumberjack import (
     log_pseudos,
     log_fusions,
 )
-from .util import keydefaultdict, mpbreakpoint
-
-def get_and_remove_ref_tracer(feature):
-    """
-    Remove the temporary tracer note we added to keep track of where an annotation that RATT placed originated from
-    """
-    ref_contig_id = ""
-    if 'note' in feature.qualifiers:
-        marker_note = [_ for _ in feature.qualifiers['note'] if _.startswith("HYBRANSOURCE")][0]
-        feature.qualifiers['note'].remove(marker_note)
-        if not feature.qualifiers['note']:
-            del feature.qualifiers['note']
-        ref_contig_id = re.sub(r'\s+', '', marker_note.split(':')[1])
-
-    return ref_contig_id
-
-def ref_fuse(fusion_gene_name):
-    """
-    Create a dummy SeqFeature to use as a reference for fusion gene coordinate checking/correction.
-    Throws a KeyError if one of the constituent names is not in the ref_annotation dictionary or if the fusion gene name is not valid.
-    This is intended to be used as a callable for defaultdict for reference annotations.
-
-    :param fusion_gene_name: A string, expected to be @@@-delimited between ref and gene, and each of those to be ::-delimited, corresponding to the ref and gene name of each component.
-    :return: SeqFeature with concatenated coordinates
-    """
-
-    (refs, fusion_name) = fusion_gene_name.split('@@@')
-    const_genes = fusion_name.split('::')
-    const_refs = refs.split('::')
-    # Not a fusion gene; defaultdict lookup should fail
-    if len(const_genes) <= 1:
-        raise KeyError(f'no gene "{const_genes[0]}" found for reference "{const_refs[0]}"') from None
-    location_parts = []
-    location_sequences = {}
-    for i in range(len(const_genes)):
-        ref_feature_i = ref_annotation[key_ref_gene(const_refs[i], const_genes[i])]
-        location_sequences.update(ref_feature_i.references)
-        location_parts += list(ref_feature_i.location.parts)
-    ref_fusion = SeqFeature(
-        # Biopython currently doesn't support the 'order' operator for feature.extract()
-        Bio.SeqFeature.CompoundLocation(location_parts, operator='join'),
-        qualifiers={'locus_tag':fusion_gene_name, 'gene':fusion_gene_name},
-    )
-
-    ref_fusion.references = location_sequences
-    return ref_fusion
+from .util import mpbreakpoint
 
 def loc_index(feature):
     """
@@ -456,22 +410,7 @@ def run(
 
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
     global ref_annotation
-    ref_annotation = keydefaultdict(ref_fuse)
-    for ref_gbk_fp in ref_gbk_list:
-        ref_id = os.path.basename(os.path.splitext(ref_gbk_fp)[0])
-        for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
-            ref_contig_id = '.'.join([ref_id, ref_record.id])
-            for feature in ref_record.features:
-                get_and_remove_ref_tracer(feature) # prevent our tracer note from propagating to future liftovers
-                if feature.type != "CDS":
-                    continue
-                # setting feature.ref doesn't work for CompoundLocations
-                for part in feature.location.parts:
-                    part.ref = ref_contig_id
-                feature.references = {ref_contig_id: ref_record.seq}
-                # if reference paralogs have been collapsed, the last occurrence in the genome
-                # will prevail.
-                ref_annotation[key_ref_gene(ref_contig_id, feature.qualifiers['gene'][0])] = feature
+    ref_annotation = extractor.load_gbks(ref_gbk_list, feature_types=['CDS'])
 
     annomerge_records = list(SeqIO.parse(genome, "fasta"))
     contigs = [record.id for record in annomerge_records]

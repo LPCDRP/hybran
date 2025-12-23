@@ -10,7 +10,7 @@ class keydefaultdict(collections.defaultdict):
         if self.default_factory is None:
             raise KeyError( key )
         else:
-            ret = self[key] = self.default_factory(key)
+            ret = self[key] = self.default_factory(key, self)
             return ret
 
 # Thanks to Romuald Brunet

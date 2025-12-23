@@ -1,11 +1,14 @@
 import functools
 import logging
 import os
+import re
 import subprocess
 from urllib.error import HTTPError
 
+import Bio
 from Bio import Entrez
 from Bio.Seq import Seq
+from Bio.SeqFeature import SeqFeature
 from Bio.SeqRecord import SeqRecord
 
 from . import designator
@@ -13,6 +16,7 @@ from .bio import (
     SeqIO,
     translate,
 )
+from .util import keydefaultdict
 
 
 def get_ltag(feature):
@@ -229,6 +233,82 @@ def grep_seqs(gff):
             continue
     return gff_lines
 
+def get_and_remove_ref_tracer(feature):
+    """
+    Remove the temporary tracer note we added to keep track of where an annotation that RATT placed originated from
+    """
+    ref_contig_id = ""
+    if 'note' in feature.qualifiers:
+        marker_note = [
+            note for note in feature.qualifiers['note'] if _.startswith("HYBRANSOURCE")
+        ][0]
+        feature.qualifiers['note'].remove(marker_note)
+        if not feature.qualifiers['note']:
+            del feature.qualifiers['note']
+        ref_contig_id = re.sub(r'\s+', '', marker_note.split(':')[1])
+
+    return ref_contig_id
+
+def ref_fuse(fusion_gene_name, annotations):
+    """
+    Create a dummy SeqFeature to use as a reference for fusion gene coordinate checking/correction.
+    Throws a KeyError if one of the constituent names is not in the annotations dictionary or if the fusion gene name is not valid.
+    This is intended to be used as a callable for defaultdict for reference annotations.
+
+    :param fusion_gene_name: A string, expected to be @@@-delimited between ref and gene, and each of those to be ::-delimited, corresponding to the ref and gene name of each component.
+    :return: SeqFeature with concatenated coordinates
+    """
+
+    (refs, fusion_name) = fusion_gene_name.split('@@@')
+    const_genes = fusion_name.split('::')
+    const_refs = refs.split('::')
+    # Not a fusion gene; defaultdict lookup should fail
+    if len(const_genes) <= 1:
+        raise KeyError(f'no gene "{const_genes[0]}" found for reference "{const_refs[0]}"') from None
+    location_parts = []
+    location_sequences = {}
+    for i in range(len(const_genes)):
+        ref_feature_i = annotations[designator.key_ref_gene(const_refs[i], const_genes[i])]
+        location_sequences.update(ref_feature_i.references)
+        location_parts += list(ref_feature_i.location.parts)
+    ref_fusion = SeqFeature(
+        # Biopython currently doesn't support the 'order' operator for feature.extract()
+        Bio.SeqFeature.CompoundLocation(location_parts, operator='join'),
+        qualifiers={'locus_tag':fusion_gene_name, 'gene':fusion_gene_name},
+    )
+
+    ref_fusion.references = location_sequences
+    return ref_fusion
+
+def load_gbks(gbk_list, feature_types=['CDS']):
+    feature_dict = keydefaultdict(ref_fuse)
+    for gbk in gbk_list:
+        feature_dict.update(load_gbk(gbk, feature_types=feature_types))
+    return feature_dict
+
+def load_gbk(gbk_file, feature_types=['CDS']):
+    """
+    Load a reference annotation (after some light postprocessing) into a flat dictionary indexed by the reference contig ID joined with the gene name.
+    Note that a gene name is assumed to be present for all features, an assumption which is fulfilled by our reference annotation preprocessing.
+
+    :param gbk_file: str path to genbank annotation file to load
+    :param feature_types: list of annotation types to include.
+    """
+    feature_dict = keydefaultdict(ref_fuse)
+    strain_id = os.path.splitext(os.path.basename(gbk_file))[0]
+    for record in SeqIO.parse(gbk_file, "genbank"):
+        contig_id = '.'.join([strain_id, record.id])
+        for feature in record.features:
+            get_and_remove_ref_tracer(feature) # prevent our tracer note from propagating to future liftovers
+            if feature.type not in feature_types:
+                continue
+            # setting feature.ref doesn't work for CompoundLocations
+            for part in feature.location.parts:
+                part.ref = contig_id
+            feature.references = {contig_id: record.seq}
+            # if reference paralogs have been collapsed, the last occurrence in the genome
+            # will prevail.
+            feature_dict[designator.key_ref_gene(ref_contig_id, feature.qualifiers['gene'][0])] = feature
 
 def fastaFromGffList(gffs, out_cds):
     """
