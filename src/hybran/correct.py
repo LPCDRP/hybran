@@ -20,11 +20,14 @@ from . import (
     extractor,
     fileManager,
 )
-from .annomerge import check_inclusion_criteria
+from .annomerge import (
+    check_inclusion_criteria,
+)
 from .bio import AutarkicSeqFeature, translate
 from .config import cnf
 from .compare import overlap_inframe
 from .pseudoscan import pseudoscan
+from .util import keydefaultdict
 # from .util import mpbreakpoint
 
 
@@ -45,6 +48,7 @@ def main(args):
     global iso
     global logs_dir
     global seq_files
+    global ref_annotation
 
     cnf.blast.min_coverage = args.blast_min_coverage
     cnf.blast.min_identity = args.blast_min_identity
@@ -75,6 +79,11 @@ def main(args):
                 'unified-refs',
                 '*.gbk'
             ))
+        else:
+            args.references = fileManager.file_list(
+                args.references,
+                file_type='genbank',
+            )
     else:
         missing_args = []
         if not args.seq_dir:
@@ -90,9 +99,16 @@ def main(args):
         else:
             ann_files = fileManager.file_list(args.annotations, file_type='genbank')
 
+        args.references = fileManager.file_list(args.references, file_type='genbank')
+
 
     working_tmpdir = tempfile.mkdtemp()
     atexit.register(shutil.rmtree, path=working_tmpdir)
+
+    ref_annotation = extractor.load_gbks(
+        args.references,
+        feature_types=['CDS'],
+    )
 
     if args.seq_dir:
         seq_files = {
