@@ -17,6 +17,7 @@ from Bio.SeqRecord import SeqRecord
 import networkx as nx
 
 from . import (
+    BLAST,
     extractor,
     fileManager,
 )
@@ -323,27 +324,6 @@ def summarize(blast_output):
         results.append(line_dict)
     return results
 
-def blastp(qry_seg_genes, sub_seg_genes, qry_ind, sub_ind):
-    cmd = [
-        'blastp',
-        '-outfmt',
-        blast_outfmt,
-        '-query', qry_seg_genes,
-        '-subject', sub_seg_genes,
-    ]
-    ps = subprocess.run(cmd, check=True, capture_output=True, text=True)
-    results = summarize(ps.stdout)
-    return [
-        r for r in results
-        if (
-                r['pident'] >= cnf.blast.min_identity
-                and (
-                    r['scov'] >= cnf.blast.min_coverage
-                    or r['qcov'] >= cnf.blast.min_coverage
-                )
-        )
-    ]
-
 def tblastn_seg(qry_seg_genes, sub_loc, qry_ind, sub_ind):
     cmd = [
         'tblastn',
@@ -384,71 +364,79 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
     seg1_genes_unmatched = seg1_genes.copy()
 
     if not seg0_genes or not seg1_genes:
+        bbh_results = {}
         seg0_qry_stats = []
         seg1_qry_stats = []
     else:
-        seg0_qry_stats = blastp(seg0_genes_file, seg1_genes_file, sample0_ind, sample1_ind)
-        seg1_qry_stats = blastp(seg1_genes_file, seg0_genes_file, sample1_ind, sample0_ind)
+        bbh_results, seg0_qry_stats, seq1_qry_stats = BLAST.bidirectional_best_hit(
+            seg0_genes_file,
+            seg1_genes_file,
+            identify=lambda seqid: seqid.split('|')[0],
+            strict=False,
+        )
 
     equivalences = []
 
-    seg0_matches = {}
-    # check for reciprocal best hits
-    for resultset in seg0_qry_stats:
-        ltag0, gene0, strand_of_0 = resultset['qseqid'].split('|')
-        strand_of_0 = int(strand_of_0)
-        if ltag0 in seg0_matches:
+    for ltag0 in bbh_results:
+        if not bbh_results[ltag0]:
             continue
-        ltag1, gene1, strand_of_1 = resultset['sseqid'].split('|')
-        strand_of_1 = int(strand_of_1)
-        seg0_matches[ltag0] = {'ltag':ltag1, 'gene':gene1, 'strand':strand_of_1}
 
-    seg1_matches = {}
-    for resultset in seg1_qry_stats:
-        ltag1, gene1, strand_of_1 = resultset['qseqid'].split('|')
-        strand_of_1 = int(strand_of_1)
-        if ltag1 in seg1_matches:
+        gene0 = gene_names[iso[sample0_ind]][ltag0]
+        ltag1 = bbh_results[ltag0]
+        gene1 = gene_names[iso[sample1_ind]][ltag1]
+
+        seg0_genes_unmatched.remove(ltag0)
+        seg1_genes_unmatched.remove(ltag1)
+
+        # nothing to see here
+        if gene0 == gene1:
             continue
-        ltag0, gene0, strand_of_0 = resultset['sseqid'].split('|')
-        strand_of_0 = int(strand_of_0)
-        seg1_matches[ltag1] = {'ltag':ltag0, 'gene':gene0, 'strand':strand_of_0}
 
-        if (
-                ltag0 in seg0_matches
-                and seg0_matches[ltag0]['ltag'] == ltag1
-        ):
-            if gene0 != gene1:
-                # Check which name is more accurate in each genome.
-                # Update MCPs (very likely for many to drop out due to the renames)
-                iso0_challenger_gene = deepcopy(genes[iso[sample0_ind]][ltag0])
-                iso0_challenger_gene.qualifiers['gene'] = [gene1]
-                pseudoscan(
-                    iso1_challenger_gene
-                    ref_feature,
-                    attempt_rescue=True,
-                    blast_hit_dict=None,
-                )
-                include_challenger0, include_orig0 = check_inclusion_criteria(
-                    genes[iso[sample0_ind]][ltag0],
-                    iso0_challenger_gene,
-                )
+        #
+        # TODO:
+        #   - skip postprocessing of genes that don't have a ref feature
+        #     since there's nothing to compare them to.
+        #   - get the corresponding ref_feature for each existing annotation.
+        #     The ref_annotation dictionary is keyed by ref_id@@@gene_name,
+        #     so it's possible that we'll have multiple references corresponding
+        #     to a single gene name
+        #
 
-                iso1_challenger_gene = deepcopy(genes[iso[sample1_ind]][ltag1])
-                iso1_challenger_gene.qualifiers['gene'] = [gene0]
-                pseudoscan(
-                    iso1_challenger_gene
-                    ref_feature,
-                    attempt_rescue=True,
-                    blast_hit_dict=None,
-                )
-                include_challenger1, include_orig1 = check_inclusion_criteria(
-                    genes[iso[sample1_ind]][ltag1],
-                    iso1_challenger_gene,
-                )
+        # Check which name is more accurate in each genome.
+        # Update MCPs (very likely for many to drop out due to the renames)
+        iso0_defending_gene  = genes[iso[sample0_ind]][ltag0]
+        iso0_challenger_gene = deepcopy(iso0_defending_gene)
+        iso0_challenger_gene.qualifiers['gene'] = [gene1]
+        pseudoscan(
+            iso0_challenger_gene,
+            ref_feature,
+            attempt_rescue=True,
+            blast_hit_dict=seg0_qry_stats,
+        )
+        include_challenger0, include_orig0 = check_inclusion_criteria(
+            iso0_defending_gene,,
+            iso0_challenger_gene,
+        )
 
-                equivalences.append([ltag0, gene0, ltag1, gene1])
-            seg0_genes_unmatched.remove(ltag0)
-            seg1_genes_unmatched.remove(ltag1)
+        iso1_defending_gene = genes[iso[sample1_ind]][ltag1]
+        iso1_challenger_gene = deepcopy(iso1_defending_gene)
+        iso1_challenger_gene.qualifiers['gene'] = [gene0]
+        pseudoscan(
+            iso1_challenger_gene,
+            ref_feature,
+            attempt_rescue=True,
+            blast_hit_dict=None,
+        )
+        include_challenger1, include_orig1 = check_inclusion_criteria(
+            iso1_defending_gene,
+            iso1_challenger_gene,
+        )
+
+        # TODO:
+        #   - Appropriately set the equivalences depending on the results of the inclusion criteria
+        #   - Build a graph to represent this instead.
+        equivalences.append([ltag0, gene0, ltag1, gene1])
+
 
     seg1_additions = []
     if seg0_genes_unmatched:

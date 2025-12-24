@@ -142,7 +142,7 @@ def postprocess_contig(
         ]
         cds_fasta = fa_handle.name
         SeqIO.write(cds_records, cds_fasta, "fasta")
-    bbh_results, all_qry2ref_blast_hits = BLAST.bidirectional_best_hit(
+    bbh_results, all_qry2ref_blast_hits, _ = BLAST.bidirectional_best_hit(
         cds_fasta,
         ref_proteome,
         nproc=nproc,
