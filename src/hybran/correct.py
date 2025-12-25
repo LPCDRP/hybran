@@ -22,8 +22,9 @@ from . import (
     fileManager,
 )
 from .annomerge import (
-    check_inclusion_criteria,
+    thunderdome,
 )
+from .designator import key_ref_gene
 from .bio import AutarkicSeqFeature, translate
 from .config import cnf
 from .compare import overlap_inframe
@@ -172,6 +173,12 @@ def main(args):
                         continue
                     f = AutarkicSeqFeature.fromSeqFeature(f)
                     ltag = f.qualifiers['locus_tag'][0]
+                    if 'inference' in f.qualifiers:
+                        for inf_note in f.qualifiers['inference']:
+                            if inf_note.startswith('similar to '):
+                                ref_id = inf_note.split(':')[1]
+                                f.source = ref_id
+                                break
                     genes[isolate_id][ltag] = f
                     gene_seqs[isolate_id][ltag] = translate(f.extract(record.seq), table=cnf.genetic_code)
                     gene_names[isolate_id][ltag] = f.qualifiers['gene'][0] if 'gene' in f.qualifiers else ltag
@@ -392,44 +399,38 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
         if gene0 == gene1:
             continue
 
-        #
-        # TODO:
-        #   - skip postprocessing of genes that don't have a ref feature
-        #     since there's nothing to compare them to.
-        #   - get the corresponding ref_feature for each existing annotation.
-        #     The ref_annotation dictionary is keyed by ref_id@@@gene_name,
-        #     so it's possible that we'll have multiple references corresponding
-        #     to a single gene name
-        #
+        iso0_defending_gene  = genes[iso[sample0_ind]][ltag0]
+        iso1_defending_gene = genes[iso[sample1_ind]][ltag1]
 
         # Check which name is more accurate in each genome.
         # Update MCPs (very likely for many to drop out due to the renames)
-        iso0_defending_gene  = genes[iso[sample0_ind]][ltag0]
         iso0_challenger_gene = deepcopy(iso0_defending_gene)
         iso0_challenger_gene.qualifiers['gene'] = [gene1]
-        pseudoscan(
+        if iso1_defending_gene.source:
+            pseudoscan(
+                iso0_challenger_gene,
+                ref_annotation[key_ref_gene(iso1_defending_gene.source, gene1)],
+                attempt_rescue=True,
+                blast_hit_dict=seg0_qry_stats,
+            )
+        include_challenger0, include_orig0, _, _ = thunderdome(
             iso0_challenger_gene,
-            ref_feature,
-            attempt_rescue=True,
-            blast_hit_dict=seg0_qry_stats,
-        )
-        include_challenger0, include_orig0 = check_inclusion_criteria(
-            iso0_defending_gene,,
-            iso0_challenger_gene,
+            iso0_defending_gene,
         )
 
-        iso1_defending_gene = genes[iso[sample1_ind]][ltag1]
+
         iso1_challenger_gene = deepcopy(iso1_defending_gene)
         iso1_challenger_gene.qualifiers['gene'] = [gene0]
-        pseudoscan(
+        if iso0_defending_gene.source:
+            pseudoscan(
+                iso1_challenger_gene,
+                ref_annotation[key_ref_gene(iso1_defending_gene.source, gene0)],
+                attempt_rescue=True,
+                blast_hit_dict=seg1_qry_stats,
+            )
+        include_challenger1, include_orig1, _, _ = thunderdome(
             iso1_challenger_gene,
-            ref_feature,
-            attempt_rescue=True,
-            blast_hit_dict=None,
-        )
-        include_challenger1, include_orig1 = check_inclusion_criteria(
             iso1_defending_gene,
-            iso1_challenger_gene,
         )
 
         # TODO:
