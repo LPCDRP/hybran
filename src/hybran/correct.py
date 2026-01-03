@@ -144,6 +144,7 @@ def main(args):
             coords_file,
         ], capture_output=True, check=True, text=True)
         last_strain = None
+        cds_counter = defaultdict(lambda : 1)
         for line in sort_proc.stdout.strip().split('\n'):
             (
                 strain_chrom,
@@ -155,13 +156,15 @@ def main(args):
             ) = line.split('\t')
             strand = 1 if strand_sign == '+' else -1
             isolate_id = os.path.splitext(strain_chrom)[0]
+            # stand-in for locus tag
+            cds_id = f"{isolate_id}_{cds_counter[isolate_id]}"
+            cds_counter[isolate_id] += 1
             # make a dummy version of a SeqFeature object
-            genes[isolate_id][gene] = SimpleNamespace(
+            genes[isolate_id][cds_id] = SimpleNamespace(
                 location=SimpleNamespace(start=int(start), end=int(end), strand=strand),
             )
-            gene_seqs[isolate_id][gene] = translate(f.extract(record.seq), table=cnf.genetic_code)
-            # replicate structure as for annotation data. we don't have locus tags, so this is tautological
-            gene_names[isolate_id][gene] = gene
+            gene_seqs[isolate_id][cds_id] = translate(f.extract(record.seq), table=cnf.genetic_code)
+            gene_names[isolate_id][cds_id] = gene
             last_strain = isolate_id
     else:
         for annotation in ann_files:
