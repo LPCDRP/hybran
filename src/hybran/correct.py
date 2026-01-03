@@ -43,6 +43,18 @@ seq_files = {}
 sign = lambda x: '+' if x==1 else '-'
 
 
+def prepare_node(identifier, feature):
+    """
+    Create a tuple for use in networkx Graph.add_node in order to consistently add features as nodes in the graph.
+    """
+    return (
+        identifier,
+        {
+            'name':extractor.get_gene(feature),
+            'feature':feature,
+        }
+    )
+
 def main(args):
     global genes
     global gene_names
@@ -135,6 +147,7 @@ def main(args):
 
     cnf.genetic_code = extractor.get_genetic_code(args.references[0])
 
+    node_data = []
 
     if input_type == 'bed':
         sort_proc = subprocess.run([
@@ -166,6 +179,8 @@ def main(args):
             gene_seqs[isolate_id][cds_id] = translate(f.extract(record.seq), table=cnf.genetic_code)
             gene_names[isolate_id][cds_id] = gene
             last_strain = isolate_id
+
+            node_data.append(prepare_node(cds_id, f))
     else:
         for annotation in ann_files:
             isolate_id = os.path.splitext(os.path.basename(annotation))[0]
@@ -186,6 +201,9 @@ def main(args):
                     gene_seqs[isolate_id][ltag] = translate(f.extract(record.seq), table=cnf.genetic_code)
                     gene_names[isolate_id][ltag] = f.qualifiers['gene'][0] if 'gene' in f.qualifiers else ltag
 
+                    node_data.append(prepare_node(ltag, f))
+
+
     iso = list(genes.keys())
     # Create log directories
     for sample_name in iso:
@@ -193,9 +211,13 @@ def main(args):
 
     os.makedirs(logs_dir, exist_ok=True)
 
-    clusters = nx.Graph()
-    name_mappings = {}
+    # Initialize graphs used for collection correction data
+    renames  = nx.Graph()
+    renames.add_nodes_from(node_data)
     additions = []
+    additions_by_sample = {}
+    name_mappings = {}
+    name_changes = {} # This should replace name_mappings as we switch to renaming features by locus tag rather than globally by name. This means we can fix specific instances of misnaming rather than doing an all-or-nothing global replacement of every instance of a gene.
 
     rn_fh = open(renames_fn, 'w')
     # erase mcps file if it exists.
@@ -235,35 +257,56 @@ def main(args):
                 ]), file=mcps_fh)
 
                 additions += adds[gene_pair]
+                additions_by_sample.update({
+                    entry['sample']: entry for entry in adds[gene_pair]
+                })
 
-                for ltag1, gene1, ltag2, gene2 in equivs[gene_pair]:
-                    # conflicting gene names: both reference-named but not identically
-                    if not gene1.startswith('HYBRA') and not gene2.startswith('HYBRA'):
-                        print('\t'.join([
-                            'MANUAL',
-                            iso1,
-                            ltag1,
-                            gene1,
-                            iso2,
-                            ltag2,
-                            gene2,
-                        ]), file=rn_fh)
-                    else:
-                        clusters.add_edge(gene1, gene2, iso1=iso1, ltag1=ltag1, iso2=iso2, ltag2=ltag2)
+                renames.add_edges_from(equivs)
+                # for ltag1, gene1, ltag2, gene2 in equivs[gene_pair]:
+                #     # conflicting gene names: both reference-named but not identically
+                #     if not gene1.startswith('HYBRA') and not gene2.startswith('HYBRA'):
+                #         print('\t'.join([
+                #             'MANUAL',
+                #             iso1,
+                #             ltag1,
+                #             gene1,
+                #             iso2,
+                #             ltag2,
+                #             gene2,
+                #         ]), file=rn_fh)
+                #     else:
+                #         clusters.add_edge(gene1, gene2, iso1=iso1, ltag1=ltag1, iso2=iso2, ltag2=ltag2)
 
-    for cc in nx.connected_components(clusters):
-        authoritative = [n for n in cc if not n.startswith('HYBRA') and '::' not in n]
-        if not authoritative:
-            authoritative = [n for n in cc if not n.startswith('HYBRA')]
-            if not authoritative:
-                authoritative = [sorted(list(cc))[0]]
-        if len(authoritative) > 1:
-            print('\t'.join(['MANUAL'] + list(cc)), file=rn_fh)
-        else:
-            name = authoritative[0]
-            for n in cc:
-                name_mappings[n] = name
-            print('\t'.join([name, '*'] + [n for n in cc if n != name]), file=rn_fh)
+
+    #
+    # Apply same criteria to resolving candidate renames as used for MCL postprocessing
+    #
+    # TODO: fix interfaces to these functions
+    clusters = nx.connected_components(renames)
+    (
+        conflicting_reference_clusters,
+        agreeing_reference_clusters,
+        unannotated_clusters,
+        _, # singleton clusters - no action needed
+    ) = parseClustering.parse_clustered_proteins(clusters, annotations)
+    parseClustering.multigene_clusters(conflicting_reference_clusters)
+    parseClustering.single_gene_clusters(agreeing_reference_clusters)
+    parseClustering.only_ltag_clusters(unannotated_clusters)
+    # TODO: make sure that name_mappings is populated properly
+    
+#    for cc in nx.connected_components(renames):
+#        authoritative = [n for n in cc if not n.startswith('HYBRA') and '::' not in n]
+#        if not authoritative:
+#            authoritative = [n for n in cc if not n.startswith('HYBRA')]
+#            if not authoritative:
+#                authoritative = [sorted(list(cc))[0]]
+#        if len(authoritative) > 1:
+#            print('\t'.join(['MANUAL'] + list(cc)), file=rn_fh)
+#        else:
+#            name = authoritative[0]
+#            for n in cc:
+#                name_mappings[n] = name
+#            print('\t'.join([name, '*'] + [n for n in cc if n != name]), file=rn_fh)
 
     rn_fh.close()
 
@@ -273,6 +316,10 @@ def main(args):
                 entry['gene'] = name_mappings[entry['gene']]
             print('\t'.join(entry.values()), file=add_fh)
 
+    # To handle additions:
+    #   - collect all additions by strain (done above)
+    #   - determine overlaps with the existing annotation (post-rename-correction)
+    #   - apply inclusion criteria to identify and resolve conflicts
     deduplicated_additions = deduplicate_additions(additions)
     with open(additions_fn, 'w') as dedupe_fh:
         for entry in deduplicated_additions:
@@ -366,7 +413,9 @@ def write_log_stanza(f, gene_pair, equivalences, seg0_additions, seg1_additions)
     print(f"{gene_pair[0]}\t{gene_pair[1]}", file=f)
     for addn in seg0_additions + seg1_additions:
         print(f"//\t..\t..\tADD\t{addn['sample']}\t{addn['gene']}\t{addn['start']}\t{addn['end']}\t{addn['strand']}", file=f)
-    for ltag1, gene1, ltag2, gene2 in equivalences:
+    for ltag1, ltag2in equivalences:
+        gene1 = '' # TODO - retrieve these
+        gene2 = ''
         print(f"//\t..\t..\tRENAME\t{ltag1}|{gene1}\t{ltag2}|{gene2}", file=f)
 
 def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, seg0_coords, seg1_coords, sample0_ind, sample1_ind):
@@ -402,45 +451,43 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
         if gene0 == gene1:
             continue
 
-        iso0_defending_gene  = genes[iso[sample0_ind]][ltag0]
-        iso1_defending_gene = genes[iso[sample1_ind]][ltag1]
+        # can make this a 3-tuple with the third element being edge data
+        # where we can keep blast results if we wanted to.
+        equivalences.append((ltag0, ltag1))
 
-        # Check which name is more accurate in each genome.
-        # Update MCPs (very likely for many to drop out due to the renames)
-        iso0_challenger_gene = deepcopy(iso0_defending_gene)
-        iso0_challenger_gene.qualifiers['gene'] = [gene1]
-        if iso1_defending_gene.source:
-            pseudoscan(
-                iso0_challenger_gene,
-                ref_annotation[key_ref_gene(iso1_defending_gene.source, gene1)],
-                attempt_rescue=True,
-                blast_hit_dict=seg0_qry_stats,
-            )
-        include_challenger0, include_orig0, _, _ = thunderdome(
-            iso0_challenger_gene,
-            iso0_defending_gene,
-        )
+        # iso0_defending_gene  = genes[iso[sample0_ind]][ltag0]
+        # iso1_defending_gene = genes[iso[sample1_ind]][ltag1]
+
+        # # Check which name is more accurate in each genome.
+        # # Update MCPs (very likely for many to drop out due to the renames)
+        # iso0_challenger_gene = deepcopy(iso0_defending_gene)
+        # iso0_challenger_gene.qualifiers['gene'] = [gene1]
+        # if iso1_defending_gene.source:
+        #     pseudoscan(
+        #         iso0_challenger_gene,
+        #         ref_annotation[key_ref_gene(iso1_defending_gene.source, gene1)],
+        #         attempt_rescue=True,
+        #         blast_hit_dict=seg0_qry_stats,
+        #     )
+        # include_challenger0, include_orig0, _, _ = thunderdome(
+        #     iso0_challenger_gene,
+        #     iso0_defending_gene,
+        # )
 
 
-        iso1_challenger_gene = deepcopy(iso1_defending_gene)
-        iso1_challenger_gene.qualifiers['gene'] = [gene0]
-        if iso0_defending_gene.source:
-            pseudoscan(
-                iso1_challenger_gene,
-                ref_annotation[key_ref_gene(iso1_defending_gene.source, gene0)],
-                attempt_rescue=True,
-                blast_hit_dict=seg1_qry_stats,
-            )
-        include_challenger1, include_orig1, _, _ = thunderdome(
-            iso1_challenger_gene,
-            iso1_defending_gene,
-        )
-
-        # TODO:
-        #   - Appropriately set the equivalences depending on the results of the inclusion criteria
-        #   - Build a graph to represent this instead.
-        equivalences.append([ltag0, gene0, ltag1, gene1])
-
+        # iso1_challenger_gene = deepcopy(iso1_defending_gene)
+        # iso1_challenger_gene.qualifiers['gene'] = [gene0]
+        # if iso0_defending_gene.source:
+        #     pseudoscan(
+        #         iso1_challenger_gene,
+        #         ref_annotation[key_ref_gene(iso1_defending_gene.source, gene0)],
+        #         attempt_rescue=True,
+        #         blast_hit_dict=seg1_qry_stats,
+        #     )
+        # include_challenger1, include_orig1, _, _ = thunderdome(
+        #     iso1_challenger_gene,
+        #     iso1_defending_gene,
+        # )
 
     seg1_additions = []
     if seg0_genes_unmatched:
@@ -469,7 +516,8 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
                 'end':str(max(start,end)),
                 'gene':gene0,
                 'bedscore':'1',
-                'strand':strandsign
+                'strand':strandsign,
+                'ref', ltag0,
             })
             seg0_genes_unmatched.remove(ltag0)
 
@@ -500,7 +548,8 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
                 'end':str(max(start,end)),
                 'gene':gene1,
                 'bedscore':'1',
-                'strand':strandsign
+                'strand':strandsign,
+                'ref': ltag1,
             })
             seg1_genes_unmatched.remove(ltag1)
 
@@ -517,16 +566,36 @@ def get_segment(sample, pair):
     coordB = ltag_list.index(pair[1])
     return ltag_list[coordA:coordB+1]
 
+def postprocess_additions(strain_additions):
+    """
+    Run this after resolving the renames (cluster's connected components)
+    This function should:
+      - remove *exact* duplicates (same coordinates *and* gene name), but keep track of where they came from (ltag from which derived)
+      - for each remaining individual candidate addition:
+        - retrieve the final name for the annotated source
+        - coordinate correction / pseudoscan | might be weird for HYBRA genes. complicated if the same HYBRA name gets assigned differently across instances
+      - check for exact duplicates again (which may have come about due to coordinate correction) and remove
+      - determine overlaps - self vs. self comparison
+      - apply inclusion criteria to identify and resolve conflicts
+    """
+
+# Maybe just create a `merge()` function in annomerge to do this.
+def merge_additions(strain_additions, strain_annotations):
+    """
+    - Determine overlaps of (postprocessed) candidate additions
+    - Apply inclusion criteria to identify and resolve conflicts
+    """
+
 def deduplicate_additions(additions_list):
     """Remove duplicate additions, keeping the longest overlapping gene per sample/gene combination"""
     # Group by sample and gene name
     grouped = defaultdict(list)
     for entry in additions_list:
-        key = (entry['sample'], entry['gene'])
+        key = entry['sample']
         grouped[key].append(entry)
 
     deduplicated = []
-    for (sample, gene), entries in grouped.items():
+    for sample, entries in grouped.items():
         # Sort by length (end - start), descending
         entries.sort(key=lambda x: int(x['end']) - int(x['start']), reverse=True)
 
