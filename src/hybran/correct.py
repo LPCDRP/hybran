@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from Bio import SeqIO
 from Bio.SeqFeature import SimpleLocation
 from Bio.SeqRecord import SeqRecord
+from frozendict import frozendict
 import networkx as nx
 
 from . import (
@@ -214,10 +215,11 @@ def main(args):
     # Initialize graphs used for collection correction data
     renames  = nx.Graph()
     renames.add_nodes_from(node_data)
-    additions = []
-    additions_by_sample = {}
+    addition_references = deepcopy(renames)
+    additions_by_sample = defaultdict(set)
     name_mappings = {}
     name_changes = {} # This should replace name_mappings as we switch to renaming features by locus tag rather than globally by name. This means we can fix specific instances of misnaming rather than doing an all-or-nothing global replacement of every instance of a gene.
+    final_names = {}
 
     rn_fh = open(renames_fn, 'w')
     # erase mcps file if it exists.
@@ -256,10 +258,15 @@ def main(args):
                     mcp2,
                 ]), file=mcps_fh)
 
-                additions += adds[gene_pair]
-                additions_by_sample.update({
-                    entry['sample']: entry for entry in adds[gene_pair]
-                })
+                for entry in adds[gene_pair]:
+                    # Make a new frozendict without the `ref` key, which will prevent
+                    # duplicate additions from collapsing since the `ref` will never
+                    # be the same
+                    standard_entry = entry.delete('ref')
+                    # Add (nonredundantly by coordinates) to our set of candidate additions for this strain
+                    additions_by_sample[entry['sample']].add(standard_entry)
+                    # Keep track of the strain reference for the addition in case its own name changes.
+                    addition_references.add_edge(standard_entry, entry['ref'])
 
                 renames.add_edges_from(equivs)
                 # for ltag1, gene1, ltag2, gene2 in equivs[gene_pair]:
@@ -316,16 +323,14 @@ def main(args):
                 entry['gene'] = name_mappings[entry['gene']]
             print('\t'.join(entry.values()), file=add_fh)
 
-    # To handle additions:
-    #   - collect all additions by strain (done above)
-    #   - determine overlaps with the existing annotation (post-rename-correction)
-    #   - apply inclusion criteria to identify and resolve conflicts
-    deduplicated_additions = deduplicate_additions(additions)
-    with open(additions_fn, 'w') as dedupe_fh:
-        for entry in deduplicated_additions:
-            if entry['gene'] in name_mappings:
-                entry['gene'] = name_mappings[entry['gene']]
-            print('\t'.join(entry.values()), file=dedupe_fh)
+    for sample in additions_by_sample:
+        sample_candidate_additions = postprocess_additions(
+            additions_by_sample[sample],
+            addition_references,
+            final_names,
+        )
+        # pseudocode:
+        # candidate_features = merge(sample_candidate_additions, candidate_features)
 
 def overlap(loc1, loc2):
     loc1_start, loc1_end = loc1
@@ -510,15 +515,15 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
                 sign_flip = -1
                 start -= 3
             strandsign = sign(sign_flip)
-            seg1_additions.append({
+            seg1_additions.append(frozendict({
                 'sample':None,
                 'start':str(min(start,end) - 1),
                 'end':str(max(start,end)),
-                'gene':gene0,
+                #'gene':gene0,
                 'bedscore':'1',
                 'strand':strandsign,
                 'ref', ltag0,
-            })
+            }))
             seg0_genes_unmatched.remove(ltag0)
 
     seg0_additions = []
@@ -542,15 +547,15 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
                 sign_flip = -1
                 start -= 3
             strandsign = sign(sign_flip)
-            seg0_additions.append({
+            seg0_additions.append(frozendict({
                 'sample':None,
                 'start':str(min(start,end) - 1),
                 'end':str(max(start,end)),
-                'gene':gene1,
+                #'gene':gene1,
                 'bedscore':'1',
                 'strand':strandsign,
                 'ref': ltag1,
-            })
+            }))
             seg1_genes_unmatched.remove(ltag1)
 
     return equivalences, seg0_additions, seg1_additions, seg0_genes_unmatched, seg1_genes_unmatched
@@ -566,18 +571,24 @@ def get_segment(sample, pair):
     coordB = ltag_list.index(pair[1])
     return ltag_list[coordA:coordB+1]
 
-def postprocess_additions(strain_additions):
+def postprocess_additions(strain_additions, addition_refs, final_ref_names):
     """
     Run this after resolving the renames (cluster's connected components)
     This function should:
-      - remove *exact* duplicates (same coordinates *and* gene name), but keep track of where they came from (ltag from which derived)
       - for each remaining individual candidate addition:
         - retrieve the final name for the annotated source
         - coordinate correction / pseudoscan | might be weird for HYBRA genes. complicated if the same HYBRA name gets assigned differently across instances
       - check for exact duplicates again (which may have come about due to coordinate correction) and remove
       - determine overlaps - self vs. self comparison
       - apply inclusion criteria to identify and resolve conflicts
+
+    :param strain_additions: set of frozendicts representing coordinates to be added
+    :param addition_refs: networkx Graph with frozendict nodes linked to strain reference locus tags with attached SeqFeature attributes (from prepare_node())
+    :param final_ref_names: dict of strain locus tags to their final gene names.
+      TODO: We might be able to drop this parameter if we update the addition_refs network with that information.
+    :return: list of SeqFeature objects representing the postprocessed candidate additions that will need to be merged.
     """
+    pass
 
 # Maybe just create a `merge()` function in annomerge to do this.
 def merge_additions(strain_additions, strain_annotations):
