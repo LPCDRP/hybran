@@ -257,6 +257,68 @@ def get_feature_interval(feature):
     """
     return Interval(int(feature.location.start), int(feature.location.end))
 
+def cross_examine(feature_list):
+    """
+    Compare a feature list to itself and check for overlaps and conflicts.
+
+    :param feature_list: list of SeqFeatures sorted by position
+    :returns:
+      - conflicting: List of 2-tuples of SeqFeatures that conflict (includes co-located features since they shouldn't exist within a single source)
+      - nonconfl_overlap: List of 2-tuples of SeqFeatures that are putatively non-conflicting (for CDSs: overlapping out-of-frame)
+      - non_overlapping: List of SeqFeatures that do not overlap anything.
+      - G: networkx Graph with edges between overlapping features.
+    """
+    conflicts = []
+    nonconfl_overlap = []
+    G = nx.Graph()
+
+    interval_tree = IntervalTree()
+    for i, feature in enumerate(feature_list):
+        feature.label = f"X{i}"
+        G.add_node(
+            feature.label,
+            annotation=feature,
+        )
+        interval_tree.addi(
+            int(feature.location.start),
+            int(feature.location.end),
+            feature
+        )
+
+    for i, iv1 in enumerate(interval_tree):
+        for iv2 in interval_tree[i+1:]:
+            if iv2.begin >= iv1.end:
+                break
+            if not iv1.overlaps(iv2):
+                continue
+
+            f1 = iv1[2]
+            f2 = iv2[2]
+            if (
+                    f1.location == f2.location
+                    or (
+                        f1.type == 'CDS'
+                        and f1.type == f2.type
+                        and overlap_inframe(f1.location, f2.location)
+                    )
+            ):
+                conflicts.append((f1, f2))
+                G.add_edge(f1.label, f2.label)
+            elif overlap(f1.location, f2.location):
+                nonconfl_overlap.append((f1, f2))
+                G.add_edge(f1.label, f2.label)
+
+    # The non-overlapping nodes are those that remain degree 0 after we finish
+    # drawing all the overlap edges from the loop above
+    non_overlapping = [node['annotation'] for node in nx.isolates(G)]
+
+    return (
+        conflicting,
+        nonconfl_overlap,
+        non_overlapping,
+        G,
+    )
+
 def compare(feature_list, alt_feature_list, eliminate_colocated=True):
     """
     Organize each feature into various categories based on overlaps between the annotation files.
