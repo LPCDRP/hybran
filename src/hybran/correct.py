@@ -22,13 +22,11 @@ from . import (
     extractor,
     fileManager,
 )
-from .annomerge import (
-    thunderdome,
-)
+from .annomerge import merge
 from .designator import key_ref_gene
 from .bio import AutarkicSeqFeature, translate
 from .config import cnf
-from .compare import overlap_inframe
+from .compare import compare, cross_examine
 from .pseudoscan import pseudoscan
 from .util import keydefaultdict
 # from .util import mpbreakpoint
@@ -329,8 +327,13 @@ def main(args):
             addition_references,
             final_names,
         )
-        # pseudocode:
-        # candidate_features = merge(sample_candidate_additions, candidate_features)
+        # TODO: set up the strain_features variable
+        (_, _, _, _, _, _, G_overlap) = compare(
+            sample_candidate_additions,
+            strain_features,
+            eliminate_colocated=False,
+        )
+        strain_features = merge(G_overlap)
 
 def overlap(loc1, loc2):
     loc1_start, loc1_end = loc1
@@ -573,59 +576,25 @@ def get_segment(sample, pair):
 
 def postprocess_additions(strain_additions, addition_refs, final_ref_names):
     """
-    Run this after resolving the renames (cluster's connected components)
-    This function should:
-      - for each remaining individual candidate addition:
-        - retrieve the final name for the annotated source
-        - coordinate correction / pseudoscan | might be weird for HYBRA genes. complicated if the same HYBRA name gets assigned differently across instances
-      - check for exact duplicates again (which may have come about due to coordinate correction) and remove
-      - determine overlaps - self vs. self comparison
-      - apply inclusion criteria to identify and resolve conflicts
+    Apply reference-based coordinate correction and resolve conflicting entries among the candidate additions for a strain.
 
     :param strain_additions: set of frozendicts representing coordinates to be added
     :param addition_refs: networkx Graph with frozendict nodes linked to strain reference locus tags with attached SeqFeature attributes (from prepare_node())
-    :param final_ref_names: dict of strain locus tags to their final gene names.
+    :param final_ref_names: dict of strain locus tags to their finalized gene names (from name reassignment).
       TODO: We might be able to drop this parameter if we update the addition_refs network with that information.
     :return: list of SeqFeature objects representing the postprocessed candidate additions that will need to be merged.
     """
-    pass
 
-# Maybe just create a `merge()` function in annomerge to do this.
-def merge_additions(strain_additions, strain_annotations):
-    """
-    - Determine overlaps of (postprocessed) candidate additions
-    - Apply inclusion criteria to identify and resolve conflicts
-    """
+    # retrieve the final name for the annotated sources
 
-def deduplicate_additions(additions_list):
-    """Remove duplicate additions, keeping the longest overlapping gene per sample/gene combination"""
-    # Group by sample and gene name
-    grouped = defaultdict(list)
-    for entry in additions_list:
-        key = entry['sample']
-        grouped[key].append(entry)
+    # coordinate correction  / pseudoscan
 
-    deduplicated = []
-    for sample, entries in grouped.items():
-        # Sort by length (end - start), descending
-        entries.sort(key=lambda x: int(x['end']) - int(x['start']), reverse=True)
+    # check for exact duplicates again that may have arisen due to coordinate correction
 
-        kept = []
-        for entry in entries:
-            entry_coords = SimpleLocation(int(entry['start']), int(entry['end']), int(f"{entry['strand']}1"))
-            # Check if this entry overlaps with any already kept entry
-            if not any(
-                overlap_inframe(
-                    entry_coords,
-                    SimpleLocation(int(kept_entry['start']), int(kept_entry['end']), int(f"{kept_entry['strand']}1")),
-                )
-                for kept_entry in kept
-            ):
-                kept.append(entry)
+    (_, _, _, G_overlaps) = cross_examine(strain_additions)
+    candidate_strain_additions = merge(G_overlaps)
 
-        deduplicated.extend(kept)
-
-    return deduplicated
+    return candidate_strain_additions
 
 def mincanpairs(sample_ind_pair):
     sample0_ind, sample1_ind = sample_ind_pair
