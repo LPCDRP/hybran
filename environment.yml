@@ -2,7 +2,6 @@ name: hybran
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
   - biopython>=1.80 # we require SeqFeature equality testing
   - blast
