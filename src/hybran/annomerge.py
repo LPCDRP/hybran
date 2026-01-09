@@ -347,6 +347,36 @@ def fix_embl_id_line(embl_file):
         for line in lines:
             out.write(line)
 
+def merge(overlap_G):
+    """
+    Given an overlap graph, check for conflicting annotations and choose the "best" ones, returning a full set of consistent features.
+    :param overlap_G:
+      a networkx Graph/DiGraph as produced by compare() or cross_examine().
+      Nodes in this graph must have an 'annotation' attribute containing the corresponding SeqFeature object.
+      The SeqFeature object should have a label attribute corresponding to the node label.
+    :return: list of sorted SeqFeatures being the result of the merge
+    """
+    refined_G = overlap_G.copy()
+
+    for cc in nx.weakly_connected_components(overlap_G):
+        cc_features = [overlap_G.nodes[n]['annotation'] for n in cc]
+
+        # singleton connected components are standalone/unique features
+        if len(cc_features) == 1:
+            continue
+
+        for f1, f2 in itertools.combinations(cc_features, 2):
+            # skip comparison if one of the contenders has been previously defeated
+            if f1.label not in refined_G or f2.label not in refined_G:
+                continue
+
+            include_f2, include_f1, evidence, remark = check_inclusion_criteria(f1, f2)
+            if not include_f1:
+                refined_G.remove_node(f1.label)
+            if not include_f2:
+                refined_G.remove_node(f2.label)
+
+    return sort_features([refined_G.nodes[n]['annotation'] for n in refined_G])
 
 def run(
         isolate_id,
