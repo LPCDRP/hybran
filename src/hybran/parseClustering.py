@@ -8,6 +8,7 @@ import logging
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+import networkx as nx
 
 from . import (
     BLAST,
@@ -16,7 +17,8 @@ from . import (
     designator,
     extractor,
 )
-from .bio import SeqIO
+from .annomerge import liftover_annotation
+from .bio import SeqIO, translate
 
 
 def parse_clustered_proteins(clustered_proteins, annotations):
@@ -445,6 +447,108 @@ def prepare_for_eggnog(unannotated_seqs, outfile):
             eggnog_seqs.append(record)
     SeqIO.write(eggnog_seqs, outfile, 'fasta')
 
+
+def resolve_clusters(G, orf_increment):
+    """
+    Analyze connected components in a graph and assign names based on named members of the graph.
+    Can eventually replace at least the following functions after some restructuring:
+      - singleton_clusters
+      - only_ltag_clusters
+      - single_gene_clusters
+      - multigene_clusters
+
+    :param G:
+      networkx graph with nodes containing an 'annotation' attribute corresponding to the SeqFeature object.
+      Edges indicate genes that clustered together.
+    :param orf_increment: int number to begin minting new generic names from
+    :return: dict new_feature_names mapping locus tags (node names) to assigned gene names
+    """
+    new_feature_names = {}
+
+    for cluster in nx.weakly_connected_components(G):
+        cluster = list(cluster)
+        features = [G.nodes[n]['annotation'] for n in cluster]
+
+        nodes_by_name = defaultdict(set)
+        for node_id in cluster:
+            nodes_by_name[G.nodes[node_id]['name']].add(node_id)
+
+        authoritative = [name for name in nodes_by_name if designator.is_reference(name)]
+        name_to_assign = None
+
+        if not authoritative:
+            (name_to_assign, orf_increment) = designator.assign_orf_id(orf_increment)
+        elif len(authoritative) == 1:
+            name_to_assign = authoritative[0]
+
+        # multiple authoritative names => no single name_to_assign
+        if not name_to_assign:
+            # prepare the reference seqs fasta file
+            # (partial re-implementation of get_cluster_fasta due to different inputs)
+            cluster_authoritative_seqs_fh = tempfile.NamedTemporaryFile(
+                suffix='.fasta',
+                dir=config.cnf.tmpdir,
+                delete=False,
+                mode='w',
+            )
+            cluster_authoritative_seqs = cluster_authoritative_seqs_fh.name
+            ref_sequence_records = []
+            for ref_name in authoritative:
+                for ref_instance_node_id in nodes_by_name[ref_name]:
+                    ref_instance_node = G.nodes['ref_instance_node_id']
+                    ref_instance_feature = ref_instance_node['annotation']
+                    if designator.is_pseudo(ref_instance_feature):
+                        continue
+                    ref_sequence_records.append(
+                        SeqRecord(
+                            ref_instance_feature.qualifiers['translation'][0],
+                            id='|'.join([
+                                ref_instance_node['strain'],
+                                ref_instance_node_id,
+                                ref_instance_node['name'],
+                            ])
+                        )
+                    )
+            SeqIO.write(ref_sequence_records, cluster_authoritative_seqs_fh, 'fasta')
+            cluster_authoritative_seqs_fh.close()
+
+            for node_id in cluster:
+                node = G.nodes[node_id]
+                # reference_seqs = reference_fasta
+                if 'translation' in node['annotation'].qualifiers:
+                    query_seq_str = node['annotation'].qualifiers['translation'][0]
+                # pseudos will not have a translation qualifier
+                else:
+                    query_seq_str = translate(
+                        node['annotation'].extract(),
+                        table=config.cnf.genetic_code,
+                        cds=True,
+                        to_stop=False,
+                    )
+                query_seq = SeqRecord(query_seq_str, id=node_id, description='')
+
+                name_to_assign, ref_ltag, _, orf_increment = check_matches_to_known_genes(
+                    query_seq=query_seq,
+                    reference_seqs=cluster_authoritative_seqs,
+                    generic_seqs=os.devnull(),
+                    cluster_type='multiref',
+                    orf_increment=orf_increment,
+                )
+                # TODO: make sure that name_to_assign can't be None
+                new_feature_names[node_id] = name_to_assign
+                liftover_annotation(
+                    feature=node['annotation'],
+                    ref_feature=G.nodes[ref_ltag]['annotation'],
+                    inference="Hybran/clustering", # TODO: come up with a better tag
+                )
+        else:
+            for node_id in cluster:
+                node = G.nodes[node_id]
+                new_feature_names[node_id] = name_to_assign
+                # TODO: not using liftover here since we don't have a single reference identified.
+                node['annotation'].qualifiers['gene'] = [name_to_assign]
+
+    return new_feature_names
 
 def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_increment, seq_ident, seq_covg):
     """

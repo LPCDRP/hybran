@@ -42,13 +42,14 @@ seq_files = {}
 sign = lambda x: '+' if x==1 else '-'
 
 
-def prepare_node(identifier, feature):
+def prepare_node(strain_id, identifier, feature):
     """
     Create a tuple for use in networkx Graph.add_node in order to consistently add features as nodes in the graph.
     """
     return (
         identifier,
         {
+            'strain':strain_id,
             'name':extractor.get_gene(feature),
             'feature':feature,
         }
@@ -147,6 +148,7 @@ def main(args):
     cnf.genetic_code = extractor.get_genetic_code(args.references[0])
 
     node_data = []
+    unique_gene_names = set()
 
     if input_type == 'bed':
         sort_proc = subprocess.run([
@@ -178,17 +180,21 @@ def main(args):
             gene_seqs[isolate_id][cds_id] = translate(f.extract(record.seq), table=cnf.genetic_code)
             gene_names[isolate_id][cds_id] = gene
             last_strain = isolate_id
+            unique_gene_names.add(gene)
 
-            node_data.append(prepare_node(cds_id, f))
+            node_data.append(prepare_node(isolate_id, cds_id, f))
     else:
         for annotation in ann_files:
             isolate_id = os.path.splitext(os.path.basename(annotation))[0]
-            i=0
             for record in SeqIO.parse(annotation, "genbank"):
+                seqname = '.'.join(isolate_id, record.id)
                 for f in record.features:
                     if f.type != 'CDS':
                         continue
                     f = AutarkicSeqFeature.fromSeqFeature(f)
+                    for part in f.location.parts:
+                        part.ref = seqname
+                    f.references = {seqname: record.seq}
                     ltag = f.qualifiers['locus_tag'][0]
                     if 'inference' in f.qualifiers:
                         for inf_note in f.qualifiers['inference']:
@@ -199,8 +205,8 @@ def main(args):
                     genes[isolate_id][ltag] = f
                     gene_seqs[isolate_id][ltag] = translate(f.extract(record.seq), table=cnf.genetic_code)
                     gene_names[isolate_id][ltag] = f.qualifiers['gene'][0] if 'gene' in f.qualifiers else ltag
-
-                    node_data.append(prepare_node(ltag, f))
+                    unique_gene_names.add(gene_names[isolate_id][ltag])
+                    node_data.append(prepare_node(isolate_id, ltag, f))
 
 
     iso = list(genes.keys())
@@ -283,20 +289,11 @@ def main(args):
                 #         clusters.add_edge(gene1, gene2, iso1=iso1, ltag1=ltag1, iso2=iso2, ltag2=ltag2)
 
 
-    #
     # Apply same criteria to resolving candidate renames as used for MCL postprocessing
-    #
-    # TODO: fix interfaces to these functions
-    clusters = nx.connected_components(renames)
-    (
-        conflicting_reference_clusters,
-        agreeing_reference_clusters,
-        unannotated_clusters,
-        _, # singleton clusters - no action needed
-    ) = parseClustering.parse_clustered_proteins(clusters, annotations)
-    parseClustering.multigene_clusters(conflicting_reference_clusters)
-    parseClustering.single_gene_clusters(agreeing_reference_clusters)
-    parseClustering.only_ltag_clusters(unannotated_clusters)
+    # TODO: we're working with the default orf prefix only currently.
+    new_name_counter = designator.find_next_increment(unique_gene_names)
+    name_changes = parseClustering.resolve_clusters(renames, new_name_counter)
+
     # TODO: make sure that name_mappings is populated properly
     
 #    for cc in nx.connected_components(renames):
