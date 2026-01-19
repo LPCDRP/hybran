@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 import os
 import re
@@ -300,21 +301,13 @@ def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
     #       assignment (checking neighboring genes, potentially reevaluating conflicting annotations...)
     pseudo = False
 
-    if isolate_id not in isolate_update_dictionary.keys():
-        isolate_update_dictionary[isolate_id] = {}
+    isolate_dict_added = isolate_update_dictionary[isolate_id]
+    if isolate_ltag not in isolate_dict_added:
+        logger.debug(f"{isolate_ltag} in {isolate_id} becomes {new_gene_name}")
         isolate_update_dictionary[isolate_id][isolate_ltag] = dict(
             name = new_gene_name,
             pseudo = pseudo,
         )
-        logger.debug(isolate_ltag + ' in ' + isolate_id + ' becomes ' + new_gene_name)
-    else:
-        isolate_dict_added = isolate_update_dictionary[isolate_id]
-        if isolate_ltag not in isolate_dict_added.keys():
-            logger.debug(isolate_ltag + ' in ' + isolate_id + ' becomes ' + new_gene_name)
-            isolate_update_dictionary[isolate_id][isolate_ltag] = dict(
-                name = new_gene_name,
-                pseudo = pseudo,
-            )
     return
 
 
@@ -732,7 +725,7 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     logger = logging.getLogger('ParseClusters')
     hybran_tmp_dir = config.hybran_tmp_dir
     global isolate_update_dictionary, isolate_sequences
-    isolate_update_dictionary = {}
+    isolate_update_dictionary = defaultdict(dict)
     logger.debug('Retrieving unique protein sequences from GFFs')
     # Run CD-HIT on cdss_protein-all.fasta as part of calling ref_seqs
     unique_protein_fastas, isolate_sequences = unique_seqs(annotations=target_gffs)
