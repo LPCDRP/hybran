@@ -1,7 +1,5 @@
-import atexit
 from collections import defaultdict
 import os
-import shutil
 import sys
 
 from . import (
@@ -17,9 +15,6 @@ from .converter import convert_gbk_to_gff
 
 
 def main(args):
-    config.init()
-    atexit.register(shutil.rmtree, path=config.hybran_tmp_dir)
-
     if not os.path.isdir(args.output):
         try:
             os.mkdir(args.output)
@@ -51,7 +46,7 @@ def main(args):
     unify(
         annotations=annotations,
         outdir=args.output,
-        tmpdir=config.hybran_tmp_dir,
+        tmpdir=config.cnf.tmpdir,
         seq_ident=args.identity_threshold,
         seq_covg=args.coverage_threshold,
         main_ref=main_ref,

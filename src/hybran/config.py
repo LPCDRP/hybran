@@ -1,3 +1,5 @@
+import atexit
+import shutil
 import tempfile
 from types import SimpleNamespace
 
@@ -21,12 +23,17 @@ cnf = SimpleNamespace(
     mcl_inflation=1.5,
 )
 
-def init():
+def rmtmp():
+    shutil.rmtree(path=cnf.tmpdir)
+
+if not cnf.tmpdir:
     # TODO: stop using this global variable and move towards using cnf.tmpdir
     global hybran_tmp_dir
     # Make the temporary files directory
     hybran_tmp_dir = tempfile.mkdtemp()
     cnf.tmpdir = hybran_tmp_dir
+
+    atexit.register(rmtmp)
 
 def set_genetic_code(code):
     cnf.genetic_code = code

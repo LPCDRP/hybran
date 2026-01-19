@@ -488,8 +488,7 @@ def main(args, prokka_args):
     script_dir = os.path.abspath(os.path.dirname(__file__))
 
     # Setting up the Hybran temporary directory
-    config.init()
-    hybran_tmp_dir = config.hybran_tmp_dir
+    hybran_tmp_dir = config.cnf.tmpdir
     config.cnf.onegene.min_identity =  args.onegene_identity_threshold
     config.cnf.onegene.min_coverage =  args.onegene_coverage_threshold
     config.cnf.mcl_inflation = args.mcl_inflation
@@ -499,10 +498,9 @@ def main(args, prokka_args):
     designator.generic_orf_prefix[0]=args.orf_prefix
     designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"
 
-    # Cleanup the temporary files directory and its contents at exit unless
-    # --debug is set
-    if not args.debug:
-        atexit.register(shutil.rmtree, path=hybran_tmp_dir)
+    # Don't cleanup the temporary files directory at exit if --debug is set
+    if args.debug:
+        atexit.unregister(config.rmtmp)
 
     # Confirming all installations are valid
     if args.database_dir:
