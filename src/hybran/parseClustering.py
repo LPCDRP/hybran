@@ -7,7 +7,6 @@ import logging
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from collections import OrderedDict
 
 from . import (
     BLAST,
@@ -101,7 +100,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
 
     gffs = gff_dict(annotations)
     representative_fasta_list = []
-    gene_cluster = OrderedDict()
+    gene_cluster = {}
     different_genes_cluster_w_ltags = {}
     same_genes_cluster_w_ltags = {}
     underscores = {}
