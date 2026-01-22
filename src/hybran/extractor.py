@@ -208,13 +208,18 @@ def subset_fasta(inseq, outseq, match, identify = lambda _:_):
     :param outseq: str output fasta file name
     :param match: function to apply to record.id for a Boolean result
     :param identify: function to transform record.id prior to matching
+    :return: set unique_ids (matched and post-transformation with identify())
     """
     seqs = []
+    unique_ids = set()
     for record in SeqIO.parse(inseq, 'fasta'):
         record.id = identify(record.id)
         if match(record.id):
             seqs.append(record)
-    SeqIO.write(seqs, outseq, 'fasta')
+            unique_ids.add(record.id)
+    if outseq:
+        SeqIO.write(seqs, outseq, 'fasta')
+    return unique_ids
 
 def grep_seqs(gff):
     """

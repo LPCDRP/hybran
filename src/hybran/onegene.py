@@ -111,16 +111,14 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
     # look for existing generic names in our gene names,
     # which are the third token in the delimited string
     # Ref%%%locus_tag%%%gene_name
-    existing_generigenes_fasta = os.path.join(dedupe_tmp,
-                                              'preexisting_generigenes.fasta')
-    extractor.subset_fasta(
+    unique_unirefs = extractor.subset_fasta(
         ref_cdss_all_fp,
-        outseq = existing_generigenes_fasta,
+        outseq = None,
         match = designator.is_uniref,
         identify = lambda _: _.split('%%%')[2]
     )
     increment = designator.find_next_increment(
-        existing_generigenes_fasta,
+        unique_unirefs,
         prefix=designator.ref_orf_prefix,
     )
 

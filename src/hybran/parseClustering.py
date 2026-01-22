@@ -745,12 +745,12 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     generic_genes_fp = os.path.join(hybran_tmp_dir,
                                 'clustering',
                                 'unannotated_seqs.fasta')
-    extractor.subset_fasta(
+    unique_generics = extractor.subset_fasta(
         inseq = unique_protein_fastas,
         outseq = generic_genes_fp,
         match = designator.is_unannotated,
     )
-    orf_increment = designator.find_next_increment(fasta=generic_genes_fp)
+    orf_increment = designator.find_next_increment(unique_generics)
     logger.info('Parsing ' + clusters)
     clusters = parse_clustered_proteins(clustered_proteins=clusters,
                                         annotations=target_gffs)

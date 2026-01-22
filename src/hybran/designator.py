@@ -136,24 +136,29 @@ def create_gene_entries(gbk):
 
     SeqIO.write(output_records, gbk, format="genbank")
 
-def find_next_increment(fasta, prefix=generic_orf_prefix):
+def find_next_increment(ids, prefix=None):
     """
     Based on a given unannotated FASTA, identifies the highest
     numbered ORF increment in a list of numbered features and returns
     the next number to use.
 
-    :param fasta: FASTA file name
-    :param format: input file format
+    :param ids: set of identifiers
     :return: int
     """
-    records = []
-    for record in SeqIO.parse(fasta, 'fasta'):
-        records.append(record.id)
-    if records:
-        last_orf = sorted(records)[-1]
-        return int(last_orf.replace(prefix[0], '')) + 1
-    else:
-        return 1
+    max_seen = 0
+
+    if not prefix:
+        prefix = generic_orf_prefix[0]
+
+    for name in ids:
+        # break down gene fusion components
+        for name_comp in name.split('::'):
+            name_of_interest = re.match(rf'^{prefix}(\d+)$', name_comp)
+            if name_of_interest:
+                num = int(name_of_interest.group(1))
+                if num > max_seen:
+                    max_seen = num
+    return max_seen + 1
 
 def is_pseudo(qualifiers):
     """
