@@ -3,6 +3,16 @@ import pdb
 import sys
 
 
+def nacast(var, nullval='.'):
+    """
+    Cast var to str, but use a specific character for instances of None.
+    For the purpose of consistently logging null values.
+
+    :param var: The variable to consider
+    :param nullval: What to display for a None value of var
+    """
+    return str(var) if var is not None else nullval
+
 #Thanks to Jochen Ritzel
 # https://stackoverflow.com/a/2912455
 class keydefaultdict(collections.defaultdict):

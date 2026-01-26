@@ -23,7 +23,7 @@ def get_ltag(feature):
     if 'locus_tag' in feature.qualifiers:
         return feature.qualifiers['locus_tag'][0]
     else:
-        return '.'
+        return None
 
 def get_gene(feature, tryhard=True):
     if 'gene' in feature.qualifiers:
@@ -31,8 +31,7 @@ def get_gene(feature, tryhard=True):
     elif tryhard:
         return get_ltag(feature)
     else:
-        # null entry for gene name
-        return '.'
+        return None
 
 def get_seq(feature):
     """
