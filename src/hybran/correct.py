@@ -1,4 +1,3 @@
-import atexit
 from collections import defaultdict
 from copy import deepcopy
 from glob import glob
@@ -116,9 +115,6 @@ def main(args):
         args.references = fileManager.file_list(args.references, file_type='genbank')
 
 
-    working_tmpdir = tempfile.mkdtemp()
-    atexit.register(shutil.rmtree, path=working_tmpdir)
-
     ref_annotation = extractor.load_gbks(
         args.references,
         feature_types=['CDS'],
@@ -132,7 +128,7 @@ def main(args):
     # The only way we should get here is if our input is a Hybran result folder.
     # We are assured to have the full sequences included in the genbank files.
     else:
-        seq_dir = os.path.join(working_tmpdir, 'genomes')
+        seq_dir = os.path.join(cnf.tmpdir, 'genomes')
         os.makedirs(seq_dir)
         for annotation in ann_files:
             curr_strain = os.path.splitext(os.path.basename(annotation))[0]
@@ -678,7 +674,7 @@ def mincanpairs(sample_ind_pair):
                 genes[iso[sample1_ind]][iso1_pair[0]].location.end,
                 genes[iso[sample1_ind]][iso1_pair[1]].location.start + 1
             )
-            with tempfile.NamedTemporaryFile(mode='w', buffering=1) as seg1_geneseqs, tempfile.NamedTemporaryFile(mode='w', buffering=1) as seg2_geneseqs:
+            with tempfile.NamedTemporaryFile(mode='w', buffering=1, dir=cnf.tmpdir) as seg1_geneseqs, tempfile.NamedTemporaryFile(mode='w', buffering=1, dir=cnf.tmpdir) as seg2_geneseqs:
                 seg1_gene_records = [
                     SeqRecord(gene_seqs[iso[sample0_ind]][g],
                               id=f"{g}|{gene_names[iso[sample0_ind]][g]}|{genes[iso[sample0_ind]][g].location.strand}",
