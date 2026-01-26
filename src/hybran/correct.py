@@ -21,9 +21,13 @@ from . import (
     extractor,
     fileManager,
 )
-from .annomerge import merge
+from .annomerge import merge, thunderdome
 from .designator import key_ref_gene
-from .bio import AutarkicSeqFeature, translate
+from .bio import (
+    AutarkicSeqFeature,
+    sort_features,
+    translate,
+)
 from .config import cnf
 from .compare import compare, cross_examine
 from .pseudoscan import pseudoscan
@@ -34,6 +38,7 @@ from .util import keydefaultdict
 genes = defaultdict(dict)
 gene_names = defaultdict(dict)
 gene_seqs = defaultdict(dict)
+strain_seqs = defaultdict(dict)
 iso = []
 logs_dir = None
 seq_files = {}
@@ -58,6 +63,7 @@ def main(args):
     global genes
     global gene_names
     global gene_seqs
+    global strain_seqs
     global iso
     global logs_dir
     global seq_files
@@ -120,11 +126,15 @@ def main(args):
         feature_types=['CDS'],
     )
 
+    strain_contig_records = {}
+
     if args.seq_dir:
-        seq_files = {
-            os.path.splitext(os.path.basename(fasta))[0]: fasta
-            for fasta in fileManager.file_list([args.seq_dir], file_type='fasta')
-        }
+        for fasta in fileManager.file_list([args.seq_dir], file_type='fasta'):
+            strain_id = os.path.splitext(os.path.basename(fasta))[0]
+            seq_files[strain_id] = fasta
+            strain_contig_records[strain_id] = {
+                f"{strain_id}.{record.id}":record for record in SeqIO.parse(fasta, "fasta")
+            }
     # The only way we should get here is if our input is a Hybran result folder.
     # We are assured to have the full sequences included in the genbank files.
     else:
@@ -132,13 +142,18 @@ def main(args):
         os.makedirs(seq_dir)
         for annotation in ann_files:
             curr_strain = os.path.splitext(os.path.basename(annotation))[0]
+            strain_contig_records[curr_strain] = {
+                record.id:record for record in SeqIO.parse(annotation, 'genbank')
+            }
             curr_strain_fasta = os.path.join(seq_dir, f'{curr_strain}.fasta')
-            extractor.fastaFromGbk(
+            _, strain_gene_seqs, _ = extractor.fastaFromGbk(
                 annotation,
-                out_cds=os.devnull(),
+                out_cds=None,
                 out_genome=curr_strain_fasta,
+                identify=lambda f: f"{designator.get_ltag(f)}|{designator.get_gene(f)}|{f.location.strand}",
             )
             seq_files[curr_strain] = curr_strain_fasta
+            gene_seqs[curr_strain] = {f.id.split('|')[0]:f for f in strain_gene_seqs}
 
 
     cnf.genetic_code = extractor.get_genetic_code(args.references[0])
@@ -165,16 +180,33 @@ def main(args):
                 strand_sign,
             ) = line.split('\t')
             strand = 1 if strand_sign == '+' else -1
-            isolate_id = os.path.splitext(strain_chrom)[0]
+            isolate_id, contig = os.path.splitext(strain_chrom)
+            strain_contig_record = strain_contig_records[isolate_id][strain_chrom]
             # stand-in for locus tag
             cds_id = f"{isolate_id}_{cds_counter[isolate_id]}"
             cds_counter[isolate_id] += 1
-            # make a dummy version of a SeqFeature object
-            genes[isolate_id][cds_id] = SimpleNamespace(
-                location=SimpleNamespace(start=int(start), end=int(end), strand=strand),
+            feature = AutarkicSeqFeature(
+                type='CDS',
+                location=SimpleLocation(
+                    start=int(start),
+                    end=int(end),
+                    strand=strand,
+                    ref=strain_chrom,
+                ),
+                qualifiers={
+                    'locus_tag':[cds_id],
+                    'gene':gene,
+                },
             )
-            gene_seqs[isolate_id][cds_id] = translate(f.extract(record.seq), table=cnf.genetic_code)
+            feature.references = {strain_chrom:strain_contig_record.seq}
+            genes[isolate_id][cds_id] = feature
+            gene_seqs[isolate_id][cds_id] = SeqRecord(
+                translate(feature.extract(strain_contig_records[isolate_id][strain_chrom].seq), table=cnf.genetic_code),
+                id=f"{cds_id}|{gene}|{strand}",
+                description='',
+            )
             gene_names[isolate_id][cds_id] = gene
+            strain_contig_record.features.append(genes[isolate_id][cds_id])
             last_strain = isolate_id
             unique_gene_names.add(gene)
 
@@ -183,14 +215,13 @@ def main(args):
         for annotation in ann_files:
             isolate_id = os.path.splitext(os.path.basename(annotation))[0]
             for record in SeqIO.parse(annotation, "genbank"):
-                seqname = '.'.join(isolate_id, record.id)
                 for f in record.features:
                     if f.type != 'CDS':
                         continue
                     f = AutarkicSeqFeature.fromSeqFeature(f)
                     for part in f.location.parts:
-                        part.ref = seqname
-                    f.references = {seqname: record.seq}
+                        part.ref = record.id
+                    f.references = {record.id: record.seq}
                     ltag = f.qualifiers['locus_tag'][0]
                     if 'inference' in f.qualifiers:
                         for inf_note in f.qualifiers['inference']:
@@ -199,7 +230,6 @@ def main(args):
                                 f.source = ref_id
                                 break
                     genes[isolate_id][ltag] = f
-                    gene_seqs[isolate_id][ltag] = translate(f.extract(record.seq), table=cnf.genetic_code)
                     gene_names[isolate_id][ltag] = f.qualifiers['gene'][0] if 'gene' in f.qualifiers else ltag
                     unique_gene_names.add(gene_names[isolate_id][ltag])
                     node_data.append(prepare_node(isolate_id, ltag, f))
@@ -219,7 +249,6 @@ def main(args):
     additions_by_sample = defaultdict(set)
     name_mappings = {}
     name_changes = {} # This should replace name_mappings as we switch to renaming features by locus tag rather than globally by name. This means we can fix specific instances of misnaming rather than doing an all-or-nothing global replacement of every instance of a gene.
-    final_names = {}
 
     # erase mcps file if it exists.
     # we're going to loop-write in append mode and we don't want to keep accumulating output from previous runs.
@@ -283,6 +312,11 @@ def main(args):
                 #     else:
                 #         clusters.add_edge(gene1, gene2, iso1=iso1, ltag1=ltag1, iso2=iso2, ltag2=ltag2)
 
+    # ensure transitivity of feature additions names.
+    for sample in additions_by_sample:
+        for addition in additions_by_sample[sample]:
+            for node_id_pair in itertools.combinations(addition_references.neighbors(addition), 2):
+                renames.add_edge(node_id_pair)
 
     # Apply same criteria to resolving candidate renames as used for MCL postprocessing
     # TODO: we're working with the default orf prefix only currently.
@@ -305,15 +339,14 @@ def main(args):
         sample_candidate_additions = postprocess_additions(
             additions_by_sample[sample],
             addition_references,
-            final_names,
         )
-        # TODO: set up the strain_features variable
-        (_, _, _, _, _, _, G_overlap) = compare(
-            sample_candidate_additions,
-            strain_features,
-            eliminate_colocated=False,
-        )
-        strain_features = merge(G_overlap)
+        for contig in strain_contig_records[sample]:
+            (_, _, _, _, _, _, G_overlap) = compare(
+                sample_candidate_additions[contig],
+                strain_contig_records[sample][contig].features,
+                eliminate_colocated=False,
+            )
+            strain_contig_records[sample][contig].features = merge(G_overlap)
 
 def overlap(loc1, loc2):
     loc1_start, loc1_end = loc1
@@ -497,14 +530,12 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
             else:
                 sign_flip = -1
                 start -= 3
-            strandsign = sign(sign_flip)
             seg1_additions.append(frozendict({
-                'sample':None,
+                'sample':iso[sample1_ind],
+                'contig_id':resultset['sseqid'],
                 'start':str(min(start,end) - 1),
                 'end':str(max(start,end)),
-                #'gene':gene0,
-                'bedscore':'1',
-                'strand':strandsign,
+                'strand':sign_flip,
                 'ref', ltag0,
             }))
             seg0_genes_unmatched.remove(ltag0)
@@ -529,14 +560,12 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
             else:
                 sign_flip = -1
                 start -= 3
-            strandsign = sign(sign_flip)
             seg0_additions.append(frozendict({
-                'sample':None,
+                'sample':iso[sample0_ind],
+                'contig_id':resultset['sseqid'],
                 'start':str(min(start,end) - 1),
                 'end':str(max(start,end)),
-                #'gene':gene1,
-                'bedscore':'1',
-                'strand':strandsign,
+                'strand':sign_flip,
                 'ref': ltag1,
             }))
             seg1_genes_unmatched.remove(ltag1)
@@ -554,25 +583,76 @@ def get_segment(sample, pair):
     coordB = ltag_list.index(pair[1])
     return ltag_list[coordA:coordB+1]
 
-def postprocess_additions(strain_additions, addition_refs, final_ref_names):
+def postprocess_additions(strain_additions, addition_refs):
     """
     Apply reference-based coordinate correction and resolve conflicting entries among the candidate additions for a strain.
 
     :param strain_additions: set of frozendicts representing coordinates to be added
     :param addition_refs: networkx Graph with frozendict nodes linked to strain reference locus tags with attached SeqFeature attributes (from prepare_node())
-    :param final_ref_names: dict of strain locus tags to their finalized gene names (from name reassignment).
-      TODO: We might be able to drop this parameter if we update the addition_refs network with that information.
     :return: list of SeqFeature objects representing the postprocessed candidate additions that will need to be merged.
     """
 
+    candidate_strain_additions = defaultdict(list)
+
     # retrieve the final name for the annotated sources
+    for i, candidate in enumerate(strain_additions):
+        candidate_id = f"L2_{i:%04d}"
+        candidate_feature = AutarkicSeqFeature(
+            type='CDS',
+            location=SimpleLocation(
+                candidate['start'],
+                candidate['end'],
+                candidate['strand'],
+            ),
+            references={
+                candidate['contig_id']: strain_contig_records[candidate['sample']][candidate['contig_id'].seq],
+            },
+            qualifiers={
+                'locus_tag':[candidate_id],
+            }
+        )
 
-    # coordinate correction  / pseudoscan
+        possible_names = defaultdict(set)
+        for source_id in addition_refs.neighbors(candidate):
+            source = addition_refs.node[source_id]
+            possible_names[source['name']].add(source_id)
 
-    # check for exact duplicates again that may have arisen due to coordinate correction
+        candidate_feature_personas = {}
+        for name in possible_names:
+            candidate_feature_personas[name] = deepcopy(candidate_feature)
+            if designator.is_reference(name):
+                ref_feature_origin = next(iter(possible_names[name])).source
+                ref_feature = ref_annotation[key_ref_gene(ref_feature_origin, name)]
+                # coordinate correction
+                pseudoscan(
+                    candidate_feature_personas[name],
+                    ref_feature,
+                    attempt_rescue=True,
+                )
 
-    (_, _, _, G_overlaps) = cross_examine(strain_additions)
-    candidate_strain_additions = merge(G_overlaps)
+        remaining_possible_names = list(possible_names.keys())
+        while len(remaining_possible_names) > 1:
+            # thunderdome tournament. Only one can prevail.
+            name_contender1, name_contender2 = remaining_possible_names[0:2]
+            # TODO: include logic, probably within thunderdome itself,
+            #       that automatically favors non-HYBRA genes. This wasn't needed
+            #       earlier since such names weren't generated at the stage it was used.
+            include1, include2, evid, remark = thunderdome(
+                candidate_feature_personas[name_contender1],
+                candidate_feature_personas[name_contender2],
+            )
+            if not include1:
+                remaining_possible_names.remove(name_contender1)
+            else:
+                remaining_possible_names.remove(name_contender2)
+        else:
+            candidate_strain_additions[candidate['contig_id']].append(
+                candidate_feature_personas[remaining_possible_names[0]]
+            )
+
+    for contig in candidate_strain_additions:
+        (_, _, _, G_overlaps) = cross_examine(sort_features(candidate_strain_additions[contig]))
+        candidate_strain_additions[contig] = merge(G_overlaps)
 
     return candidate_strain_additions
 
@@ -662,21 +742,9 @@ def mincanpairs(sample_ind_pair):
                 genes[iso[sample1_ind]][iso1_pair[1]].location.start + 1
             )
             with tempfile.NamedTemporaryFile(mode='w', buffering=1, dir=cnf.tmpdir) as seg1_geneseqs, tempfile.NamedTemporaryFile(mode='w', buffering=1, dir=cnf.tmpdir) as seg2_geneseqs:
-                seg1_gene_records = [
-                    SeqRecord(gene_seqs[iso[sample0_ind]][g],
-                              id=f"{g}|{gene_names[iso[sample0_ind]][g]}|{genes[iso[sample0_ind]][g].location.strand}",
-                              name='', description='',
-                              )
-                    for g in segment1
-                ]
+                seg1_gene_records = [gene_seqs[iso[sample0_ind]][g] for g in segment1]
                 SeqIO.write(seg1_gene_records, seg1_geneseqs, "fasta")
-                seg2_gene_records = [
-                    SeqRecord(gene_seqs[iso[sample1_ind]][g],
-                              id=f"{g}|{gene_names[iso[sample1_ind]][g]}|{genes[iso[sample1_ind]][g].location.strand}",
-                              name='', description='',
-                              )
-                    for g in segment2
-                ]
+                seg2_gene_records = [gene_seqs[iso[sample1_ind]][g] for g in segment2]
                 SeqIO.write(seg2_gene_records, seg2_geneseqs, "fasta")
                 (
                     equivalences,
@@ -694,10 +762,6 @@ def mincanpairs(sample_ind_pair):
                     sample0_ind,
                     sample1_ind,
                 )
-            for addn in seg1_additions:
-                addn['sample'] = iso[sample0_ind]
-            for addn in seg2_additions:
-                addn['sample'] = iso[sample1_ind]
             mcps[gene_pair] = {
                 iso[sample0_ind]: {
                     'segment': segment1
