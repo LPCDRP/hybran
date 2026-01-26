@@ -8,6 +8,21 @@ from .extractor import get_ltag, get_gene
 from .util import nacast
 
 
+def log_cluster_resolution(res_data, logfile):
+    header = [
+        'cluster_id',
+        'cluster_type',
+        'locus_tag',
+        'original_gene_name',
+        'final_gene_name',
+    ]
+    print('\t'.join(header), file=logfile)
+    for resolution in res_data:
+        print(
+            '\t'.join([nacast(field) for field in resolution]),
+            file=logfile,
+        )
+
 def log_feature_fate(feature, logfile, superior=None, evid=None, remark=None):
     """
     General-purpose logging function to print out a gene's information and a comment

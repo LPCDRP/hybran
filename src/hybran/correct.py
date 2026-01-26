@@ -221,7 +221,6 @@ def main(args):
     name_changes = {} # This should replace name_mappings as we switch to renaming features by locus tag rather than globally by name. This means we can fix specific instances of misnaming rather than doing an all-or-nothing global replacement of every instance of a gene.
     final_names = {}
 
-    rn_fh = open(renames_fn, 'w')
     # erase mcps file if it exists.
     # we're going to loop-write in append mode and we don't want to keep accumulating output from previous runs.
     if os.path.isfile(mcps_fn):
@@ -288,7 +287,11 @@ def main(args):
     # Apply same criteria to resolving candidate renames as used for MCL postprocessing
     # TODO: we're working with the default orf prefix only currently.
     new_name_counter = designator.find_next_increment(unique_gene_names)
-    name_changes = parseClustering.resolve_clusters(renames, new_name_counter)
+    name_changes = parseClustering.resolve_clusters(
+        renames,
+        new_name_counter,
+        logfile=renames_fn,
+    )
 
     # TODO: make sure that name_mappings is populated properly
     
@@ -305,8 +308,6 @@ def main(args):
 #            for n in cc:
 #                name_mappings[n] = name
 #            print('\t'.join([name, '*'] + [n for n in cc if n != name]), file=rn_fh)
-
-    rn_fh.close()
 
     with open(additions_raw_fn, 'w') as add_fh:
         for entry in additions:

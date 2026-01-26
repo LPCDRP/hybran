@@ -19,6 +19,7 @@ from . import (
 )
 from .annomerge import liftover_annotation
 from .bio import SeqIO, translate
+from .lumberjack import log_cluster_resolution
 
 
 def parse_clustered_proteins(clustered_proteins, annotations):
@@ -448,7 +449,7 @@ def prepare_for_eggnog(unannotated_seqs, outfile):
     SeqIO.write(eggnog_seqs, outfile, 'fasta')
 
 
-def resolve_clusters(G, orf_increment):
+def resolve_clusters(G, orf_increment, logfile):
     """
     Analyze connected components in a graph and assign names based on named members of the graph.
     Can eventually replace at least the following functions after some restructuring:
@@ -461,11 +462,13 @@ def resolve_clusters(G, orf_increment):
       networkx graph with nodes containing an 'annotation' attribute corresponding to the SeqFeature object.
       Edges indicate genes that clustered together.
     :param orf_increment: int number to begin minting new generic names from
+    :param logfile: str file path of file to document changes in
     :return: dict new_feature_names mapping locus tags (node names) to assigned gene names
     """
     new_feature_names = {}
+    res_data = []
 
-    for cluster in nx.weakly_connected_components(G):
+    for cluster_id, cluster in enumerate(nx.weakly_connected_components(G)):
         cluster = list(cluster)
         features = [G.nodes[n]['annotation'] for n in cluster]
 
@@ -478,11 +481,14 @@ def resolve_clusters(G, orf_increment):
 
         if not authoritative:
             (name_to_assign, orf_increment) = designator.assign_orf_id(orf_increment)
+            cluster_type = 'no_ref'
         elif len(authoritative) == 1:
             name_to_assign = authoritative[0]
+            cluster_type = 'single_ref'
 
         # multiple authoritative names => no single name_to_assign
         if not name_to_assign:
+            cluster_type = 'multi_ref'
             # prepare the reference seqs fasta file
             # (partial re-implementation of get_cluster_fasta due to different inputs)
             cluster_authoritative_seqs_fh = tempfile.NamedTemporaryFile(
@@ -514,6 +520,7 @@ def resolve_clusters(G, orf_increment):
 
             for node_id in cluster:
                 node = G.nodes[node_id]
+                original_name = node['name']
                 # reference_seqs = reference_fasta
                 if 'translation' in node['annotation'].qualifiers:
                     query_seq_str = node['annotation'].qualifiers['translation'][0]
@@ -536,17 +543,37 @@ def resolve_clusters(G, orf_increment):
                 )
                 # TODO: make sure that name_to_assign can't be None
                 new_feature_names[node_id] = name_to_assign
+                node['name'] = name_to_assign
                 liftover_annotation(
                     feature=node['annotation'],
                     ref_feature=G.nodes[ref_ltag]['annotation'],
                     inference="Hybran/clustering", # TODO: come up with a better tag
                 )
+                res_data.append([
+                    cluster_id,
+                    cluster_type,
+                    node_id,
+                    original_name,
+                    name_to_assign,
+                ])
         else:
             for node_id in cluster:
                 node = G.nodes[node_id]
+                original_name = node['name']
                 new_feature_names[node_id] = name_to_assign
+                node['name'] = name_to_assign
                 # TODO: not using liftover here since we don't have a single reference identified.
                 node['annotation'].qualifiers['gene'] = [name_to_assign]
+                res_data.append([
+                    cluster_id,
+                    cluster_type,
+                    node_id,
+                    original_name,
+                    name_to_assign,
+                ])
+
+    with open(logfile, 'w') as log_fh:
+        log_cluster_resolution(res_data, logfile)
 
     return new_feature_names
 
