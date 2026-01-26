@@ -295,20 +295,6 @@ def main(args):
 
     # TODO: make sure that name_mappings is populated properly
     
-#    for cc in nx.connected_components(renames):
-#        authoritative = [n for n in cc if not n.startswith('HYBRA') and '::' not in n]
-#        if not authoritative:
-#            authoritative = [n for n in cc if not n.startswith('HYBRA')]
-#            if not authoritative:
-#                authoritative = [sorted(list(cc))[0]]
-#        if len(authoritative) > 1:
-#            print('\t'.join(['MANUAL'] + list(cc)), file=rn_fh)
-#        else:
-#            name = authoritative[0]
-#            for n in cc:
-#                name_mappings[n] = name
-#            print('\t'.join([name, '*'] + [n for n in cc if n != name]), file=rn_fh)
-
     with open(additions_raw_fn, 'w') as add_fh:
         for entry in additions:
             if entry['gene'] in name_mappings:
