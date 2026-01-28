@@ -85,7 +85,7 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
             ref_named_cds_count[ref_name] = extractor.fastaFromGbk(
                 ref,
                 out_cds = ref_cdss,
-                out_genome = os.devnull,
+                out_genome = None,
                 identify = lambda f: '%%%'.join([
                     f.location.parts[0].ref,
                     extractor.get_ltag(f),

@@ -151,8 +151,12 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     Extracts amino acid CDS sequences from a Genbank annotation file
 
     :param genbank:
-    :param out_cds: file name or handle in which to write CDS sequences
-    :param out_genome: file name or handle in which to write genome sequence
+    :param out_cds:
+        file name or handle in which to write CDS sequences
+        If None, CDS file will not be written.
+    :param out_genome:
+        file name or handle in which to write genome sequence
+        If None, genome sequence file will not be written.
     :param identify: function to apply to feature record to get fasta record ID
     :param describe: function to apply to feature record to get fasta record description
     :return:
@@ -195,8 +199,10 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                             id=identify(feature),
                             description=describe(feature))
                     seqs.append(seq_record)
-    SeqIO.write(seqs, out_cds, 'fasta')
-    SeqIO.write(contigs, out_genome, 'fasta')
+    if out_cds:
+        SeqIO.write(seqs, out_cds, 'fasta')
+    if out_genome:
+        SeqIO.write(contigs, out_genome, 'fasta')
     return n_named_cds
 
 def subset_fasta(inseq, outseq, match, identify = lambda _:_):
