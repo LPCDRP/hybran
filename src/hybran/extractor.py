@@ -160,6 +160,9 @@ def fastaFromGbk(genbank, out_cds, out_genome,
     :param identify: function to apply to feature record to get fasta record ID
     :param describe: function to apply to feature record to get fasta record description
     :return:
+        contigs     - list of SeqRecords for contig sequences
+        cds_seqs    - list of SeqRecords for CDS amino acid sequences
+        n_named_cds - int number of named CDSs
     """
     logger = logging.getLogger('FastaFromGbk')
     contigs = []
@@ -203,7 +206,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
         SeqIO.write(seqs, out_cds, 'fasta')
     if out_genome:
         SeqIO.write(contigs, out_genome, 'fasta')
-    return n_named_cds
+    return contigs, seqs, n_named_cds
 
 def subset_fasta(inseq, outseq, match, identify = lambda _:_):
     """

@@ -82,7 +82,7 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
         for ref in annotations:
             ref_name = os.path.basename(os.path.splitext(ref)[0])
             ann_sources[ref_name] = ref
-            ref_named_cds_count[ref_name] = extractor.fastaFromGbk(
+            _, _, ref_named_cds_count[ref_name] = extractor.fastaFromGbk(
                 ref,
                 out_cds = ref_cdss,
                 out_genome = None,
