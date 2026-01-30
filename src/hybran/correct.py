@@ -43,6 +43,7 @@ iso = []
 logs_dir = None
 seq_files = {}
 
+dummy_bed_score = '0'
 sign = lambda x: '+' if x==1 else '-'
 
 
@@ -72,11 +73,17 @@ def main(args):
     cnf.blast.min_coverage = args.blast_min_coverage
     cnf.blast.min_identity = args.blast_min_identity
 
-    mcps_fn = f"{args.prefix}mcps.tsv"
-    renames_fn = f"{args.prefix}renames.tsv"
-    additions_raw_fn = f"{args.prefix}additions.prededup.bed"
-    additions_fn = f"{args.prefix}additions.bed"
-    logs_dir = f"{args.prefix}logs"
+    try:
+        os.makedirs(args.outdir, exist_ok=True)
+    except:
+        sys.exit(f"Could not create directory {args.outdir}")
+
+    logs_dir = os.path.join(args.outdir, "logs")
+    reports_dir = os.path.join(args.outdir, "reports")
+
+    mcps_fn = os.path.join(reports_dir, "mcps.tsv")
+    renames_fn = os.path.join(reports_dir, "renames.tsv")
+    additions_fn = os.path.join(reports_dir, "additions.bed")
 
     n_inputs = len(args.annotations)
     input_type = None
@@ -240,7 +247,8 @@ def main(args):
     for sample_name in iso:
         os.makedirs(os.path.join(logs_dir, sample_name), exist_ok=True)
 
-    os.makedirs(logs_dir, exist_ok=True)
+    for subdir in [logs_dir, reports_dir]:
+        os.makedirs(subdir, exist_ok=True)
 
     # Initialize graphs used for collection correction data
     renames  = nx.Graph()
@@ -297,20 +305,6 @@ def main(args):
                     addition_references.add_edge(standard_entry, entry['ref'])
 
                 renames.add_edges_from(equivs)
-                # for ltag1, gene1, ltag2, gene2 in equivs[gene_pair]:
-                #     # conflicting gene names: both reference-named but not identically
-                #     if not gene1.startswith('HYBRA') and not gene2.startswith('HYBRA'):
-                #         print('\t'.join([
-                #             'MANUAL',
-                #             iso1,
-                #             ltag1,
-                #             gene1,
-                #             iso2,
-                #             ltag2,
-                #             gene2,
-                #         ]), file=rn_fh)
-                #     else:
-                #         clusters.add_edge(gene1, gene2, iso1=iso1, ltag1=ltag1, iso2=iso2, ltag2=ltag2)
 
     # ensure transitivity of feature additions names.
     for sample in additions_by_sample:
@@ -327,26 +321,60 @@ def main(args):
         logfile=renames_fn,
     )
 
-    # TODO: make sure that name_mappings is populated properly
-    
-    with open(additions_raw_fn, 'w') as add_fh:
-        for entry in additions:
-            if entry['gene'] in name_mappings:
-                entry['gene'] = name_mappings[entry['gene']]
-            print('\t'.join(entry.values()), file=add_fh)
-
+    additions_fh = open(additions_fn, 'w')
     for sample in additions_by_sample:
         sample_candidate_additions = postprocess_additions(
             additions_by_sample[sample],
             addition_references,
         )
         for contig in strain_contig_records[sample]:
+            # log candidate additions pre-merge
+            for feature in sample_candidate_additions[contig]:
+                additions_fh.write("\t".join([
+                    contig,
+                    str(feature.location.start),
+                    str(feature.location.end),
+                    designator.get_gene(feature),
+                    dummy_bed_score,
+                    sign(feature.location.strand),
+                ]) + '\n')
+
             (_, _, _, _, _, _, G_overlap) = compare(
                 sample_candidate_additions[contig],
                 strain_contig_records[sample][contig].features,
                 eliminate_colocated=False,
             )
             strain_contig_records[sample][contig].features = merge(G_overlap)
+
+        if input_type != "bed":
+            designator.assign_locus_tags(
+                {
+                    contig: strain_contig_records[sample][contig].features
+                    for contig in strain_contig_records[sample]
+                },
+                prefix=sample,
+            )
+            SeqIO.write(
+                strain_contig_records[sample].values(),
+                os.path.join(args.outdir, f"{sample}.gbk"),
+                "genbank",
+            )
+    additions_fh.close()
+
+    if input_type == "bed":
+        with open(os.path.join(args.outdir, "blocks_coords.bed"), 'w') as out_bed:
+            for sample in strain_contig_records:
+                for contig in strain_contig_records[sample]:
+                    for feature in strain_contig_records[sample][contig].features:
+                        out_bed.write("\t".join([
+                            contig,
+                            str(feature.location.start),
+                            str(feature.location.end),
+                            designator.get_gene(feature),
+                            dummy_bed_score,
+                            sign(feature.location.strand),
+                        ]) + '\n')
+
 
 def overlap(loc1, loc2):
     loc1_start, loc1_end = loc1
@@ -429,14 +457,27 @@ def tblastn_seg(qry_seg_genes, sub_loc, qry_ind, sub_ind):
         )
     ]
 
-def write_log_stanza(f, gene_pair, equivalences, seg0_additions, seg1_additions):
-    """Write a stanza to the log file"""
+def write_log_stanza(f, strain_pair, gene_pair, equivalences, seg1_additions, seg2_additions):
+    """
+    Log incremental corrections (from a single pairwise comparison) to a given log file.
+    :param f: file handle of log file
+    :param strain_pair: 2-tuple of strain IDs that were compared.
+    :param gene_pair: 2-tuple of gene names of the minimum candidate pair
+    :param equivalences: list of 2-tuples of locus tags that were marked as orthologs
+    :param seg1_additions:
+       list of dictionaries (generated by compare_segments) describing features to be added to strain 1 (from strain_pair).
+    :param seg2_additions:
+       as above, but for strain 2.
+    """
+    iso1, iso2 = strain_pair
+    other_strain = {iso1: iso2, iso2:iso1}
     print(f"{gene_pair[0]}\t{gene_pair[1]}", file=f)
-    for addn in seg0_additions + seg1_additions:
-        print(f"//\t..\t..\tADD\t{addn['sample']}\t{addn['gene']}\t{addn['start']}\t{addn['end']}\t{addn['strand']}", file=f)
-    for ltag1, ltag2in equivalences:
-        gene1 = '' # TODO - retrieve these
-        gene2 = ''
+    for addn in seg1_additions + seg2_additions:
+        gene_added = gene_names[other_strain[addn['sample']]][addn['ref']]
+        print(f"//\t..\t..\tADD\t{addn['sample']}\t{gene_added}\t{addn['start']}\t{addn['end']}\t{addn['strand']}", file=f)
+    for ltag1, ltag2 in equivalences:
+        gene1 = gene_names[iso1][ltag1]
+        gene2 = gene_names[iso2][ltag2]
         print(f"//\t..\t..\tRENAME\t{ltag1}|{gene1}\t{ltag2}|{gene2}", file=f)
 
 def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, seg0_coords, seg1_coords, sample0_ind, sample1_ind):
@@ -773,7 +814,14 @@ def mincanpairs(sample_ind_pair):
             additions[gene_pair] = seg1_additions + seg2_additions
             equivs[gene_pair] = equivalences
 
-            write_log_stanza(log_fh, gene_pair, equivalences, seg1_additions, seg2_additions)
+            write_log_stanza(
+                log_fh,
+                strain_pair=(iso[sample0_ind], iso[sample1_ind]),
+                gene_pair=gene_pair,
+                equivalences=equivalences,
+                seg0_additions=seg1_additions,
+                seg1_additions=seg2_additions,
+            )
 
     log_fh.close()
 

@@ -229,9 +229,9 @@ def cmds():
         required=False,
     )
     correctcmd.add_argument(
-        "-p", "--prefix",
-        help="Output filenames' prefix.",
-        default='out.',
+        "-o", "--outdir",
+        help="Directory to output the results of the correction.",
+        default='.',
     )
     correctcmd.add_argument(
         "-n", "--nproc",
