@@ -91,7 +91,7 @@ def main(args):
     # Check the conditionally required arguments.
     if (
             n_inputs == 1
-            and fileManager.is_hybran_output_dir(args.annotatins[0])
+            and fileManager.is_hybran_output_dir(args.annotations[0])
     ):
         input_type = 'hybran_result'
 
@@ -255,8 +255,6 @@ def main(args):
     renames.add_nodes_from(node_data)
     addition_references = deepcopy(renames)
     additions_by_sample = defaultdict(set)
-    name_mappings = {}
-    name_changes = {} # This should replace name_mappings as we switch to renaming features by locus tag rather than globally by name. This means we can fix specific instances of misnaming rather than doing an all-or-nothing global replacement of every instance of a gene.
 
     # erase mcps file if it exists.
     # we're going to loop-write in append mode and we don't want to keep accumulating output from previous runs.
@@ -517,40 +515,6 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
         # where we can keep blast results if we wanted to.
         equivalences.append((ltag0, ltag1))
 
-        # iso0_defending_gene  = genes[iso[sample0_ind]][ltag0]
-        # iso1_defending_gene = genes[iso[sample1_ind]][ltag1]
-
-        # # Check which name is more accurate in each genome.
-        # # Update MCPs (very likely for many to drop out due to the renames)
-        # iso0_challenger_gene = deepcopy(iso0_defending_gene)
-        # iso0_challenger_gene.qualifiers['gene'] = [gene1]
-        # if iso1_defending_gene.source:
-        #     pseudoscan(
-        #         iso0_challenger_gene,
-        #         ref_annotation[key_ref_gene(iso1_defending_gene.source, gene1)],
-        #         attempt_rescue=True,
-        #         blast_hit_dict=seg0_qry_stats,
-        #     )
-        # include_challenger0, include_orig0, _, _ = thunderdome(
-        #     iso0_challenger_gene,
-        #     iso0_defending_gene,
-        # )
-
-
-        # iso1_challenger_gene = deepcopy(iso1_defending_gene)
-        # iso1_challenger_gene.qualifiers['gene'] = [gene0]
-        # if iso0_defending_gene.source:
-        #     pseudoscan(
-        #         iso1_challenger_gene,
-        #         ref_annotation[key_ref_gene(iso1_defending_gene.source, gene0)],
-        #         attempt_rescue=True,
-        #         blast_hit_dict=seg1_qry_stats,
-        #     )
-        # include_challenger1, include_orig1, _, _ = thunderdome(
-        #     iso1_challenger_gene,
-        #     iso1_defending_gene,
-        # )
-
     seg1_additions = []
     if seg0_genes_unmatched:
         seg0_genes_vs_intergene1 = tblastn_seg(seg0_genes_file, seg1_coords, sample0_ind, sample1_ind)
@@ -577,7 +541,7 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
                 'start':str(min(start,end) - 1),
                 'end':str(max(start,end)),
                 'strand':sign_flip,
-                'ref', ltag0,
+                'ref':ltag0,
             }))
             seg0_genes_unmatched.remove(ltag0)
 
@@ -607,7 +571,7 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
                 'start':str(min(start,end) - 1),
                 'end':str(max(start,end)),
                 'strand':sign_flip,
-                'ref': ltag1,
+                'ref':ltag1,
             }))
             seg1_genes_unmatched.remove(ltag1)
 
