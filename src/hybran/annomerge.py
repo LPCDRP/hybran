@@ -7,6 +7,7 @@
 
 import sys
 import collections
+import itertools
 import os
 import tempfile
 import pickle
@@ -20,6 +21,7 @@ import Bio
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature
+import networkx as nx
 
 from . import (
     __version__,
@@ -358,7 +360,7 @@ def merge(overlap_G):
     """
     refined_G = overlap_G.copy()
 
-    for cc in nx.weakly_connected_components(overlap_G):
+    for cc in nx.connected_components(overlap_G):
         cc_features = [overlap_G.nodes[n]['annotation'] for n in cc]
 
         # singleton connected components are standalone/unique features
