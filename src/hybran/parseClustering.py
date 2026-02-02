@@ -183,8 +183,8 @@ def check_matches_to_known_genes(
         generic_seqs,
         cluster_type,
         orf_increment,
-        seq_ident,
-        seq_covg,
+        seq_ident=config.cnf.blast.min_identity,
+        seq_covg=config.cnf.blast.min_coverage,
 ):
     """
     Use BLAST to search for any query_seq hits to reference_seqs or,
@@ -468,15 +468,25 @@ def resolve_clusters(G, orf_increment, logfile):
     new_feature_names = {}
     res_data = []
 
-    for cluster_id, cluster in enumerate(nx.weakly_connected_components(G)):
+    for cluster_id, cluster in enumerate(nx.connected_components(G)):
         cluster = list(cluster)
-        features = [G.nodes[n]['annotation'] for n in cluster]
+        try:
+            features = [G.nodes[n]['annotation'] for n in cluster]
+        except KeyError:
+            print(cluster)
+            print([G.nodes[n] for n in cluster])
 
         nodes_by_name = defaultdict(set)
+        authoritative = []
         for node_id in cluster:
-            nodes_by_name[G.nodes[node_id]['name']].add(node_id)
+            name = G.nodes[node_id]['name']
+            nodes_by_name[name].add(node_id)
+            if (
+                    designator.is_reference(name)
+                    and not designator.is_pseudo(G.nodes[node_id]['annotation'].qualifiers)
+            ):
+                authoritative.append(name)
 
-        authoritative = [name for name in nodes_by_name if designator.is_reference(name)]
         name_to_assign = None
 
         if not authoritative:
@@ -501,13 +511,11 @@ def resolve_clusters(G, orf_increment, logfile):
             ref_sequence_records = []
             for ref_name in authoritative:
                 for ref_instance_node_id in nodes_by_name[ref_name]:
-                    ref_instance_node = G.nodes['ref_instance_node_id']
+                    ref_instance_node = G.nodes[ref_instance_node_id]
                     ref_instance_feature = ref_instance_node['annotation']
-                    if designator.is_pseudo(ref_instance_feature):
-                        continue
                     ref_sequence_records.append(
                         SeqRecord(
-                            ref_instance_feature.qualifiers['translation'][0],
+                            Seq(ref_instance_feature.qualifiers['translation'][0]),
                             id='|'.join([
                                 ref_instance_node['strain'],
                                 ref_instance_node_id,
@@ -532,23 +540,23 @@ def resolve_clusters(G, orf_increment, logfile):
                         cds=True,
                         to_stop=False,
                     )
-                query_seq = SeqRecord(query_seq_str, id=node_id, description='')
+                query_seq = SeqRecord(Seq(query_seq_str), id=node_id, description='')
 
                 name_to_assign, ref_ltag, _, orf_increment = check_matches_to_known_genes(
                     query_seq=query_seq,
                     reference_seqs=cluster_authoritative_seqs,
-                    generic_seqs=os.devnull(),
+                    generic_seqs=os.devnull,
                     cluster_type='multiref',
                     orf_increment=orf_increment,
                 )
-                # TODO: make sure that name_to_assign can't be None
                 new_feature_names[node_id] = name_to_assign
                 node['name'] = name_to_assign
-                liftover_annotation(
-                    feature=node['annotation'],
-                    ref_feature=G.nodes[ref_ltag]['annotation'],
-                    inference="Hybran/clustering", # TODO: come up with a better tag
-                )
+                if ref_ltag:
+                    liftover_annotation(
+                        feature=node['annotation'],
+                        ref_feature=G.nodes[ref_ltag]['annotation'],
+                        inference="Hybran/clustering", # TODO: come up with a better tag
+                    )
                 res_data.append([
                     cluster_id,
                     cluster_type,
@@ -573,7 +581,7 @@ def resolve_clusters(G, orf_increment, logfile):
                 ])
 
     with open(logfile, 'w') as log_fh:
-        log_cluster_resolution(res_data, logfile)
+        log_cluster_resolution(res_data, log_fh)
 
     return new_feature_names
 
