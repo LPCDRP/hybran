@@ -310,10 +310,10 @@ def cross_examine(feature_list):
 
     # The non-overlapping nodes are those that remain degree 0 after we finish
     # drawing all the overlap edges from the loop above
-    non_overlapping = [node['annotation'] for node in nx.isolates(G)]
+    non_overlapping = [G.nodes[node_id]['annotation'] for node_id in nx.isolates(G)]
 
     return (
-        conflicting,
+        conflicts,
         nonconfl_overlap,
         non_overlapping,
         G,
