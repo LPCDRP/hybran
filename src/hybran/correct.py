@@ -17,12 +17,13 @@ from frozendict import frozendict
 import networkx as nx
 
 from . import (
+    annomerge,
     BLAST,
+    designator,
     extractor,
     fileManager,
 )
 from .annomerge import merge, thunderdome
-from .designator import key_ref_gene
 from .bio import (
     AutarkicSeqFeature,
     sort_features,
@@ -30,6 +31,7 @@ from .bio import (
 )
 from .config import cnf
 from .compare import compare, cross_examine
+from .parseClustering import resolve_clusters
 from .pseudoscan import pseudoscan
 from .util import keydefaultdict
 # from .util import mpbreakpoint
@@ -55,8 +57,8 @@ def prepare_node(strain_id, identifier, feature):
         identifier,
         {
             'strain':strain_id,
-            'name':extractor.get_gene(feature),
-            'feature':feature,
+            'name':extractor.get_gene(feature, tryhard=False),
+            'annotation':feature,
         }
     )
 
@@ -111,19 +113,20 @@ def main(args):
                 file_type='genbank',
             )
     else:
+        if n_inputs == 1 and args.annotations[0].endswith('.bed'):
+            input_type = 'bed'
+            coords_file = args.annotations[0]
+        else:
+            input_type = 'genbank'
+            ann_files = fileManager.file_list(args.annotations, file_type='genbank')
+
         missing_args = []
-        if not args.seq_dir:
+        if input_type=='bed' and not args.seq_dir:
             missing_args.append('-s/--seq-dir')
         if not args.references:
             missing_args.append('-r/--references')
         if missing_args:
             sys.exit(f"ERROR: missing arguments {', '.join(missing_args)}, which are required when not reading from a hybran output folder")
-
-        if n_inputs == 1 and args.annotations[0].endswith('.bed'):
-            input_type = 'bed'
-            coords_file = args.annotations[0]
-        else:
-            ann_files = fileManager.file_list(args.annotations, file_type='genbank')
 
         args.references = fileManager.file_list(args.references, file_type='genbank')
 
@@ -132,6 +135,7 @@ def main(args):
         args.references,
         feature_types=['CDS'],
     )
+    annomerge.ref_annotation = ref_annotation
 
     strain_contig_records = {}
 
@@ -142,7 +146,7 @@ def main(args):
             strain_contig_records[strain_id] = {
                 f"{strain_id}.{record.id}":record for record in SeqIO.parse(fasta, "fasta")
             }
-    # The only way we should get here is if our input is a Hybran result folder.
+    # The only way we should get here is if our input is a Hybran result folder or genbank input.
     # We are assured to have the full sequences included in the genbank files.
     else:
         seq_dir = os.path.join(cnf.tmpdir, 'genomes')
@@ -157,7 +161,7 @@ def main(args):
                 annotation,
                 out_cds=None,
                 out_genome=curr_strain_fasta,
-                identify=lambda f: f"{designator.get_ltag(f)}|{designator.get_gene(f)}|{f.location.strand}",
+                identify=lambda f: f"{extractor.get_ltag(f)}|{extractor.get_gene(f)}|{f.location.strand}",
             )
             seq_files[curr_strain] = curr_strain_fasta
             gene_seqs[curr_strain] = {f.id.split('|')[0]:f for f in strain_gene_seqs}
@@ -217,12 +221,12 @@ def main(args):
             last_strain = isolate_id
             unique_gene_names.add(gene)
 
-            node_data.append(prepare_node(isolate_id, cds_id, f))
+            node_data.append(prepare_node(isolate_id, cds_id, feature))
     else:
         for annotation in ann_files:
             isolate_id = os.path.splitext(os.path.basename(annotation))[0]
             for record in SeqIO.parse(annotation, "genbank"):
-                for f in record.features:
+                for i, f in enumerate(record.features):
                     if f.type != 'CDS':
                         continue
                     f = AutarkicSeqFeature.fromSeqFeature(f)
@@ -236,6 +240,8 @@ def main(args):
                                 ref_id = inf_note.split(':')[1]
                                 f.source = ref_id
                                 break
+                    # replace SeqFeature with AutarkicSeqFeature in authoritative records list
+                    strain_contig_records[isolate_id][record.id].features[i] = f
                     genes[isolate_id][ltag] = f
                     gene_names[isolate_id][ltag] = f.qualifiers['gene'][0] if 'gene' in f.qualifiers else ltag
                     unique_gene_names.add(gene_names[isolate_id][ltag])
@@ -302,18 +308,18 @@ def main(args):
                     # Keep track of the strain reference for the addition in case its own name changes.
                     addition_references.add_edge(standard_entry, entry['ref'])
 
-                renames.add_edges_from(equivs)
+                renames.add_edges_from(equivs[gene_pair])
 
     # ensure transitivity of feature additions names.
     for sample in additions_by_sample:
         for addition in additions_by_sample[sample]:
             for node_id_pair in itertools.combinations(addition_references.neighbors(addition), 2):
-                renames.add_edge(node_id_pair)
+                renames.add_edge(*node_id_pair)
 
     # Apply same criteria to resolving candidate renames as used for MCL postprocessing
     # TODO: we're working with the default orf prefix only currently.
     new_name_counter = designator.find_next_increment(unique_gene_names)
-    name_changes = parseClustering.resolve_clusters(
+    name_changes = resolve_clusters(
         renames,
         new_name_counter,
         logfile=renames_fn,
@@ -324,6 +330,7 @@ def main(args):
         sample_candidate_additions = postprocess_additions(
             additions_by_sample[sample],
             addition_references,
+            strain_contig_records,
         )
         for contig in strain_contig_records[sample]:
             # log candidate additions pre-merge
@@ -332,7 +339,7 @@ def main(args):
                     contig,
                     str(feature.location.start),
                     str(feature.location.end),
-                    designator.get_gene(feature),
+                    extractor.get_gene(feature),
                     dummy_bed_score,
                     sign(feature.location.strand),
                 ]) + '\n')
@@ -368,7 +375,7 @@ def main(args):
                             contig,
                             str(feature.location.start),
                             str(feature.location.end),
-                            designator.get_gene(feature),
+                            extractor.get_gene(feature),
                             dummy_bed_score,
                             sign(feature.location.strand),
                         ]) + '\n')
@@ -495,6 +502,8 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
         )
 
     equivalences = []
+    seg0_matches = {}
+    seg1_matches = {}
 
     for ltag0 in bbh_results:
         if not bbh_results[ltag0]:
@@ -504,8 +513,11 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
         ltag1 = bbh_results[ltag0]
         gene1 = gene_names[iso[sample1_ind]][ltag1]
 
+        seg0_matches[ltag0] = True
         seg0_genes_unmatched.remove(ltag0)
-        seg1_genes_unmatched.remove(ltag1)
+        seg1_matches[ltag1] = True
+        if ltag1 in seg1_genes_unmatched:
+            seg1_genes_unmatched.remove(ltag1)
 
         # nothing to see here
         if gene0 == gene1:
@@ -538,8 +550,8 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
             seg1_additions.append(frozendict({
                 'sample':iso[sample1_ind],
                 'contig_id':resultset['sseqid'],
-                'start':str(min(start,end) - 1),
-                'end':str(max(start,end)),
+                'start':min(start,end) - 1,
+                'end':max(start,end),
                 'strand':sign_flip,
                 'ref':ltag0,
             }))
@@ -568,8 +580,8 @@ def compare_segments(seg0_genes, seg1_genes, seg0_genes_file, seg1_genes_file, s
             seg0_additions.append(frozendict({
                 'sample':iso[sample0_ind],
                 'contig_id':resultset['sseqid'],
-                'start':str(min(start,end) - 1),
-                'end':str(max(start,end)),
+                'start':min(start,end) - 1,
+                'end':max(start,end),
                 'strand':sign_flip,
                 'ref':ltag1,
             }))
@@ -588,7 +600,7 @@ def get_segment(sample, pair):
     coordB = ltag_list.index(pair[1])
     return ltag_list[coordA:coordB+1]
 
-def postprocess_additions(strain_additions, addition_refs):
+def postprocess_additions(strain_additions, addition_refs, strain_contig_records):
     """
     Apply reference-based coordinate correction and resolve conflicting entries among the candidate additions for a strain.
 
@@ -601,33 +613,39 @@ def postprocess_additions(strain_additions, addition_refs):
 
     # retrieve the final name for the annotated sources
     for i, candidate in enumerate(strain_additions):
-        candidate_id = f"L2_{i:%04d}"
+        candidate_id = f"L2_{i:05d}"
         candidate_feature = AutarkicSeqFeature(
             type='CDS',
             location=SimpleLocation(
                 candidate['start'],
                 candidate['end'],
                 candidate['strand'],
+                ref=candidate['contig_id'],
             ),
             references={
-                candidate['contig_id']: strain_contig_records[candidate['sample']][candidate['contig_id'].seq],
+                candidate['contig_id']: strain_contig_records[candidate['sample']][candidate['contig_id']].seq,
             },
             qualifiers={
                 'locus_tag':[candidate_id],
             }
         )
+        candidate_feature.qualifiers['translation'] = [
+            translate(candidate_feature.extract(strain_contig_records[candidate['sample']][candidate['contig_id']].seq), table=cnf.genetic_code)
+        ]
 
         possible_names = defaultdict(set)
         for source_id in addition_refs.neighbors(candidate):
-            source = addition_refs.node[source_id]
+            source = addition_refs.nodes[source_id]
             possible_names[source['name']].add(source_id)
 
         candidate_feature_personas = {}
         for name in possible_names:
             candidate_feature_personas[name] = deepcopy(candidate_feature)
             if designator.is_reference(name):
-                ref_feature_origin = next(iter(possible_names[name])).source
-                ref_feature = ref_annotation[key_ref_gene(ref_feature_origin, name)]
+                ref_feature_origin = addition_refs.nodes[
+                    next(iter(possible_names[name]))
+                ]['annotation'].source
+                ref_feature = ref_annotation[designator.key_ref_gene(ref_feature_origin, name)]
                 # coordinate correction
                 pseudoscan(
                     candidate_feature_personas[name],
@@ -783,8 +801,8 @@ def mincanpairs(sample_ind_pair):
                 strain_pair=(iso[sample0_ind], iso[sample1_ind]),
                 gene_pair=gene_pair,
                 equivalences=equivalences,
-                seg0_additions=seg1_additions,
-                seg1_additions=seg2_additions,
+                seg1_additions=seg1_additions,
+                seg2_additions=seg2_additions,
             )
 
     log_fh.close()

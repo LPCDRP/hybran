@@ -191,7 +191,7 @@ def fastaFromGbk(genbank, out_cds, out_genome,
                             and feature.qualifiers['gene'][0] != feature.qualifiers['locus_tag'][0]
                     ):
                         n_named_cds += 1
-                    if designator.is_pseudo(feature.qualifiers):
+                    if 'translation' not in feature.qualifiers:
                         seq_record = SeqRecord(
                             translate(get_seq(feature), table=genetic_code, to_stop=True),
                             id=identify(feature),
@@ -252,13 +252,11 @@ def get_and_remove_ref_tracer(feature):
     """
     ref_contig_id = ""
     if 'note' in feature.qualifiers:
-        marker_note = [
-            note for note in feature.qualifiers['note'] if _.startswith("HYBRANSOURCE")
-        ][0]
-        feature.qualifiers['note'].remove(marker_note)
-        if not feature.qualifiers['note']:
-            del feature.qualifiers['note']
-        ref_contig_id = re.sub(r'\s+', '', marker_note.split(':')[1])
+        for note in feature.qualifiers['note']:
+            if note.startswith("HYBRANSOURCE"):
+                ref_contig_id = re.sub(r'\s+', '', note.split(':')[1])
+                feature.qualifiers['note'].remove(note)
+                break
 
     return ref_contig_id
 
@@ -321,7 +319,8 @@ def load_gbk(gbk_file, feature_types=['CDS']):
             feature.references = {contig_id: record.seq}
             # if reference paralogs have been collapsed, the last occurrence in the genome
             # will prevail.
-            feature_dict[designator.key_ref_gene(ref_contig_id, feature.qualifiers['gene'][0])] = feature
+            feature_dict[designator.key_ref_gene(contig_id, feature.qualifiers['gene'][0])] = feature
+    return feature_dict
 
 def fastaFromGffList(gffs, out_cds):
     """
