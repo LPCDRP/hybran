@@ -248,13 +248,13 @@ def cmds():
     correctcmd.add_argument(
         '-i', '--blast-min-identity',
         help='Minimum percent sequence identity for matching genes',
-        default=config.cnf.blast.min_identity,
+        default=80,
         type=percentage,
     )
     correctcmd.add_argument(
         '-c', '--blast-min-coverage',
         help='Minimum percent sequence alignment coverage for matching genes',
-        default=config.cnf.blast.min_coverage,
+        default=80,
         type=percentage,
     )
 
