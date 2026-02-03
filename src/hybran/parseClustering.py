@@ -549,6 +549,8 @@ def resolve_clusters(G, orf_increment, logfile):
                     cluster_type='multiref',
                     orf_increment=orf_increment,
                 )
+                if original_name == name_to_assign:
+                    continue
                 new_feature_names[node_id] = name_to_assign
                 node['name'] = name_to_assign
                 if ref_ltag:
@@ -568,6 +570,8 @@ def resolve_clusters(G, orf_increment, logfile):
             for node_id in cluster:
                 node = G.nodes[node_id]
                 original_name = node['name']
+                if original_name == name_to_assign:
+                    continue
                 new_feature_names[node_id] = name_to_assign
                 node['name'] = name_to_assign
                 # TODO: not using liftover here since we don't have a single reference identified.
