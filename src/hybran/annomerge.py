@@ -264,16 +264,16 @@ def thunderdome(abinit_annotation, ratt_annotation):
 
 
 def check_inclusion_criteria(
-        ratt_annotation,
         abinit_annotation,
+        ratt_annotation,
 ):
     """
     This function compares RATT and Prokka annotations and checks for conflicts.
     Either one feature or both will be accepted.
     If there is no conflict, both are kept. Otherwise, they are sent to the thunderdome().
 
-    :param ratt_annotation:
     :param abinit_annotation:
+    :param ratt_annotation:
     :returns:
         - include_abinit (:py:class:`bool`) - whether the ab initio annotation should be kept
         - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
@@ -372,7 +372,7 @@ def merge(overlap_G):
             if f1.label not in refined_G or f2.label not in refined_G:
                 continue
 
-            include_f2, include_f1, evidence, remark = check_inclusion_criteria(f1, f2)
+            include_f1, include_f2, evidence, remark = check_inclusion_criteria(f1, f2)
             if not include_f1:
                 refined_G.remove_node(f1.label)
             if not include_f2:
