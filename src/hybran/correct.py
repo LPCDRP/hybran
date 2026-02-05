@@ -630,7 +630,7 @@ def postprocess_additions(strain_additions, addition_refs, strain_contig_records
             }
         )
         candidate_feature.qualifiers['translation'] = [
-            translate(candidate_feature.extract(strain_contig_records[candidate['sample']][candidate['contig_id']].seq), table=cnf.genetic_code)
+            str(translate(candidate_feature.extract(), table=cnf.genetic_code))
         ]
 
         possible_names = defaultdict(set)
