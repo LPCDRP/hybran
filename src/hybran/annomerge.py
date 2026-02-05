@@ -296,9 +296,14 @@ def check_inclusion_criteria(
         if annotation1.location == annotation2.location:
             include2 = False
             evid = 'identical_non_cds'
-    elif 'gene' not in annotation2.qualifiers:
+    elif 'gene' in annotation1.qualifiers and 'gene' not in annotation2.qualifiers:
         if overlap_inframe(annotation1.location, annotation2.location):
             include2 = False
+            evid = 'unnamed'
+            remark = "Unnamed gene and conflicts (overlapping in-frame) with named rival annotation."
+    elif 'gene' in annotation2.qualifiers and 'gene' not in annotation1.qualifiers:
+        if overlap_inframe(annotation1.location, annotation2.location):
+            include1 = False
             evid = 'unnamed'
             remark = "Unnamed gene and conflicts (overlapping in-frame) with named rival annotation."
     else:
