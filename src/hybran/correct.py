@@ -135,6 +135,10 @@ def main(args):
         args.references,
         feature_types=['CDS'],
     )
+    ref_by_gene_name = defaultdict(set)
+    for ref_gene in ref_annotation:
+        ref, gene = ref_gene.split('@@@')
+        ref_by_gene_name[gene].add(ref)
     annomerge.ref_annotation = ref_annotation
 
     strain_contig_records = {}
@@ -210,6 +214,8 @@ def main(args):
                 },
             )
             feature.references = {strain_chrom:strain_contig_record.seq}
+            if gene in ref_by_gene_name:
+                feature.source = next(iter(ref_by_gene_name[gene]))
             genes[isolate_id][cds_id] = feature
             gene_seqs[isolate_id][cds_id] = SeqRecord(
                 translate(feature.extract(strain_contig_records[isolate_id][strain_chrom].seq), table=cnf.genetic_code),
@@ -234,6 +240,7 @@ def main(args):
                         part.ref = record.id
                     f.references = {record.id: record.seq}
                     ltag = f.qualifiers['locus_tag'][0]
+                    gene = extractor.get_gene(f)
                     if 'inference' in f.qualifiers:
                         for inf_note in f.qualifiers['inference']:
                             if (
@@ -246,11 +253,14 @@ def main(args):
                                 ref_id = inf_note.split(':')[1]
                                 f.source = ref_id
                                 break
+                    # For names assigned via clustering, we currently don't have an inference tag to find out the originating reference.
+                    if not f.source and gene in ref_by_gene_name:
+                        f.source = next(iter(ref_by_gene_name[gene]))
                     # replace SeqFeature with AutarkicSeqFeature in authoritative records list
                     strain_contig_records[isolate_id][record.id].features[i] = f
                     genes[isolate_id][ltag] = f
-                    gene_names[isolate_id][ltag] = f.qualifiers['gene'][0] if 'gene' in f.qualifiers else ltag
-                    unique_gene_names.add(gene_names[isolate_id][ltag])
+                    gene_names[isolate_id][ltag] = gene
+                    unique_gene_names.add(gene)
                     node_data.append(prepare_node(isolate_id, ltag, f))
 
 
