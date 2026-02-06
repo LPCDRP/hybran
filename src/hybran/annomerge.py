@@ -361,7 +361,7 @@ def merge(overlap_G):
     """
     Given an overlap graph, check for conflicting annotations and choose the "best" ones, returning a full set of consistent features.
     :param overlap_G:
-      a networkx Graph/DiGraph as produced by compare() or cross_examine().
+      a networkx Graph as produced by compare() or cross_examine().
       Nodes in this graph must have an 'annotation' attribute containing the corresponding SeqFeature object.
       The SeqFeature object should have a label attribute corresponding to the node label.
     :return: list of sorted SeqFeatures being the result of the merge
