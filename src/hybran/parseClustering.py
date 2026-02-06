@@ -476,16 +476,44 @@ def resolve_clusters(G, orf_increment, logfile):
             print(cluster)
             print([G.nodes[n] for n in cluster])
 
+        if len(cluster) == 1:
+            node_id = next(iter(cluster))
+            node = G.nodes[node_id]
+            if not extractor.get_gene(node['annotation'], tryhard=False):
+                 (
+                     name_to_assign,
+                     orf_increment,
+                 ) = designator.assign_orf_id(orf_increment)
+                 cluster_type = 'singleton'
+                 node['name'] = name_to_assign
+                 node['annotation'].qualifiers['gene'][0] = name_to_assign
+                 res_data.append([
+                     cluster_id,
+                     cluster_type,
+                     node_id,
+                     None,
+                     name_to_assign,
+                 ])
+            continue
+
         nodes_by_name = defaultdict(set)
         authoritative = []
         for node_id in cluster:
-            name = G.nodes[node_id]['name']
+            node = G.nodes[node_id]
+            name = node['name']
             nodes_by_name[name].add(node_id)
-            if (
-                    designator.is_reference(name)
-                    and not designator.is_pseudo(G.nodes[node_id]['annotation'].qualifiers)
-            ):
+            if designator.is_reference(name):
                 authoritative.append(name)
+            # pseudos will not have a translation qualifier
+            if 'translation' not in node['annotation'].qualifiers:
+                node['annotation'].qualifiers['translation'] = [
+                    str(translate(
+                        node['annotation'].extract(),
+                        table=config.cnf.genetic_code,
+                        cds=True,
+                        to_stop=False,
+                    ))
+                ]
 
         name_to_assign = None
 
@@ -529,17 +557,9 @@ def resolve_clusters(G, orf_increment, logfile):
             for node_id in cluster:
                 node = G.nodes[node_id]
                 original_name = node['name']
-                # reference_seqs = reference_fasta
-                if 'translation' in node['annotation'].qualifiers:
-                    query_seq_str = node['annotation'].qualifiers['translation'][0]
-                # pseudos will not have a translation qualifier
-                else:
-                    query_seq_str = translate(
-                        node['annotation'].extract(),
-                        table=config.cnf.genetic_code,
-                        cds=True,
-                        to_stop=False,
-                    )
+                if original_name in authoritative:
+                    continue
+                query_seq_str = node['annotation'].qualifiers['translation'][0]
                 query_seq = SeqRecord(Seq(query_seq_str), id=node_id, description='')
 
                 name_to_assign, ref_ltag, _, orf_increment = check_matches_to_known_genes(
@@ -549,8 +569,6 @@ def resolve_clusters(G, orf_increment, logfile):
                     cluster_type='multiref',
                     orf_increment=orf_increment,
                 )
-                if original_name == name_to_assign:
-                    continue
                 new_feature_names[node_id] = name_to_assign
                 node['name'] = name_to_assign
                 if ref_ltag:
@@ -570,7 +588,7 @@ def resolve_clusters(G, orf_increment, logfile):
             for node_id in cluster:
                 node = G.nodes[node_id]
                 original_name = node['name']
-                if original_name == name_to_assign:
+                if original_name in authoritative:
                     continue
                 new_feature_names[node_id] = name_to_assign
                 node['name'] = name_to_assign
