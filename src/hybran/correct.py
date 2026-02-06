@@ -18,6 +18,7 @@ import networkx as nx
 
 from . import (
     annomerge,
+    converter,
     BLAST,
     designator,
     extractor,
@@ -359,11 +360,13 @@ def main(args):
                 },
                 prefix=sample,
             )
+            out_gbk = os.path.join(args.outdir, f"{sample}.gbk")
             SeqIO.write(
                 strain_contig_records[sample].values(),
-                os.path.join(args.outdir, f"{sample}.gbk"),
+                out_gbk,
                 "genbank",
             )
+            converter.convert_gbk_to_gff(out_gbk)
     additions_fh.close()
 
     if input_type == "bed":
