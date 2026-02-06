@@ -17,7 +17,7 @@ def log_cluster_resolution(res_data, logfile):
         'final_gene_name',
     ]
     print('\t'.join(header), file=logfile)
-    for resolution in res_data:
+    for resolution in sorted(res_data):
         print(
             '\t'.join([nacast(field) for field in resolution]),
             file=logfile,
