@@ -304,7 +304,7 @@ def cross_examine(feature_list):
             ):
                 conflicts.append((f1, f2))
                 G.add_edge(f1.label, f2.label)
-            elif overlap(f1.location, f2.location):
+            else:
                 nonconfl_overlap.append((f1, f2))
                 G.add_edge(f1.label, f2.label)
 
