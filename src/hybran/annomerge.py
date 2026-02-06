@@ -170,12 +170,15 @@ def thunderdome(annotation1, annotation2):
     ann2_broken_stop = has_broken_stop(annotation2)[0]
     ann1_broken_stop = has_broken_stop(annotation1)[0]
 
-    ann2_coord_status = coord_check(annotation2, ref_annotation[
-        key_ref_gene(annotation2.source, annotation2.qualifiers['gene'][0])
-    ])
-    ann1_coord_status = coord_check(annotation1, ref_annotation[
-        key_ref_gene(annotation1.source, annotation1.qualifiers['gene'][0])
-    ])
+    if not annotation1.source and not annotation2.source:
+        ann1_coord_status = ann2_coord_status = (True, True)
+    else:
+        ann1_coord_status = coord_check(annotation1, ref_annotation[
+            key_ref_gene(annotation1.source, annotation1.qualifiers['gene'][0])
+        ])
+        ann2_coord_status = coord_check(annotation2, ref_annotation[
+            key_ref_gene(annotation2.source, annotation2.qualifiers['gene'][0])
+        ])
 
     (ann2_start_ok, ann2_stop_ok) = ann2_coord_status
     ann2_coord_score = sum([int(_) for _ in ann2_coord_status])
@@ -296,12 +299,18 @@ def check_inclusion_criteria(
         if annotation1.location == annotation2.location:
             include2 = False
             evid = 'identical_non_cds'
-    elif 'gene' in annotation1.qualifiers and 'gene' not in annotation2.qualifiers:
+    elif (
+            ('gene' in annotation1.qualifiers and 'gene' not in annotation2.qualifiers)
+            or (annotation1.source and not annotation2.source)
+    ):
         if overlap_inframe(annotation1.location, annotation2.location):
             include2 = False
             evid = 'unnamed'
             remark = "Unnamed gene and conflicts (overlapping in-frame) with named rival annotation."
-    elif 'gene' in annotation2.qualifiers and 'gene' not in annotation1.qualifiers:
+    elif (
+            ('gene' in annotation2.qualifiers and 'gene' not in annotation1.qualifiers)
+            or (annotation2.source and not annotation1.source)
+    ):
         if overlap_inframe(annotation1.location, annotation2.location):
             include1 = False
             evid = 'unnamed'
