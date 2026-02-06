@@ -58,7 +58,6 @@ def prepare_node(strain_id, identifier, feature):
         identifier,
         {
             'strain':strain_id,
-            'name':extractor.get_gene(feature, tryhard=False),
             'annotation':feature,
         }
     )
@@ -260,7 +259,10 @@ def main(args):
     # Initialize graphs used for collection correction data
     renames  = nx.Graph()
     renames.add_nodes_from(node_data)
-    addition_references = deepcopy(renames)
+    # https://networkx.org/documentation/stable/reference/classes/generated/networkx.Graph.copy.html
+    # TODO: We need the node attributes (gene names) to update in the new graph,
+    # so this type of copy might not be appropriate. Double check.
+    addition_references = renames.copy()
     additions_by_sample = defaultdict(set)
 
     # erase mcps file if it exists.
@@ -639,30 +641,37 @@ def postprocess_additions(strain_additions, addition_refs, strain_contig_records
         possible_names = defaultdict(set)
         for source_id in addition_refs.neighbors(candidate):
             source = addition_refs.nodes[source_id]
-            possible_names[source['name']].add(source_id)
+            possible_names[extractor.get_gene(source['annotation'], tryhard=False)].add(source_id)
 
         candidate_feature_personas = {}
         for name in possible_names:
             candidate_feature_personas[name] = deepcopy(candidate_feature)
-            if designator.is_reference(name):
-                ref_feature_origin = addition_refs.nodes[
-                    next(iter(possible_names[name]))
-                ]['annotation'].source
-                ref_feature = ref_annotation[designator.key_ref_gene(ref_feature_origin, name)]
-                # coordinate correction
-                pseudoscan(
-                    candidate_feature_personas[name],
-                    ref_feature,
-                    attempt_rescue=True,
-                )
+            candidate_feature_personas[name].qualifiers['gene'] = [name]
+            ref_instance = addition_refs.nodes[
+                next(iter(possible_names[name]))
+            ]['annotation']
+            if ref_instance.source:
+                ref_feature_origin = ref_instance.source
+            else:
+                ref_feature_origin = ref_instance.location.parts[0].ref
+            if not designator.is_reference(name):
+                annomerge.ref_annotation[
+                    designator.key_ref_gene(ref_feature_origin, name)
+                ] = ref_instance
+            ref_feature = ref_annotation[designator.key_ref_gene(ref_feature_origin, name)]
+            candidate_feature_personas[name].source = ref_feature_origin
+
+            # coordinate correction
+            pseudoscan(
+                candidate_feature_personas[name],
+                ref_feature,
+                attempt_rescue=True,
+            )
 
         remaining_possible_names = list(possible_names.keys())
         while len(remaining_possible_names) > 1:
             # thunderdome tournament. Only one can prevail.
             name_contender1, name_contender2 = remaining_possible_names[0:2]
-            # TODO: include logic, probably within thunderdome itself,
-            #       that automatically favors non-HYBRA genes. This wasn't needed
-            #       earlier since such names weren't generated at the stage it was used.
             include1, include2, evid, remark = thunderdome(
                 candidate_feature_personas[name_contender1],
                 candidate_feature_personas[name_contender2],

@@ -485,7 +485,6 @@ def resolve_clusters(G, orf_increment, logfile):
                      orf_increment,
                  ) = designator.assign_orf_id(orf_increment)
                  cluster_type = 'singleton'
-                 node['name'] = name_to_assign
                  node['annotation'].qualifiers['gene'][0] = name_to_assign
                  res_data.append([
                      cluster_id,
@@ -500,7 +499,7 @@ def resolve_clusters(G, orf_increment, logfile):
         authoritative = []
         for node_id in cluster:
             node = G.nodes[node_id]
-            name = node['name']
+            name = extractor.get_gene(node['annotation'], tryhard=False)
             nodes_by_name[name].add(node_id)
             if designator.is_reference(name):
                 authoritative.append(name)
@@ -547,7 +546,7 @@ def resolve_clusters(G, orf_increment, logfile):
                             id='|'.join([
                                 ref_instance_node['strain'],
                                 ref_instance_node_id,
-                                ref_instance_node['name'],
+                                extractor.get_gene(ref_instance_node['annotation']),
                             ])
                         )
                     )
@@ -556,7 +555,7 @@ def resolve_clusters(G, orf_increment, logfile):
 
             for node_id in cluster:
                 node = G.nodes[node_id]
-                original_name = node['name']
+                original_name = extractor.get_gene(node['annotation'], tryhard=False)
                 if original_name in authoritative:
                     continue
                 query_seq_str = node['annotation'].qualifiers['translation'][0]
@@ -570,13 +569,14 @@ def resolve_clusters(G, orf_increment, logfile):
                     orf_increment=orf_increment,
                 )
                 new_feature_names[node_id] = name_to_assign
-                node['name'] = name_to_assign
                 if ref_ltag:
                     liftover_annotation(
                         feature=node['annotation'],
                         ref_feature=G.nodes[ref_ltag]['annotation'],
                         inference="Hybran/clustering", # TODO: come up with a better tag
                     )
+                else:
+                    node['annotation'].qualifiers['gene'][0] = name_to_assign
                 res_data.append([
                     cluster_id,
                     cluster_type,
@@ -587,13 +587,12 @@ def resolve_clusters(G, orf_increment, logfile):
         else:
             for node_id in cluster:
                 node = G.nodes[node_id]
-                original_name = node['name']
+                original_name = extractor.get_gene(node['annotation'], tryhard=False)
                 if original_name in authoritative:
                     continue
                 new_feature_names[node_id] = name_to_assign
-                node['name'] = name_to_assign
                 # TODO: not using liftover here since we don't have a single reference identified.
-                node['annotation'].qualifiers['gene'] = [name_to_assign]
+                node['annotation'].qualifiers['gene'][0] = name_to_assign
                 res_data.append([
                     cluster_id,
                     cluster_type,
