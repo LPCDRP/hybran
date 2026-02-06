@@ -236,7 +236,13 @@ def main(args):
                     ltag = f.qualifiers['locus_tag'][0]
                     if 'inference' in f.qualifiers:
                         for inf_note in f.qualifiers['inference']:
-                            if inf_note.startswith('similar to '):
+                            if (
+                                    inf_note.startswith('similar to ')
+                                    and (
+                                        inf_note.endswith(':RATT')
+                                        or inf_note.endswith(':blastp')
+                                    )
+                            ):
                                 ref_id = inf_note.split(':')[1]
                                 f.source = ref_id
                                 break
