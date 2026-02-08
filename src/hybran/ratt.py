@@ -16,10 +16,6 @@ from . import (
     designator,
     extractor,
 )
-from .annomerge import (
-    fusionfisher,
-    get_and_remove_ref_tracer,
-)
 from .bio import (
     AutarkicSeqFeature,
     FeatureProperties,
@@ -30,6 +26,7 @@ from .bio import (
 from .config import cnf
 from .demarcate import coord_check, has_broken_stop
 from .designator import key_ref_gene
+from .fusionfisher import fusionfisher
 from .lumberjack import (
     log_feature_fates,
     log_coord_corrections,
@@ -134,7 +131,7 @@ def postprocess_contig(
     ratt_contig_features = []
     for feature in ratt_contig_record.features:
         feature = AutarkicSeqFeature.fromSeqFeature(feature)
-        ref_contig_id = get_and_remove_ref_tracer(feature)
+        ref_contig_id = extractor.get_and_remove_ref_tracer(feature)
         feature.source = ref_contig_id
         if feature.location is not None:
             for part in feature.location.parts:
