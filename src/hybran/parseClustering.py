@@ -591,8 +591,16 @@ def resolve_clusters(G, orf_increment, logfile):
                 if original_name in authoritative:
                     continue
                 new_feature_names[node_id] = name_to_assign
-                # TODO: not using liftover here since we don't have a single reference identified.
-                node['annotation'].qualifiers['gene'][0] = name_to_assign
+                if designator.is_reference(name_to_assign):
+                    ref_instance_id = next(iter(nodes_by_name[name_to_assign]))
+                    ref_instance = G.nodes[ref_instance_id]['annotation']
+                    liftover_annotation(
+                        feature=node['annotation'],
+                        ref_feature=ref_instance,
+                        inference="Hybran/clustering", # TODO: come up with a better tag
+                    )
+                else:
+                    node['annotation'].qualifiers['gene'][0] = name_to_assign
                 res_data.append([
                     cluster_id,
                     cluster_type,
