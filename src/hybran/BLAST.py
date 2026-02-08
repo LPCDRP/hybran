@@ -419,4 +419,4 @@ def bidirectional_best_hit(
                 score_to_beat = qry2ref_hit_dict[query_gene][ref_gene][ranking_metric]
         bbh_results[query_gene] = bbh_match
 
-    return bbh_results, qry2ref_hit_dict
+    return bbh_results, qry2ref_hit_dict, ref2qry_hit_dict

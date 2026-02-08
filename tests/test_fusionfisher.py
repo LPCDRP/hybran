@@ -7,6 +7,7 @@ import pytest
 from hybran import (
     annomerge,
     config,
+    extractor,
     demarcate,
     fusionfisher,
 )
@@ -92,7 +93,7 @@ def test_fusionfisher(gene_list):
 
     record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
     config.cnf.genetic_code = 11
-    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation = keydefaultdict(extractor.ref_fuse)
     annomerge.ref_annotation.update(ref_features[ref_genome[gene_list]])
     for f in inputs[gene_list]:
         f.references = {record_sequence.id: record_sequence.seq}

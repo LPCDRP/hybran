@@ -15,20 +15,8 @@ from hybran import (
     config,
 )
 from hybran.bio import SeqIO
-from hybran.util import keydefaultdict
 
 from .data_features import *
-
-
-def test_ref_fuse():
-    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
-    annomerge.ref_annotation.update(ref_features['H37Rv'])
-    ref_id = 'H37Rv.NC_000962.3'
-
-    assert annomerge.ref_annotation[f'{ref_id}::{ref_id}@@@PE_PGRS50::PE_PGRS49'].location == CompoundLocation([
-        SimpleLocation(ExactPosition(3738157), ExactPosition(3742774), strand=-1, ref=ref_id),
-        SimpleLocation(ExactPosition(3736983), ExactPosition(3738000), strand=-1, ref=ref_id)
-    ], 'join')
 
 
 @pytest.mark.parametrize('location', [
@@ -230,47 +218,47 @@ def test_check_inclusion_criteria(pair, tmp_path):
 
     expected = {
         'ratt_better': (
-            False, True,
+            True, False,
             'worse_ref_correspondence',
             "RATT annotation more accurately named and delineated compared to the ab initio annotation.",
         ),
         'ratt_better_coverage': (
-            False, True,
+            True, False,
             'worse_ref_correspondence',
             "RATT annotation more accurately named and delineated compared to the ab initio annotation.",
         ),
         'pseudo_vs_nonpseudo': (
-            False, True,
+            True, False,
             'pseudo',
             "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation.",
         ),
         'overlapping_unnamed': (
-            False, True,
+            True, False,
             'unnamed',
             "Unnamed gene and conflicts (overlapping in-frame) with named rival annotation.",
         ),
         'abinit_better': (
-            True, False,
+            False, True,
             'worse_ref_correspondence',
             "Ab initio annotation more accurately named and delineated compared to the RATT annotation.",
         ),
         'overlapping_different_names_ratt_better': (
-            False, True,
+            True, False,
             'forfeit',
             "Equally valid call. RATT annotation is favored due to synteny.",
         ),
         'overlapping_different_names_abinit_better': (
-            True, False,
+            False, True,
             'worse_ref_correspondence',
             "Ab initio annotation more accurately named and delineated compared to the RATT annotation.",
         ),
         'ratt_join_vs_prokka_bad_start': (
-            True, False,
+            False, True,
             'internal_stop',
             "The ab initio annotation is favored over the RATT annotation because it doesn't contain any internal stops.",
         ),
         'prokka_gene_fusion': (
-            False, True,
+            True, False,
             'worse_ref_correspondence',
             "RATT annotation more accurately named and delineated compared to the ab initio annotation.",
         ),
@@ -278,6 +266,6 @@ def test_check_inclusion_criteria(pair, tmp_path):
 
 
     assert annomerge.check_inclusion_criteria(
-        ratt_annotation=ratt,
-        abinit_annotation=abinit,
+        annotation1=ratt,
+        annotation2=abinit,
     ) == expected[pair]

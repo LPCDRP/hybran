@@ -1,7 +1,5 @@
-import atexit
 from collections import defaultdict
 import os
-import shutil
 import sys
 
 from . import (
@@ -17,9 +15,6 @@ from .converter import convert_gbk_to_gff
 
 
 def main(args):
-    config.init()
-    atexit.register(shutil.rmtree, path=config.hybran_tmp_dir)
-
     if not os.path.isdir(args.output):
         try:
             os.mkdir(args.output)
@@ -51,7 +46,7 @@ def main(args):
     unify(
         annotations=annotations,
         outdir=args.output,
-        tmpdir=config.hybran_tmp_dir,
+        tmpdir=config.cnf.tmpdir,
         seq_ident=args.identity_threshold,
         seq_covg=args.coverage_threshold,
         main_ref=main_ref,
@@ -87,10 +82,10 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
         for ref in annotations:
             ref_name = os.path.basename(os.path.splitext(ref)[0])
             ann_sources[ref_name] = ref
-            ref_named_cds_count[ref_name] = extractor.fastaFromGbk(
+            _, _, ref_named_cds_count[ref_name] = extractor.fastaFromGbk(
                 ref,
                 out_cds = ref_cdss,
-                out_genome = os.devnull,
+                out_genome = None,
                 identify = lambda f: '%%%'.join([
                     f.location.parts[0].ref,
                     extractor.get_ltag(f),
@@ -116,16 +111,14 @@ def unify(annotations, outdir, tmpdir, seq_ident=99, seq_covg=99, main_ref=None)
     # look for existing generic names in our gene names,
     # which are the third token in the delimited string
     # Ref%%%locus_tag%%%gene_name
-    existing_generigenes_fasta = os.path.join(dedupe_tmp,
-                                              'preexisting_generigenes.fasta')
-    extractor.subset_fasta(
+    unique_unirefs = extractor.subset_fasta(
         ref_cdss_all_fp,
-        outseq = existing_generigenes_fasta,
+        outseq = None,
         match = designator.is_uniref,
         identify = lambda _: _.split('%%%')[2]
     )
     increment = designator.find_next_increment(
-        existing_generigenes_fasta,
+        unique_unirefs,
         prefix=designator.ref_orf_prefix,
     )
 

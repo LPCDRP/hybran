@@ -263,7 +263,7 @@ def test_coord_check(feature_type, fix_start, fix_stop, seek_stop):
     test_features[feature_type].references = {record_sequence.id: record_sequence.seq}
     config.cnf.genetic_code = 11
     annomerge.corrected_orf_report = []
-    annomerge.ref_annotation = keydefaultdict(annomerge.ref_fuse)
+    annomerge.ref_annotation = keydefaultdict(extractor.ref_fuse)
     annomerge.ref_annotation.update(ref_features[ref_genome[feature_type]])
 
     feature = test_features[feature_type]

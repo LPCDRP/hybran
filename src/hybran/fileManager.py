@@ -16,6 +16,23 @@ exts = dict(
     genbank=['gbk','gbf','gb', 'gbff'],
 )
 
+def is_hybran_output_dir(path):
+    """
+    Check if a string representing a path corresponds to a Hybran output directory.
+    Currently, the main properties are
+      - genbank files at the top-level.
+      - presence of the reference gene data.
+    """
+    return (
+        os.path.isdir(path)
+        and os.path.isfile(os.path.join(
+            path,
+            'unified-refs',
+            'unifications.tsv',
+        ))
+        and glob.glob(os.path.join(path, '*.gbk'))
+    )
+
 def file_list(glist, file_type="fasta"):
     """
     parse a genome list argument, which may contain individual file names, a directory,

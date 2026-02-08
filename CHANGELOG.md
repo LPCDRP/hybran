@@ -1,6 +1,7 @@
 # Release Notes
 
 ## Development
+* Hybran now depends on `frozendict`.
 
 ### Bugs fixed
 * Declare minimum python version as 3.12

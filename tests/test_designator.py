@@ -12,6 +12,16 @@ def test_append_qualifier(qualifiers, expected):
     assert qualifiers == expected
 
 
+@pytest.mark.parametrize("ids,expected", [
+    ({"gene1", "gene2", "gene3"}, 1),
+    ({"gene1", "gene2", "HYBRA0001"}, 2),
+    ({"HYBRA0004", "gene1", "HYBRA0002", "gene2"}, 5),
+    ({"gene1::HYBRA0003", "gene2", "HYBRA0001"}, 4),
+])
+def test_find_next_increment(ids, expected):
+    assert designator.find_next_increment(ids) == expected
+
+
 @pytest.mark.parametrize("name,expected", [
     ('Rv1234::ORF1234', True),
     ('ORF1234', True),

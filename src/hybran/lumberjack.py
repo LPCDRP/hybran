@@ -5,7 +5,23 @@ from Bio.SeqRecord import SeqRecord
 from .bio import AutarkicSeqFeature, SeqIO
 from . import designator
 from .extractor import get_ltag, get_gene
+from .util import nacast
 
+
+def log_cluster_resolution(res_data, logfile):
+    header = [
+        'cluster_id',
+        'cluster_type',
+        'locus_tag',
+        'original_gene_name',
+        'final_gene_name',
+    ]
+    print('\t'.join(header), file=logfile)
+    for resolution in sorted(res_data):
+        print(
+            '\t'.join([nacast(field) for field in resolution]),
+            file=logfile,
+        )
 
 def log_feature_fate(feature, logfile, superior=None, evid=None, remark=None):
     """
@@ -34,7 +50,7 @@ def log_feature_fate(feature, logfile, superior=None, evid=None, remark=None):
         remark,
     ]
     print(
-        '\t'.join([_ if _ is not None else '.' for _ in row]),
+        '\t'.join([nacast(field) for field in row]),
         file=logfile
     )
 
@@ -153,8 +169,6 @@ def log_pseudos(features_by_contig_dict, logfile):
         'ref_corr_end',
         'blast_ok',
     ]
-    # represent boolean values as ints but account for N/A (None)
-    nacast = lambda _: int(_) if _ is not None else "."
     print('\t'.join(header), file=logfile)
     for contig in features_by_contig_dict:
         for feature in features_by_contig_dict[contig]:

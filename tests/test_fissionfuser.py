@@ -9,8 +9,8 @@ from Bio.SeqFeature import (
 import pytest
 
 from hybran import (
-    annomerge,
     config,
+    extractor,
     fissionfuser,
 )
 from hybran.bio import (
@@ -109,7 +109,7 @@ def test_fissionfuser(gene_list, tmp_path):
     source_genome = source_genomes[gene_list]
     record_sequence = list(SeqIO.parse(f'data/{source_genome}.fasta', 'fasta'))[0]
     config.cnf.genetic_code = 11
-    ref_annotation = keydefaultdict(annomerge.ref_fuse)
+    ref_annotation = keydefaultdict(extractor.ref_fuse)
     ref_annotation.update(ref_features[ref_genome[gene_list]])
 
     for f in inputs[gene_list]:

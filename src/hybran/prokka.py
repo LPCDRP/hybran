@@ -142,7 +142,7 @@ def postprocess_contig(
         ]
         cds_fasta = fa_handle.name
         SeqIO.write(cds_records, cds_fasta, "fasta")
-    bbh_results, all_qry2ref_blast_hits = BLAST.bidirectional_best_hit(
+    bbh_results, all_qry2ref_blast_hits, _ = BLAST.bidirectional_best_hit(
         cds_fasta,
         ref_proteome,
         nproc=nproc,
@@ -211,7 +211,6 @@ def postprocess_feature(
     if top_hit:
         ref_matched = True
         ref_id, ref_ltag, ref_gene = top_hit.split('%%%')
-        feature.source = ref_id
         feature.qualifiers['gene'] = [ref_gene]
         og_feature_location = deepcopy(feature.location)
         feature_is_pseudo = pseudoscan(

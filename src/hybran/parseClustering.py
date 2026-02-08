@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 import os
 import re
@@ -7,7 +8,7 @@ import logging
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from collections import OrderedDict
+import networkx as nx
 
 from . import (
     BLAST,
@@ -16,7 +17,9 @@ from . import (
     designator,
     extractor,
 )
-from .bio import SeqIO
+from .annomerge import liftover_annotation
+from .bio import SeqIO, translate
+from .lumberjack import log_cluster_resolution
 
 
 def parse_clustered_proteins(clustered_proteins, annotations):
@@ -101,7 +104,7 @@ def parse_clustered_proteins(clustered_proteins, annotations):
 
     gffs = gff_dict(annotations)
     representative_fasta_list = []
-    gene_cluster = OrderedDict()
+    gene_cluster = {}
     different_genes_cluster_w_ltags = {}
     same_genes_cluster_w_ltags = {}
     underscores = {}
@@ -168,15 +171,11 @@ def parse_clustered_proteins(clustered_proteins, annotations):
     ]
 
 
-def get_gene_name(id_string):
-    if '|' in id_string:
-        [seqid, locus_tag, gene_name] = id_string.split('|')
-        if gene_name:
-            return gene_name
-        else:
-            return locus_tag
-    else:
-        return id_string
+def parse_seqid(id_string):
+    [seqid, locus_tag, gene_name] = id_string.split('|')
+    if not gene_name:
+        gene_name = locus_tag
+    return (seqid, locus_tag, gene_name)
 
 def check_matches_to_known_genes(
         query_seq,
@@ -184,8 +183,8 @@ def check_matches_to_known_genes(
         generic_seqs,
         cluster_type,
         orf_increment,
-        seq_ident,
-        seq_covg,
+        seq_ident=config.cnf.blast.min_identity,
+        seq_covg=config.cnf.blast.min_coverage,
 ):
     """
     Use BLAST to search for any query_seq hits to reference_seqs or,
@@ -201,6 +200,9 @@ def check_matches_to_known_genes(
     :param orf_increment: int increment to start new ORFs
     :returns:
         - name_to_assign (:py:class:`str`)
+        - ref_ltag (:py:class:`str`)
+              If applicable (not a generic name assignment), the locus tag of reference gene
+              whose name is being used. None otherwise.
         - query_gene_closest_refs (:py:class:`list`) -
               list of tab delimited strings detailing closest matches
               among reference and generic seqs. Empty list if a
@@ -223,24 +225,25 @@ def check_matches_to_known_genes(
         #       We need to run it where we have access to all the cluster members,
         #       but still be able to manage the name assignments.
         if cluster_type == 'multiref':
-            top_hit, _, blast_stats = BLAST.reference_match(
+            top_hit_id, _, blast_stats = BLAST.reference_match(
                 query=query_seq,
                 subject=ref,
                 # we already filtered blast hits in clustering input
                 cutoff=0,
-                identify=get_gene_name,
             )
-            if top_hit:
-                name_to_assign = top_hit
+            if top_hit_id:
+                ref_source, ref_ltag, ref_gene_name = parse_seqid(top_hit_id)
+                name_to_assign = ref_gene_name
                 assign_new_generic = False
         else:
-            top_hit = None
+            top_hit_id = None
 
-        #if not top_hit:
+        #if not top_hit_id:
         #    best_subcriticals += check_subcriticals(blast_stats)
         best_subcriticals = []
 
     if assign_new_generic:
+        ref_ltag = None
         (orf_id, orf_increment) = designator.assign_orf_id(orf_increment)
         query_seq.id = orf_id
         query_seq.description = 'False'
@@ -257,7 +260,7 @@ def check_matches_to_known_genes(
             query_gene_closest_refs = ['\t'.join([cluster_type, orf_id, hit])
                                        for hit in best_subcriticals]
 
-    return name_to_assign, query_gene_closest_refs, orf_increment
+    return name_to_assign, ref_ltag, query_gene_closest_refs, orf_increment
 
 def check_subcriticals(subcriticals):
     """
@@ -301,21 +304,13 @@ def update_dictionary_ltag_assignments(isolate_id, isolate_ltag, new_gene_name):
     #       assignment (checking neighboring genes, potentially reevaluating conflicting annotations...)
     pseudo = False
 
-    if isolate_id not in isolate_update_dictionary.keys():
-        isolate_update_dictionary[isolate_id] = {}
+    isolate_dict_added = isolate_update_dictionary[isolate_id]
+    if isolate_ltag not in isolate_dict_added:
+        logger.debug(f"{isolate_ltag} in {isolate_id} becomes {new_gene_name}")
         isolate_update_dictionary[isolate_id][isolate_ltag] = dict(
             name = new_gene_name,
             pseudo = pseudo,
         )
-        logger.debug(isolate_ltag + ' in ' + isolate_id + ' becomes ' + new_gene_name)
-    else:
-        isolate_dict_added = isolate_update_dictionary[isolate_id]
-        if isolate_ltag not in isolate_dict_added.keys():
-            logger.debug(isolate_ltag + ' in ' + isolate_id + ' becomes ' + new_gene_name)
-            isolate_update_dictionary[isolate_id][isolate_ltag] = dict(
-                name = new_gene_name,
-                pseudo = pseudo,
-            )
     return
 
 
@@ -454,6 +449,171 @@ def prepare_for_eggnog(unannotated_seqs, outfile):
     SeqIO.write(eggnog_seqs, outfile, 'fasta')
 
 
+def resolve_clusters(G, orf_increment, logfile):
+    """
+    Analyze connected components in a graph and assign names based on named members of the graph.
+    Can eventually replace at least the following functions after some restructuring:
+      - singleton_clusters
+      - only_ltag_clusters
+      - single_gene_clusters
+      - multigene_clusters
+
+    :param G:
+      networkx graph with nodes containing an 'annotation' attribute corresponding to the SeqFeature object.
+      Edges indicate genes that clustered together.
+    :param orf_increment: int number to begin minting new generic names from
+    :param logfile: str file path of file to document changes in
+    :return: dict new_feature_names mapping locus tags (node names) to assigned gene names
+    """
+    new_feature_names = {}
+    res_data = []
+
+    for cluster_id, cluster in enumerate(nx.connected_components(G)):
+        cluster = list(cluster)
+        try:
+            features = [G.nodes[n]['annotation'] for n in cluster]
+        except KeyError:
+            print(cluster)
+            print([G.nodes[n] for n in cluster])
+
+        if len(cluster) == 1:
+            node_id = next(iter(cluster))
+            node = G.nodes[node_id]
+            if not extractor.get_gene(node['annotation'], tryhard=False):
+                 (
+                     name_to_assign,
+                     orf_increment,
+                 ) = designator.assign_orf_id(orf_increment)
+                 cluster_type = 'singleton'
+                 node['annotation'].qualifiers['gene'][0] = name_to_assign
+                 res_data.append([
+                     cluster_id,
+                     cluster_type,
+                     node_id,
+                     None,
+                     name_to_assign,
+                 ])
+            continue
+
+        nodes_by_name = defaultdict(set)
+        authoritative = []
+        for node_id in cluster:
+            node = G.nodes[node_id]
+            name = extractor.get_gene(node['annotation'], tryhard=False)
+            nodes_by_name[name].add(node_id)
+            if designator.is_reference(name):
+                authoritative.append(name)
+            # pseudos will not have a translation qualifier
+            if 'translation' not in node['annotation'].qualifiers:
+                node['annotation'].qualifiers['translation'] = [
+                    str(translate(
+                        node['annotation'].extract(),
+                        table=config.cnf.genetic_code,
+                        cds=True,
+                        to_stop=False,
+                    ))
+                ]
+
+        name_to_assign = None
+
+        if not authoritative:
+            (name_to_assign, orf_increment) = designator.assign_orf_id(orf_increment)
+            cluster_type = 'no_ref'
+        elif len(authoritative) == 1:
+            name_to_assign = authoritative[0]
+            cluster_type = 'single_ref'
+
+        # multiple authoritative names => no single name_to_assign
+        if not name_to_assign:
+            cluster_type = 'multi_ref'
+            # prepare the reference seqs fasta file
+            # (partial re-implementation of get_cluster_fasta due to different inputs)
+            cluster_authoritative_seqs_fh = tempfile.NamedTemporaryFile(
+                suffix='.fasta',
+                dir=config.cnf.tmpdir,
+                delete=False,
+                mode='w',
+            )
+            cluster_authoritative_seqs = cluster_authoritative_seqs_fh.name
+            ref_sequence_records = []
+            for ref_name in authoritative:
+                for ref_instance_node_id in nodes_by_name[ref_name]:
+                    ref_instance_node = G.nodes[ref_instance_node_id]
+                    ref_instance_feature = ref_instance_node['annotation']
+                    ref_sequence_records.append(
+                        SeqRecord(
+                            Seq(ref_instance_feature.qualifiers['translation'][0]),
+                            id='|'.join([
+                                ref_instance_node['strain'],
+                                ref_instance_node_id,
+                                extractor.get_gene(ref_instance_node['annotation']),
+                            ])
+                        )
+                    )
+            SeqIO.write(ref_sequence_records, cluster_authoritative_seqs_fh, 'fasta')
+            cluster_authoritative_seqs_fh.close()
+
+            for node_id in cluster:
+                node = G.nodes[node_id]
+                original_name = extractor.get_gene(node['annotation'], tryhard=False)
+                if original_name in authoritative:
+                    continue
+                query_seq_str = node['annotation'].qualifiers['translation'][0]
+                query_seq = SeqRecord(Seq(query_seq_str), id=node_id, description='')
+
+                name_to_assign, ref_ltag, _, orf_increment = check_matches_to_known_genes(
+                    query_seq=query_seq,
+                    reference_seqs=cluster_authoritative_seqs,
+                    generic_seqs=os.devnull,
+                    cluster_type='multiref',
+                    orf_increment=orf_increment,
+                )
+                new_feature_names[node_id] = name_to_assign
+                if ref_ltag:
+                    liftover_annotation(
+                        feature=node['annotation'],
+                        ref_feature=G.nodes[ref_ltag]['annotation'],
+                        inference="Hybran/clustering", # TODO: come up with a better tag
+                    )
+                else:
+                    node['annotation'].qualifiers['gene'][0] = name_to_assign
+                res_data.append([
+                    cluster_id,
+                    cluster_type,
+                    node_id,
+                    original_name,
+                    name_to_assign,
+                ])
+        else:
+            for node_id in cluster:
+                node = G.nodes[node_id]
+                original_name = extractor.get_gene(node['annotation'], tryhard=False)
+                if original_name in authoritative:
+                    continue
+                new_feature_names[node_id] = name_to_assign
+                if designator.is_reference(name_to_assign):
+                    ref_instance_id = next(iter(nodes_by_name[name_to_assign]))
+                    ref_instance = G.nodes[ref_instance_id]['annotation']
+                    liftover_annotation(
+                        feature=node['annotation'],
+                        ref_feature=ref_instance,
+                        inference="Hybran/clustering", # TODO: come up with a better tag
+                    )
+                else:
+                    node['annotation'].qualifiers['gene'][0] = name_to_assign
+                res_data.append([
+                    cluster_id,
+                    cluster_type,
+                    node_id,
+                    original_name,
+                    name_to_assign,
+                ])
+
+    with open(logfile, 'w') as log_fh:
+        log_cluster_resolution(res_data, log_fh)
+
+    return new_feature_names
+
 def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_increment, seq_ident, seq_covg):
     """
     If a cluster has only one gene (with no gene names),
@@ -482,7 +642,7 @@ def singleton_clusters(singleton_dict, reference_fasta, unannotated_fasta, orf_i
         out_list.append(str(single_gene))
         if designator.is_raw_ltag(gene_name):
             gene_sequence = isolate_sequences[isolate_id][locus_tag]
-            name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+            name_to_assign, _, query_closest_refs, orf_increment = check_matches_to_known_genes(
                 query_seq = SeqRecord(gene_sequence, id=gene_name),
                 reference_seqs = reference_fasta,
                 generic_seqs = unannotated_fasta,
@@ -531,7 +691,7 @@ def only_ltag_clusters(in_dict, reference_fasta, unannotated_fasta, orf_incremen
         gene = rep_gene.split(',')[2]
         rep_sequence = isolate_sequences[isolate][locus]
         rep_record = SeqRecord(rep_sequence, id='', description='')
-        name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+        name_to_assign, _, query_closest_refs, orf_increment = check_matches_to_known_genes(
             query_seq = rep_record,
             reference_seqs = reference_fasta,
             generic_seqs = unannotated_fasta,
@@ -640,7 +800,7 @@ def multigene_clusters(in_dict, single_gene_cluster_complete, unannotated_fasta,
                     unannotated_gene_isolate = unannotated_gene[0]
                     unannotated_gene_locus = unannotated_gene[1]
                     unannotated_gene_seq = SeqRecord(isolate_sequences[unannotated_gene_isolate][unannotated_gene_locus], id=unannotated_gene_locus)
-                    name_to_assign, query_closest_refs, orf_increment = check_matches_to_known_genes(
+                    name_to_assign, _, query_closest_refs, orf_increment = check_matches_to_known_genes(
                         query_seq = unannotated_gene_seq,
                         reference_seqs = fasta_fp_to_blast,
                         generic_seqs = unannotated_fasta,
@@ -733,7 +893,7 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     logger = logging.getLogger('ParseClusters')
     hybran_tmp_dir = config.hybran_tmp_dir
     global isolate_update_dictionary, isolate_sequences
-    isolate_update_dictionary = {}
+    isolate_update_dictionary = defaultdict(dict)
     logger.debug('Retrieving unique protein sequences from GFFs')
     # Run CD-HIT on cdss_protein-all.fasta as part of calling ref_seqs
     unique_protein_fastas, isolate_sequences = unique_seqs(annotations=target_gffs)
@@ -753,12 +913,12 @@ def parseClustersUpdateGBKs(target_gffs, clusters, genomes_to_annotate, seq_iden
     generic_genes_fp = os.path.join(hybran_tmp_dir,
                                 'clustering',
                                 'unannotated_seqs.fasta')
-    extractor.subset_fasta(
+    unique_generics = extractor.subset_fasta(
         inseq = unique_protein_fastas,
         outseq = generic_genes_fp,
         match = designator.is_unannotated,
     )
-    orf_increment = designator.find_next_increment(fasta=generic_genes_fp)
+    orf_increment = designator.find_next_increment(unique_generics)
     logger.info('Parsing ' + clusters)
     clusters = parse_clustered_proteins(clustered_proteins=clusters,
                                         annotations=target_gffs)

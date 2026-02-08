@@ -7,12 +7,12 @@
 
 import sys
 import collections
+import itertools
 import os
 import tempfile
 import pickle
 import logging
 import time
-import re
 from copy import deepcopy
 
 # standard multiprocessing can't pickle lambda
@@ -21,6 +21,7 @@ import Bio
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature
+import networkx as nx
 
 from . import (
     __version__,
@@ -51,52 +52,7 @@ from .lumberjack import (
     log_pseudos,
     log_fusions,
 )
-from .util import keydefaultdict, mpbreakpoint
-
-def get_and_remove_ref_tracer(feature):
-    """
-    Remove the temporary tracer note we added to keep track of where an annotation that RATT placed originated from
-    """
-    ref_contig_id = ""
-    if 'note' in feature.qualifiers:
-        marker_note = [_ for _ in feature.qualifiers['note'] if _.startswith("HYBRANSOURCE")][0]
-        feature.qualifiers['note'].remove(marker_note)
-        if not feature.qualifiers['note']:
-            del feature.qualifiers['note']
-        ref_contig_id = re.sub(r'\s+', '', marker_note.split(':')[1])
-
-    return ref_contig_id
-
-def ref_fuse(fusion_gene_name):
-    """
-    Create a dummy SeqFeature to use as a reference for fusion gene coordinate checking/correction.
-    Throws a KeyError if one of the constituent names is not in the ref_annotation dictionary or if the fusion gene name is not valid.
-    This is intended to be used as a callable for defaultdict for reference annotations.
-
-    :param fusion_gene_name: A string, expected to be @@@-delimited between ref and gene, and each of those to be ::-delimited, corresponding to the ref and gene name of each component.
-    :return: SeqFeature with concatenated coordinates
-    """
-
-    (refs, fusion_name) = fusion_gene_name.split('@@@')
-    const_genes = fusion_name.split('::')
-    const_refs = refs.split('::')
-    # Not a fusion gene; defaultdict lookup should fail
-    if len(const_genes) <= 1:
-        raise KeyError(f'no gene "{const_genes[0]}" found for reference "{const_refs[0]}"') from None
-    location_parts = []
-    location_sequences = {}
-    for i in range(len(const_genes)):
-        ref_feature_i = ref_annotation[key_ref_gene(const_refs[i], const_genes[i])]
-        location_sequences.update(ref_feature_i.references)
-        location_parts += list(ref_feature_i.location.parts)
-    ref_fusion = SeqFeature(
-        # Biopython currently doesn't support the 'order' operator for feature.extract()
-        Bio.SeqFeature.CompoundLocation(location_parts, operator='join'),
-        qualifiers={'locus_tag':fusion_gene_name, 'gene':fusion_gene_name},
-    )
-
-    ref_fusion.references = location_sequences
-    return ref_fusion
+from .util import mpbreakpoint
 
 def loc_index(feature):
     """
@@ -190,191 +146,210 @@ def liftover_annotation(feature, ref_feature, inference):
         ref_feature_qualifiers_copy,
     )
 
-def thunderdome(abinit_annotation, ratt_annotation):
+    feature.source = extractor.get_source(ref_feature)
+
+def thunderdome(annotation1, annotation2):
     """
     Two genes enter... one gene leaves.
-    This function performs a 'standardized' comparison between RATT and Prokka
+    This function performs a 'standardized' comparison between two
     annotations based on reference-correspondence and pseudo status. Will be used
     in check_inclusion_criteria for the cases dealing with conflicting annotations.
-    :param abinit_annotation:
-    :param ratt_annotation:
+    Note that annotation1 has historically referred to the RATT annotation and annotation2 to the ab initio annotation candidate, so evidence codes/remarks still reference them.
+
+    :param annotation1: SeqFeature
+      (annotation1 will be favored if both are found to be equally valid.)
+    :param annotation2: SeqFeature
     :returns:
-        - include_abinit (:py:class:`bool`) - whether the ab initio annotation should be kept
-        - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
+        - include1 (:py:class:`bool`) - whether annotation1 should be kept
+        - include2 (:py:class:`bool`) - whether annotation2 should be kept
         - evid (:py:class:`str`) - evidence code for rejected annotation
         - remark (:py:class:`str`) - explanation why the rejected annotation was not included
     """
     logger = logging.getLogger('Thunderdome')
-    abinit_delayed_stop = abinit_annotation.de
-    ratt_delayed_stop = ratt_annotation.de
+    ann2_delayed_stop = annotation2.de
+    ann1_delayed_stop = annotation1.de
 
-    abinit_broken_stop = has_broken_stop(abinit_annotation)[0]
-    ratt_broken_stop = has_broken_stop(ratt_annotation)[0]
+    ann2_broken_stop = has_broken_stop(annotation2)[0]
+    ann1_broken_stop = has_broken_stop(annotation1)[0]
 
-    abinit_coord_status = coord_check(abinit_annotation, ref_annotation[
-        key_ref_gene(abinit_annotation.source, abinit_annotation.qualifiers['gene'][0])
-    ])
-    ratt_coord_status = coord_check(ratt_annotation, ref_annotation[
-        key_ref_gene(ratt_annotation.source, ratt_annotation.qualifiers['gene'][0])
-    ])
+    if not annotation1.source and not annotation2.source:
+        ann1_coord_status = ann2_coord_status = (True, True)
+    else:
+        ann1_coord_status = coord_check(annotation1, ref_annotation[
+            key_ref_gene(annotation1.source, annotation1.qualifiers['gene'][0])
+        ])
+        ann2_coord_status = coord_check(annotation2, ref_annotation[
+            key_ref_gene(annotation2.source, annotation2.qualifiers['gene'][0])
+        ])
 
-    (abinit_start_ok, abinit_stop_ok) = abinit_coord_status
-    abinit_coord_score = sum([int(_) for _ in abinit_coord_status])
-    (ratt_start_ok, ratt_stop_ok) = ratt_coord_status
-    ratt_coord_score = sum([int(_) for _ in ratt_coord_status])
+    (ann2_start_ok, ann2_stop_ok) = ann2_coord_status
+    ann2_coord_score = sum([int(_) for _ in ann2_coord_status])
+    (ann1_start_ok, ann1_stop_ok) = ann1_coord_status
+    ann1_coord_score = sum([int(_) for _ in ann1_coord_status])
 
-    abinit_is_pseudo = designator.is_pseudo(abinit_annotation.qualifiers)
-    ratt_is_pseudo = designator.is_pseudo(ratt_annotation.qualifiers)
+    ann2_is_pseudo = designator.is_pseudo(annotation2.qualifiers)
+    ann1_is_pseudo = designator.is_pseudo(annotation1.qualifiers)
 
-    ratt_longer = (len(abinit_annotation.location) < len(ratt_annotation.location))
-    abinit_longer = (len(abinit_annotation.location) > len(ratt_annotation.location))
+    ann1_longer = (len(annotation2.location) < len(annotation1.location))
+    ann2_longer = (len(annotation2.location) > len(annotation1.location))
 
-    if abinit_is_pseudo == ratt_is_pseudo:
+    if ann2_is_pseudo == ann1_is_pseudo:
         # Both annotations being intact according to their respective reference names
         # suggests that the reference genes are highly similar.
         # RATT's assignment is furthermore based on synteny, so it wins out
 
-        if ((all(ratt_coord_status) and all(abinit_coord_status)) or ratt_coord_status == abinit_coord_status):
+        if ((all(ann1_coord_status) and all(ann2_coord_status)) or ann1_coord_status == ann2_coord_status):
             #Both non-pseudo and equal coord_status, use the more complete annotation.
-            if not abinit_is_pseudo:
-                include_abinit = False
-                include_ratt = True
+            if not ann2_is_pseudo:
+                include2 = False
+                include1 = True
                 evid = 'forfeit'
                 remark = f"Equally valid call. RATT annotation is favored due to synteny."
             #Both pseudo
             else:
-                if abinit_longer and abinit_delayed_stop and not ratt_delayed_stop:
-                    include_abinit = True
-                    include_ratt = False
+                if ann2_longer and ann2_delayed_stop and not ann1_delayed_stop:
+                    include2 = True
+                    include1 = False
                     evid = 'shorter_pseudo'
                     remark = "The ab initio annotation is favored over the RATT annotation because it is longer and contains a valid delayed stop."
-                elif ratt_longer and ratt_delayed_stop and not abinit_delayed_stop:
-                    include_abinit = False
-                    include_ratt = True
+                elif ann1_longer and ann1_delayed_stop and not ann2_delayed_stop:
+                    include2 = False
+                    include1 = True
                     evid = 'shorter_pseudo'
                     remark = "The RATT annotation is favored over the ab initio annotation because it is longer and contains a valid delayed stop."
                 #Same location or equivalent delayed stop status
                 else:
-                    if abinit_broken_stop and not ratt_broken_stop:
-                         include_abinit = False
-                         include_ratt = True
+                    if ann2_broken_stop and not ann1_broken_stop:
+                         include2 = False
+                         include1 = True
                          evid = 'internal_stop'
                          remark = "The RATT annotation is favored over the ab initio annotation because it doesn't contain any internal stops."
-                    elif ratt_broken_stop and not abinit_broken_stop:
-                        include_abinit = True
-                        include_ratt = False
+                    elif ann1_broken_stop and not ann2_broken_stop:
+                        include2 = True
+                        include1 = False
                         evid = 'internal_stop'
                         remark = "The ab initio annotation is favored over the RATT annotation because it doesn't contain any internal stops."
                     else:
-                        include_abinit = False
-                        include_ratt = True
+                        include2 = False
+                        include1 = True
                         evid = 'forfeit'
                         remark = f"Equally valid call, but conflicts with RATT annotation; RATT favored due to synteny."
 
-        elif (all(ratt_coord_status) or ratt_coord_score > abinit_coord_score or (ratt_stop_ok and not abinit_stop_ok)):
-            include_abinit = False
-            include_ratt = True
+        elif (all(ann1_coord_status) or ann1_coord_score > ann2_coord_score or (ann1_stop_ok and not ann2_stop_ok)):
+            include2 = False
+            include1 = True
             evid = 'worse_ref_correspondence'
             remark = "RATT annotation more accurately named and delineated compared to the ab initio annotation."
         else:
         #This is the only other possibility:
-        #elif (all(abinit_coord_status or abinit_coord_score > ratt_coord_score
-        #or (abinit_stop_ok and not ratt_stop_ok)):
-            include_abinit = True
-            include_ratt = False
+        #elif (all(ann2_coord_status or ann2_coord_score > ann1_coord_score
+        #or (ann2_stop_ok and not ann1_stop_ok)):
+            include2 = True
+            include1 = False
             evid = 'worse_ref_correspondence'
             remark = f"Ab initio annotation more accurately named and delineated compared to the RATT annotation."
     else:
         #Always take the non-pseudo annotation if possible
-        if not abinit_is_pseudo and ratt_is_pseudo:
-            include_abinit = True
-            include_ratt = False
+        if not ann2_is_pseudo and ann1_is_pseudo:
+            include2 = True
+            include1 = False
             evid = 'pseudo'
             remark = "Non-pseudo ab initio annotation takes precedence over the pseudo RATT annotation."
         else:
-            include_abinit = False
-            include_ratt = True
+            include2 = False
+            include1 = True
             evid = 'pseudo'
             remark = "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation."
 
-    if include_abinit == include_ratt:
-        logger.warning(f"Both annotations were marked for {'inclusion' if include_ratt else 'exclusion'} and one annotation is expected to be excluded:\nRATT Feature\n{ratt_annotation}\n\nab initio Feature\n{abinit_annotation}\n\nUnhandled scenario--RATT favored due to synteny"
+    if include1 == include2:
+        logger.warning(f"Both annotations were marked for {'inclusion' if include1 else 'exclusion'} and one annotation is expected to be excluded:\nRATT Feature\n{annotation1}\n\nab initio Feature\n{annotation2}\n\nUnhandled scenario--RATT favored due to synteny"
         )
-        include_abinit = False
-        include_ratt = True
+        include1 = True
+        include2 = False
         evid = 'forfeit'
         remark = "Both annotations marked for inclusion. Unhandled scenario--RATT annotation favored due to synteny"
-    return include_abinit, include_ratt, evid, remark
+    return include1, include2, evid, remark
 
 
 def check_inclusion_criteria(
-        ratt_annotation,
-        abinit_annotation,
+        annotation1,
+        annotation2,
 ):
     """
-    This function compares RATT and Prokka annotations and checks for conflicts.
+    This function compares two annotations and checks for conflicts.
     Either one feature or both will be accepted.
     If there is no conflict, both are kept. Otherwise, they are sent to the thunderdome().
 
-    :param ratt_annotation:
-    :param abinit_annotation:
+    :param annotation1:
+    :param annotation2:
     :returns:
-        - include_abinit (:py:class:`bool`) - whether the ab initio annotation should be kept
-        - include_ratt (:py:class:`bool`) - whether the RATT annotation should be kept
+        - include1 (:py:class:`bool`) - whether annotation1 should be kept
+        - include2 (:py:class:`bool`) - whether annotation2 should be kept
         - evid (:py:class:`str`) - evidence code for rejected annotation, if any. `None` otherwise.
         - remark (:py:class:`str`) - explanation why the rejected annotation, if any, was not included. `None` otherwise.
     """
     logger = logging.getLogger('CheckInclusionCriteria')
-    include_ratt = True
-    include_abinit = True
+    include1 = True
+    include2 = True
     evid = None
     remark = None
 
-    if abinit_annotation.type != ratt_annotation.type:
+    if annotation1.type != annotation2.type:
         pass
-    elif abinit_annotation.type != 'CDS':
+    elif annotation1.type != 'CDS':
         # TODO: we should come up with criteria for non-CDS genes
-        if abinit_annotation.location == ratt_annotation.location:
-            include_abinit = False
+        if annotation1.location == annotation2.location:
+            include2 = False
             evid = 'identical_non_cds'
-    elif 'gene' not in abinit_annotation.qualifiers:
-        if overlap_inframe(abinit_annotation.location, ratt_annotation.location):
-            include_abinit = False
+    elif (
+            ('gene' in annotation1.qualifiers and 'gene' not in annotation2.qualifiers)
+            or (annotation1.source and not annotation2.source)
+    ):
+        if overlap_inframe(annotation1.location, annotation2.location):
+            include2 = False
+            evid = 'unnamed'
+            remark = "Unnamed gene and conflicts (overlapping in-frame) with named rival annotation."
+    elif (
+            ('gene' in annotation2.qualifiers and 'gene' not in annotation1.qualifiers)
+            or (annotation2.source and not annotation1.source)
+    ):
+        if overlap_inframe(annotation1.location, annotation2.location):
+            include1 = False
             evid = 'unnamed'
             remark = "Unnamed gene and conflicts (overlapping in-frame) with named rival annotation."
     else:
-        same_gene_name = extractor.get_gene(ratt_annotation) == extractor.get_gene(abinit_annotation)
-        same_loc = (abinit_annotation.location == ratt_annotation.location)
+        same_gene_name = extractor.get_gene(annotation1) == extractor.get_gene(annotation2)
+        same_loc = (annotation1.location == annotation2.location)
         if same_loc or same_gene_name:
-            include_abinit, include_ratt, evid, remark = thunderdome(abinit_annotation, ratt_annotation)
+            include1, include2, evid, remark = thunderdome(annotation1, annotation2)
 
-        elif not same_gene_name and overlap_inframe(abinit_annotation.location, ratt_annotation.location):
+        elif not same_gene_name and overlap_inframe(annotation1.location, annotation2.location):
             keepers, fusions, rejects = fusionfisher(
-                [ratt_annotation, abinit_annotation],
+                [annotation1, annotation2],
                 ref_annotation,
                 adjudicate=False,
             )
             for trial in rejects:
                 reject = trial['feature']
-                if reject == ratt_annotation:
-                    include_ratt = False
+                if reject == annotation1:
+                    include1 = False
                     evid = trial['evid']
                     remark = trial['remark']
-                elif reject == abinit_annotation:
-                    include_abinit = False
+                elif reject == annotation2:
+                    include2 = False
                     evid = trial['evid']
                     remark = trial['remark']
             # fusionfisher didn't detect a misannotation, but it didn't detect a fusion either.
             # welcome to the thunderdome!
             if not fusions and not rejects:
-                include_abinit, include_ratt, evid, remark = thunderdome(abinit_annotation, ratt_annotation)
+                include1, include2, evid, remark = thunderdome(annotation1, annotation2)
 
         else:
             #include everything if different names and not overlapping in frame
-            include_abinit = True
-            include_ratt = True
+            include1 = True
+            include2 = True
 
-    return include_abinit, include_ratt, evid, remark
+    return include1, include2, evid, remark
 
 def fix_embl_id_line(embl_file):
     """
@@ -393,6 +368,36 @@ def fix_embl_id_line(embl_file):
         for line in lines:
             out.write(line)
 
+def merge(overlap_G):
+    """
+    Given an overlap graph, check for conflicting annotations and choose the "best" ones, returning a full set of consistent features.
+    :param overlap_G:
+      a networkx Graph as produced by compare() or cross_examine().
+      Nodes in this graph must have an 'annotation' attribute containing the corresponding SeqFeature object.
+      The SeqFeature object should have a label attribute corresponding to the node label.
+    :return: list of sorted SeqFeatures being the result of the merge
+    """
+    refined_G = overlap_G.copy()
+
+    for cc in nx.connected_components(overlap_G):
+        cc_features = [overlap_G.nodes[n]['annotation'] for n in cc]
+
+        # singleton connected components are standalone/unique features
+        if len(cc_features) == 1:
+            continue
+
+        for f1, f2 in itertools.combinations(cc_features, 2):
+            # skip comparison if one of the contenders has been previously defeated
+            if f1.label not in refined_G or f2.label not in refined_G:
+                continue
+
+            include_f1, include_f2, evidence, remark = check_inclusion_criteria(f1, f2)
+            if not include_f1:
+                refined_G.remove_node(f1.label)
+            if not include_f2:
+                refined_G.remove_node(f2.label)
+
+    return sort_features([refined_G.nodes[n]['annotation'] for n in refined_G])
 
 def run(
         isolate_id,
@@ -456,22 +461,7 @@ def run(
 
     # create a dictionary of reference CDS annotations (needed for liftover to ab initio)
     global ref_annotation
-    ref_annotation = keydefaultdict(ref_fuse)
-    for ref_gbk_fp in ref_gbk_list:
-        ref_id = os.path.basename(os.path.splitext(ref_gbk_fp)[0])
-        for ref_record in SeqIO.parse(ref_gbk_fp, 'genbank'):
-            ref_contig_id = '.'.join([ref_id, ref_record.id])
-            for feature in ref_record.features:
-                get_and_remove_ref_tracer(feature) # prevent our tracer note from propagating to future liftovers
-                if feature.type != "CDS":
-                    continue
-                # setting feature.ref doesn't work for CompoundLocations
-                for part in feature.location.parts:
-                    part.ref = ref_contig_id
-                feature.references = {ref_contig_id: ref_record.seq}
-                # if reference paralogs have been collapsed, the last occurrence in the genome
-                # will prevail.
-                ref_annotation[key_ref_gene(ref_contig_id, feature.qualifiers['gene'][0])] = feature
+    ref_annotation = extractor.load_gbks(ref_gbk_list, feature_types=['CDS'])
 
     annomerge_records = list(SeqIO.parse(genome, "fasta"))
     contigs = [record.id for record in annomerge_records]
@@ -591,9 +581,9 @@ def run(
                         include_abinit = True
                         continue
                     ratt_feature = ratt_contig_features_dict[ratt_conflict_loc]
-                    include_abinit, include_ratt, evid, remark = check_inclusion_criteria(
-                        ratt_annotation=ratt_feature,
-                        abinit_annotation=abinit_feature,
+                    include_ratt, include_abinit, evid, remark = check_inclusion_criteria(
+                        ratt_feature,
+                        abinit_feature,
                     )
                     if not include_abinit:
                         prokka_rejects.append({

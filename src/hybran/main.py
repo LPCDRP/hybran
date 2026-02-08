@@ -209,17 +209,29 @@ def cmds():
     correctcmd.add_argument(
         "annotations",
         nargs='+',
-        help='blocks_coords BED file, Genbank annotation files, or the directory/directories containing them.',
+        help=(
+            "hybran output directory, blocks_coords BED file, Genbank annotation files, or the directory/directories containing them."
+            "If you pass a hybran output directory, you will not need to pass -r/--references, -s/--seq-dir, or --genetic-code."
+            ),
+    )
+    correctcmd.add_argument(
+        '-r', '--references',
+        nargs='*',
+        help=(
+            'Directory, a space-separated list of GBKs, or a FOFN '
+            'containing Genbank files of reference annotations.'
+            'Required if not using hybran output directory.'
+        )
     )
     correctcmd.add_argument(
         "-s", "--seq-dir",
         help='Directory containing corresponding genome sequence files in fasta format.',
-        required=True
+        required=False,
     )
     correctcmd.add_argument(
-        "-p", "--prefix",
-        help="Output filenames' prefix.",
-        default='out.',
+        "-o", "--outdir",
+        help="Directory to output the results of the correction.",
+        default='.',
     )
     correctcmd.add_argument(
         "-n", "--nproc",
@@ -236,20 +248,14 @@ def cmds():
     correctcmd.add_argument(
         '-i', '--blast-min-identity',
         help='Minimum percent sequence identity for matching genes',
-        default=config.cnf.blast.min_identity,
+        default=80,
         type=percentage,
     )
     correctcmd.add_argument(
         '-c', '--blast-min-coverage',
         help='Minimum percent sequence alignment coverage for matching genes',
-        default=config.cnf.blast.min_coverage,
+        default=80,
         type=percentage,
-    )
-    correctcmd.add_argument(
-        '--genetic-code',
-        help="Genetic code table number (required for BED inputs)",
-        type=int,
-        default=config.cnf.genetic_code,
     )
 
     #
@@ -482,8 +488,7 @@ def main(args, prokka_args):
     script_dir = os.path.abspath(os.path.dirname(__file__))
 
     # Setting up the Hybran temporary directory
-    config.init()
-    hybran_tmp_dir = config.hybran_tmp_dir
+    hybran_tmp_dir = config.cnf.tmpdir
     config.cnf.onegene.min_identity =  args.onegene_identity_threshold
     config.cnf.onegene.min_coverage =  args.onegene_coverage_threshold
     config.cnf.mcl_inflation = args.mcl_inflation
@@ -493,10 +498,9 @@ def main(args, prokka_args):
     designator.generic_orf_prefix[0]=args.orf_prefix
     designator.ref_orf_prefix[0] = f"REF{args.orf_prefix}X"
 
-    # Cleanup the temporary files directory and its contents at exit unless
-    # --debug is set
-    if not args.debug:
-        atexit.register(shutil.rmtree, path=hybran_tmp_dir)
+    # Don't cleanup the temporary files directory at exit if --debug is set
+    if args.debug:
+        atexit.unregister(config.rmtmp)
 
     # Confirming all installations are valid
     if args.database_dir:
