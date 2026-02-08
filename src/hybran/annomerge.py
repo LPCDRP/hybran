@@ -146,6 +146,8 @@ def liftover_annotation(feature, ref_feature, inference):
         ref_feature_qualifiers_copy,
     )
 
+    feature.source = extractor.get_source(ref_feature)
+
 def thunderdome(annotation1, annotation2):
     """
     Two genes enter... one gene leaves.

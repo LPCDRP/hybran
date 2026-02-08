@@ -45,6 +45,16 @@ def get_seq(feature):
     ]
     return functools.reduce(lambda x, y: x + y, parts)
 
+def get_source(feature):
+    """
+    Get the reference genome identifier for a (Autarkic)SeqFeature.
+    If the `source` attribute is not set, assume the feature itself is the reference and return its own record ID.
+    """
+    if hasattr(feature, 'source') and feature.source:
+        return feature.source
+    else:
+        return feature.location.parts[0].ref
+
 def get_genetic_code(genbank):
     """
     Find genetic code from annotation file

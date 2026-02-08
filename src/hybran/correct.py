@@ -666,10 +666,7 @@ def postprocess_additions(strain_additions, addition_refs, strain_contig_records
             ref_instance = addition_refs.nodes[
                 next(iter(possible_names[name]))
             ]['annotation']
-            if ref_instance.source:
-                ref_feature_origin = ref_instance.source
-            else:
-                ref_feature_origin = ref_instance.location.parts[0].ref
+            ref_feature_origin = extractor.get_source(ref_instance)
             if not designator.is_reference(name):
                 annomerge.ref_annotation[
                     designator.key_ref_gene(ref_feature_origin, name)

@@ -211,7 +211,6 @@ def postprocess_feature(
     if top_hit:
         ref_matched = True
         ref_id, ref_ltag, ref_gene = top_hit.split('%%%')
-        feature.source = ref_id
         feature.qualifiers['gene'] = [ref_gene]
         og_feature_location = deepcopy(feature.location)
         feature_is_pseudo = pseudoscan(
