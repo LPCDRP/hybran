@@ -19,7 +19,7 @@ from . import (
     config,
     designator,
     standardize,
-    correct,
+    synergize,
     compare,
     defuse,
     __version__,
@@ -96,12 +96,12 @@ def cmds():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     comparecmd.set_defaults(func=compare.main)
-    correctcmd = subparsers.add_parser(
-        'correct',
+    synergizecmd = subparsers.add_parser(
+        'synergize',
         help='Correct annotations using hints from discordant synteny',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    correctcmd.set_defaults(func=correct.main)
+    synergizecmd.set_defaults(func=synergize.main)
     defusecmd = subparsers.add_parser(
         'defuse',
         help='Separate gene fusion annotations into single gene annotations.',
@@ -204,9 +204,9 @@ def cmds():
     )
 
     #
-    # hybran correct
+    # hybran synergize
     #
-    correctcmd.add_argument(
+    synergizecmd.add_argument(
         "annotations",
         nargs='+',
         help=(
@@ -214,7 +214,7 @@ def cmds():
             "If you pass a hybran output directory, you will not need to pass -r/--references, -s/--seq-dir, or --genetic-code."
             ),
     )
-    correctcmd.add_argument(
+    synergizecmd.add_argument(
         '-r', '--references',
         nargs='*',
         help=(
@@ -223,35 +223,35 @@ def cmds():
             'Required if not using hybran output directory.'
         )
     )
-    correctcmd.add_argument(
+    synergizecmd.add_argument(
         "-s", "--seq-dir",
         help='Directory containing corresponding genome sequence files in fasta format.',
         required=False,
     )
-    correctcmd.add_argument(
+    synergizecmd.add_argument(
         "-o", "--outdir",
         help="Directory to output the results of the correction.",
         default='.',
     )
-    correctcmd.add_argument(
+    synergizecmd.add_argument(
         "-n", "--nproc",
         help="number of parallel processes to use",
         type=int,
         default=1,
     )
-    correctcmd.add_argument(
+    synergizecmd.add_argument(
         "-d", "--debug",
         help="write debug logs",
         action="store_true",
         default=False,
     )
-    correctcmd.add_argument(
+    synergizecmd.add_argument(
         '-i', '--blast-min-identity',
         help='Minimum percent sequence identity for matching genes',
         default=80,
         type=percentage,
     )
-    correctcmd.add_argument(
+    synergizecmd.add_argument(
         '-c', '--blast-min-coverage',
         help='Minimum percent sequence alignment coverage for matching genes',
         default=80,

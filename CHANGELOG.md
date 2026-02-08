@@ -2,9 +2,10 @@
 
 ## Development
 * Hybran now depends on `frozendict`.
+* The experimental subcommand `hybran correct` is now `hybran synergize`.
 
 ### Enhancements
-* Overhaul of `hybran correct`:
+* Overhaul of `hybran synergize`:
   - Require reference annotations from original pipeline run,
     but can now directly use the hybran output directory as input for simplicity.
   - Now produces complete updated annotations rather than lists of things to add/change.

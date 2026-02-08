@@ -352,6 +352,10 @@ def main(args):
             strain_contig_records,
         )
         for contig in strain_contig_records[sample]:
+            # check for redundancies in our inputs
+#            (_, _, _, orig_overlaps) = cross_examine(strain_contig_records[sample][contig].features)
+#            strain_contig_records[sample][contig].features = merge(orig_overlaps)
+
             # log candidate additions pre-merge
             for feature in sample_candidate_additions[contig]:
                 additions_fh.write("\t".join([
