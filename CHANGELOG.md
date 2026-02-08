@@ -3,8 +3,18 @@
 ## Development
 * Hybran now depends on `frozendict`.
 
+### Enhancements
+* Overhaul of `hybran correct`:
+  - Require reference annotations from original pipeline run,
+    but can now directly use the hybran output directory as input for simplicity.
+  - Now produces complete updated annotations rather than lists of things to add/change.
+  - Make use of existing annotation merging criteria to prevent duplicate corrections.
+  - Lower default BLAST thresholds for these synteny-based corrections
+  - Apply postprocessing/coordinate correction to annotations created from tblastn hits.
+
 ### Bugs fixed
 * Declare minimum python version as 3.12
+* Fixed creation of duplicate annotations when running `hybran defuse` (#81)
 
 ## [Version 1.9](https://gitlab.com/LPCDRP/hybran/-/tags/1.9)
 
