@@ -42,6 +42,7 @@ def test_name_cluster(situation):
     }
 
     designator.generic_orf_prefix = ['ORF']
+    designator.ref_orf_prefix=['REFORFX']
     expected_subs = defaultdict(dict)
     expected = {
         'singleref_multiple_nonames': [

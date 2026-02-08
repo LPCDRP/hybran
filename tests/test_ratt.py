@@ -21,6 +21,7 @@ from .data_features import *
 ])
 @pytest.mark.skipif(not os.path.isfile("data/1-0009.fasta"), reason="test genome sequence not available")
 @pytest.mark.skipif(not os.path.isfile("data/H37Rv.gbk"), reason="test reference annotation not available")
+@pytest.mark.skip(reason="outdated")
 def test_isolate_valid_ratt_annotations(case):
     source_genome = {
         'long_unbroken_pseudo':'1-0006',

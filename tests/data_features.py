@@ -96,7 +96,7 @@ features = {
                     'locus_tag':['ECOLIN_24700'],'gene':['ECOLIN_24700::ECOLIN_12095'],
                     'note': [
                         'Hybran/Pseudoscan:description:Locus does not have reference-corresponding start | No internal stop codons and ends with a valid stop codon | Locus has valid reading frame | Locus has a valid alternative start site',
-                        'Hybran/Pseudoscan:evidence:no_rcc',
+                        'Hybran/Pseudoscan:evidence:no_rcc;alt_start',
                         'Hybran/Pseudoscan:barcode:D31;VS1;VE1;RCS0;RCE1;BOK.',
                     ],
                     'pseudo': [''],

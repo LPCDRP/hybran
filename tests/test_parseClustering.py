@@ -1,3 +1,4 @@
+from collections import defaultdict
 from io import StringIO
 
 from hybran import parseClustering
@@ -19,7 +20,7 @@ def test_single_gene_clusters():
         ]
     }
     # initialize parseClustering's global variable
-    parseClustering.isolate_update_dictionary = dict()
+    parseClustering.isolate_update_dictionary = defaultdict(dict)
 
     parseClustering.single_gene_clusters(single_gene_dict)
 
