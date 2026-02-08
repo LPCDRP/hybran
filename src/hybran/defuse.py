@@ -59,7 +59,9 @@ def defuse(feature_list, fusions_by_ltag):
                         sub += 1
                     else:
                         component.qualifiers['locus_tag'] = [ltag]
-                out_features.append(component)
+                    # Only add the component to the output features if it wasn't already in
+                    # the original feature list since it will be added separately during our comprehensive pass-through
+                    out_features.append(component)
         else:
             out_features.append(feature)
 
