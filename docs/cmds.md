@@ -59,9 +59,9 @@ This is a strict subset of the data from the standard reports.
 
 This utility identifies situations, using pairwise comparisons of synteny in a set of annotations followed by BLAST alignments,  where annotations are wrongly missing or where genes are incorrectly assigned different names.
 Such instances are known to occur as a result of [inconsistent *ab initio* annotation](https://github.com/hyattpd/Prodigal/issues/115).
-`hybran correct` has two primary outputs:
-- `additions.bed`: proposed annotation additions
-- `renames.tsv`: proposed name unifications
+`hybran correct` produces an updated set of the input annotations and has two primary report files:
+- `reports/additions.bed`: applied annotation additions
+- `reports/renames.tsv`: applied name unifications
 
 ### `hybran standardize`
 
