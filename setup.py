@@ -13,5 +13,5 @@ setup(
     install_requires=['biopython', ],
     test_suite='nose.collector',
     tests_require=['nose', ],
-    version='1.9'
+    version='1.10'
 )

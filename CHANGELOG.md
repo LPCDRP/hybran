@@ -1,6 +1,7 @@
 # Release Notes
 
-## Development
+## [Version 1.10](https://gitlab.com/LPCDRP/hybran/-/tags/1.10)
+
 * Hybran now depends on `frozendict`.
 * The experimental subcommand `hybran correct` is now `hybran synergize`.
 
