@@ -476,25 +476,6 @@ def resolve_clusters(G, orf_increment, logfile):
             print(cluster)
             print([G.nodes[n] for n in cluster])
 
-        if len(cluster) == 1:
-            node_id = next(iter(cluster))
-            node = G.nodes[node_id]
-            if not extractor.get_gene(node['annotation'], tryhard=False):
-                 (
-                     name_to_assign,
-                     orf_increment,
-                 ) = designator.assign_orf_id(orf_increment)
-                 cluster_type = 'singleton'
-                 node['annotation'].qualifiers['gene'][0] = name_to_assign
-                 res_data.append([
-                     cluster_id,
-                     cluster_type,
-                     node_id,
-                     None,
-                     name_to_assign,
-                 ])
-            continue
-
         nodes_by_name = defaultdict(set)
         authoritative = []
         for node_id in cluster:
@@ -513,6 +494,29 @@ def resolve_clusters(G, orf_increment, logfile):
                         to_stop=False,
                     ))
                 ]
+
+        all_named_identically = (len(nodes_by_name) == 1)
+
+        if len(cluster) == 1 or all_named_identically:
+            # No resolution to do.
+            # Assign a generic name only if necessary and move on.
+            node_id = next(iter(cluster))
+            node = G.nodes[node_id]
+            if not extractor.get_gene(node['annotation'], tryhard=False):
+                 (
+                     name_to_assign,
+                     orf_increment,
+                 ) = designator.assign_orf_id(orf_increment)
+                 cluster_type = 'singleton'
+                 node['annotation'].qualifiers['gene'][0] = name_to_assign
+                 res_data.append([
+                     cluster_id,
+                     cluster_type,
+                     node_id,
+                     None,
+                     name_to_assign,
+                 ])
+            continue
 
         name_to_assign = None
 
