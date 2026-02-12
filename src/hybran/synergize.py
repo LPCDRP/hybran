@@ -31,6 +31,7 @@ from .bio import (
     translate,
 )
 from .config import cnf
+from .demarcate import coord_check
 from .compare import compare, cross_examine
 from .parseClustering import resolve_clusters
 from .pseudoscan import pseudoscan
@@ -686,10 +687,15 @@ def postprocess_additions(strain_additions, addition_refs, strain_contig_records
             candidate_feature_personas[name].source = ref_feature_origin
 
             # coordinate correction
+            coord_check(
+                candidate_feature_personas[name],
+                ref_feature,
+                fix_start=True,
+                fix_stop=True,
+            )
             pseudoscan(
                 candidate_feature_personas[name],
                 ref_feature,
-                attempt_rescue=True,
             )
 
         remaining_possible_names = list(possible_names.keys())

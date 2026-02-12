@@ -20,6 +20,7 @@ from . import (
 from .annomerge import liftover_annotation
 from .bio import SeqIO, translate
 from .lumberjack import log_cluster_resolution
+from .pseudoscan import pseudoscan
 
 
 def parse_clustered_proteins(clustered_proteins, annotations):
@@ -574,10 +575,16 @@ def resolve_clusters(G, orf_increment, logfile):
                 )
                 new_feature_names[node_id] = name_to_assign
                 if ref_ltag:
+                    ref_feature = G.nodes[ref_ltag]['annotation']
                     liftover_annotation(
                         feature=node['annotation'],
-                        ref_feature=G.nodes[ref_ltag]['annotation'],
+                        ref_feature=ref_feature,
                         inference="Hybran/clustering", # TODO: come up with a better tag
+                    )
+                    pseudoscan(
+                        node['annotation'],
+                        ref_feature,
+                        attempt_rescue=True,
                     )
                 else:
                     node['annotation'].qualifiers['gene'][0] = name_to_assign
@@ -602,6 +609,11 @@ def resolve_clusters(G, orf_increment, logfile):
                         feature=node['annotation'],
                         ref_feature=ref_instance,
                         inference="Hybran/clustering", # TODO: come up with a better tag
+                    )
+                    pseudoscan(
+                        node['annotation'],
+                        ref_instance,
+                        attempt_rescue=True,
                     )
                 else:
                     node['annotation'].qualifiers['gene'][0] = name_to_assign
