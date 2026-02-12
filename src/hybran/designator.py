@@ -196,3 +196,9 @@ def is_reference(name):
 
 def is_raw_ltag(name):
     return name.startswith(('L_','L2_'))
+
+def feature_is_unannotated(feature):
+    return (
+        'gene' not in feature.qualifiers
+        or is_unannotated(feature.qualifiers['gene'][0])
+    )

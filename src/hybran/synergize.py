@@ -343,6 +343,13 @@ def main(args):
         new_name_counter,
         logfile=renames_fn,
     )
+    # Do a consistency check to remove any duplicate annotations resulting from renames
+    for sample in strain_contig_records:
+        for contig in strain_contig_records[sample]:
+            (_, _, _, G_overlap) = cross_examine(
+                strain_contig_records[sample][contig].features
+            )
+            strain_contig_records[sample][contig].features = merge(G_overlap)
 
     additions_fh = open(additions_fn, 'w')
     for sample in additions_by_sample:
