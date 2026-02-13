@@ -382,6 +382,7 @@ def merge(overlap_G):
     :return: list of sorted SeqFeatures being the result of the merge
     """
     refined_G = overlap_G.copy()
+    rejects_data = []
 
     for cc in nx.connected_components(overlap_G):
         cc_features = [overlap_G.nodes[n]['annotation'] for n in cc]
@@ -398,10 +399,25 @@ def merge(overlap_G):
             include_f1, include_f2, evidence, remark = check_inclusion_criteria(f1, f2)
             if not include_f1:
                 refined_G.remove_node(f1.label)
+                rejects_data.append({
+                            'feature': f1,
+                            'superior': f2,
+                            'evid': evidence,
+                            'remark':remark,
+                })
             if not include_f2:
                 refined_G.remove_node(f2.label)
+                rejects_data.append({
+                            'feature': f2,
+                            'superior': f1,
+                            'evid': evidence,
+                            'remark':remark,
+                })
 
-    return sort_features([refined_G.nodes[n]['annotation'] for n in refined_G])
+    return (
+        sort_features([refined_G.nodes[n]['annotation'] for n in refined_G]),
+        rejects_data,
+    )
 
 def run(
         isolate_id,

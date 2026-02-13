@@ -717,7 +717,7 @@ def postprocess_additions(strain_additions, addition_refs, strain_contig_records
 
     for contig in candidate_strain_additions:
         (_, _, _, G_overlaps) = cross_examine(sort_features(candidate_strain_additions[contig]))
-        candidate_strain_additions[contig] = merge(G_overlaps)
+        candidate_strain_additions[contig], _ = merge(G_overlaps)
 
     return candidate_strain_additions
 
