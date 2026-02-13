@@ -12,12 +12,14 @@ def log_cluster_resolution(res_data, logfile):
     header = [
         'cluster_id',
         'cluster_type',
+        'cluster_size',
         'locus_tag',
         'original_gene_name',
         'final_gene_name',
     ]
     print('\t'.join(header), file=logfile)
-    for resolution in sorted(res_data):
+    none_last = lambda x: x if x is not None else 'zzz'
+    for resolution in sorted(res_data, key=lambda x: (x[0], none_last(x[1]), nacast(x[5]))):
         print(
             '\t'.join([nacast(field) for field in resolution]),
             file=logfile,

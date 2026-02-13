@@ -558,10 +558,23 @@ def resolve_clusters(G, orf_increment, logfile):
             SeqIO.write(ref_sequence_records, cluster_authoritative_seqs_fh, 'fasta')
             cluster_authoritative_seqs_fh.close()
 
+            res_data.append([
+                cluster_id,
+                cluster_type,
+                len(cluster),
+                None, None, None,
+            ])
             for node_id in cluster:
                 node = G.nodes[node_id]
                 original_name = extractor.get_gene(node['annotation'], tryhard=False)
                 if original_name in authoritative:
+                    res_data.append([
+                        cluster_id,
+                        None, None,
+                        node_id,
+                        original_name,
+                        None,
+                    ])
                     continue
                 query_seq_str = node['annotation'].qualifiers['translation'][0]
                 query_seq = SeqRecord(Seq(query_seq_str), id=node_id, description='')
@@ -590,16 +603,29 @@ def resolve_clusters(G, orf_increment, logfile):
                     node['annotation'].qualifiers['gene'][0] = name_to_assign
                 res_data.append([
                     cluster_id,
-                    cluster_type,
+                    None, None,
                     node_id,
                     original_name,
                     name_to_assign,
                 ])
         else:
+            res_data.append([
+                cluster_id,
+                cluster_type,
+                len(cluster),
+                None, None, None,
+            ])
             for node_id in cluster:
                 node = G.nodes[node_id]
                 original_name = extractor.get_gene(node['annotation'], tryhard=False)
                 if original_name in authoritative:
+                    res_data.append([
+                        cluster_id,
+                        None, None,
+                        node_id,
+                        original_name,
+                        None,
+                    ])
                     continue
                 new_feature_names[node_id] = name_to_assign
                 if designator.is_reference(name_to_assign):
@@ -619,7 +645,7 @@ def resolve_clusters(G, orf_increment, logfile):
                     node['annotation'].qualifiers['gene'][0] = name_to_assign
                 res_data.append([
                     cluster_id,
-                    cluster_type,
+                    None, None,
                     node_id,
                     original_name,
                     name_to_assign,
