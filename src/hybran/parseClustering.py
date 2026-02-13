@@ -495,29 +495,17 @@ def resolve_clusters(G, orf_increment, logfile):
                         to_stop=False,
                     ))
                 ]
+        have_unnamed = (None in nodes_by_name)
+        names = [n for n in nodes_by_name if n is not None]
+        n_names = len(names)
 
-        all_named_identically = (len(nodes_by_name) == 1)
-
-        if len(cluster) == 1 or all_named_identically:
-            # No resolution to do.
-            # Assign a generic name only if necessary and move on.
-            node_id = next(iter(cluster))
-            node = G.nodes[node_id]
-            if not extractor.get_gene(node['annotation'], tryhard=False):
-                 (
-                     name_to_assign,
-                     orf_increment,
-                 ) = designator.assign_orf_id(orf_increment)
-                 cluster_type = 'singleton'
-                 node['annotation'].qualifiers['gene'][0] = name_to_assign
-                 res_data.append([
-                     cluster_id,
-                     cluster_type,
-                     node_id,
-                     None,
-                     name_to_assign,
-                 ])
+        # Nothing to do: we have agreement already
+        if not have_unnamed and n_names == 1:
             continue
+
+        if have_unnamed and not authoritative and n_names == 1:
+            # Make the sole non-null name an honorary authority
+            authoritative.add(names[0])
 
         name_to_assign = None
 
