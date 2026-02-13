@@ -23,6 +23,7 @@ from . import (
     designator,
     extractor,
     fileManager,
+    lumberjack,
 )
 from .annomerge import merge, thunderdome
 from .bio import (
@@ -87,6 +88,8 @@ def main(args):
     mcps_fn = os.path.join(reports_dir, "mcps.tsv")
     renames_fn = os.path.join(reports_dir, "renames.tsv")
     additions_fn = os.path.join(reports_dir, "additions.bed")
+    rejected_additions_fn = os.path.join(reports_dir, "rejected_additions.tsv")
+    removals_fn = os.path.join(reports_dir, "removals.tsv")
 
     n_inputs = len(args.annotations)
     input_type = None
@@ -350,9 +353,10 @@ def main(args):
             (_, _, _, G_overlap) = cross_examine(
                 strain_contig_records[sample][contig].features
             )
-            strain_contig_records[sample][contig].features = merge(G_overlap)
+            strain_contig_records[sample][contig].features, removals = merge(G_overlap)
 
-    additions_fh = open(additions_fn, 'w')
+    accepted_additions = []
+    rejected_additions = []
     for sample in additions_by_sample:
         sample_candidate_additions = postprocess_additions(
             additions_by_sample[sample],
@@ -364,23 +368,22 @@ def main(args):
 #            (_, _, _, orig_overlaps) = cross_examine(strain_contig_records[sample][contig].features)
 #            strain_contig_records[sample][contig].features = merge(orig_overlaps)
 
-            # log candidate additions pre-merge
-            for feature in sample_candidate_additions[contig]:
-                additions_fh.write("\t".join([
-                    contig,
-                    str(feature.location.start),
-                    str(feature.location.end),
-                    extractor.get_gene(feature),
-                    dummy_bed_score,
-                    sign(feature.location.strand),
-                ]) + '\n')
-
             (_, _, _, _, _, _, G_overlap) = compare(
                 sample_candidate_additions[contig],
                 strain_contig_records[sample][contig].features,
                 eliminate_colocated=False,
             )
-            strain_contig_records[sample][contig].features = merge(G_overlap)
+            (
+                strain_contig_records[sample][contig].features,
+                rejects_data,
+            ) = merge(G_overlap)
+            for r in rejects_data:
+                if r['feature'] in sample_candidate_additions[contig]:
+                    rejected_additions.append(r)
+                    sample_candidate_additions[contig].remove(r['feature'])
+                else:
+                    removals.append(r)
+            accepted_additions += sample_candidate_additions[contig]
 
         if input_type != "bed":
             designator.assign_locus_tags(
@@ -397,7 +400,6 @@ def main(args):
                 "genbank",
             )
             converter.convert_gbk_to_gff(out_gbk)
-    additions_fh.close()
 
     if input_type == "bed":
         with open(os.path.join(args.outdir, "blocks_coords.bed"), 'w') as out_bed:
@@ -412,6 +414,23 @@ def main(args):
                             dummy_bed_score,
                             sign(feature.location.strand),
                         ]) + '\n')
+
+    with open(removals_fn, 'w') as removals_fh:
+        lumberjack.log_feature_fates(removals, logfile=removals_fh)
+
+    with open(additions_fn, 'w') as additions_fh:
+        for feature in accepted_additions:
+            additions_fh.write("\t".join([
+                contig,
+                str(feature.location.start),
+                str(feature.location.end),
+                extractor.get_gene(feature),
+                dummy_bed_score,
+                sign(feature.location.strand),
+            ]) + '\n')
+
+    with open(rejected_additions_fn, 'w') as rejected_additions_fh:
+        lumberjack.log_feature_fates(rejected_additions, logfile=rejected_additions_fh)
 
 
 def overlap(loc1, loc2):
