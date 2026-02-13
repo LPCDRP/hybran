@@ -208,42 +208,42 @@ def thunderdome(annotation1, annotation2):
                 include2 = False
                 include1 = True
                 evid = 'forfeit'
-                remark = f"Equally valid call. RATT annotation is favored due to synteny."
+                remark = "Equally valid call."
             #Both pseudo
             else:
                 if ann2_longer and ann2_delayed_stop and not ann1_delayed_stop:
                     include2 = True
                     include1 = False
                     evid = 'shorter_pseudo'
-                    remark = "The ab initio annotation is favored over the RATT annotation because it is longer and contains a valid delayed stop."
+                    remark = "Rival annotation is longer and contains a valid delayed stop."
                 elif ann1_longer and ann1_delayed_stop and not ann2_delayed_stop:
                     include2 = False
                     include1 = True
                     evid = 'shorter_pseudo'
-                    remark = "The RATT annotation is favored over the ab initio annotation because it is longer and contains a valid delayed stop."
+                    remark = "Rival annotation is longer and contains a valid delayed stop."
                 #Same location or equivalent delayed stop status
                 else:
                     if ann2_broken_stop and not ann1_broken_stop:
-                         include2 = False
-                         include1 = True
-                         evid = 'internal_stop'
-                         remark = "The RATT annotation is favored over the ab initio annotation because it doesn't contain any internal stops."
+                        include2 = False
+                        include1 = True
+                        evid = 'internal_stop'
+                        remark = "Rival annotation doesn't contain any internal stops."
                     elif ann1_broken_stop and not ann2_broken_stop:
                         include2 = True
                         include1 = False
                         evid = 'internal_stop'
-                        remark = "The ab initio annotation is favored over the RATT annotation because it doesn't contain any internal stops."
+                        remark = "Rival annotation doesn't contain any internal stops."
                     else:
                         include2 = False
                         include1 = True
                         evid = 'forfeit'
-                        remark = f"Equally valid call, but conflicts with RATT annotation; RATT favored due to synteny."
+                        remark = f"Equally valid call."
 
         elif (all(ann1_coord_status) or ann1_coord_score > ann2_coord_score or (ann1_stop_ok and not ann2_stop_ok)):
             include2 = False
             include1 = True
             evid = 'worse_ref_correspondence'
-            remark = "RATT annotation more accurately named and delineated compared to the ab initio annotation."
+            remark = "Rival annotation more accurately named and delineated."
         else:
         #This is the only other possibility:
         #elif (all(ann2_coord_status or ann2_coord_score > ann1_coord_score
@@ -251,27 +251,27 @@ def thunderdome(annotation1, annotation2):
             include2 = True
             include1 = False
             evid = 'worse_ref_correspondence'
-            remark = f"Ab initio annotation more accurately named and delineated compared to the RATT annotation."
+            remark = f"Rival annotation more accurately named and delineated."
     else:
         #Always take the non-pseudo annotation if possible
         if not ann2_is_pseudo and ann1_is_pseudo:
             include2 = True
             include1 = False
             evid = 'pseudo'
-            remark = "Non-pseudo ab initio annotation takes precedence over the pseudo RATT annotation."
+            remark = "Non-pseudo annotation takes precedence."
         else:
             include2 = False
             include1 = True
             evid = 'pseudo'
-            remark = "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation."
+            remark = "Non-pseudo annotation takes precedence."
 
     if include1 == include2:
-        logger.warning(f"Both annotations were marked for {'inclusion' if include1 else 'exclusion'} and one annotation is expected to be excluded:\nRATT Feature\n{annotation1}\n\nab initio Feature\n{annotation2}\n\nUnhandled scenario--RATT favored due to synteny"
+        logger.warning(f"Both annotations were marked for {'inclusion' if include1 else 'exclusion'} and one annotation is expected to be excluded:\nDefending Feature\n{annotation1}\n\nChallenging Feature\n{annotation2}\n\nUnhandled scenario."
         )
         include1 = True
         include2 = False
         evid = 'forfeit'
-        remark = "Both annotations marked for inclusion. Unhandled scenario--RATT annotation favored due to synteny"
+        remark = "Both annotations marked for inclusion. Unhandled scenario."
     return include1, include2, evid, remark
 
 

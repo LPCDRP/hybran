@@ -220,17 +220,17 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'ratt_better': (
             True, False,
             'worse_ref_correspondence',
-            "RATT annotation more accurately named and delineated compared to the ab initio annotation.",
+            "Rival annotation more accurately named and delineated.",
         ),
         'ratt_better_coverage': (
             True, False,
             'worse_ref_correspondence',
-            "RATT annotation more accurately named and delineated compared to the ab initio annotation.",
+            "Rival annotation more accurately named and delineated.",
         ),
         'pseudo_vs_nonpseudo': (
             True, False,
             'pseudo',
-            "Non-pseudo RATT annotation takes precedence over the pseudo ab initio annotation.",
+            "Non-pseudo annotation takes precedence.",
         ),
         'overlapping_unnamed': (
             True, False,
@@ -240,27 +240,27 @@ def test_check_inclusion_criteria(pair, tmp_path):
         'abinit_better': (
             False, True,
             'worse_ref_correspondence',
-            "Ab initio annotation more accurately named and delineated compared to the RATT annotation.",
+            "Rival annotation more accurately named and delineated.",
         ),
         'overlapping_different_names_ratt_better': (
             True, False,
             'forfeit',
-            "Equally valid call. RATT annotation is favored due to synteny.",
+            "Equally valid call.",
         ),
         'overlapping_different_names_abinit_better': (
             False, True,
             'worse_ref_correspondence',
-            "Ab initio annotation more accurately named and delineated compared to the RATT annotation.",
+            "Rival annotation more accurately named and delineated.",
         ),
         'ratt_join_vs_prokka_bad_start': (
             False, True,
             'internal_stop',
-            "The ab initio annotation is favored over the RATT annotation because it doesn't contain any internal stops.",
+            "Rival annotation doesn't contain any internal stops.",
         ),
         'prokka_gene_fusion': (
             True, False,
             'worse_ref_correspondence',
-            "RATT annotation more accurately named and delineated compared to the ab initio annotation.",
+            "Rival annotation more accurately named and delineated.",
         ),
     }
 
