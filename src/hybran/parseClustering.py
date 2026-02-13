@@ -478,13 +478,13 @@ def resolve_clusters(G, orf_increment, logfile):
             print([G.nodes[n] for n in cluster])
 
         nodes_by_name = defaultdict(set)
-        authoritative = []
+        authoritative = set()
         for node_id in cluster:
             node = G.nodes[node_id]
             name = extractor.get_gene(node['annotation'], tryhard=False)
             nodes_by_name[name].add(node_id)
             if designator.is_reference(name):
-                authoritative.append(name)
+                authoritative.add(name)
             # pseudos will not have a translation qualifier
             if 'translation' not in node['annotation'].qualifiers:
                 node['annotation'].qualifiers['translation'] = [
@@ -525,7 +525,7 @@ def resolve_clusters(G, orf_increment, logfile):
             (name_to_assign, orf_increment) = designator.assign_orf_id(orf_increment)
             cluster_type = 'no_ref'
         elif len(authoritative) == 1:
-            name_to_assign = authoritative[0]
+            name_to_assign = next(iter(authoritative))
             cluster_type = 'single_ref'
 
         # multiple authoritative names => no single name_to_assign
