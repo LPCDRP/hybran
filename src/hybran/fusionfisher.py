@@ -32,8 +32,8 @@ def fusion_name(feature1, feature2):
     ]
     name = '::'.join(f1_name_components + reduced_f2_name_components)
 
-    f1_source_components = feature1.source.split('::')
-    f2_source_components = feature2.source.split('::')
+    f1_source_components = extractor.get_source(feature1).split('::')
+    f2_source_components = extractor.get_source(feature2).split('::')
     # only get the host sequence IDs corresponding to the gene names we're keeping
     reduced_f2_source_components = [
         f2_source_components[i] for i in range(len(f2_source_components)) if f2_name_components[i] not in f1_name_components
