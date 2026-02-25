@@ -110,12 +110,14 @@ def complementary(f1, f2, f1_status=None, f2_status=None):
     :param f2_status: bool 2-tuple (goodstart, goodstop) for f2
         If None, attempt to use (f1(2).rcs, f1(2).rce). The argument allows flexibility for
         providing coord_check results for f1 or f2 with respect to alternative reference genes.
+        If coord_check results aren't available, assume no reference => self-reference
     :return: bool whether the two features are complementary
     """
+    no_nones = lambda x: x if x is not None else 1
     if f1_status is None:
-        f1_status = (f1.rcs, f1.rce)
+        f1_status = (no_nones(f1.rcs), no_nones(f1.rce))
     if f2_status is None:
-        f2_status = (f2.rcs, f2.rce)
+        f2_status = (no_nones(f2.rcs), no_nones(f2.rce))
     return (
         (any(f1_status) and any(f2_status))
         and (int(f1_status[0])+int(f2_status[0]), int(f1_status[1])+int(f2_status[1]))==(1,1)
