@@ -552,6 +552,7 @@ def resolve_clusters(G, orf_increment, logfile):
                 len(cluster),
                 None, None, None,
             ])
+            next_orf_increment = None
             for node_id in cluster:
                 node = G.nodes[node_id]
                 original_name = extractor.get_gene(node['annotation'], tryhard=False)
@@ -567,7 +568,7 @@ def resolve_clusters(G, orf_increment, logfile):
                 query_seq_str = node['annotation'].qualifiers['translation'][0]
                 query_seq = SeqRecord(Seq(query_seq_str), id=node_id, description='')
 
-                name_to_assign, ref_ltag, _, orf_increment = check_matches_to_known_genes(
+                name_to_assign, ref_ltag, _, next_orf_increment = check_matches_to_known_genes(
                     query_seq=query_seq,
                     reference_seqs=cluster_authoritative_seqs,
                     generic_seqs=os.devnull,
@@ -596,6 +597,9 @@ def resolve_clusters(G, orf_increment, logfile):
                     original_name,
                     name_to_assign,
                 ])
+            # Only increment once if we assigned a generic name in this cluster.
+            if next_orf_increment:
+                orf_increment += 1
         else:
             res_data.append([
                 cluster_id,
