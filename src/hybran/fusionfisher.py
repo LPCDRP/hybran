@@ -197,7 +197,7 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                 component2.qualifiers.pop('locus_tag', None)
                 coord_check(
                     component1,
-                    ref_annotation[key_ref_gene(component1.source, extractor.get_gene(component1))],
+                    ref_annotation[key_ref_gene(extractor.get_source(component1), extractor.get_gene(component1))],
                     fix_stop=True,
                     seek_stop=False,
                     check_context=False,
@@ -205,7 +205,7 @@ def fusionfisher(feature_list, ref_annotation, adjudicate=True):
                 )
                 coord_check(
                     component2,
-                    ref_annotation[key_ref_gene(component2.source, extractor.get_gene(component2))],
+                    ref_annotation[key_ref_gene(extractor.get_source(component2), extractor.get_gene(component2))],
                     fix_start=True,
                     seek_stop=False,
                     check_context=False,
