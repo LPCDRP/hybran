@@ -134,6 +134,7 @@ def main(args):
 
         args.references = fileManager.file_list(args.references, file_type='genbank')
 
+    cnf.genetic_code = extractor.get_genetic_code(args.references[0])
 
     ref_annotation = extractor.load_gbks(
         args.references,
@@ -141,6 +142,10 @@ def main(args):
     )
     ref_by_gene_name = defaultdict(set)
     for ref_gene in ref_annotation:
+        if 'translation' not in ref_annotation[ref_gene].qualifiers:
+            ref_annotation[ref_gene].qualifiers['translation'] = [
+                str(translate(ref_annotation[ref_gene].extract(), table=cnf.genetic_code))
+            ]
         ref, gene = ref_gene.split('@@@')
         ref_by_gene_name[gene].add(ref)
     annomerge.ref_annotation = ref_annotation
@@ -174,8 +179,6 @@ def main(args):
             seq_files[curr_strain] = curr_strain_fasta
             gene_seqs[curr_strain] = {f.id.split('|')[0]:f for f in strain_gene_seqs}
 
-
-    cnf.genetic_code = extractor.get_genetic_code(args.references[0])
 
     node_data = []
     unique_gene_names = set()
@@ -699,6 +702,10 @@ def postprocess_additions(strain_additions, addition_refs, strain_contig_records
             ]['annotation']
             ref_feature_origin = extractor.get_source(ref_instance)
             if not designator.is_reference(name):
+                if 'translation' not in ref_instance.qualifiers:
+                    ref_instance.qualifiers['translation'] = [
+                        str(translate(ref_instance.extract(), table=cnf.genetic_code))
+                    ]
                 annomerge.ref_annotation[
                     designator.key_ref_gene(ref_feature_origin, name)
                 ] = ref_instance
@@ -712,6 +719,10 @@ def postprocess_additions(strain_additions, addition_refs, strain_contig_records
                 fix_start=True,
                 fix_stop=True,
             )
+            if 'translation' not in ref_feature.qualifiers:
+                ref_feature.qualifiers['translation'] = [
+                    str(translate(ref_feature.extract(), table=cnf.genetic_code))
+                ]
             pseudoscan(
                 candidate_feature_personas[name],
                 ref_feature,

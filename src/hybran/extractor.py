@@ -13,6 +13,7 @@ from Bio.SeqRecord import SeqRecord
 
 from . import designator
 from .bio import (
+    AutarkicSeqFeature,
     SeqIO,
     translate,
 )
@@ -323,6 +324,7 @@ def load_gbk(gbk_file, feature_types=['CDS']):
             get_and_remove_ref_tracer(feature) # prevent our tracer note from propagating to future liftovers
             if feature.type not in feature_types:
                 continue
+            feature = AutarkicSeqFeature.fromSeqFeature(feature)
             # setting feature.ref doesn't work for CompoundLocations
             for part in feature.location.parts:
                 part.ref = contig_id
