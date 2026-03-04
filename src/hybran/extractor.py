@@ -287,16 +287,22 @@ def ref_fuse(fusion_gene_name, annotations):
     # Not a fusion gene; defaultdict lookup should fail
     if len(const_genes) <= 1:
         raise KeyError(f'no gene "{const_genes[0]}" found for reference "{const_refs[0]}"') from None
+    # Some callers may specify only a single reference ID for a fusion gene.
+    # In that case, assume all components come from the same reference.
+    if len(const_refs) == 1 and len(const_genes) > 1:
+        const_refs = const_refs * len(const_genes)
     location_parts = []
     location_sequences = {}
     for i in range(len(const_genes)):
         ref_feature_i = annotations[designator.key_ref_gene(const_refs[i], const_genes[i])]
         location_sequences.update(ref_feature_i.references)
         location_parts += list(ref_feature_i.location.parts)
-    ref_fusion = SeqFeature(
+    ref_fusion = AutarkicSeqFeature(
         # Biopython currently doesn't support the 'order' operator for feature.extract()
         Bio.SeqFeature.CompoundLocation(location_parts, operator='join'),
-        qualifiers={'locus_tag':fusion_gene_name, 'gene':fusion_gene_name},
+        type='CDS',
+        qualifiers={'locus_tag':[fusion_gene_name], 'gene':[fusion_name]},
+        source=refs,
     )
 
     ref_fusion.references = location_sequences
