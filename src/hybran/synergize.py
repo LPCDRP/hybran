@@ -356,7 +356,7 @@ def main(args):
             (_, _, _, G_overlap) = cross_examine(
                 strain_contig_records[sample][contig].features
             )
-            strain_contig_records[sample][contig].features, removals = merge(G_overlap)
+            strain_contig_records[sample][contig].features, removals = merge(G_overlap, fusion_check=False)
 
     accepted_additions = []
     rejected_additions = []
@@ -379,7 +379,7 @@ def main(args):
             (
                 strain_contig_records[sample][contig].features,
                 rejects_data,
-            ) = merge(G_overlap)
+            ) = merge(G_overlap, fusion_check=False)
             for r in rejects_data:
                 if r['feature'] in sample_candidate_additions[contig]:
                     rejected_additions.append(r)
@@ -747,7 +747,7 @@ def postprocess_additions(strain_additions, addition_refs, strain_contig_records
 
     for contig in candidate_strain_additions:
         (_, _, _, G_overlaps) = cross_examine(sort_features(candidate_strain_additions[contig]))
-        candidate_strain_additions[contig], _ = merge(G_overlaps)
+        candidate_strain_additions[contig], _ = merge(G_overlaps, fusion_check=False)
 
     return candidate_strain_additions
 

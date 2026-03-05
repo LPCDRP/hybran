@@ -278,6 +278,7 @@ def thunderdome(annotation1, annotation2):
 def check_inclusion_criteria(
         annotation1,
         annotation2,
+        fusion_check=True,
 ):
     """
     This function compares two annotations and checks for conflicts.
@@ -286,6 +287,7 @@ def check_inclusion_criteria(
 
     :param annotation1:
     :param annotation2:
+    :param fusion_check: bool whether to consider the possibility that the conflict represents a potential fusion event.
     :returns:
         - include1 (:py:class:`bool`) - whether annotation1 should be kept
         - include2 (:py:class:`bool`) - whether annotation2 should be kept
@@ -328,21 +330,24 @@ def check_inclusion_criteria(
             include1, include2, evid, remark = thunderdome(annotation1, annotation2)
 
         elif not same_gene_name and overlap_inframe(annotation1.location, annotation2.location):
-            keepers, fusions, rejects = fusionfisher(
-                [annotation1, annotation2],
-                ref_annotation,
-                adjudicate=False,
-            )
-            for trial in rejects:
-                reject = trial['feature']
-                if reject == annotation1:
-                    include1 = False
-                    evid = trial['evid']
-                    remark = trial['remark']
-                elif reject == annotation2:
-                    include2 = False
-                    evid = trial['evid']
-                    remark = trial['remark']
+            if fusion_check:
+                keepers, fusions, rejects = fusionfisher(
+                    [annotation1, annotation2],
+                    ref_annotation,
+                    adjudicate=False,
+                )
+                for trial in rejects:
+                    reject = trial['feature']
+                    if reject == annotation1:
+                        include1 = False
+                        evid = trial['evid']
+                        remark = trial['remark']
+                    elif reject == annotation2:
+                        include2 = False
+                        evid = trial['evid']
+                        remark = trial['remark']
+            else:
+                fusions = rejects = False
             # fusionfisher didn't detect a misannotation, but it didn't detect a fusion either.
             # welcome to the thunderdome!
             if not fusions and not rejects:
@@ -372,13 +377,14 @@ def fix_embl_id_line(embl_file):
         for line in lines:
             out.write(line)
 
-def merge(overlap_G):
+def merge(overlap_G, fusion_check=True):
     """
     Given an overlap graph, check for conflicting annotations and choose the "best" ones, returning a full set of consistent features.
     :param overlap_G:
       a networkx Graph as produced by compare() or cross_examine().
       Nodes in this graph must have an 'annotation' attribute containing the corresponding SeqFeature object.
       The SeqFeature object should have a label attribute corresponding to the node label.
+    :param fusion_check: bool whether check_inclusion_criteria should check conflicts for a potential fusion.
     :return: list of sorted SeqFeatures being the result of the merge
     """
     refined_G = overlap_G.copy()
@@ -396,7 +402,7 @@ def merge(overlap_G):
             if f1.label not in refined_G or f2.label not in refined_G:
                 continue
 
-            include_f1, include_f2, evidence, remark = check_inclusion_criteria(f1, f2)
+            include_f1, include_f2, evidence, remark = check_inclusion_criteria(f1, f2, fusion_check=fusion_check)
             if not include_f1:
                 refined_G.remove_node(f1.label)
                 rejects_data.append({
